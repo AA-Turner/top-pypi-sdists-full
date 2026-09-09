@@ -2,6 +2,7 @@
 
 import os
 import sys
+import warnings
 from contextlib import suppress
 
 import cffi
@@ -18,7 +19,9 @@ ffi.cdef('''
     typedef uint32_t hb_codepoint_t;
     hb_tag_t hb_tag_from_string (const char *str, int len);
     void hb_tag_to_string (hb_tag_t tag, char *buf);
+    hb_face_t * hb_face_reference (hb_face_t *face);
     void hb_face_destroy (hb_face_t *face);
+    hb_face_t * hb_font_get_face (hb_font_t *font);
     hb_blob_t * hb_face_reference_blob (hb_face_t *face);
     unsigned int hb_face_get_index (const hb_face_t *face);
     unsigned int hb_face_get_upem (const hb_face_t *face);
@@ -30,6 +33,8 @@ ffi.cdef('''
     hb_blob_t * hb_ot_color_glyph_reference_png (hb_font_t *font, hb_codepoint_t glyph);
     bool hb_ot_color_has_svg (hb_face_t *face);
     hb_blob_t * hb_ot_color_glyph_reference_svg (hb_face_t *face, hb_codepoint_t glyph);
+    bool hb_ot_color_has_layers (hb_face_t *face);
+    bool hb_ot_color_has_paint (hb_face_t *face);
     void hb_blob_destroy (hb_blob_t *blob);
     unsigned int hb_face_get_table_tags (
         const hb_face_t *face, unsigned int start_offset, unsigned int *table_count,
@@ -77,6 +82,27 @@ ffi.cdef('''
     void hb_subset_input_set_flags (hb_subset_input_t *input, unsigned  value);
     hb_set_t * hb_subset_input_set (
         hb_subset_input_t *input, hb_subset_sets_t set_type);
+
+    // Harfbuzz Vector
+
+    typedef enum {
+        HB_VECTOR_FORMAT_INVALID = 0,
+        HB_VECTOR_FORMAT_SVG = 1937139488, /* hb_tag('svg ') */
+        HB_VECTOR_FORMAT_PDF = 1885627936, /* hb_tag('pdf ') */
+    } hb_vector_format_t;
+
+    typedef enum {
+        HB_VECTOR_EXTENTS_MODE_NONE,
+        HB_VECTOR_EXTENTS_MODE_EXPAND,
+    } hb_vector_extents_mode_t;
+
+    typedef ... hb_vector_paint_t;
+
+    hb_vector_paint_t * hb_vector_paint_create_or_fail (hb_vector_format_t format);
+    void hb_vector_paint_glyph(
+        hb_vector_paint_t *paint, hb_font_t *font, hb_codepoint_t glyph,
+        hb_vector_extents_mode_t extents_mode);
+    hb_blob_t * hb_vector_paint_render (hb_vector_paint_t *paint);
 
     // Pango
 
@@ -467,7 +493,8 @@ def _dlopen(ffi, *names, allow_fail=False):
 if hasattr(os, 'add_dll_directory') and not hasattr(sys, 'frozen'):  # pragma: no cover
     dll_directories = os.getenv(
         'WEASYPRINT_DLL_DIRECTORIES',
-        'C:\\msys64\\mingw64\\bin;'
+        'C:\\msys64\\ucrt64\\bin;'
+        'C:\\msys64\\mingw64\\bin;' # keep mingw64 for backward compatibility
         'C:\\Program Files\\GTK3-Runtime Win64\\bin').split(';')
     for dll_directory in dll_directories:
         with suppress((OSError, FileNotFoundError)):
@@ -486,12 +513,22 @@ harfbuzz_subset = _dlopen(
     ffi, 'libharfbuzz-subset-0', 'harfbuzz-subset', 'harfbuzz-subset-0.0',
     'libharfbuzz-subset.so.0', 'libharfbuzz-subset.0.dylib', 'libharfbuzz-subset-0.dll',
     allow_fail=True)
+harfbuzz_vector = _dlopen(
+    ffi, 'libharfbuzz-vector-0', 'harfbuzz-vector', 'harfbuzz-vector-0.0',
+    'libharfbuzz-vector.so.0', 'libharfbuzz-vector.0.dylib', 'libharfbuzz-vector-0.dll',
+    allow_fail=True)
 fontconfig = _dlopen(
     ffi, 'libfontconfig-1', 'fontconfig-1', 'fontconfig',
     'libfontconfig.so.1', 'libfontconfig.1.dylib', 'libfontconfig-1.dll')
 pangoft2 = _dlopen(
     ffi, 'libpangoft2-1.0-0', 'pangoft2-1.0-0', 'pangoft2-1.0',
     'libpangoft2-1.0.so.0', 'libpangoft2-1.0.dylib', 'libpangoft2-1.0-0.dll')
+
+if harfbuzz_subset is None:
+    warnings.warn(
+        'HarfBuzz-Subset will be required by future versions of WeasyPrint. '
+        'Please install this library with your package manager.',
+        category=DeprecationWarning)
 
 gobject.g_type_init()
 

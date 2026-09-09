@@ -795,6 +795,16 @@ class FileSearchTool:
         return "file_search"
 
 
+class WebSearchToolImageSettings(TypedDict, total=False):
+    """Image result settings for `WebSearchTool` when `search_content_types` includes `"image"`."""
+
+    max_results: int
+    """The number of image results to return."""
+
+    caption: bool
+    """Whether to include a short caption with each image when one is available."""
+
+
 @dataclass
 class WebSearchTool:
     """A hosted tool that lets the LLM search the web. Currently only supported with OpenAI models,
@@ -817,6 +827,16 @@ class WebSearchTool:
     indexed-only behavior where supported.
     """
 
+    search_content_types: list[Literal["text", "image"]] | None = None
+    """The kinds of results the search may return.
+
+    When omitted, the API default (text only) is used. Include `"image"` to
+    receive image results. Use `image_settings` to customize those results.
+    """
+
+    image_settings: WebSearchToolImageSettings | None = None
+    """Settings for image results when `search_content_types` includes `"image"`."""
+
     if TYPE_CHECKING:
 
         def __init__(
@@ -825,6 +845,8 @@ class WebSearchTool:
             filters: WebSearchToolFilters | dict[str, Any] | None = None,
             search_context_size: Literal["low", "medium", "high"] = "medium",
             external_web_access: bool | None = None,
+            search_content_types: list[Literal["text", "image"]] | None = None,
+            image_settings: WebSearchToolImageSettings | None = None,
         ) -> None: ...
 
     def __post_init__(self) -> None:
@@ -2176,7 +2198,10 @@ def _json_schema_is_object(schema: dict[str, Any]) -> bool:
     current: Any = schema
     seen_refs: set[str] = set()
     while isinstance(current, dict):
-        if current.get("type") == "object":
+        # JSON Schema allows a one-element type array; treat ["object"] like "object" so
+        # OpenAPI/MCP-style output schemas match the params and strict-schema paths.
+        typ = current.get("type")
+        if typ == "object" or typ == ["object"]:
             return True
         ref = current.get("$ref")
         if not isinstance(ref, str) or not ref.startswith("#/") or ref in seen_refs:

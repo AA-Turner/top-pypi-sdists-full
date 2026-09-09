@@ -156,8 +156,8 @@ MAX_NEW_STORAGE_COUNT = {"efs": 1, "fsx": 1, "raid": 1}
 MAX_EXISTING_STORAGE_COUNT = {"efs": 20, "fsx": 20, "raid": 0}
 
 COOKBOOK_PACKAGES_VERSIONS = {
-    "parallelcluster": "3.16.0",
-    "cookbook": "aws-parallelcluster-cookbook-3.16.0",
+    "parallelcluster": "3.16.1",
+    "cookbook": "aws-parallelcluster-cookbook-3.16.1",
     "chef": "19.3.14",
     "ami": "dev",
 }
@@ -364,7 +364,9 @@ ULTRASERVER_CAPACITY_BLOCK_ALLOWED_SIZE_DICT = {
 CAPACITY_BLOCK_INACTIVE_STATES = ["scheduled", "payment-pending", "assessing", "delayed"]
 
 # Older generation instance types
+# This constant is only used by test code
 EXCLUDED_INSTANCE_TYPE_PREFIXES = (
+    "a1",  # a1 is based on Graviton 1 which is not supported by the newer version of Amazon Linux 2023
     "m1",
     "m2",
     "m3",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.18.18
+Version: 2.18.19
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -29,6 +29,7 @@ Requires-Dist: Pillow<13,>=12.2.0
 Requires-Dist: pycryptodomex<4,>=3.23.0
 Provides-Extra: curl
 Requires-Dist: curl-adapter>=1.2.1; extra == "curl"
+Requires-Dist: curl_cffi>=0.15.0; extra == "curl"
 Provides-Extra: video
 Requires-Dist: decorator<6.0,>=4.0.2; extra == "video"
 Requires-Dist: imageio<3.0,>=2.5; extra == "video"
@@ -38,9 +39,11 @@ Requires-Dist: proglog<=1.0.0; extra == "video"
 Requires-Dist: python-dotenv>=0.10; extra == "video"
 Provides-Extra: test
 Requires-Dist: bandit==1.9.4; extra == "test"
+Requires-Dist: cryptography<47,>=46; extra == "test"
 Requires-Dist: decorator<6.0,>=4.0.2; extra == "test"
 Requires-Dist: imageio<3.0,>=2.5; extra == "test"
 Requires-Dist: imageio-ffmpeg>=0.2.0; extra == "test"
+Requires-Dist: h2<5,>=4.3; extra == "test"
 Requires-Dist: mike==2.2.0; extra == "test"
 Requires-Dist: setuptools==84.0.0; extra == "test"
 Requires-Dist: markdown-include==0.8.1; extra == "test"
@@ -52,7 +55,7 @@ Requires-Dist: proglog<=1.0.0; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: python-dotenv>=0.10; extra == "test"
-Requires-Dist: ruff==0.16.4; extra == "test"
+Requires-Dist: ruff==0.16.5; extra == "test"
 Dynamic: license-file
 
 # instagrapi
@@ -87,19 +90,21 @@ Support **Python 3.10+**
 pip install instagrapi
 ```
 
-Optional public web TLS impersonation support is available as an extra:
+Optional public web TLS impersonation and private HTTP/2 transports are available as an extra:
 
 ```bash
 pip install "instagrapi[curl]"
 ```
 
-Use it only for public web endpoints that are sensitive to browser TLS fingerprints:
+For public web endpoints that are sensitive to browser TLS fingerprints:
 
 ```python
 cl = Client(public_transport="curl", public_transport_impersonate="chrome136")
 ```
 
 See the [public transport guide](docs/usage-guide/public-transport.md) for live comparison results and caveats.
+
+For private mobile API requests, select `Client(private_transport="curl")` separately. See the [private HTTP/2 transport guide](docs/usage-guide/interactions.md#private-http2-transport) for saved-session setup, requirements and limitations.
 
 TLS certificate verification is enabled by default. For a trusted debugging MITM proxy, prefer `Client(tls_verify="/path/to/proxy-ca.pem")`; use `Client(tls_verify=False)` only for temporary local debugging because it allows session interception.
 

@@ -20,6 +20,7 @@ from httpx import Timeout
 from playwright.async_api import async_playwright
 from selectolax.parser import HTMLParser
 
+from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.user_agents import normalize_user_agent
 
 # Load environment variables
@@ -702,7 +703,7 @@ async def fetch(
                 launch_kwargs = {"headless": False}
                 if proxy:
                     # Note: The proxy string must include the protocol, e.g., "http://127.0.0.1:8080"
-                    launch_kwargs["proxy"] = {"server": proxy}
+                    launch_kwargs["proxy"] = playwright_proxy(proxy)
                 browser = await p.chromium.launch(**launch_kwargs)
                 # A UA override on the browser transport is a CONTEXT option —
                 # there is no header to set. Without an override we still call

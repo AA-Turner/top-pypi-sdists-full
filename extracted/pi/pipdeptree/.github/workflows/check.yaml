@@ -30,13 +30,13 @@ jobs:
         with:
           enable-cache: false
       - name: Install resolver dependencies
-        run: uv pip install --target .python-packages 'nab-index>=0.0.11' 'nab-project>=0.0.14'
+        run: uv pip install --target .python-packages 'nab>=0.0.17' 'nab-index>=0.0.17' 'nab-project>=0.0.17'
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Check lints
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Install coverage tool
-        uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        uses: taiki-e/install-action@0758d235715de2f3551eacc980d9ae8fce9342c3 # v2.87.3
         with:
           tool: cargo-llvm-cov
       - name: Run tests with coverage

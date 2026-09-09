@@ -16,12 +16,18 @@ MARKDOWNLINT_VERSION = "0.17.2"
 MARKDOWNLINT_INSTALL_HINT = f"npm install -g markdownlint-cli2@{MARKDOWNLINT_VERSION}"
 
 
+def _existing_files(files: list[str], *, cwd: str | None = None) -> list[str]:
+    root = Path(cwd) if cwd else Path.cwd()
+    return [f for f in files if (root / f).is_file()]
+
+
 def lint_files(files: list[str], *, cwd: str | None = None) -> tuple[bool, str]:
     """Run ruff check on the given files. Returns (passed, output)."""
-    if not files:
+    existing = _existing_files(files, cwd=cwd)
+    if not existing:
         return True, ""
     result = subprocess.run(
-        ["ruff", "check"] + files,
+        ["ruff", "check"] + existing,
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -36,10 +42,11 @@ def format_fix_files(files: list[str], *, cwd: str | None = None) -> tuple[bool,
     *True* means all files were already formatted (no changes).
     *False* means files were reformatted (caller should abort push).
     """
-    if not files:
+    existing = _existing_files(files, cwd=cwd)
+    if not existing:
         return True, ""
     proc = subprocess.run(
-        ["ruff", "format"] + files,
+        ["ruff", "format"] + existing,
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -50,7 +57,7 @@ def format_fix_files(files: list[str], *, cwd: str | None = None) -> tuple[bool,
 
     # Check if any files were modified by the format
     diff = subprocess.run(
-        ["git", "diff", "--name-only", "--"] + files,
+        ["git", "diff", "--name-only", "--"] + existing,
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -62,10 +69,11 @@ def format_fix_files(files: list[str], *, cwd: str | None = None) -> tuple[bool,
 
 def format_check_files(files: list[str], *, cwd: str | None = None) -> tuple[bool, str]:
     """Run ruff format --check on the given files. Returns (passed, output)."""
-    if not files:
+    existing = _existing_files(files, cwd=cwd)
+    if not existing:
         return True, ""
     result = subprocess.run(
-        ["ruff", "format", "--check"] + files,
+        ["ruff", "format", "--check"] + existing,
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -75,10 +83,11 @@ def format_check_files(files: list[str], *, cwd: str | None = None) -> tuple[boo
 
 def mypy_check_files(files: list[str], *, cwd: str | None = None) -> tuple[bool, str]:
     """Run mypy on the given files. Returns (passed, output)."""
-    if not files:
+    existing = _existing_files(files, cwd=cwd)
+    if not existing:
         return True, ""
     result = subprocess.run(
-        ["mypy", "--ignore-missing-imports", "--follow-imports=silent"] + files,
+        ["mypy", "--ignore-missing-imports", "--follow-imports=silent"] + existing,
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -113,8 +122,7 @@ def markdownlint_files(files: list[str], *, cwd: str | None = None) -> tuple[boo
     """
     if not files:
         return True, ""
-    root = Path(cwd) if cwd else Path.cwd()
-    existing = [f for f in files if (root / f).is_file()]
+    existing = _existing_files(files, cwd=cwd)
     if not existing:
         return True, ""
     node = shutil.which("node")

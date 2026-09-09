@@ -120,6 +120,7 @@ ovide = { path = "ovide", editable = true }
 
 [dependency-groups]
 dev = [
+    "ddtrace>=4.12",
     "invoke>=2.2.0",
     "ruff>=0.9.5",
     "mypy>=1.11.0",

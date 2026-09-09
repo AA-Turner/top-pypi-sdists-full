@@ -50,7 +50,7 @@ class TestSetupWorktreeEnvironment:
         assert result.worktree_path == "/repos/PROJECT-1234"
         assert result.branch_name == "feature/PROJECT-1234/implementation"
         assert result.vscode_opened is True
-        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=60)
+        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=1800)
         mock_inject_git.assert_called_once_with("/repos/PROJECT-1234")
         mock_inject_task.assert_called_once_with("/repos/PROJECT-1234")
 
@@ -117,7 +117,7 @@ class TestSetupWorktreeEnvironment:
         assert result.success is True
         assert result.vscode_opened is False
         mock_vscode.assert_not_called()
-        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=60)
+        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=1800)
         mock_inject_git.assert_called_once_with("/repos/PROJECT-1234")
         mock_inject_task.assert_called_once_with("/repos/PROJECT-1234")
 
@@ -297,7 +297,7 @@ class TestSetupWorktreeEnvironment:
         mock_inject_git.assert_called_once_with("/repos/PROJECT-1234")
         mock_inject_python.assert_called_once_with("/repos/PROJECT-1234")
         mock_inject_task.assert_not_called()
-        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=60)
+        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=1800)
 
     @patch(_INJECT_GIT)
     @patch(_INJECT_PYTHON)
@@ -325,4 +325,4 @@ class TestSetupWorktreeEnvironment:
         mock_inject_git.assert_not_called()
         mock_inject_python.assert_not_called()
         mock_inject_task.assert_not_called()
-        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=60)
+        mock_script.assert_called_once_with("/repos/PROJECT-1234", timeout_seconds=1800)

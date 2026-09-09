@@ -122,7 +122,7 @@ from .uqff_profile_catalog import (
     read_pangaea_txt,
 )
 
-__version__ = "1.85.0"
+__version__ = "1.90.0"
 __all__ = [
     "calculate_quartz_transducer_hpht_UQFF", "canonical_suppression",
     "conventional_drift", "drift_comparison",

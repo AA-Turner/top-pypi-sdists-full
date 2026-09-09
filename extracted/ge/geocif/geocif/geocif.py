@@ -5469,7 +5469,17 @@ class Geocif:
             _fill = getattr(self, "_scaled_model_fill", None)
             if _fill is not None:
                 X_test = X_test.fillna(_fill)
-            return scaler.transform(X_test)
+            # Pin transform_output for the same reason as _scale_if_needed:
+            # it is process-global and geocif/experiments sets it to
+            # "pandas". Train and predict MUST agree on the container, or the
+            # model is fitted on an ndarray and asked to predict a DataFrame.
+            import sklearn
+            prev = sklearn.get_config()["transform_output"]
+            sklearn.set_config(transform_output="default")
+            try:
+                return scaler.transform(X_test)
+            finally:
+                sklearn.set_config(transform_output=prev)
 
         if self.dispatch_name == "gam":
             # Align to GAMFitter's surviving fit columns (Harvest Year /
@@ -6983,7 +6993,18 @@ class ModelTrainer:
         )
         self.obj._scaled_model_fill = X_train_nocat.median(numeric_only=True)
         X_train_nocat = X_train_nocat.fillna(self.obj._scaled_model_fill)
-        return scaler.fit_transform(X_train_nocat)
+        # sklearn's transform_output is PROCESS-GLOBAL and
+        # geocif/experiments/__init__.py sets it to "pandas" at import, so
+        # merely importing an experiment made this return a DataFrame where
+        # callers (and np.isnan on the result) expect a plain ndarray. Pin it
+        # for this call and restore, as the fitters below already do.
+        import sklearn
+        prev = sklearn.get_config()["transform_output"]
+        sklearn.set_config(transform_output="default")
+        try:
+            return scaler.fit_transform(X_train_nocat)
+        finally:
+            sklearn.set_config(transform_output=prev)
     
     def _train_base_model(self, df_region: pd.DataFrame, X_train_scaled):
         """Train the base model with hyperparameter optimization."""

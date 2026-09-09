@@ -614,13 +614,13 @@ func (s *Sender) finishRunSync(
 
 	// Upload the run's finalized summary and config.
 	s.mu.Lock()
-	s.uploadSummaryFile()
-
+	// Sync can stop before receiving a run record, for example on an empty file.
 	upserter, _ := s.runHandle.Upserter()
 	if upserter != nil {
+		s.uploadSummaryFile()
 		upserter.Finish()
+		s.uploadConfigFile()
 	}
-	s.uploadConfigFile()
 	s.mu.Unlock()
 
 	// Wait for artifacts operations to complete here to detect
@@ -628,7 +628,9 @@ func (s *Sender) finishRunSync(
 	s.artifactWG.Wait()
 
 	s.mu.Lock()
-	s.sendJobFlush()
+	if upserter != nil {
+		s.sendJobFlush()
+	}
 	s.mu.Unlock()
 
 	// Finish uploading non-artifact files.
@@ -1173,7 +1175,6 @@ func (s *Sender) sendRequestLogArtifact(
 
 		if result.Err != nil {
 			response.ErrorMessage = result.Err.Error()
-			// TODO: it will send error to sentry, do we want it?
 			s.logger.CaptureError(
 				"stream",
 				fmt.Errorf("sender: failed to log artifact: %v", result.Err),

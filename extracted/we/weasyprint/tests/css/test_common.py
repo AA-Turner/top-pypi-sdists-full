@@ -5,9 +5,10 @@ from math import isclose
 import pytest
 
 from weasyprint import CSS
-from weasyprint.css import find_stylesheets, get_all_computed_styles
 from weasyprint.urls import URLFetcher, path2url
 
+from weasyprint.css import (  # isort:skip
+    find_stylesheets, get_all_computed_styles, string_to_css, url_to_css)
 from ..testing_utils import (  # isort:skip
     BASE_URL, FakeHTML, assert_no_logs, capture_logs, resource_path)
 
@@ -119,7 +120,7 @@ def test_annotate_document():
 
     # The href attr should be as in the source, not made absolute.
     assert after['content'] == (
-        ('string', ' ['), ('string', 'home.html'), ('string', ']'))
+        ('string', ' ['), ('attr()', ('href', 'string', '')), ('string', ']'))
     assert after['background_color'] == (1, 0, 0, 1)
     assert after['border_top_width'] == 42
     assert after['border_bottom_width'] == 3
@@ -261,3 +262,25 @@ def test_media_queries(media, width, warning):
     html, = page._page_box.children
     assert html.width == width
     assert (logs if warning else not logs)
+
+
+@pytest.mark.parametrize(('string', 'expected'), [
+    ('a', '"a"'),
+    ('a\nb', '"a\\Ab"'),
+    ('a\rb', '"a\\Db"'),
+    ('\n\na', '"\\A\\Aa"'),
+    ('a"b', '"a\\"b"'),
+])
+def test_string_to_css(string, expected):
+    assert string_to_css(string) == expected
+
+
+@pytest.mark.parametrize(('string', 'expected'), [
+    ('a', 'url("a")'),
+    ('a\nb', 'url("a\\Ab")'),
+    ('a\rb', 'url("a\\Db")'),
+    ('\n\na', 'url("\\A\\Aa")'),
+    ('a"b', 'url("a\\"b")'),
+])
+def test_url_to_css(string, expected):
+    assert url_to_css(string) == expected

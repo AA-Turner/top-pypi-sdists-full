@@ -36,7 +36,7 @@
 
 data_exchange_services:
   - serviceName: "de-partner-to-org-service-1"
-    type: "client_to_server"
+    serviceType: "client_to_server"  # alias: type
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID (523387 in the capture above)
       description: "de-partner-to-org-service-1 desc"

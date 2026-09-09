@@ -13,7 +13,7 @@
 #   AI_PR_LOOP_ELIGIBLE_PR_LIMIT  — oldest N PRs to cycle through (default: 1, max: 100)
 #   AI_PR_LOOP_LAST_DISPATCHED_PR  — auto-managed cursor (do not edit)
 #
-# Optional secret: REPO_VARIABLE_WRITER_PAT (Fine-grained PAT, Variables: R/W, Actions: write)
+# Optional secret: REPO_VARIABLE_WRITER_PAT (Fine-grained PAT, Variables: R/W)
 # Related: ai-pr-loop.yml, ai-pr-loop-redispatch.yml, ai-pr-loop-dispatcher.yml
 name: AI PR Loop Throttler
 

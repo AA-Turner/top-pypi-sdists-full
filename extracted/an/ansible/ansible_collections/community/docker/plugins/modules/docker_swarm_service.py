@@ -36,6 +36,10 @@ options:
     description:
       - List arguments to be passed to the container.
       - Corresponds to the C(ARG) parameter of C(docker service create).
+      - When O(command_as_args=true), these values are appended after O(command)
+        and both are sent as ContainerSpec.Args (matching the Docker CLI).
+      - When O(command_as_args=false), O(args) is sent as C(ContainerSpec.Args)
+        while O(command) is sent as ContainerSpec.Command.
     type: list
     elements: str
   command:
@@ -43,7 +47,28 @@ options:
       - Command to execute when the container starts.
       - A command may be either a string or a list or a list of strings.
       - Corresponds to the C(COMMAND) parameter of C(docker service create).
+      - When O(command_as_args=false), this is sent as C(ContainerSpec.Command),
+        which replaces the image C(ENTRYPOINT). This is the historical module behavior.
+      - When O(command_as_args=true), this is combined with O(args) and sent as
+        C(ContainerSpec.Args) (same as the Docker CLI
+        C(docker service create IMAGE [COMMAND] [ARG...])), so the image C(ENTRYPOINT)
+        is preserved. Use this for flag-style commands (for example V(--config.file=...))
+        that must be passed as arguments to the image entrypoint
+        (see U(https://github.com/ansible-collections/community.docker/issues/1044)).
     type: raw
+  command_as_args:
+    description:
+      - Controls how O(command) and O(args) are mapped to the service C(ContainerSpec).
+      - If V(false) (default), O(command) is written to C(ContainerSpec.Command) and
+        O(args) to C(ContainerSpec.Args). This matches the historical module behavior
+        (ContainerSpec.Command replaces the image C(ENTRYPOINT)).
+      - If V(true), O(command) and O(args) are concatenated and written only to
+        C(ContainerSpec.Args), matching C(docker service create IMAGE [COMMAND] [ARG...])
+        so the image C(ENTRYPOINT) is preserved.
+      - The current default will eventually be depreacted and change to V(true).
+    type: bool
+    default: false
+    version_added: 5.3.0
   configs:
     description:
       - List of dictionaries describing the service configs.
@@ -696,13 +721,21 @@ rebuilt:
 
 EXAMPLES = r"""
 ---
-- name: Set command and arguments
+- name: Set command and arguments (historical mapping)
   community.docker.docker_swarm_service:
     name: myservice
     image: alpine
     command: sleep
     args:
       - "3600"
+
+- name: Pass flags to the image ENTRYPOINT (CLI-compatible mapping)
+  community.docker.docker_swarm_service:
+    name: loki
+    image: grafana/loki:main
+    command_as_args: true
+    command:
+      - '-config.file=/etc/loki/loki-config.yaml'
 
 - name: Set a bind mount
   community.docker.docker_swarm_service:
@@ -1054,6 +1087,22 @@ def has_dict_changed(
     return False
 
 
+def _combine_command_args(
+    command: list[str] | None, args: list[str] | None
+) -> list[str] | None:
+    """
+    Combine ansible command + args into a single argv list.
+
+    Matches docker CLI ``service create IMAGE [COMMAND] [ARG...]``, which places
+    all post-image tokens into ContainerSpec.Args (preserving ENTRYPOINT).
+    """
+    if command is None:
+        return args
+    if args is None:
+        return command
+    return command + args
+
+
 def has_list_changed(
     new_list: list[t.Any] | None,
     old_list: list[t.Any] | None,
@@ -1161,6 +1210,7 @@ class DockerService(DockerBaseClass):
         self.image: str | None = ""
         self.command: t.Any = None
         self.args: list[str] | None = None
+        self.command_as_args: bool = False
         self.endpoint_mode: t.Literal["vip", "dnsrr"] | None = None
         self.dns: list[str] | None = None
         self.healthcheck: dict[str, t.Any] | None = None
@@ -1473,6 +1523,7 @@ class DockerService(DockerBaseClass):
         s = DockerService(client.docker_api_version, client.docker_py_version)
         s.image = image_digest
         s.args = ap["args"]
+        s.command_as_args = ap["command_as_args"]
         s.endpoint_mode = ap["endpoint_mode"]
         s.dns = ap["dns"]
         s.dns_search = ap["dns_search"]
@@ -1675,10 +1726,21 @@ class DockerService(DockerBaseClass):
             needs_rebuild = not self.can_update_networks
         if self.replicas != os.replicas:
             differences.add("replicas", parameter=self.replicas, active=os.replicas)
-        if has_list_changed(self.command, os.command, sort_lists=False):
-            differences.add("command", parameter=self.command, active=os.command)
-        if has_list_changed(self.args, os.args, sort_lists=False):
-            differences.add("args", parameter=self.args, active=os.args)
+        if self.command_as_args:
+            # command + args are stored as ContainerSpec.Args (CLI-compatible).
+            # Older module versions wrote command to ContainerSpec.Command,
+            # so compare the combined command line from either field.
+            desired_cmdline = _combine_command_args(self.command, self.args)
+            active_cmdline = _combine_command_args(os.command, os.args)
+            if has_list_changed(desired_cmdline, active_cmdline, sort_lists=False):
+                differences.add(
+                    "command", parameter=desired_cmdline, active=active_cmdline
+                )
+        else:
+            if has_list_changed(self.command, os.command, sort_lists=False):
+                differences.add("command", parameter=self.command, active=os.command)
+            if has_list_changed(self.args, os.args, sort_lists=False):
+                differences.add("args", parameter=self.args, active=os.args)
         if has_list_changed(self.constraints, os.constraints):
             differences.add(
                 "constraints", parameter=self.constraints, active=os.constraints
@@ -1999,10 +2061,20 @@ class DockerService(DockerBaseClass):
         dns_config = types.DNSConfig(**dns_config_args) if dns_config_args else None
 
         container_spec_args: dict[str, t.Any] = {}
-        if self.command is not None:
-            container_spec_args["command"] = self.command
-        if self.args is not None:
-            container_spec_args["args"] = self.args
+        if self.command_as_args:
+            # Match `docker service create IMAGE [COMMAND] [ARG...]`: the CLI places
+            # all post-image tokens into ContainerSpec.Args so ENTRYPOINT is kept.
+            # Writing Command instead replaces ENTRYPOINT and breaks flag-style
+            # commands such as `-config.file=...` (see #1044, #212).
+            combined_args = _combine_command_args(self.command, self.args)
+            if combined_args is not None:
+                container_spec_args["args"] = combined_args
+        else:
+            # Historical mapping: command -> ContainerSpec.Command, args -> Args.
+            if self.command is not None:
+                container_spec_args["command"] = self.command
+            if self.args is not None:
+                container_spec_args["args"] = self.args
         if self.env is not None:
             container_spec_args["env"] = self.env
         if self.user is not None:
@@ -2748,6 +2820,7 @@ def main() -> None:
         "networks": {"type": "list", "elements": "raw"},
         "command": {"type": "raw"},
         "args": {"type": "list", "elements": "str"},
+        "command_as_args": {"type": "bool", "default": False},
         "env": {"type": "raw"},
         "env_files": {"type": "list", "elements": "path"},
         "force_update": {"type": "bool", "default": False},

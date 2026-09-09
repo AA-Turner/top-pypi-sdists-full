@@ -1280,6 +1280,19 @@ class AssetCollectionRuleEffect(sgqlc.types.Enum):
     __choices__ = ("allow", "block")
 
 
+class AssetFilterJoiner(sgqlc.types.Enum):
+    """How the rows of a single filter list combine.
+
+    Enumeration Choices:
+
+    * `AND`None
+    * `OR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AND", "OR")
+
+
 class AssetFilterTableNameOperator(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -11133,7 +11146,7 @@ class AssetIncludeDatabaseInput(sgqlc.types.Input):
 
 class AssetSelectionInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("databases", "filters", "exclusions")
+    __field_names__ = ("databases", "filters", "filters_joiner", "exclusions", "exclusions_joiner")
     databases = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AssetIncludeDatabaseInput)),
         graphql_name="databases",
@@ -11143,9 +11156,60 @@ class AssetSelectionInput(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterUnionInput)), graphql_name="filters"
     )
 
+    filters_joiner = sgqlc.types.Field(AssetFilterJoiner, graphql_name="filtersJoiner")
+    """How the include filter rows combine. OR (default): a table is in
+    scope when it matches any row. AND: a table is in scope only when
+    it matches every row, so the selection narrows as rows are added.
+    On mutation updates, leaving this out keeps the stored monitor's
+    value; monitors-as-code apply treats an absent joiner as OR, and
+    exports omit the joiner when it is OR.
+    """
+
     exclusions = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterUnionInput)), graphql_name="exclusions"
     )
+
+    exclusions_joiner = sgqlc.types.Field(AssetFilterJoiner, graphql_name="exclusionsJoiner")
+    """How the exclude filter rows combine. OR (default): a table is
+    excluded when it matches any row. AND: a table is excluded only
+    when it matches every row, so the selection widens as rows are
+    added. On mutation updates, leaving this out keeps the stored
+    monitor's value; monitors-as-code apply treats an absent joiner as
+    OR, and exports omit the joiner when it is OR.
+    """
+
+
+class AssetSelectionV2Input(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("databases", "filters", "filters_joiner", "exclusions", "exclusions_joiner")
+    databases = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssetIncludeDatabaseInput)),
+        graphql_name="databases",
+    )
+
+    filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterUnionInput)), graphql_name="filters"
+    )
+
+    filters_joiner = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetFilterJoiner), graphql_name="filtersJoiner"
+    )
+    """How the include filter rows combine. OR: a table is in scope when
+    it matches any row. AND: a table is in scope only when it matches
+    every row, so the selection narrows as rows are added.
+    """
+
+    exclusions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterUnionInput)), graphql_name="exclusions"
+    )
+
+    exclusions_joiner = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetFilterJoiner), graphql_name="exclusionsJoiner"
+    )
+    """How the exclude filter rows combine. OR: a table is excluded when
+    it matches any row. AND: a table is excluded only when it matches
+    every row, so the selection widens as rows are added.
+    """
 
 
 class AssetsSortInput(sgqlc.types.Input):
@@ -15922,6 +15986,7 @@ class MonitorTuningRecInput(sgqlc.types.Input):
         "is_split",
         "target_mcon",
         "target_metric",
+        "recommendation_type",
     )
     title = sgqlc.types.Field(String, graphql_name="title")
 
@@ -15934,6 +15999,12 @@ class MonitorTuningRecInput(sgqlc.types.Input):
     target_mcon = sgqlc.types.Field(String, graphql_name="targetMcon")
 
     target_metric = sgqlc.types.Field(String, graphql_name="targetMetric")
+
+    recommendation_type = sgqlc.types.Field(String, graphql_name="recommendationType")
+    """Which tuning lever the recommendation pulls. Unrecognized values
+    are stored verbatim and logged - a new agent-side member flows
+    through before this repo's known-type set is updated.
+    """
 
 
 class MonteCarloStatusMappingInput(sgqlc.types.Input):
@@ -25779,7 +25850,7 @@ class AssetOutput(sgqlc.types.Type):
 
 class AssetSelection(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("databases", "filters", "exclusions")
+    __field_names__ = ("databases", "filters", "filters_joiner", "exclusions", "exclusions_joiner")
     databases = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AssetIncludeDatabase))),
         graphql_name="databases",
@@ -25790,10 +25861,32 @@ class AssetSelection(sgqlc.types.Type):
         graphql_name="filters",
     )
 
+    filters_joiner = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetFilterJoiner), graphql_name="filtersJoiner"
+    )
+    """How the include filter rows combine. OR (default): a table is in
+    scope when it matches any row. AND: a table is in scope only when
+    it matches every row, so the selection narrows as rows are added.
+    On mutation updates, leaving this out keeps the stored monitor's
+    value; monitors-as-code apply treats an absent joiner as OR, and
+    exports omit the joiner when it is OR.
+    """
+
     exclusions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AssetFilterInterface))),
         graphql_name="exclusions",
     )
+
+    exclusions_joiner = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetFilterJoiner), graphql_name="exclusionsJoiner"
+    )
+    """How the exclude filter rows combine. OR (default): a table is
+    excluded when it matches any row. AND: a table is excluded only
+    when it matches every row, so the selection widens as rows are
+    added. On mutation updates, leaving this out keeps the stored
+    monitor's value; monitors-as-code apply treats an absent joiner as
+    OR, and exports omit the joiner when it is OR.
+    """
 
 
 class AssetSelectionResult(sgqlc.types.Type):
@@ -30700,20 +30793,33 @@ class CostAgentSettingsOutput(sgqlc.types.Type):
     """Finding-type scope in force."""
 
 
+class CostAgentWarehouseOutput(sgqlc.types.Type):
+    """A warehouse the Cost & Performance Agent analyzes."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """The warehouse's uuid."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """The warehouse's name."""
+
+
 class CostAgentWarehouseScopeOutput(sgqlc.types.Type):
     """Effective warehouse scope for the Cost & Performance Agent."""
 
     __schema__ = schema
-    __field_names__ = ("mode", "warehouse_uuids", "invalid_warehouse_uuids")
+    __field_names__ = ("mode", "warehouses", "invalid_warehouse_uuids")
     mode = sgqlc.types.Field(sgqlc.types.non_null(CostAgentScopeMode), graphql_name="mode")
     """ALL analyzes every warehouse on the account. RESTRICTED analyzes
-    only warehouseUuids — an empty list scopes the agent to no
-    warehouses. A warehouse deleted or left without an active non-dbt
-    connection after being saved drops out on read.
+    only warehouses — an empty list scopes the agent to no warehouses.
+    A warehouse deleted or left without an active non-dbt connection
+    after being saved drops out on read.
     """
 
-    warehouse_uuids = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="warehouseUuids"
+    warehouses = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(CostAgentWarehouseOutput)),
+        graphql_name="warehouses",
     )
     """Warehouses the agent analyzes. Null when mode is ALL."""
 
@@ -31256,6 +31362,10 @@ class CreateOrUpdateAuthorizationGroup(sgqlc.types.Type):
 
 
 class CreateOrUpdateBulkMonitor(sgqlc.types.Type):
+    """Create or update a bulk monitor. On update, assetSelection joiner
+    keys left out of the input keep the stored monitor's values.
+    """
+
     __schema__ = schema
     __field_names__ = ("bulk_monitor", "yaml")
     bulk_monitor = sgqlc.types.Field("BulkMonitor", graphql_name="bulkMonitor")
@@ -31924,7 +32034,69 @@ class CreateOrUpdateSloPolicy(sgqlc.types.Type):
 
 
 class CreateOrUpdateTableMonitor(sgqlc.types.Type):
-    """Create or update a table monitor"""
+    """Create or update a table monitor. On update, assetSelection joiner
+    keys left out of the input keep the stored monitor's values.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("table_monitor", "yaml", "estimated_credits", "persist_blocked_by")
+    table_monitor = sgqlc.types.Field("TableMonitor", graphql_name="tableMonitor")
+
+    yaml = sgqlc.types.Field(String, graphql_name="yaml")
+    """YAML representation of the monitor (only returned for dry_run)"""
+
+    estimated_credits = sgqlc.types.Field(
+        "EstimatedCredits",
+        graphql_name="estimatedCredits",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "segment_count_hint",
+                    sgqlc.types.Arg(Int, graphql_name="segmentCountHint", default=None),
+                ),
+                (
+                    "resolve_segment_count",
+                    sgqlc.types.Arg(Boolean, graphql_name="resolveSegmentCount", default=False),
+                ),
+            )
+        ),
+    )
+    """Spec-derived daily credit estimate. Computed from the provided
+    input config, not from persisted DB state — so dry-run, draft, and
+    full create/update all return a consistent preview. Only populated
+    for accounts on the per-monitor credit consumption pricing model;
+    null otherwise.
+
+    Arguments:
+
+    * `segment_count_hint` (`Int`): Explicit segment count to use when
+      computing the estimate. Takes precedence over any cached hint on
+      an existing monitor.
+    * `resolve_segment_count` (`Boolean`): When true and the spec
+      refers to an existing monitor, fall back to the cached
+      `segment_count_hint` on that monitor if no explicit hint is
+      provided. Never triggers a live warehouse query. (default:
+      `false`)
+    """
+
+    persist_blocked_by = sgqlc.types.Field(String, graphql_name="persistBlockedBy")
+    """On a dry run, the permission a save would require that the caller
+    does not hold — for example `monitors/management/metric/edit`.
+    Null when the caller can persist this monitor, or when the request
+    is not a dry run. Advisory only: it never changes what the preview
+    returns. A caller that lacks this permission can still save the
+    monitor as a draft if it holds the type's draft permission.
+    """
+
+
+class CreateOrUpdateTableMonitorV2(sgqlc.types.Type):
+    """Create or update a table monitor. Identical to
+    createOrUpdateTableMonitor, except assetSelection is an
+    AssetSelectionV2Input: both joiners are required, so callers state
+    explicitly how filter rows combine. Updates therefore always state
+    both joiners explicitly; no stored values are preserved for
+    omitted keys.
+    """
 
     __schema__ = schema
     __field_names__ = ("table_monitor", "yaml", "estimated_credits", "persist_blocked_by")
@@ -32182,8 +32354,7 @@ class CreateSharedQuery(sgqlc.types.Type):
 
 class CreateSingleTableMonitoringNotification(sgqlc.types.Type):
     """Record that monitoring was enabled for a single table.  Must
-    provide the table mcon and exactly one of a usage rule ID or a
-    table monitor UUID.
+    provide the table mcon and the table monitor UUID.
     """
 
     __schema__ = schema
@@ -45751,6 +45922,7 @@ class MonitorTuningRec(sgqlc.types.Type):
         "target_mcon",
         "target_metric",
         "would_reset",
+        "recommendation_type",
     )
     title = sgqlc.types.Field(String, graphql_name="title")
 
@@ -45776,6 +45948,12 @@ class MonitorTuningRec(sgqlc.types.Type):
     thresholds); False when it applies in place; null when the signal
     is unavailable (e.g. for monitors managed by a configuration
     template).
+    """
+
+    recommendation_type = sgqlc.types.Field(String, graphql_name="recommendationType")
+    """Which tuning lever the recommendation pulls (e.g. sensitivity,
+    explicit_threshold, timeout_bump). Null for recommendations stored
+    before the field existed.
     """
 
 
@@ -45889,6 +46067,7 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
         "created_time",
         "recommendation_count",
         "recommendation_titles",
+        "recommendation_types",
         "breach_count7d",
         "auto_apply_enabled",
         "created_by_me",
@@ -45927,6 +46106,16 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="recommendationTitles",
     )
+
+    recommendation_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="recommendationTypes"
+    )
+    """Which tuning lever each recommendation pulls, positionally aligned
+    with recommendationTitles. Entries are null for recommendations
+    stored before the field existed; unrecognized values pass through
+    verbatim (and are logged), so a lever the monolith has not learned
+    yet still surfaces.
+    """
 
     breach_count7d = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="breachCount7d")
     """Distinct incidents for this monitor in the trailing 7 days."""
@@ -45987,7 +46176,10 @@ class MonitorWarehouse(sgqlc.types.Type):
 
 
 class MonitoredTableRuleObject(sgqlc.types.Type):
-    """Rule for deciding which tables are monitored"""
+    """Deprecated. Legacy rule for deciding which tables are monitored;
+    monitoring rules were removed and this type is only reachable as
+    an always-null field on getNotMonitoredReason.
+    """
 
     __schema__ = schema
     __field_names__ = (
@@ -46399,6 +46591,7 @@ class Mutation(sgqlc.types.Type):
         "link_datadog_incident_for_alert",
         "unlink_datadog_incident_for_alert",
         "create_or_update_table_monitor",
+        "create_or_update_table_monitor_v2",
         "pause_table_monitor",
         "delete_table_monitor",
         "create_single_table_monitoring_notification",
@@ -49333,6 +49526,180 @@ class Mutation(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
     """
 
+    create_or_update_table_monitor_v2 = sgqlc.types.Field(
+        CreateOrUpdateTableMonitorV2,
+        graphql_name="createOrUpdateTableMonitorV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TableMonitorAlertConditionInput)),
+                        graphql_name="alertConditions",
+                        default=None,
+                    ),
+                ),
+                (
+                    "alert_grouping",
+                    sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "asset_selection",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AssetSelectionV2Input),
+                        graphql_name="assetSelection",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="audiences",
+                        default=None,
+                    ),
+                ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
+                ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
+                (
+                    "data_quality_dimension",
+                    sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
+                ),
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+                (
+                    "domain_restrictions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainRestrictions",
+                        default=None,
+                    ),
+                ),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "enable_row_count_collection",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="enableRowCountCollection", default=False
+                    ),
+                ),
+                (
+                    "enable_row_count_collection_limit",
+                    sgqlc.types.Arg(
+                        Int, graphql_name="enableRowCountCollectionLimit", default=None
+                    ),
+                ),
+                (
+                    "failure_audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="failureAudiences",
+                        default=None,
+                    ),
+                ),
+                ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
+                ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
+                ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
+                (
+                    "sensitivity",
+                    sgqlc.types.Arg(SensitivityLevels, graphql_name="sensitivity", default=None),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="tags",
+                        default=None,
+                    ),
+                ),
+                ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or update a Table monitor with explicit
+    joiners
+
+    Arguments:
+
+    * `alert_conditions` (`[TableMonitorAlertConditionInput!]`): Alert
+      conditions for the table monitor
+    * `alert_grouping` (`AlertGroupingInput`): Per-monitor alert
+      grouping configuration. Omit or pass null for legacy per-type
+      grouping; a non-null value enables monitor-based alert grouping.
+      The createOrUpdate* mutations are full-state: omitting this
+      field on an update clears any existing configuration (same as
+      samplingConfig).
+    * `asset_selection` (`AssetSelectionV2Input!`)None
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
+    * `audiences` (`[String!]`): The monitor notification audiences
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
+    * `auto_tuning` (`Boolean`): Per-monitor auto-apply-tuning
+      override. true forces auto-apply tuning on for this monitor,
+      false forces it off, and null (or omitting the argument) clears
+      the override so the monitor inherits the domain/account setting.
+      Because omitting the argument clears the override, an update
+      call that does not send this field will reset any previously set
+      override, including a deliberate false, back to inherit.
+    * `data_quality_dimension` (`String`): Data quality dimension of
+      the monitor.
+    * `description` (`String!`): Description of rule
+    * `domain_restrictions` (`[UUID!]`): The domains to restrict to
+    * `dry_run` (`Boolean`): Dry run the monitor creation or update
+      and return the YAML and queries. (default: `false`)
+    * `enable_row_count_collection` (`Boolean`): Enable row count
+      collection for tables that require it. (default: `false`)
+    * `enable_row_count_collection_limit` (`Int`): Maximum number of
+      tables to enable row count collection for. If not provided, uses
+      the default limit.
+    * `failure_audiences` (`[String!]`): The audiences to notify on
+      failure
+    * `is_draft` (`Boolean`): Make target a draft monitor. (default:
+      `false`)
+    * `notes` (`String`): Additional context for the monitor (default:
+      `""`)
+    * `priority` (`String`): The default priority for alerts involving
+      this monitor
+    * `sensitivity` (`SensitivityLevels`): Sensitivity level for the
+      table monitor. Defaults to MEDIUM on create. Omitting on update
+      preserves the existing value.
+    * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
+    * `uuid` (`UUID`): UUID of the table monitor, to update existing
+      monito
+    * `warehouse_uuid` (`UUID!`): Warehouse UUID
+    """
+
     pause_table_monitor = sgqlc.types.Field(
         "PauseTableMonitor",
         graphql_name="pauseTableMonitor",
@@ -49409,11 +49776,10 @@ class Mutation(sgqlc.types.Type):
     * `mcon` (`String!`): MCON of the table for which monitoring was
       enabled
     * `table_monitor_uuid` (`UUID`): UUID of the TableMonitor that
-      enabled monitoring for this table. Provide either this or
-      usageRuleId, but not both.
-    * `usage_rule_id` (`Int`): ID of the MonitoredTableRule that
-      enabled monitoring for this table. Provide either this or
-      tableMonitorUuid, but not both.
+      enabled monitoring for this table.
+    * `usage_rule_id` (`Int`): Deprecated: monitoring rules were
+      removed. Passing this raises a validation error; provide
+      tableMonitorUuid instead.
     """
 
     update_monitor_tags = sgqlc.types.Field(
@@ -52648,8 +53014,9 @@ class Mutation(sgqlc.types.Type):
     * `audience_uuids` (`[UUID]`): UUIDs of audiences for this data
       product
     * `description` (`String`): Description of the data product
-    * `enable_monitoring_upon_creation` (`Boolean`): Whether to also
-      enable monitoring all tables upon data product creation
+    * `enable_monitoring_upon_creation` (`Boolean`): Deprecated and
+      ignored. Create table monitors to monitor the data product's
+      tables.
     * `mcons` (`[String]`): MCON of assets to be part of this data
       product
     * `name` (`String`): Data product name
@@ -52706,12 +53073,12 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Enables/disables automatic monitoring on a data product
+    """Deprecated no-op. Monitoring rules were removed; create table
+    monitors to monitor a data product's tables.
 
     Arguments:
 
-    * `enabled` (`Boolean!`): True of false to enable or disable
-      automatic monitoring on all upstream tables
+    * `enabled` (`Boolean!`): Deprecated and ignored
     * `uuid` (`UUID!`): UUID of data product to monitor
     """
 
@@ -70683,11 +71050,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "pii_type",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(PiiType), graphql_name="piiType", default=None
-                    ),
+                    "pii_identifier",
+                    sgqlc.types.Arg(String, graphql_name="piiIdentifier", default=None),
                 ),
+                ("pii_type", sgqlc.types.Arg(PiiType, graphql_name="piiType", default=None)),
                 ("reason", sgqlc.types.Arg(String, graphql_name="reason", default=None)),
                 (
                     "warehouse_uuid",
@@ -70706,7 +71072,10 @@ class Mutation(sgqlc.types.Type):
       is case-insensitive.
     * `full_table_id` (`String!`): Fully qualified table identifier
       for the finding to mark as not PII.
-    * `pii_type` (`PiiType!`): PII type to mark as not PII.
+    * `pii_identifier` (`String`): PII identifier to mark as not PII.
+      Accepts built-in PII type names or custom PII metric keys.
+      Prefer this field for custom PII findings.
+    * `pii_type` (`PiiType`): Built-in PII type to mark as not PII.
     * `reason` (`String`): Optional free-text reason for marking the
       finding as not PII.
     * `warehouse_uuid` (`UUID!`): Warehouse UUID for the finding to
@@ -70731,11 +71100,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "pii_type",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(PiiType), graphql_name="piiType", default=None
-                    ),
+                    "pii_identifier",
+                    sgqlc.types.Arg(String, graphql_name="piiIdentifier", default=None),
                 ),
+                ("pii_type", sgqlc.types.Arg(PiiType, graphql_name="piiType", default=None)),
                 (
                     "warehouse_uuid",
                     sgqlc.types.Arg(
@@ -70754,7 +71122,10 @@ class Mutation(sgqlc.types.Type):
       case-insensitive.
     * `full_table_id` (`String!`): Fully qualified table identifier
       for the finding to restore.
-    * `pii_type` (`PiiType!`): PII type to restore.
+    * `pii_identifier` (`String`): PII identifier to restore. Accepts
+      built-in PII type names or custom PII metric keys. Prefer this
+      field for custom PII findings.
+    * `pii_type` (`PiiType`): Built-in PII type to restore.
     * `warehouse_uuid` (`UUID!`): Warehouse UUID for the finding to
       restore.
     """
@@ -79593,9 +79964,9 @@ class Query(sgqlc.types.Type):
     """(experimental) Return CSV for grouped PII scan inventory rows
     using the same server-side scope filters as getPiiScanInventory.
     Columns are ordered as table, database, schema, column, piiTypes,
-    metrics, maxMatchRate, rowsScanned, findings, monitors,
-    alertUuids, firstDetectedAt, lastScannedAt; multi-value fields are
-    pipe-delimited.
+    metrics, maxMatchRate, confidence, rowsScanned, findings,
+    monitors, alertUuids, firstDetectedAt, lastScannedAt; multi-value
+    fields are pipe-delimited.
 
     Arguments:
 
@@ -96130,6 +96501,7 @@ class Query(sgqlc.types.Type):
                         AssetSelectionInput, graphql_name="assetSelection", default=None
                     ),
                 ),
+                ("monitor_uuid", sgqlc.types.Arg(UUID, graphql_name="monitorUuid", default=None)),
                 (
                     "domain_restrictions",
                     sgqlc.types.Arg(
@@ -96155,6 +96527,10 @@ class Query(sgqlc.types.Type):
     * `asset_selection` (`AssetSelectionInput`): Asset selection
       criteria to resolve tables. Required when using warehouseUuid,
       mutually exclusive with mcons.
+    * `monitor_uuid` (`UUID`): UUID of the table or bulk monitor being
+      edited. When set, joiner keys omitted from assetSelection are
+      filled from the stored monitor, matching the save mutation. Only
+      used with assetSelection.
     * `domain_restrictions` (`[UUID!]`): Optional domain restrictions.
       Only used with warehouseUuid + assetSelection.
     """
@@ -98512,6 +98888,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("monitor_uuid", sgqlc.types.Arg(UUID, graphql_name="monitorUuid", default=None)),
                 (
                     "include_unselected",
                     sgqlc.types.Arg(Boolean, graphql_name="includeUnselected", default=None),
@@ -98564,6 +98941,9 @@ class Query(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`)None
     * `asset_selection` (`AssetSelectionInput!`)None
     * `asset_selection_level` (`AssetSelectionLevel!`)None
+    * `monitor_uuid` (`UUID`): UUID of the table or bulk monitor being
+      edited. When set, joiner keys omitted from assetSelection are
+      filled from the stored monitor, matching the save mutation.
     * `include_unselected` (`Boolean`)None
     * `filter_by_database_name` (`String`)None
     * `filter_by_schema_name` (`String`)None
@@ -98607,6 +98987,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("monitor_uuid", sgqlc.types.Arg(UUID, graphql_name="monitorUuid", default=None)),
                 ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
                 (
                     "domain_restrictions",
@@ -98629,6 +99010,9 @@ class Query(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`)None
     * `asset_selection` (`AssetSelectionInput!`)None
     * `field_pattern` (`FieldPatternInput!`)None
+    * `monitor_uuid` (`UUID`): UUID of the table or bulk monitor being
+      edited. When set, joiner keys omitted from assetSelection are
+      filled from the stored monitor, matching the save mutation.
     * `metric` (`String`): Optional metric to filter by compatible
       field types
     * `domain_restrictions` (`[UUID!]`)None
@@ -98850,7 +99234,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Get usage audit logs
+    """Historical audit logs for monitored table rules. Monitoring rules
+    were removed, so no new entries are written.
 
     Arguments:
 
@@ -107816,12 +108201,14 @@ class ToggleCreateAlertsInDatasource(sgqlc.types.Type):
 
 
 class ToggleDataProductMonitoring(sgqlc.types.Type):
-    """Enables/disables automatic monitoring on a data product"""
+    """Deprecated no-op. Monitoring rules were removed; create table
+    monitors to monitor a data product's tables.
+    """
 
     __schema__ = schema
     __field_names__ = ("enabled",)
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
-    """Automatic monitoring is enabled or disabled"""
+    """Always false"""
 
 
 class ToggleDisableSampling(sgqlc.types.Type):
@@ -116585,10 +116972,12 @@ class DataProduct(sgqlc.types.Type, Node):
     """Number of tables that are not being monitored in the data product"""
 
     excluded_table_count = sgqlc.types.Field(Int, graphql_name="excludedTableCount")
-    """Number of tables that are not being monitored in the data product"""
+    """Number of tables excluded from monitoring by rules in the data
+    product
+    """
 
     monitored = sgqlc.types.Field(Boolean, graphql_name="monitored")
-    """Whether monitoring rules"""
+    """Whether monitoring rules are enabled for this data product"""
 
     audiences = sgqlc.types.Field(
         sgqlc.types.list_of(NotificationAudience), graphql_name="audiences"

@@ -882,6 +882,23 @@ def test_send_hitl_notification_renders_usergroups_end_to_end(
 
 
 @pytest.mark.unit
+@patch("airbyte_ops_mcp.slack_posting._post_message")
+def test_send_hitl_notification_passes_thread_timestamp(
+    mock_post: MagicMock,
+) -> None:
+    """send_hitl_notification forwards the parent thread timestamp."""
+    send_hitl_notification(
+        target_person="S0BKR63VAN5",
+        message="Test message.",
+        thread_ts="1773062711.122019",
+        slack_token="xoxb-test",
+        roster=[],
+    )
+
+    assert mock_post.call_args.kwargs["thread_ts"] == "1773062711.122019"
+
+
+@pytest.mark.unit
 def test_test_suite_blocks_unstubbed_slack_posts() -> None:
     """Outbound Slack posts fail loudly unless a test explicitly stubs them."""
     with pytest.raises(AssertionError, match="Outbound notification attempted"):

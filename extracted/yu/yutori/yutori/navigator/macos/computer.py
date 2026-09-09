@@ -35,7 +35,7 @@ from .polling import (
 )
 from .presentation import MacOSPresentationController
 from .preview import WindowPreviewStreamer
-from .process_lifecycle import cancel_and_drain, race_sleep_against_cancellation
+from .process_lifecycle import cancel_and_drain, race_against_cancellation, race_sleep_against_cancellation
 from .sanitize import sanitize_command_preview
 from .transport import (
     CuaDriverConnectionError,
@@ -642,8 +642,7 @@ class MacOSComputer:
             return
         self._closed = True
         if self._deadline_task is not None:
-            self._deadline_task.cancel()
-            await asyncio.gather(self._deadline_task, return_exceptions=True)
+            await cancel_and_drain(self._deadline_task)
             self._deadline_task = None
         await self._cancel_shell_processes()
         if self._preview is not None:
@@ -1304,15 +1303,7 @@ class MacOSComputer:
             raise
 
     async def _await_with_cancellation(self, awaitable: Awaitable[Any]) -> Any:
-        operation = asyncio.create_task(awaitable)
-        stopped = asyncio.create_task(self.cancellation.wait())
-        try:
-            done, _ = await asyncio.wait({operation, stopped}, return_when=asyncio.FIRST_COMPLETED)
-            if operation in done:
-                return operation.result()
-            raise asyncio.CancelledError(stopped.result())
-        finally:
-            await cancel_and_drain(operation, stopped)
+        return await race_against_cancellation(awaitable, self.cancellation)
 
     async def _capture_png(self) -> tuple[bytes, int, int]:
         if self.window_mode:
@@ -1632,10 +1623,20 @@ class MacOSComputer:
         if self.presentation.blocks_point(normalized):
             raise MacOSActionRefusedError("Action refused because it intersects the Stop control.")
 
-    async def _select_native_cursor(self) -> str:
+    async def _try_enable_native_cursor(self) -> bool:
+        """Enable the native cursor, reporting failure instead of raising.
+
+        Shared by _select_native_cursor and _restore_native_cursor, which both
+        fall back to "cursorless" the same way when the driver can't enable it.
+        """
         try:
             await self._configure_cursor(True)
+            return True
         except Exception:
+            return False
+
+    async def _select_native_cursor(self) -> str:
+        if not await self._try_enable_native_cursor():
             return "cursorless"
         for theme in ("yutori.default", "cua.default"):
             try:
@@ -1660,9 +1661,7 @@ class MacOSComputer:
             )
 
     async def _restore_native_cursor(self) -> str:
-        try:
-            await self._configure_cursor(True)
-        except Exception:
+        if not await self._try_enable_native_cursor():
             return "cursorless"
         return self._native_cursor
 
@@ -1693,13 +1692,11 @@ class MacOSComputer:
                 stderr=asyncio.subprocess.STDOUT,
                 start_new_session=True,
             )
-        except asyncio.CancelledError:
-            await self._present_shell(ShellPresentationEvent(task_id, preview, run_in_background, "cancelled"))
-            if on_start_failure is not None:
-                on_start_failure()
-            raise
-        except Exception:
-            await self._present_shell(ShellPresentationEvent(task_id, preview, run_in_background, "failed"))
+        except (asyncio.CancelledError, Exception) as error:
+            # Both branches present-then-reraise identically; only the reported
+            # lifecycle state differs by which of the two was actually raised.
+            state = "cancelled" if isinstance(error, asyncio.CancelledError) else "failed"
+            await self._present_shell(ShellPresentationEvent(task_id, preview, run_in_background, state))
             if on_start_failure is not None:
                 on_start_failure()
             raise
@@ -1857,13 +1854,7 @@ class MacOSComputer:
                 self._kill_process_group(process)
         await asyncio.gather(*(process.wait() for process in foreground), return_exceptions=True)
         backgrounds = tuple(self._background.values())
-        for background in backgrounds:
-            if background.monitor is not None:
-                background.monitor.cancel()
-        await asyncio.gather(
-            *(background.monitor for background in backgrounds if background.monitor is not None),
-            return_exceptions=True,
-        )
+        await cancel_and_drain(*(background.monitor for background in backgrounds if background.monitor is not None))
         for background in backgrounds:
             was_running = background.terminal_state is None
             if background.process.returncode is None and self._identity_matches(background.identity):

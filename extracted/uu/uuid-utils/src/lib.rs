@@ -11,7 +11,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::SystemTime,
 };
-use uuid::{Builder, Bytes, ContextV1, Timestamp, Uuid, Variant, Version};
+use uuid::{Builder, Bytes, Timestamp, Uuid, Variant, Version};
 
 static NODE: AtomicU64 = AtomicU64::new(0);
 
@@ -116,6 +116,7 @@ impl UUID {
         };
 
         let mut builder = Builder::from_u128(self.uuid.as_u128());
+        builder.set_variant(Variant::RFC4122);
         builder.set_version(version);
 
         Ok(UUID {
@@ -377,18 +378,20 @@ fn uuid5(namespace: &UUID, name: StringOrBytes) -> PyResult<UUID> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (node=None, timestamp=None, nanos=None))]
-fn uuid6(node: Option<u64>, timestamp: Option<u64>, nanos: Option<u32>) -> PyResult<UUID> {
+#[pyo3(signature = (node=None, clock_seq=None))]
+fn uuid6(node: Option<u64>, clock_seq: Option<u64>) -> PyResult<UUID> {
     let node = match node {
         Some(node) => node.to_be_bytes(),
         None => _getnode().to_be_bytes(),
     };
     let node: &[u8; 6] = node[2..8].try_into().unwrap();
-
-    let uuid = match timestamp {
-        Some(timestamp) => {
+    let uuid = match clock_seq {
+        Some(clock_seq) => {
+            let dur = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap();
             let timestamp =
-                Timestamp::from_unix(&ContextV1::new_random(), timestamp, nanos.unwrap_or(0));
+                Timestamp::from_unix_time(dur.as_secs(), dur.subsec_nanos(), clock_seq as u128, 14);
             Uuid::new_v6(timestamp, node)
         }
         None => Uuid::now_v6(node),
@@ -397,13 +400,13 @@ fn uuid6(node: Option<u64>, timestamp: Option<u64>, nanos: Option<u32>) -> PyRes
 }
 
 #[pyfunction]
-#[pyo3(name = "_uuid7_int")]
-#[pyo3(signature = (timestamp=None, nanos=None))]
-fn uuid7_int(timestamp: Option<u64>, nanos: Option<u32>) -> u128 {
-    match timestamp {
-        Some(timestamp) => {
-            let timestamp =
-                Timestamp::from_unix(&ContextV1::new_random(), timestamp, nanos.unwrap_or(0));
+#[pyo3(name = "_uuid7_int", signature = (*, nanoseconds=None))]
+fn uuid7_int(nanoseconds: Option<u128>) -> u128 {
+    match nanoseconds {
+        Some(ns) => {
+            let secs = (ns / 1_000_000_000) as u64;
+            let nanos = (ns % 1_000_000_000) as u32;
+            let timestamp = Timestamp::from_unix_time(secs, nanos, 0, 0);
             Uuid::new_v7(timestamp)
         }
         None => Uuid::now_v7(),
@@ -412,19 +415,23 @@ fn uuid7_int(timestamp: Option<u64>, nanos: Option<u32>) -> u128 {
 }
 
 #[pyfunction]
-#[pyo3(signature = (timestamp=None, nanos=None))]
-fn uuid7(timestamp: Option<u64>, nanos: Option<u32>) -> UUID {
+#[pyo3(signature = (*, nanoseconds=None))]
+fn uuid7(nanoseconds: Option<u128>) -> UUID {
     UUID {
-        uuid: Uuid::from_u128(uuid7_int(timestamp, nanos)),
+        uuid: Uuid::from_u128(uuid7_int(nanoseconds)),
     }
 }
 
 #[pyfunction]
-fn uuid8(bytes: &Bound<'_, PyBytes>) -> PyResult<UUID> {
-    let bytes: Bytes = bytes.extract()?;
-    Ok(UUID {
-        uuid: Uuid::new_v8(bytes),
-    })
+#[pyo3(signature = (a=None, b=None, c=None))]
+fn uuid8(a: Option<u64>, b: Option<u64>, c: Option<u64>) -> UUID {
+    let a = (a.unwrap_or_else(rand::random) as u128) & 0xffff_ffff_ffff;
+    let b = (b.unwrap_or_else(rand::random) as u128) & 0xfff;
+    let c = (c.unwrap_or_else(rand::random) as u128) & 0x3fff_ffff_ffff_ffff;
+    let int = a << 80 | b << 64 | c;
+    UUID {
+        uuid: Uuid::new_v8(int.to_be_bytes()),
+    }
 }
 
 fn _getnode() -> u64 {

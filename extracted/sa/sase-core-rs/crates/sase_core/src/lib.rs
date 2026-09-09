@@ -25,6 +25,7 @@ pub mod agent_stats;
 pub mod artifact_consumption;
 pub mod artifact_file;
 pub mod artifact_link;
+pub mod artifact_link_eligibility;
 pub mod artifact_object_store;
 pub mod artifact_ref;
 pub mod axe_chop;
@@ -50,6 +51,7 @@ pub mod git_query;
 pub mod glossary;
 pub mod host_bridge;
 pub mod machine_hood;
+pub mod managed_origin;
 pub mod markdown_link_refs;
 pub mod migration;
 pub mod model_completion;
@@ -69,6 +71,7 @@ pub mod provider_disable;
 pub mod provider_priority;
 pub mod provider_usage;
 pub mod query;
+pub mod queue_directive;
 mod reference_path;
 pub mod referenced_by;
 pub mod runner_limit_override;
@@ -179,6 +182,7 @@ pub use agent_identity::{
 };
 pub use agent_launch::{
     admission_unit_results, agent_unit_dispatch_prompt,
+    agent_unit_dispatch_prompt_with_flags,
     allocate_and_claim_workspace_from_content, allocate_launch_timestamp_batch,
     build_condition_context, classify_condition_status,
     cleanup_proc_private_inputs, condition_command_argv,
@@ -187,12 +191,12 @@ pub use agent_launch::{
     list_workspace_claims_from_content, next_admission_actions,
     parse_proc_duration_seconds, plan_claim_workspace_from_content,
     plan_transfer_workspace_claim_from_content, plan_typed_launch_units,
-    prepare_agent_launch, prepare_proc_script, proc_script_argv,
-    reconcile_admission_journal, resolve_proc_execution_cwd, safe_launch_name,
-    sanitize_safe_inputs, sanitized_condition_env, sanitized_proc_env,
-    summarize_admission, validate_proc_workspace_intent,
-    validate_standalone_proc_shell_name, wait_target_key,
-    AgentLaunchPreparationError, AgentLaunchPreparedWire,
+    plan_typed_launch_units_with_flags, prepare_agent_launch,
+    prepare_proc_script, proc_script_argv, reconcile_admission_journal,
+    resolve_proc_execution_cwd, safe_launch_name, sanitize_safe_inputs,
+    sanitized_condition_env, sanitized_proc_env, summarize_admission,
+    validate_proc_workspace_intent, validate_standalone_proc_shell_name,
+    wait_target_key, AgentLaunchPreparationError, AgentLaunchPreparedWire,
     AgentLaunchRequestWire, AgentUnitWire, ConditionCheckWire,
     ConditionContextWire, ConditionEvalRequestWire, ConditionEvalResultWire,
     ConditionLogicalUnitWire, ConditionWaitedOutcomeWire,
@@ -342,34 +346,52 @@ pub use artifact_file::{
     ARTIFACT_FILE_QUERY_WIRE_SCHEMA_VERSION,
 };
 pub use artifact_link::{
-    artifact_link_dedup_key, artifact_md_path, artifact_row_index_keys,
-    artifact_row_ref_lookup_keys, bead_lineage_root, bead_page_relpath,
-    builtin_artifact_relations, canonicalize_artifact_link_ref,
-    companion_md_path, lookup_artifact_relation,
-    parse_artifact_link_frontmatter_inlet, parse_artifact_link_ref_parts,
-    parse_links_block, parse_managed_table_block,
-    relation_label_from_perspective, remove_links_block, render_links_block,
-    render_managed_table_block, reserved_artifact_relation_slugs,
-    resolve_artifact_row_identity, strip_links_block, upsert_artifact_link_row,
-    upsert_links_block, upsert_managed_table_block,
-    validate_artifact_link_description, validate_artifact_link_row,
-    ArtifactCompanionPathWire, ArtifactLinkAggregateWire,
-    ArtifactLinkDedupKeyWire, ArtifactLinkError,
+    artifact_link_dedup_key, artifact_link_publication_due,
+    artifact_link_publication_mark_attempt,
+    artifact_link_publication_record_key,
+    artifact_link_publication_register_pending, artifact_md_path,
+    artifact_row_index_keys, artifact_row_ref_lookup_keys, bead_lineage_root,
+    bead_page_relpath, builtin_artifact_relations,
+    canonicalize_artifact_link_ref, companion_md_path,
+    lookup_artifact_relation, parse_artifact_link_frontmatter_inlet,
+    parse_artifact_link_ref_parts, parse_links_block,
+    parse_managed_table_block, relation_label_from_perspective,
+    remove_links_block, render_links_block, render_managed_table_block,
+    reserved_artifact_relation_slugs, resolve_artifact_row_identity,
+    strip_links_block, upsert_artifact_link_row, upsert_links_block,
+    upsert_managed_table_block, validate_artifact_link_description,
+    validate_artifact_link_row, ArtifactCompanionPathWire,
+    ArtifactLinkAggregateWire, ArtifactLinkDedupKeyWire, ArtifactLinkError,
     ArtifactLinkFrontmatterInletKindWire, ArtifactLinkFrontmatterInletWire,
     ArtifactLinkIndexWire, ArtifactLinkInletEntryWire, ArtifactLinkOriginWire,
+    ArtifactLinkPublicationAttemptStatusWire,
+    ArtifactLinkPublicationAttemptWire, ArtifactLinkPublicationDueWire,
+    ArtifactLinkPublicationObservationWire, ArtifactLinkPublicationRecordWire,
     ArtifactLinkRefPartsWire, ArtifactLinkRowWire, ArtifactLinkUpsertKindWire,
     ArtifactLinkUpsertWire, ArtifactMdPathKindWire, ArtifactMdPathRequestWire,
     ArtifactMdPathWire, ArtifactRelationWire, ArtifactRowIdentityWire,
     ArtifactRowRefQueryWire, BeadLinkDirectionWire, BeadLinkWire,
     ManagedTableAnchorWire, ManagedTableBlock, ManagedTableColumnWire,
     ManagedTableDocumentWire, ManagedTableRowWire, ManagedTableTableWire,
-    ARTIFACT_LINK_INLET_WIRE_SCHEMA_VERSION, ARTIFACT_LINK_ROW_SCHEMA_VERSION,
-    ARTIFACT_MD_PATH_WIRE_SCHEMA_VERSION,
+    ARTIFACT_LINK_INLET_WIRE_SCHEMA_VERSION,
+    ARTIFACT_LINK_PUBLICATION_AGING_WARNING_SECONDS,
+    ARTIFACT_LINK_PUBLICATION_INITIAL_RETRY_SECONDS,
+    ARTIFACT_LINK_PUBLICATION_MAX_BACKOFF_SECONDS,
+    ARTIFACT_LINK_PUBLICATION_STATE_WIRE_SCHEMA_VERSION,
+    ARTIFACT_LINK_ROW_SCHEMA_VERSION, ARTIFACT_MD_PATH_WIRE_SCHEMA_VERSION,
     ARTIFACT_RELATION_WIRE_SCHEMA_VERSION,
     ARTIFACT_ROW_RESOLUTION_WIRE_SCHEMA_VERSION, LINKS_BLOCK_END_MARKER,
     LINKS_BLOCK_HEADING, LINKS_BLOCK_START_MARKER,
     LINKS_BLOCK_WIRE_SCHEMA_VERSION, MAX_RENDERED_MANAGED_TABLE_ROWS,
     RESERVED_ARTIFACT_RELATION_SLUGS,
+};
+pub use artifact_link_eligibility::{
+    artifact_link_release_evidence, decide_artifact_link_eligibility,
+    validate_artifact_link_release_evidence, ArtifactLinkChangeRoleWire,
+    ArtifactLinkChangedPathWire, ArtifactLinkEligibilityDecisionWire,
+    ArtifactLinkEligibilityError, ArtifactLinkEligibilityRequestWire,
+    ArtifactLinkReleaseEvidenceWire, ArtifactLinkRepoEvidenceWire,
+    ARTIFACT_LINK_ELIGIBILITY_WIRE_SCHEMA_VERSION,
 };
 pub use artifact_object_store::{
     artifact_object_prompt_link, artifact_object_relpath,
@@ -575,6 +597,7 @@ pub use editor::{
     detect_artifact_ref_context_at_position as editor_detect_artifact_ref_context_at_position,
     detect_at_reference_context as editor_detect_at_reference_context,
     detect_directive_context_at_position as editor_detect_directive_context_at_position,
+    detect_model_alias_shortcut_context as editor_detect_model_alias_shortcut_context,
     detect_placeholder_context_at_position as editor_detect_placeholder_context_at_position,
     detect_vcs_ref_context_at_position as editor_detect_vcs_ref_context_at_position,
     detect_vcs_repo_context_at_position as editor_detect_vcs_repo_context_at_position,
@@ -598,6 +621,8 @@ pub use editor::{
     is_xprompt_like_token as editor_is_xprompt_like_token,
     named_args_skeleton as editor_named_args_skeleton,
     placeholder_input_names as editor_placeholder_input_names,
+    plan_model_alias_shortcut_edit as editor_plan_model_alias_shortcut_edit,
+    queue_directive_diagnostics as editor_queue_directive_diagnostics,
     rank_and_filter_bead_entries as editor_rank_and_filter_bead_entries,
     raw_placeholder_fields as editor_raw_placeholder_fields,
     substitute_raw_placeholders as editor_substitute_raw_placeholders,
@@ -621,14 +646,16 @@ pub use editor::{
     DocumentSnapshot, EditorDiagnostic, EditorPosition, EditorRange,
     EditorTextEdit, FinalizerCatalogRequest, FinalizerCatalogResponse,
     FrontmatterFieldKind, FrontmatterFieldSchema, FrontmatterInputType,
-    FuzzyMatch, HoverPayload, PlaceholderCandidate, PlaceholderCandidateSource,
-    PlaceholderCompletion, PlaceholderContext, PlaceholderSpan,
-    RawPlaceholderField, TokenInfo, VcsNamespaceEntry, VcsProjectEntry,
-    VcsRefTrigger, VcsRepoCatalogRequest, VcsRepoCatalogResponse, VcsRepoEntry,
-    VcsRepoTrigger, XpromptAssistEntry, XpromptInputHint,
-    AGENT_CATALOG_SCHEMA_VERSION, AT_REFERENCE_MAX_GROUP_ROWS,
-    BEAD_COMPLETION_LIMIT, DIRECTIVES as EDITOR_DIRECTIVES,
-    EDITOR_WIRE_SCHEMA_VERSION, FINALIZER_CATALOG_SCHEMA_VERSION,
+    FuzzyMatch, HoverPayload, ModelAliasShortcutContextWire,
+    ModelAliasShortcutEditWire, PlaceholderCandidate,
+    PlaceholderCandidateSource, PlaceholderCompletion, PlaceholderContext,
+    PlaceholderSpan, RawPlaceholderField, TokenInfo, VcsNamespaceEntry,
+    VcsProjectEntry, VcsRefTrigger, VcsRepoCatalogRequest,
+    VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger, XpromptAssistEntry,
+    XpromptInputHint, AGENT_CATALOG_SCHEMA_VERSION,
+    AT_REFERENCE_MAX_GROUP_ROWS, BEAD_COMPLETION_LIMIT,
+    DIRECTIVES as EDITOR_DIRECTIVES, EDITOR_WIRE_SCHEMA_VERSION,
+    FINALIZER_CATALOG_SCHEMA_VERSION, MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
     PLACEHOLDER_MAX_INNER_CHARS, VCS_REPO_CATALOG_SCHEMA_VERSION,
 };
 pub use effort::{
@@ -827,6 +854,13 @@ pub use machine_hood::{
     machine_hood_of, qualify_machine_agent_name, strip_machine_agent_name,
     validate_machine_name, MachineNameError,
 };
+pub use managed_origin::{
+    decide_managed_origin_reconciliation, ManagedOriginPushUrlRewriteWire,
+    ManagedOriginReconciliationDecisionWire,
+    ManagedOriginReconciliationRequestWire, MANAGED_ORIGIN_ACTION_FAIL,
+    MANAGED_ORIGIN_ACTION_NONE, MANAGED_ORIGIN_ACTION_REWRITE,
+    MANAGED_ORIGIN_RECONCILIATION_WIRE_SCHEMA_VERSION,
+};
 pub use markdown_link_refs::{
     allocate_markdown_reference_label, append_markdown_reference_definitions,
     scan_markdown_reference_links, MarkdownReferenceDefinitionWire,
@@ -983,21 +1017,40 @@ pub use provider_priority::{
     PROVIDER_ROUTING_CONTEXT_WIRE_SCHEMA_VERSION,
 };
 pub use provider_usage::{
-    classify_freshness, exceeded_by_percent, format_remaining_text,
-    project_usage_snapshot, remaining_percent, reset_has_passed,
-    summarize_usage_windows, usage_known_constraints, usage_window_applies,
-    validate_usage_cadence, validate_usage_observation,
-    validate_usage_thresholds, ProviderUsageError,
-    ProviderUsageObservationWire, UsageApplicabilityMatch,
-    UsageApplicabilityWire, UsageAttentionKind, UsageAttentionWire,
-    UsageCollectionHealth, UsageCollectionOutcome, UsageCompleteness,
-    UsageFreshness, UsageKnownConstraintWire, UsagePublicProviderWire,
-    UsagePublicSnapshotWire, UsagePublicWindowWire, UsageReasonCode,
-    UsageScopedSummaryWire, UsageSource, UsageVendorState,
-    UsageWindowObservationWire, DEFAULT_USAGE_CADENCE_SECONDS,
-    DEFAULT_USAGE_CRITICAL_PERCENT, DEFAULT_USAGE_WARN_PERCENT,
+    admit_provider_usage_refresh, classify_freshness,
+    evaluate_provider_usage_refresh_due, evaluate_refresh_due,
+    exceeded_by_percent, format_remaining_text, load_provider_usage_store,
+    mark_provider_usage_refresh_due, prepare_provider_usage_account_context,
+    project_usage_snapshot, provider_usage_state_path,
+    record_provider_usage_observation, record_provider_usage_refresh_attempt,
+    refresh_backoff_seconds, release_provider_usage_refresh, remaining_percent,
+    reserve_provider_usage_refresh, reset_has_passed, summarize_usage_windows,
+    usage_known_constraints, usage_window_applies, validate_usage_cadence,
+    validate_usage_observation, validate_usage_thresholds,
+    ProviderUsageAccountContextWire, ProviderUsageError,
+    ProviderUsageObservationWire, ProviderUsageRefreshAdmissionStatus,
+    ProviderUsageRefreshAdmitOutcomeWire, ProviderUsageRefreshAdmitRequestWire,
+    ProviderUsageRefreshAttemptWire, ProviderUsageRefreshDueOutcomeWire,
+    ProviderUsageRefreshDueRequestWire, ProviderUsageRefreshMarkDueOutcomeWire,
+    ProviderUsageRefreshMarkDueRequestWire,
+    ProviderUsageRefreshReservationOutcomeWire,
+    ProviderUsageRefreshReservationRequestWire,
+    ProviderUsageRefreshReservationStatus, ProviderUsageRefreshReservationWire,
+    ProviderUsageRefreshScheduleWire, ProviderUsageStoreDiagnosticWire,
+    ProviderUsageStoreError, ProviderUsageStoreReadWire,
+    ProviderUsageStoreWriteOutcomeWire, ProviderUsageStoreWriteStatus,
+    RefreshDueDecision, UsageApplicabilityMatch, UsageApplicabilityWire,
+    UsageAttentionKind, UsageAttentionWire, UsageCollectionHealth,
+    UsageCollectionOutcome, UsageCompleteness, UsageFreshness,
+    UsageKnownConstraintWire, UsagePublicProviderWire, UsagePublicSnapshotWire,
+    UsagePublicWindowWire, UsageReasonCode, UsageScopedSummaryWire,
+    UsageSource, UsageVendorState, UsageWindowObservationWire,
+    DEFAULT_USAGE_CADENCE_SECONDS, DEFAULT_USAGE_CRITICAL_PERCENT,
+    DEFAULT_USAGE_WARN_PERCENT, MAX_USAGE_REFRESH_BACKOFF_SECONDS,
     MIN_USAGE_CADENCE_SECONDS, PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION,
-    PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION,
+    PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION, PROVIDER_USAGE_STATE_FILENAME,
+    PROVIDER_USAGE_STORE_SCHEMA_VERSION,
+    USAGE_REFRESH_EXPLICIT_COOLDOWN_SECONDS,
 };
 pub use query::{
     canonicalize_query, canonicalize_query_with_profile, compile_query,
@@ -1011,6 +1064,13 @@ pub use query::{
     QueryEvaluationContext, QueryExprWire, QueryFieldSpec, QueryFieldValues,
     QueryMacroSpec, QueryPredicateFacts, QueryProgram, QueryProgramWire,
     QueryRow, QuerySigilSpec, QueryTokenKind, QueryTokenWire,
+};
+pub use queue_directive::{
+    collect_queue_fields, format_queue_directive,
+    queue_directive_disabled_message, queue_directive_enabled,
+    queue_directive_flag_key, QueueArgWire, QueueCollectResultWire,
+    QueueFieldsWire, QueueOccurrenceWire, QueueParseErrorWire,
+    QUEUE_DIRECTIVE_FLAG,
 };
 pub use referenced_by::{
     parse_referenced_by_block, remove_referenced_by_block,

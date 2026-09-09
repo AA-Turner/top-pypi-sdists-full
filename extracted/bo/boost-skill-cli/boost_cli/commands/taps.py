@@ -62,6 +62,26 @@ def _print_dry_run(pairs: list[tuple[str, str]]) -> int:
     return 0
 
 
+def _skip_if_already_tapped(spec: str) -> bool:
+    """Print the multi-SPEC skip line and return True if `spec` is tapped.
+
+    The single-SPEC counterpart to the skip branch inside `_tap_all` below —
+    without this, `boost tap already/tapped` and `boost tap already/tapped
+    other/thing` answered the same question two different ways: the first
+    errored (exit 1), the second printed this muted line and exited 0. A
+    spec that fails to parse is not "already tapped" — it falls through so
+    the ordinary `registry.add` call raises its usual, more specific error.
+    """
+    try:
+        name, _url = registry.parse_spec(spec)
+    except BoostError:
+        return False
+    if not registry.is_tapped(name):
+        return False
+    out.info(out.role("%s already tapped" % name, "muted"))
+    return True
+
+
 def _tap_all(urls: list[str], jobs: int | None,
              focus: dict[str, str] | None = None,
              pins: dict[str, str] | None = None,
@@ -119,7 +139,7 @@ def cmd_tap(argv) -> int:
     """boost tap [SPEC] [--defaults] [--catalog] [--curated]"""
     p = cliparse.parser(
         prog="boost tap",
-        description="Add a GitHub repo as a skill registry")
+        description="Add a git URL, GitHub repo, or local directory as a skill registry")
     p.add_argument("spec", nargs="*",
                    help="owner/repo, a git URL, or a local directory — several "
                         "at once clone in parallel")
@@ -169,13 +189,25 @@ def cmd_tap(argv) -> int:
                                   for d in config.DEFAULT_TAPS})
     if args.spec and args.dry_run:
         rc |= _print_dry_run(registry.parse_specs(list(args.spec)))
-    elif len(args.spec) == 1:
+    elif args.spec and args.at:
+        # --at pins one commit, which cannot describe "skip, already tapped"
+        # — a tap already sitting on a different commit must fail loudly, not
+        # silently keep whatever tree it happened to have (earlier validation
+        # already rejected --at with more than one SPEC).
         with spin.Spinner("cloning %s" % args.spec[0]):
             tap = registry.add(args.spec[0], curated=args.curated, at=args.at)
             entries = catalog.rebuild_tap(tap)
         journal.log("tap", tap.name)
-        pin = " @ %s" % args.at[:7] if args.at else ""
-        out.ok("Tapped %s (%d items)%s" % (tap.name, len(entries), pin))
+        out.ok("Tapped %s (%d items) @ %s" % (tap.name, len(entries),
+                                              args.at[:7]))
+    elif len(args.spec) == 1 and _skip_if_already_tapped(args.spec[0]):
+        pass
+    elif len(args.spec) == 1:
+        with spin.Spinner("cloning %s" % args.spec[0]):
+            tap = registry.add(args.spec[0], curated=args.curated)
+            entries = catalog.rebuild_tap(tap)
+        journal.log("tap", tap.name)
+        out.ok("tapped %s (%d items)" % (tap.name, len(entries)))
     elif args.spec:
         # Several specs clone through the same pool as --defaults/--catalog.
         # This is not only a convenience: `xargs boost_cli tap < list` hands
@@ -190,32 +222,26 @@ def cmd_tap(argv) -> int:
     return rc
 
 
-def cmd_untap(argv) -> int:
-    """boost untap NAME [--force]"""
-    p = cliparse.parser(
-        prog="boost untap",
-        description="Remove a registry tap")
-    p.add_argument("name", help="tap name (owner/repo or short alias)")
-    p.add_argument("-f", "--force", action="store_true",
-                   help="skip the confirmation prompt")
-    p.add_argument("-y", "--yes", action="store_true", help=argparse.SUPPRESS)
-    args = p.parse_args(argv)
+def _untap_one(name: str, force: bool) -> int:
+    """Remove one tap, warning on and confirming past live dependents.
 
-    tap = registry.get(args.name)
-    # All three lock sections: untapping the source of a live CLAUDE.md rule
-    # deserves the same warning as untapping the source of a skill.
-    dependent = [(kind, n)
-                 for kind, section in lockfile.all_installed().items()
-                 for n, e in sorted(section.items())
-                 if e.get("tap") == tap.name]
+    One tap's failure (unknown name, declined confirmation) never costs the
+    rest of a multi-name `untap` its removal, matching `tap`'s own multi-SPEC
+    guarantee that one registry's failure never costs another its clone.
+    """
+    try:
+        tap = registry.get(name)
+    except BoostError as exc:
+        out.warn("could not untap %s: %s" % (name, exc.message))
+        return 1
+    dependent = registry.dependents(tap.name)
     if dependent:
         labels = [n if kind == "skill" else "%s (%s)" % (n, kind)
                   for kind, n in dependent]
         out.warn("%d installed item(s) from %s: %s"
                  % (len(dependent), tap.name, ", ".join(labels)))
         out.warn("installed items keep working but lose their update source")
-        if not (args.force or args.yes) and not out.confirm(
-                "untap %s anyway?" % tap.name):
+        if not force and not out.confirm("untap %s anyway?" % tap.name):
             out.info("cancelled")
             return 1
     registry.remove(tap.name)
@@ -225,8 +251,37 @@ def cmd_untap(argv) -> int:
     return 0
 
 
-def _tap_updated(tap: registry.Tap) -> str:
-    """Last-commit date of a tap clone, else the cache's generated age."""
+def cmd_untap(argv) -> int:
+    """boost untap NAME... [--force]"""
+    p = cliparse.parser(
+        prog="boost untap",
+        description="Remove a registry tap")
+    p.add_argument("name", nargs="+",
+                   help="tap name(s) (owner/repo or short alias) — several "
+                        "at once remove one invocation per tap")
+    p.add_argument("-f", "--force", action="store_true",
+                   help="skip the confirmation prompt (only shown when "
+                        "other installed items depend on this tap)")
+    p.add_argument("-y", "--yes", action="store_true", help=argparse.SUPPRESS)
+    args = p.parse_args(argv)
+
+    force = args.force or args.yes
+    rc = 0
+    for name in args.name:
+        rc |= _untap_one(name, force)
+    return rc
+
+
+def _tap_updated(tap: registry.Tap) -> str | None:
+    """ISO date/timestamp a tap was last known to change, else ``None``.
+
+    Full precision, unnarrowed: a clone answers with git's `--date=short`
+    day, a cache-only tap with the ISO timestamp it actually recorded, and an
+    unreadable one with ``None`` rather than the ``"?"`` the table prints. All
+    three are the machine values `boost taps --json` publishes — narrowing or
+    humanizing them here would discard information the JSON caller asked for.
+    `_tap_updated_display` does both for the table.
+    """
     if tap.is_cloned:
         with suppress(BoostError):
             # --date=short --format=%cd == %cs, but works on git < 2.21 too
@@ -236,9 +291,21 @@ def _tap_updated(tap: registry.Tap) -> str:
                 return proc.stdout.strip()
     try:
         data = json.loads(tap.cache_file.read_text(encoding="utf-8"))
-        return util.rel_time(data.get("generated", ""))
+        return data.get("generated") or None
     except (OSError, ValueError):
-        return "?"
+        return None
+
+
+def _tap_updated_display(raw: str | None) -> str:
+    """Table rendering of :func:`_tap_updated`'s machine value.
+
+    Narrows a cache timestamp to the same `YYYY-MM-DD` a clone's git date
+    already is (`util.iso_date` mirrors `--date=short`). Not `rel_time`: a
+    relative "3h ago" beside git dates in one column is exactly the two-format
+    UPDATED mix this pair exists to avoid — and the narrowing happens here,
+    not in `_tap_updated`, so `--json` keeps the timestamp's full precision.
+    """
+    return util.iso_date(raw) if raw else "?"
 
 
 def cmd_taps(argv) -> int:
@@ -262,7 +329,7 @@ def cmd_taps(argv) -> int:
                      # deprecated alias so an existing JSON consumer of
                      # `boost taps --json` does not break.
                      "items": len(items), "skills": len(items),
-                     "updated": _tap_updated(tap), "pin": tap.pin})
+                     "updated": _tap_updated(tap), "pin": tap.pin or None})
     if args.json:
         print(json.dumps(taps, indent=2))
         return 0
@@ -275,7 +342,8 @@ def cmd_taps(argv) -> int:
     # that `boost update` deliberately skips should say why on the line the
     # user is already reading.
     rows = [(t["name"], str(t["items"]),
-             "@%s" % str(t["pin"])[:7] if t["pin"] else t["updated"],
+             "@%s" % str(t["pin"])[:7] if t["pin"]
+             else _tap_updated_display(cast("str | None", t["updated"])),
              "★" if t["curated"] else "", out.role(_tilde(t["url"]), "muted"))
             for t in taps]
     # NAME is the argument `untap`/`update` take; the URL beside it is chrome
@@ -284,14 +352,32 @@ def cmd_taps(argv) -> int:
               keep=("NAME",))
     print()
     out.dim("%d taps · %d items" % (len(taps), total))
+    if any(t["pin"] for t in taps):
+        out.dim("@sha = pinned; `boost update` skips it")
     return 0
+
+
+def _outdated_display(r: dict) -> str:
+    """Table rendering of one `cmd_outdated` row's machine fields.
+
+    ``reason``/``latest``/``latest_commit`` are the JSON-facing values;
+    everything a human reads (the "(content changed)" wording, the short
+    commit) is derived here so the two representations can't drift apart.
+    """
+    if r["reason"] == staleness.SOURCE_MISSING:
+        return staleness.OUTDATED_SOURCE_MISSING
+    latest = r["latest"] or "?"
+    if r["reason"] == staleness.CONTENT:
+        return ("%s (%s)" % (latest, r["latest_commit"])
+                if r["latest_commit"] else "%s (content changed)" % latest)
+    return latest
 
 
 def cmd_outdated(argv) -> int:
     """boost outdated [--json]"""
     p = cliparse.parser(
         prog="boost outdated",
-        description="Show skills with available updates")
+        description="Show skills, rules & workflows with available updates")
     p.add_argument("--json", action="store_true",
                    help="machine-readable output")
     args = p.parse_args(argv)
@@ -304,12 +390,20 @@ def cmd_outdated(argv) -> int:
             continue
         matches = [e for e in catalog.find(name) if e["tap"] == tap_name]
         if not matches:
+            # The tap is untapped, or dropped this entry entirely — same
+            # condition the rule/workflow loop below reports honestly, so a
+            # skill shouldn't just vanish from the table.
+            results.append({"name": name, "kind": "skill",
+                            "installed": str(lk.get("version") or "0.0.0"),
+                            "latest": None,
+                            "reason": staleness.SOURCE_MISSING,
+                            "latest_commit": None,
+                            "tap": tap_name, "pinned": bool(lk.get("pinned"))})
             continue
         entry, _warning = catalog.select_lock_source(matches, lk)
         entry = cast(dict, entry)             # matches is non-empty above
         latest = str(entry.get("version") or "0.0.0")
         installed_v = str(lk.get("version") or "0.0.0")
-        stale, latest_disp = False, latest
         head, src_sha, src_missing = "", None, False
         if not util.semver_gt(latest, installed_v):
             if tap_name not in heads:
@@ -325,21 +419,24 @@ def cmd_outdated(argv) -> int:
                     src_sha = util.sha256_dir(store.source_dir_for(entry))
                 except BoostError:
                     src_missing = True
+        base = {"name": name, "kind": "skill", "installed": installed_v,
+                "tap": tap_name, "pinned": bool(lk.get("pinned"))}
         if src_missing:
-            stale, latest_disp = True, "source missing"
+            results.append(base | {"latest": None,
+                                   "reason": staleness.SOURCE_MISSING,
+                                   "latest_commit": None})
         else:
             reason = staleness.upstream_reason(
                 installed_v, latest, lk.get("commit", ""), head,
                 lk.get("sha256", ""), src_sha)
             if reason == staleness.VERSION:
-                stale = True
+                results.append(base | {"latest": latest,
+                                       "reason": staleness.VERSION,
+                                       "latest_commit": None})
             elif reason == staleness.CONTENT:
-                stale, latest_disp = True, "%s (%s)" % (latest, head[:7])
-        if stale:
-            results.append({"name": name, "kind": "skill",
-                            "installed": installed_v,
-                            "latest": latest_disp, "tap": tap_name,
-                            "pinned": bool(lk.get("pinned"))})
+                results.append(base | {"latest": latest,
+                                       "reason": staleness.CONTENT,
+                                       "latest_commit": head[:7]})
 
     # Rules/workflows have no store dir — their staleness signal is the lock's
     # source sha256 against the tap's current source file (the comparison
@@ -351,14 +448,15 @@ def cmd_outdated(argv) -> int:
             if tap_name == "local":
                 continue
             installed_v = str(lk.get("version") or "0.0.0")
+            base = {"name": name, "kind": kind, "installed": installed_v,
+                    "tap": tap_name, "pinned": bool(lk.get("pinned"))}
             try:
                 raw = (registry.get(tap_name).path / lk.get("source_file", "")
                        ).read_text(encoding="utf-8", errors="replace")
             except (OSError, BoostError):
-                results.append({"name": name, "kind": kind,
-                                "installed": installed_v,
-                                "latest": "source missing", "tap": tap_name,
-                                "pinned": bool(lk.get("pinned"))})
+                results.append(base | {"latest": None,
+                                       "reason": staleness.SOURCE_MISSING,
+                                       "latest_commit": None})
                 continue
             if hashlib.sha256(raw.encode("utf-8")).hexdigest() == lk.get("sha256"):
                 continue
@@ -366,12 +464,17 @@ def cmd_outdated(argv) -> int:
                        if e["tap"] == tap_name
                        and e.get("kind", "skill") == kind]
             entry, _warning = catalog.select_lock_source(matches, lk)
-            latest = str(entry.get("version") or "?") if entry else "?"
-            if not util.semver_gt(latest, installed_v):
-                latest = "%s (content changed)" % latest
-            results.append({"name": name, "kind": kind,
-                            "installed": installed_v, "latest": latest,
-                            "tap": tap_name, "pinned": bool(lk.get("pinned"))})
+            r_latest: str | None = (str(entry.get("version"))
+                                    if entry and entry.get("version") else None)
+            reason = (staleness.VERSION
+                      if r_latest and util.semver_gt(r_latest, installed_v)
+                      else staleness.CONTENT)
+            # Rules/workflows carry no tap-HEAD commit here (only a source-file
+            # sha comparison), so `latest_commit` stays unset — `_outdated_display`
+            # falls back to the same "(content changed)" wording skills used to
+            # spell out by hand, rather than a second ad-hoc string.
+            results.append(base | {"latest": r_latest, "reason": reason,
+                                   "latest_commit": None})
 
     if args.json:
         print(json.dumps(results, indent=2))
@@ -381,11 +484,12 @@ def cmd_outdated(argv) -> int:
         return 0
     rows = [(r["name"] + ("" if r["kind"] == "skill" else " (%s)" % r["kind"]),
              r["installed"] + (" (pinned)" if r["pinned"] else ""),
-             r["latest"], r["tap"]) for r in results]
+             _outdated_display(r), r["tap"]) for r in results]
     out.table(rows, headers=("NAME", "INSTALLED", "LATEST", "TAP"))
     print()
-    out.dim("%d outdated · `boost update` upgrades (pinned items stay put)"
-            % len(results))
+    source_missing = sum(1 for r in results
+                         if r["reason"] == staleness.SOURCE_MISSING)
+    out.dim(staleness.outdated_footer(len(results), source_missing))
     return 0
 
 

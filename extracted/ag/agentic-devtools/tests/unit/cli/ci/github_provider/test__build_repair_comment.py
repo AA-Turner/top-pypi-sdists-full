@@ -239,6 +239,25 @@ class TestBuildRepairComment:
         assert bodies
         assert all(body.startswith("@copilot") for body in bodies)
 
+    def test_review_dispatch_includes_concurrent_push_recovery_instructions(self) -> None:
+        body = _build_repair_comment(
+            head_sha="a" * 40,
+            repair_type="review",
+            failed_checks=[],
+            review_comments=[_COMMENT_1],
+            repository_full_name="owner/repo",
+            pr_number=1,
+            review_id=2,
+        )
+
+        assert "Other repair agents may update this PR branch concurrently" in body
+        assert "fetch the remote branch" in body
+        assert "merge the remote branch into your local branch" in body
+        assert "Do not rebase" in body
+        assert "rebase your new commit onto the remote branch" not in body
+        assert "plain `git push`" in body
+        assert "remote head SHA" in body
+
     def test_author_section_lead_in_is_the_first_line(self) -> None:
         """The very first line is the author section's actionable ask, naming how many comments."""
         body = _build_repair_comment(

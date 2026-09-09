@@ -72,6 +72,9 @@ class SandboxBase:
     def traffic_access_token(self) -> Optional[str]:
         return self.__traffic_access_token
 
+    def _set_traffic_access_token(self, token: Optional[str]) -> None:
+        self.__traffic_access_token = token
+
     @property
     def sandbox_domain(self) -> str:
         return self.__sandbox_domain

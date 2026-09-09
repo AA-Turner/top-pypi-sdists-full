@@ -15,10 +15,11 @@ point where that resolution happens. If the resolution logic ever changes
 
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from matrx_utils import vcprint
+from matrx_utils import detached_task, vcprint
 
 if TYPE_CHECKING:
     from matrx_ai.config.unified_config import UnifiedConfig
@@ -159,6 +160,30 @@ class BaseTranslator(ABC):
             return {**decl, "function": {**fn, "name": wire_name}}
         return decl
 
+    @staticmethod
+    async def _capture_unserializable_tool_name(*, name: str, provider: str) -> None:
+        """Put a provider-boundary declaration loss into the repair queue."""
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            ValueError("Tool declaration cannot be serialized for the provider"),
+            kind="provider_tool_name_unserializable",
+            route="providers.build_provider_tools",
+            error_type="ToolNameSerializationError",
+            context={"tool_name": name, "provider": provider},
+        )
+
+    @classmethod
+    def _schedule_unserializable_tool_name_capture(cls, *, name: str, provider: str) -> None:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        detached_task(
+            cls._capture_unserializable_tool_name(name=name, provider=provider),
+            name="capture_provider_tool_name_unserializable",
+        )
+
     def build_provider_tools(self, config: UnifiedConfig, provider: str) -> list[dict[str, Any]]:
         """Assemble the full tool-declaration list for a provider request —
         registered tools (``config.tools``) followed by inline custom tools
@@ -237,6 +262,7 @@ class BaseTranslator(ABC):
                 continue
             if not is_wire_safe(wire):
                 unsafe_dropped.append(name)
+                self._schedule_unserializable_tool_name_capture(name=name, provider=provider)
                 vcprint(
                     {
                         "internal_name": name,
@@ -280,9 +306,7 @@ class BaseTranslator(ABC):
         return deduped
 
     @staticmethod
-    def sanitize_structured_output_schema(
-        schema: dict[str, Any], provider: str
-    ) -> dict[str, Any]:
+    def sanitize_structured_output_schema(schema: dict[str, Any], provider: str) -> dict[str, Any]:
         """Strip the JSON-Schema keywords ``provider``'s structured-output engine
         rejects, returning a provider-safe copy (the input is never mutated).
 

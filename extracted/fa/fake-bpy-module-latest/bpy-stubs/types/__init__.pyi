@@ -29284,6 +29284,8 @@ Returns a tuple of the data-block, data path to the property, and array index.""
     selected_strips: collections.abc.Sequence[Strip] | None
     selected_editable_strips: collections.abc.Sequence[Strip] | None
     sequencer_scene: Scene | None
+    markers: collections.abc.Sequence[TimelineMarker] | None
+    selected_markers: collections.abc.Sequence[TimelineMarker] | None
     edit_text: Text | None
     context: typing_extensions.Self
     """ Access to the current window-manager and data context."""
@@ -94673,8 +94675,11 @@ class SequencerTimelineOverlay(bpy_struct):
     show_strip_tag_color: bool
     """ Display the strip color tags in the sequencer (default False)"""
 
-    thumbnail_display_style: typing.Literal["NO_THUMBNAILS", "STRIP_ENDS", "CONTINUOUS"]
-    """ How thumbnails are displayed (default 'NO_THUMBNAILS')"""
+    show_thumbnails: bool
+    """ Display strip thumbnails (default False)"""
+
+    thumbnail_display_style: typing.Literal["MIDDLE", "STRIP_ENDS", "CONTINUOUS"]
+    """ How thumbnails are displayed (default 'MIDDLE')"""
 
     waveform_display_style: typing.Literal["FULL_WAVEFORMS", "HALF_WAVEFORMS"]
     """ How Waveforms are displayed (default 'FULL_WAVEFORMS')"""
@@ -120614,12 +120619,17 @@ class WindowManager(ID, bpy_struct):
 
     @classmethod
     def invoke_popup(
-        cls, operator: None | Operator | None, *, width: int | None = 300
+        cls,
+        operator: None | Operator | None,
+        *,
+        width: int | None = 300,
+        auto_keymap: bool | None = False,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Operator popup invoke (only shows operators properties, without executing it)
 
         :param operator: Operator to call
         :param width: Width of the popup (in [0, inf], optional)
+        :param auto_keymap: Auto Keymap, Assign accelerator keys to buttons, shown as underlined characters (optional)
         :return: result
         """
 
@@ -120697,12 +120707,17 @@ class WindowManager(ID, bpy_struct):
 
     @classmethod
     def popover_begin__internal(
-        cls, *, ui_units_x: int | None = 0, from_active_button: bool | None = False
+        cls,
+        *,
+        ui_units_x: int | None = 0,
+        from_active_button: bool | None = False,
+        auto_keymap: bool | None = False,
     ) -> UIPopover:
         """popover_begin__internal
 
         :param ui_units_x: ui_units_x, (in [0, inf], optional)
         :param from_active_button: Use Button, Use the active button for positioning (optional)
+        :param auto_keymap: Auto Keymap, Assign accelerator keys to buttons, shown as underlined characters (optional)
         :return: (never None)
         """
 
@@ -120858,13 +120873,16 @@ class WindowManager(ID, bpy_struct):
         ui_units_x: int | None = 0,
         keymap: KeyMap | None | None = None,
         from_active_button: bool | None = False,
+        auto_keymap: bool | None = False,
     ) -> None:
         """Display a popover populated by draw_func.
 
-        :param draw_func: Function to populate the popover layout.
-        :param ui_units_x: Width of the popover in UI units (0 for the default).
-        :param keymap: Optional keymap to attach to the popover.
-        :param from_active_button: Anchor the popover to the active button.
+                :param draw_func: Function to populate the popover layout.
+                :param ui_units_x: Width of the popover in UI units (0 for the default).
+                :param keymap: Optional keymap to attach to the popover.
+                :param from_active_button: Anchor the popover to the active button.
+                :param auto_keymap: Assign accelerator keys to buttons,
+        shown as underlined characters.
         """
 
     def popup_menu(

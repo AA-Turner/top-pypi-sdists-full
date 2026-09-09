@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 import sys
 import warnings
+from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Callable, Generator, Mapping, MutableMapping, Sequence
 from functools import partial
+from operator import itemgetter
 from typing import NamedTuple
 
 from tokenize_rt import (
@@ -126,7 +129,57 @@ def migrate_contents(contents_text: str) -> tuple[str, list[Report]]:
 
     # no types for tokenize-rt
     new_text: str = tokens_to_src(tokens)
-    return new_text, reports
+    return new_text, relocate_reports(reports, tokens)
+
+
+def relocate_reports(reports: list[Report], tokens: list[Token]) -> list[Report]:
+    """
+    Move the given reports, positioned in the original source, to their
+    positions in the rewritten source, as the user sees them alongside the
+    rewritten file.
+    """
+    # Map the original positions of the surviving tokens to their new ones,
+    # per original line, in order.
+    positions: defaultdict[int, list[tuple[int, int, int]]] = defaultdict(list)
+    lineno = 1
+    utf8_byte_offset = 0
+    for token in tokens:
+        if token.line is not None:
+            positions[token.line].append(
+                (token.utf8_byte_offset, lineno, utf8_byte_offset)
+            )
+        src: str = token.src
+        newlines = src.count("\n")
+        if newlines:
+            lineno += newlines
+            utf8_byte_offset = len(src.rpartition("\n")[2].encode())
+        else:
+            utf8_byte_offset += len(src.encode())
+
+    relocated = []
+    for report in reports:
+        col_offset = report.col - 1
+        # Find the token containing the reported position. Reported usages
+        # are not rewritten, so their tokens survive with the same source,
+        # but on Python < 3.12 names within f-strings have no tokens of
+        # their own, so the position may lie within a string token.
+        line_positions = positions[report.lineno]
+        index = bisect_right(line_positions, col_offset, key=itemgetter(0)) - 1
+        if index < 0:  # pragma: no cover
+            # No token starts on the line, which can only happen within a
+            # multi-line string. Leave the report at its original position.
+            relocated.append(report)
+            continue
+        token_offset, new_lineno, new_offset = line_positions[index]
+        relocated.append(
+            Report(
+                new_lineno,
+                new_offset + (col_offset - token_offset) + 1,
+                report.message,
+            )
+        )
+    relocated.sort()
+    return relocated
 
 
 def ast_parse(contents_text: str) -> ast.Module:
@@ -264,7 +317,9 @@ def visit(
                     for arg in (*node.args.args, *node.args.kwonlyargs)
                     if arg.arg == "freezer"
                 ]
-                if freezer_args:
+                if freezer_args and not any(
+                    arg.arg == "time_machine" for arg in all_arguments(node)
+                ):
                     for arg in freezer_args:
                         ret[ast_start_offset(arg)].append(replace_freezer)
                     freezer_functions.append(
@@ -375,8 +430,13 @@ def visit(
             if alias.name == FIXTURE_FACTORY:
                 fixture_bound.add(alias.asname or alias.name)
 
-    fixture_uses: dict[str, list[ast.Name]] = {name: [] for name in fixture_bound}
+    fixture_uses: dict[str, list[ast.Name | ast.Constant]] = {
+        name: [] for name in fixture_bound
+    }
     fixture_blocked: set[str] = set()
+    # String annotations that mention a bound name without being exactly it,
+    # like "FrozenDateTimeFactory | None", which cannot be rewritten.
+    fixture_string_blockers: list[tuple[str, ast.Constant]] = []
     if fixture_bound:
         fixture_blocked = fixture_rebindings(tree, fixture_bound)
         for node in ast.walk(tree):
@@ -393,6 +453,16 @@ def visit(
                     for subnode in ast.walk(node)
                     if isinstance(subnode, ast.Name) and subnode.id in fixture_bound
                 )
+        for constant in annotation_strings(tree):
+            string_value = constant.value
+            assert isinstance(string_value, str)
+            if string_value in fixture_bound:
+                fixture_uses[string_value].append(constant)
+            else:
+                for name in fixture_bound:
+                    if re.search(rf"\b{re.escape(name)}\b", string_value):
+                        fixture_blocked.add(name)
+                        fixture_string_blockers.append((name, constant))
 
     fixture_migratable: set[str] = set()
     fixture_used: set[str] = set()
@@ -425,10 +495,20 @@ def visit(
             for name in fixture_used:
                 fixture_migratable.add(name)
                 for use in fixture_uses[name]:
-                    ret[ast_start_offset(use)].append(
-                        partial(replace_name, src="TimeMachineFixture")
-                    )
+                    if isinstance(use, ast.Name):
+                        ret[ast_start_offset(use)].append(
+                            partial(replace_name, src="TimeMachineFixture")
+                        )
+                    else:
+                        ret[ast_start_offset(use)].append(
+                            partial(
+                                replace_string_constant,
+                                node=use,
+                                value="TimeMachineFixture",
+                            )
+                        )
 
+    removed_imports: list[ast.ImportFrom] = []
     for import_node in freezegun_from_imports:
         has_freeze_time = any(
             alias.name == "freeze_time" for alias in import_node.names
@@ -458,13 +538,19 @@ def visit(
             ret[ast_start_offset(import_node)].append(
                 partial(replace_import_from, node=import_node, new_stmts=new_stmts)
             )
-        elif len(containing_block(tree, import_node)) >= 2:
+        else:
+            removed_imports.append(import_node)
+
+    for import_node in removed_imports:
+        block = containing_block(tree, import_node)
+        remaining = [stmt for stmt in block if stmt not in removed_imports]
+        if remaining or block[-1] is not import_node:
             ret[ast_start_offset(import_node)].append(
                 partial(remove_statement, node=import_node)
             )
         else:
-            # The only statement in its block, so removing it would leave
-            # invalid syntax.
+            # Removing every statement in the block would leave invalid
+            # syntax, so replace the last with `pass`.
             ret[ast_start_offset(import_node)].append(
                 partial(replace_import_from, node=import_node, new_stmts=["pass"])
             )
@@ -496,6 +582,16 @@ def visit(
 
     unmigrated_fixture_names = fixture_bound - fixture_migratable
 
+    # Names within migrated attribute accesses, which may start after them
+    # when parenthesized, like `(freezegun).freeze_time`.
+    migrated_attribute_names = {
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and ast_start_offset(node) in ret
+    }
+
     reports = []
     for node in ast.walk(tree):
         match node:
@@ -504,7 +600,10 @@ def visit(
                 or name in freezegun_module_names
                 or name in report_module_names
                 or name in unmigrated_fixture_names
-            ) and ast_start_offset(node) not in ret:
+            ) and (
+                ast_start_offset(node) not in ret
+                and node not in migrated_attribute_names
+            ):
                 reports.append(
                     Report(
                         node.lineno,
@@ -526,9 +625,67 @@ def visit(
                         "pytest.mark.freeze_time usage not migrated",
                     )
                 )
+    for name in unmigrated_fixture_names:
+        unmigrated_strings = [
+            *(use for use in fixture_uses[name] if isinstance(use, ast.Constant)),
+            *(
+                constant
+                for blocker_name, constant in fixture_string_blockers
+                if blocker_name == name
+            ),
+        ]
+        for constant in unmigrated_strings:
+            reports.append(
+                Report(
+                    constant.lineno,
+                    constant.col_offset + 1,
+                    f"{name} usage not migrated",
+                )
+            )
     reports.sort()
 
     return ret, reports
+
+
+def all_arguments(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.arg]:
+    """
+    Return all the arguments of the given function definition.
+    """
+    arguments = [
+        *node.args.posonlyargs,
+        *node.args.args,
+        *node.args.kwonlyargs,
+    ]
+    if node.args.vararg is not None:
+        arguments.append(node.args.vararg)
+    if node.args.kwarg is not None:
+        arguments.append(node.args.kwarg)
+    return arguments
+
+
+def annotation_strings(tree: ast.Module) -> Generator[ast.Constant, None, None]:
+    """
+    Yield the string constants within annotations, which may name types that
+    are not defined until runtime, like ``"FrozenDateTimeFactory"`` or
+    ``Optional["FrozenDateTimeFactory"]``.
+    """
+    for node in ast.walk(tree):
+        annotations: list[ast.expr | None]
+        match node:
+            case ast.FunctionDef() | ast.AsyncFunctionDef():
+                annotations = [node.returns]
+            case ast.arg():
+                annotations = [node.annotation]
+            case ast.AnnAssign():
+                annotations = [node.annotation]
+            case _:
+                continue
+        for annotation in annotations:
+            if annotation is None:
+                continue
+            for subnode in ast.walk(annotation):
+                if isinstance(subnode, ast.Constant) and isinstance(subnode.value, str):
+                    yield subnode
 
 
 def find_freezer_function(
@@ -1062,7 +1219,15 @@ def replace_import_from(
     match.
     """
     j = find_last_token(tokens, i, node=node)
-    src = f"\n{line_indent(tokens, i)}".join(new_stmts)
+    k = line_start_index(tokens, i)
+    if k is None:
+        # Something else shares the line, like `if ...:` or a statement
+        # separated with `;`, so new lines would move the following
+        # statements out of the block.
+        src = "; ".join(new_stmts)
+    else:
+        indent = "".join(token.src for token in tokens[k:i])
+        src = f"\n{indent}".join(new_stmts)
     tokens[i : j + 1] = [Token(name=CODE, src=src)]
 
 
@@ -1075,20 +1240,27 @@ def remove_statement(tokens: list[Token], i: int, node: ast.stmt) -> None:
     j2 = j
     while tokens[j2 + 1].name in (UNIMPORTANT_WS, "COMMENT"):
         j2 += 1
-    k = i
-    while k > 0 and tokens[k - 1].name in (INDENT, UNIMPORTANT_WS):
-        k -= 1
-    starts_line = k == 0 or tokens[k - 1].name in (
-        "ENCODING",
-        "NEWLINE",
-        "NL",
-        DEDENT,
-    )
-    if starts_line and tokens[j2 + 1].name == "NEWLINE":
+    k = line_start_index(tokens, i)
+    if k is not None and tokens[j2 + 1].name == "NEWLINE":
         del tokens[k : j2 + 2]
     else:
         # Something else shares the line, like statements separated with `;`.
         tokens[i : j + 1] = [Token(name=CODE, src="pass")]
+
+
+def line_start_index(tokens: list[Token], i: int) -> int | None:
+    """
+    Return the index of the first token on the line that the statement
+    starting at the given token index begins, including any indentation, or
+    None if the statement does not start its line, like after `if ...:` or
+    `;`.
+    """
+    k = i
+    while k > 0 and tokens[k - 1].name in (INDENT, UNIMPORTANT_WS):
+        k -= 1
+    if k == 0 or tokens[k - 1].name in ("ENCODING", "NEWLINE", "NL", DEDENT):
+        return k
+    return None
 
 
 def containing_block(tree: ast.Module, stmt: ast.stmt) -> list[ast.stmt]:
@@ -1107,19 +1279,21 @@ def replace_name(tokens: list[Token], i: int, *, src: str) -> None:
     tokens[i] = Token(name=CODE, src=src)
 
 
-def line_indent(tokens: list[Token], i: int) -> str:
+def replace_string_constant(
+    tokens: list[Token], i: int, *, node: ast.Constant, value: str
+) -> None:
     """
-    Return the whitespace indenting the line that the given token starts, or
-    "" if the token does not start a line, like after `if ...:` or `;`.
+    Replace the given string constant with one of the given value, keeping the
+    quote style of its first token.
     """
-    if (
-        i > 0
-        and tokens[i - 1].name in (INDENT, UNIMPORTANT_WS)
-        and tokens[i - 2].name in ("NEWLINE", "NL", DEDENT)
-    ):
-        # no types for tokenize-rt
-        return tokens[i - 1].src  # type: ignore [no-any-return]
-    return ""
+    j = find_last_token(tokens, i, node=node)
+    src: str = tokens[i].src
+    # Skip any prefix, like the `r` in r"...".
+    quote_start = next(index for index, char in enumerate(src) if char in "\"'")
+    quote = src[quote_start]
+    if src.startswith(quote * 3, quote_start):
+        quote *= 3
+    tokens[i : j + 1] = [Token(name="STRING", src=f"{quote}{value}{quote}")]
 
 
 def switch_to_travel(

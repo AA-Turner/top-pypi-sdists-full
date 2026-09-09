@@ -39,6 +39,7 @@ from .literals import (
     BehaviorTypeType,
     BooleanComparisonTypeType,
     ChannelType,
+    ChannelWorkloadBehaviorTypeType,
     ChatEventTypeType,
     ConfigurableNotificationPriorityType,
     ContactFieldType,
@@ -462,6 +463,7 @@ __all__ = (
     "CreatedByInfoTypeDef",
     "CredentialsTypeDef",
     "CrossChannelBehaviorTypeDef",
+    "CrossChannelWorkloadBehaviorTypeDef",
     "CurrentMetricDataTypeDef",
     "CurrentMetricResultTypeDef",
     "CurrentMetricSortCriteriaTypeDef",
@@ -1080,7 +1082,9 @@ __all__ = (
     "MatchCriteriaOutputTypeDef",
     "MatchCriteriaTypeDef",
     "MatchCriteriaUnionTypeDef",
+    "MediaConcurrencyOutputTypeDef",
     "MediaConcurrencyTypeDef",
+    "MediaConcurrencyUnionTypeDef",
     "MediaItemTypeDef",
     "MediaPlacementTypeDef",
     "MeetingFeaturesConfigurationTypeDef",
@@ -1627,6 +1631,7 @@ __all__ = (
     "WebNotificationSourceTypeDef",
     "WidgetDestinationTypeDef",
     "WisdomInfoTypeDef",
+    "WorkloadTypeConcurrencyTypeDef",
     "WorkspaceAssociationSearchCriteriaPaginatorTypeDef",
     "WorkspaceAssociationSearchCriteriaTypeDef",
     "WorkspaceAssociationSearchFilterTypeDef",
@@ -2720,6 +2725,10 @@ CrossChannelBehaviorTypeDef = TypedDict(
         "BehaviorType": BehaviorTypeType,
     },
 )
+
+
+class CrossChannelWorkloadBehaviorTypeDef(TypedDict):
+    ChannelWorkloadBehaviorType: NotRequired[ChannelWorkloadBehaviorTypeType]
 
 
 class CurrentMetricTypeDef(TypedDict):
@@ -6979,10 +6988,10 @@ class GetFederationTokenResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class MediaConcurrencyTypeDef(TypedDict):
-    Channel: ChannelType
+class WorkloadTypeConcurrencyTypeDef(TypedDict):
+    WorkloadType: str
     Concurrency: int
-    CrossChannelBehavior: NotRequired[CrossChannelBehaviorTypeDef]
+    CrossChannelWorkloadBehavior: NotRequired[CrossChannelWorkloadBehaviorTypeDef]
 
 
 class CurrentMetricDataTypeDef(TypedDict):
@@ -8900,30 +8909,18 @@ class SearchQueuesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class RoutingProfileTypeDef(TypedDict):
-    InstanceId: NotRequired[str]
-    Name: NotRequired[str]
-    RoutingProfileArn: NotRequired[str]
-    RoutingProfileId: NotRequired[str]
-    Description: NotRequired[str]
-    MediaConcurrencies: NotRequired[list[MediaConcurrencyTypeDef]]
-    DefaultOutboundQueueId: NotRequired[str]
-    Tags: NotRequired[dict[str, str]]
-    NumberOfAssociatedQueues: NotRequired[int]
-    NumberOfAssociatedManualAssignmentQueues: NotRequired[int]
-    NumberOfAssociatedUsers: NotRequired[int]
-    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
-    LastModifiedTime: NotRequired[datetime]
-    LastModifiedRegion: NotRequired[str]
-    IsDefault: NotRequired[bool]
-    AssociatedQueueIds: NotRequired[list[str]]
-    AssociatedManualAssignmentQueueIds: NotRequired[list[str]]
+class MediaConcurrencyOutputTypeDef(TypedDict):
+    Channel: ChannelType
+    Concurrency: NotRequired[int]
+    CrossChannelBehavior: NotRequired[CrossChannelBehaviorTypeDef]
+    WorkloadTypeConcurrencies: NotRequired[list[WorkloadTypeConcurrencyTypeDef]]
 
 
-class UpdateRoutingProfileConcurrencyRequestTypeDef(TypedDict):
-    InstanceId: str
-    RoutingProfileId: str
-    MediaConcurrencies: Sequence[MediaConcurrencyTypeDef]
+class MediaConcurrencyTypeDef(TypedDict):
+    Channel: ChannelType
+    Concurrency: NotRequired[int]
+    CrossChannelBehavior: NotRequired[CrossChannelBehaviorTypeDef]
+    WorkloadTypeConcurrencies: NotRequired[Sequence[WorkloadTypeConcurrencyTypeDef]]
 
 
 class CurrentMetricResultTypeDef(TypedDict):
@@ -8938,20 +8935,6 @@ class AssociateRoutingProfileQueuesRequestTypeDef(TypedDict):
     ManualAssignmentQueueConfigs: NotRequired[
         Sequence[RoutingProfileManualAssignmentQueueConfigTypeDef]
     ]
-
-
-class CreateRoutingProfileRequestTypeDef(TypedDict):
-    InstanceId: str
-    Name: str
-    Description: str
-    DefaultOutboundQueueId: str
-    MediaConcurrencies: Sequence[MediaConcurrencyTypeDef]
-    QueueConfigs: NotRequired[Sequence[RoutingProfileQueueConfigTypeDef]]
-    ManualAssignmentQueueConfigs: NotRequired[
-        Sequence[RoutingProfileManualAssignmentQueueConfigTypeDef]
-    ]
-    Tags: NotRequired[Mapping[str, str]]
-    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
 
 
 class UpdateRoutingProfileQueuesRequestTypeDef(TypedDict):
@@ -10025,16 +10008,27 @@ class SearchContactsAdditionalTimeRangeTypeDef(TypedDict):
     MatchType: SearchContactsMatchTypeType
 
 
-class DescribeRoutingProfileResponseTypeDef(TypedDict):
-    RoutingProfile: RoutingProfileTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class RoutingProfileTypeDef(TypedDict):
+    InstanceId: NotRequired[str]
+    Name: NotRequired[str]
+    RoutingProfileArn: NotRequired[str]
+    RoutingProfileId: NotRequired[str]
+    Description: NotRequired[str]
+    MediaConcurrencies: NotRequired[list[MediaConcurrencyOutputTypeDef]]
+    DefaultOutboundQueueId: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
+    NumberOfAssociatedQueues: NotRequired[int]
+    NumberOfAssociatedManualAssignmentQueues: NotRequired[int]
+    NumberOfAssociatedUsers: NotRequired[int]
+    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
+    IsDefault: NotRequired[bool]
+    AssociatedQueueIds: NotRequired[list[str]]
+    AssociatedManualAssignmentQueueIds: NotRequired[list[str]]
 
 
-class SearchRoutingProfilesResponseTypeDef(TypedDict):
-    RoutingProfiles: list[RoutingProfileTypeDef]
-    ApproximateTotalCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+MediaConcurrencyUnionTypeDef = Union[MediaConcurrencyTypeDef, MediaConcurrencyOutputTypeDef]
 
 
 class GetCurrentMetricDataResponseTypeDef(TypedDict):
@@ -10650,6 +10644,38 @@ class SearchCriteriaTypeDef(TypedDict):
     ActiveRegions: NotRequired[Sequence[str]]
     ContactTags: NotRequired[ControlPlaneTagFilterTypeDef]
     AiAgents: NotRequired[AiAgentsCriteriaTypeDef]
+
+
+class DescribeRoutingProfileResponseTypeDef(TypedDict):
+    RoutingProfile: RoutingProfileTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SearchRoutingProfilesResponseTypeDef(TypedDict):
+    RoutingProfiles: list[RoutingProfileTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateRoutingProfileRequestTypeDef(TypedDict):
+    InstanceId: str
+    Name: str
+    Description: str
+    DefaultOutboundQueueId: str
+    MediaConcurrencies: Sequence[MediaConcurrencyUnionTypeDef]
+    QueueConfigs: NotRequired[Sequence[RoutingProfileQueueConfigTypeDef]]
+    ManualAssignmentQueueConfigs: NotRequired[
+        Sequence[RoutingProfileManualAssignmentQueueConfigTypeDef]
+    ]
+    Tags: NotRequired[Mapping[str, str]]
+    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
+
+
+class UpdateRoutingProfileConcurrencyRequestTypeDef(TypedDict):
+    InstanceId: str
+    RoutingProfileId: str
+    MediaConcurrencies: Sequence[MediaConcurrencyUnionTypeDef]
 
 
 class EvaluationFormItemEnablementConfigurationOutputTypeDef(TypedDict):

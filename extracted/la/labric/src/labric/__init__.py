@@ -12,6 +12,7 @@ if typing.TYPE_CHECKING:
         AgentRunResponse,
         AgentRunUsage,
         AgentToolCall,
+        AnnotationSchema,
         BatchWriteOptions,
         BatchWriteOptionsMode,
         BatchWriteResponse,
@@ -29,6 +30,7 @@ if typing.TYPE_CHECKING:
         QueryableColumnSchema,
         QueryableTableSchema,
         RevertResultSchema,
+        SaveAnnotationSchema,
         StartJobExecutionSchema,
         TableSummary,
         ToolsMlModelDetailSchema,
@@ -47,7 +49,7 @@ if typing.TYPE_CHECKING:
         UnauthorizedError,
         UnprocessableEntityError,
     )
-    from . import agent, files, jobs, models, tools
+    from . import agent, files, images, jobs, models, tools
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
     from .client import AsyncLabric, Labric
     from .environment import LabricEnvironment
@@ -59,6 +61,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AgentRunResponse": ".types",
     "AgentRunUsage": ".types",
     "AgentToolCall": ".types",
+    "AnnotationSchema": ".types",
     "AsyncLabric": ".client",
     "BadGatewayError": ".errors",
     "BadRequestError": ".errors",
@@ -90,6 +93,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "QueryableColumnSchema": ".types",
     "QueryableTableSchema": ".types",
     "RevertResultSchema": ".types",
+    "SaveAnnotationSchema": ".types",
     "ServiceUnavailableError": ".errors",
     "StartJobExecutionSchema": ".types",
     "TableSummary": ".types",
@@ -102,6 +106,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WritePlan": ".types",
     "agent": ".agent",
     "files": ".files",
+    "images": ".images",
     "jobs": ".jobs",
     "models": ".models",
     "tools": ".tools",
@@ -135,6 +140,7 @@ __all__ = [
     "AgentRunResponse",
     "AgentRunUsage",
     "AgentToolCall",
+    "AnnotationSchema",
     "AsyncLabric",
     "BadGatewayError",
     "BadRequestError",
@@ -166,6 +172,7 @@ __all__ = [
     "QueryableColumnSchema",
     "QueryableTableSchema",
     "RevertResultSchema",
+    "SaveAnnotationSchema",
     "ServiceUnavailableError",
     "StartJobExecutionSchema",
     "TableSummary",
@@ -178,6 +185,7 @@ __all__ = [
     "WritePlan",
     "agent",
     "files",
+    "images",
     "jobs",
     "models",
     "tools",

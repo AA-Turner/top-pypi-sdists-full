@@ -1170,10 +1170,10 @@ def make_compound_condition(
     )
 
 
-def add_agilicus_default_database_allow(
+def add_agilicus_default_resource_allow(
     ctx,
     label="agilicus-defaults-policy",
-    name="default_database",
+    name="default_resource",
     action="allow",
     **kwargs,
 ):
@@ -1191,13 +1191,14 @@ def add_agilicus_default_database_allow(
     )
     add_label(ctx, label=label, **kwargs)
     add_rule_tree(ctx, name, children=[], rules=[name], **kwargs)
-    # The scope here ensures this entire set of rules only applies to databases
+    # The scope here ensures this entire set of rules only applies to databases or
+    # printers
     add_ruleset(
         ctx,
         name,
         trees=[name],
         labels=[label],
-        scopes=["urn:agilicus:database:*"],
+        scopes=["urn:agilicus:database:*", "urn:agilicus:printer:*"],
         **kwargs,
     )
 
@@ -1300,7 +1301,7 @@ def add_agilicus_default_policy(
     **kwargs,
 ):
     add_agilicus_default_expose_allow(ctx)
-    add_agilicus_default_database_allow(ctx)
+    add_agilicus_default_resource_allow(ctx)
     add_agilicus_default_has_resource_permission(ctx)
 
 

@@ -45,6 +45,96 @@ def _sanitize(name: str) -> str:
     return "".join(c if c.isalnum() or c in "._-" else "_" for c in str(name))
 
 
+def _as_scalar(x) -> float:
+    """float() for values that may arrive as size-1 arrays.
+
+    NumPy >= 2.3 removed the implicit size-1-array -> scalar coercion, so
+    ``float(np.array([1.5]))`` raises TypeError. Every scalar extraction in
+    this module goes through here instead.
+    """
+    arr = np.asarray(x, dtype=float).reshape(-1)
+    if arr.size != 1:
+        raise ValueError(f"expected a scalar-like value, got size {arr.size}")
+    return float(arr[0])
+
+
+def _numpy_dropped_size1_coercion() -> bool:
+    """True when float(size-1 ndarray) raises (NumPy >= 2.3 behavior)."""
+    import warnings
+
+    with warnings.catch_warnings():
+        # older NumPy emits a DeprecationWarning for the same coercion;
+        # silence it -- the probe only cares whether it raises
+        warnings.simplefilter("ignore", DeprecationWarning)
+        try:
+            float(np.ones(1))
+            return False
+        except TypeError:
+            return True
+
+
+def _ensure_shapiq_numpy2_compat() -> None:
+    """Patch shapiq's TabPFNImputer for NumPy >= 2.3.
+
+    ``shapiq.imputer.tabpfn_imputer.TabPFNImputer.value_function`` (<= 1.4.x)
+    ends each coalition with ``float(self.predict(...))`` on a length-1
+    array. Under NumPy >= 2.3 that raises ``TypeError: only 0-dimensional
+    arrays can be converted to Python scalars`` for EVERY coalition, so every
+    ``explain()`` call fails, the per-sample except blocks swallow it, and
+    the SHAP matrix silently stays all-zeros — the run "succeeds" with empty
+    explanations (observed 2026-09-08: 636 failures, beeswarm of zeros).
+
+    shapiq >= 1.5 fixes this but requires Python >= 3.12; the cluster env is
+    3.11, so patch in place. No-op when the coercion works (older NumPy) or
+    shapiq is absent; idempotent via a marker attribute.
+    """
+    if not _numpy_dropped_size1_coercion():
+        return  # NumPy still coerces size-1 arrays; stock shapiq is fine
+    try:
+        from shapiq.imputer import tabpfn_imputer as _ti
+    except ImportError:
+        return
+    if getattr(_ti.TabPFNImputer.value_function, "_np2_patched", False):
+        return
+
+    def value_function(self, coalitions):
+        """Re-implementation of TabPFNImputer.value_function (shapiq 1.4.1)
+        with the scalar extraction made NumPy-2-safe. Mirrors the original
+        remove-and-contextualize loop exactly, including the final refit."""
+        output = np.zeros(len(coalitions), dtype=float)
+        for i, coalition in enumerate(coalitions):
+            if np.sum(coalition) == 0:
+                output[i] = _as_scalar(self.empty_prediction)
+                continue
+            x_train_coal = self.x_train[:, coalition]
+            x_explain_coal = self.x[:, coalition]
+            try:
+                self.model.fit(x_train_coal, self.y_train)
+                output[i] = _as_scalar(self.predict(x_explain_coal))
+            except Exception as exc:  # noqa: BLE001
+                # TabPFN refuses to fit when the sampled coalition selects
+                # only constant features ("All features are constant and
+                # would have been removed!"). Such a coalition carries no
+                # information, which is precisely what empty_prediction
+                # represents -- fall back to it instead of letting one
+                # degenerate coalition abort the whole sample's explain()
+                # (observed 2026-09-08: 47/240 samples lost this way).
+                if "constant" not in str(exc).lower():
+                    raise
+                output[i] = _as_scalar(self.empty_prediction)
+        # refit on the full training data so the model leaves in a
+        # consistent state (same contract as the original)
+        self.model.fit(self.x_train, self.y_train)
+        return output
+
+    value_function._np2_patched = True
+    _ti.TabPFNImputer.value_function = value_function
+    logger.info(
+        "shapiq TabPFNImputer.value_function patched for NumPy>=2.3 "
+        "(size-1 array scalar coercion removed upstream)"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Q1: Why did the model predict this for this sample?
 # ---------------------------------------------------------------------------
@@ -74,6 +164,8 @@ def explain_local(
         return None
     import shapiq
 
+    _ensure_shapiq_numpy2_compat()
+
     try:
         explainer = shapiq.TabPFNExplainer(
             model=model,
@@ -102,7 +194,7 @@ def explain_local(
             sv=shap_array[i],
             feature_names=feature_names,
             feature_values=row.to_numpy(),
-            base_value=float(iv.baseline_value) if hasattr(iv, "baseline_value") else 0.0,
+            base_value=_as_scalar(iv.baseline_value) if hasattr(iv, "baseline_value") else 0.0,
             out_path=out_dir / f"shapiq_local_{_sanitize(region_name)}_{forecast_season}_{i}.png",
             title=f"shapiq local — {region_name} {forecast_season} sample {i}",
         )
@@ -138,6 +230,8 @@ def explain_interactions(
         logger.debug("shapiq not installed; skipping interaction explainer")
         return None
     import shapiq
+
+    _ensure_shapiq_numpy2_compat()
 
     try:
         explainer = shapiq.TabPFNExplainer(
@@ -288,6 +382,8 @@ def explain_shap_compat(
     import shap as _shap
     import shapiq
 
+    _ensure_shapiq_numpy2_compat()
+
     # shapiq 1.4.1's actual public API for SHAP-compatible values is the
     # same TabPFNExplainer with index="SV" (standard Shapley values).
     # TabPFNImputer exists but is a feature-imputer building block, not
@@ -313,7 +409,7 @@ def explain_shap_compat(
             iv = explainer.explain(row.to_numpy(), budget=max_evals)
             sv = np.asarray(iv.get_n_order_values(1)).reshape(-1)
             values[i, :len(sv)] = sv
-            base[i] = float(getattr(iv, "baseline_value", 0.0))
+            base[i] = _as_scalar(getattr(iv, "baseline_value", 0.0))
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"  shapiq SHAP-compat failed for sample {i}: {exc}")
             continue

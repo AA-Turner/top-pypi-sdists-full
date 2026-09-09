@@ -465,6 +465,7 @@ class ParserRunContext:
     """Immutable parser settings scoped to one facade-managed run."""
 
     diagnostic_source_path: Path | None = None
+    prefetched_source: tuple[Path, bytes] | None = None
     formatter_cwd: Path | None = None
     preserve_circular_root_models: bool = False
     suppress_parse_warnings: bool = False
@@ -709,6 +710,27 @@ def iter_models_field_data_types(
         for field in model.fields:
             for data_type in field.data_type.all_data_types:
                 yield model, field, data_type
+
+
+def _replace_default_enum_list_members(
+    default: list[Any],
+    enum_source: Enum,
+    alias: str | None,
+    enum_members: list[Any] | None,
+) -> list[Any] | None:
+    """Replace matching list values without changing the original default list."""
+    values = default if enum_members is None else enum_members
+    for index, value in enumerate(values):
+        if isinstance(value, Member):
+            continue
+        if (enum_member := enum_source.find_member(value)) is None:
+            continue
+        if enum_members is None:
+            enum_members = default.copy()
+        enum_members[index] = enum_member
+        if alias:
+            enum_member.alias = alias
+    return enum_members
 
 
 _PythonTypeImportKey: TypeAlias = tuple[str | None, str]
@@ -1711,18 +1733,26 @@ class Source(BaseModel):
         path: Path,
         base_path: Path,
         encoding: str,
+        *,
+        data: bytes | None = None,
     ) -> Source:
         """Create a Source from a file path relative to base_path."""
         record_watch_dependency(path)
         return cls(
             path=path.relative_to(base_path),
-            text=path.read_text(encoding=encoding),
+            text=(
+                path.read_text(encoding=encoding)
+                if data is None
+                else data.decode(encoding).replace("\r\n", "\n").replace("\r", "\n")
+            ),
         )
 
     @classmethod
-    def from_cached_path(cls, path: Path, base_path: Path, encoding: str, *, keep_text: bool = False) -> Source:
+    def from_cached_path(
+        cls, path: Path, base_path: Path, encoding: str, *, keep_text: bool = False, data: bytes | None = None
+    ) -> Source:
         """Create a Source from a cached parsed file path relative to base_path."""
-        data, raw_data = _read_parser_source_data_from_path(path, encoding)
+        data, raw_data = _read_parser_source_data_from_path(path, encoding, data=data)
         return cls(
             path=path.relative_to(base_path),
             text=data.decode(encoding) if keep_text else "",
@@ -2095,6 +2125,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self,
         *,
         diagnostic_source_path: Path | None = None,
+        prefetched_source: tuple[Path, bytes] | None = None,
         formatter_cwd: Path | None = None,
         preserve_circular_root_models: bool = False,
         suppress_parse_warnings: bool = False,
@@ -2102,6 +2133,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         """Configure parser run state without exposing implementation attributes."""
         if (
             diagnostic_source_path is None
+            and prefetched_source is None
             and formatter_cwd is None
             and not preserve_circular_root_models
             and not suppress_parse_warnings
@@ -2110,6 +2142,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             return
         self._run_context = ParserRunContext(
             diagnostic_source_path=diagnostic_source_path,
+            prefetched_source=prefetched_source,
             formatter_cwd=formatter_cwd,
             preserve_circular_root_models=preserve_circular_root_models,
             suppress_parse_warnings=suppress_parse_warnings,
@@ -2133,6 +2166,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             formatter_cwd=formatter_cwd,
             preserve_circular_root_models=preserve_circular_root_models,
             suppress_parse_warnings=context.suppress_parse_warnings,
+            prefetched_source=context.prefetched_source,
         )
 
     @property
@@ -2695,9 +2729,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
     def _source_from_path(self, path: Path) -> Source:
         try:
+            prefetched_source = self.run_context.prefetched_source
+            data = prefetched_source[1] if prefetched_source is not None and path == prefetched_source[0] else None
             if self._use_parsed_source_cache:
-                return Source.from_cached_path(path, self.base_path, self.encoding, keep_text=self.validation)
-            return Source.from_path(path, self.base_path, self.encoding)
+                return Source.from_cached_path(
+                    path, self.base_path, self.encoding, keep_text=self.validation, data=data
+                )
+            return Source.from_path(path, self.base_path, self.encoding, data=data)
         except FileNotFoundError as exc:
             msg = f"File not found: {path}"
             raise Error(msg) from exc
@@ -3811,28 +3849,40 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         *,
         can_retain_cache: bool,
     ) -> None:
+        """Convert matching defaults to enum members while preserving unmatched list values."""
         if not self.set_default_enum_member and DefaultValueType.Enum not in self.deserialize_default_value_types:
             return
-        for model, model_field, data_type in iter_models_field_data_types(models):
-            if model_field.default is None:
-                continue
-            if data_type.reference and isinstance(data_type.reference.source, Enum):  # pragma: no cover
-                if isinstance(model_field.default, list):
-                    enum_member: list[Member] | (Member | None) = [
-                        e for e in (data_type.reference.source.find_member(d) for d in model_field.default) if e
-                    ]
-                else:
-                    enum_member = data_type.reference.source.find_member(model_field.default)
-                if not enum_member:
+        for model in models:
+            for model_field in model.fields:
+                if model_field.default is None:
                     continue
-                model_field.default = enum_member
+                default = model_field.default
+                enum_members: list[Any] | None = None
+                for data_type in model_field.data_type.all_data_types:
+                    if (reference := data_type.reference) is None:
+                        continue
+                    if not isinstance(enum_source := reference.source, Enum):
+                        continue
+                    match default:
+                        case list():
+                            enum_members = _replace_default_enum_list_members(
+                                default,
+                                enum_source,
+                                data_type.alias,
+                                enum_members,
+                            )
+                        case _:
+                            if (enum_member := enum_source.find_member(default)) is None:
+                                continue
+                            default = enum_member
+                            if data_type.alias:
+                                enum_member.alias = data_type.alias
+                            break
+                default = enum_members or default
+                if default is model_field.default:
+                    continue
+                model_field.default = default
                 _clear_model_imports_cache_if_retained(model, can_retain_cache=can_retain_cache)
-                if data_type.alias:
-                    if isinstance(enum_member, list):
-                        for enum_member_ in enum_member:
-                            enum_member_.alias = data_type.alias  # ty: ignore[unresolved-attribute]
-                    else:
-                        enum_member.alias = data_type.alias
 
     def __set_validate_default_on_fields(
         self,
@@ -6109,7 +6159,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 )
 
     @staticmethod
-    def _field_metadata(field: DataModelFieldBase) -> ModelFieldMetadata:
+    def _field_metadata(field: DataModelFieldBase, *, is_root_model: bool = False) -> ModelFieldMetadata:
         source_name = field.original_name
         if source_name is None:
             source_name = field.alias
@@ -6117,9 +6167,15 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             source_name = field.name
         if source_name is None:
             source_name = ""
+        if is_root_model:
+            # RootModel renderers use root rather than the IR's synthetic field name.
+            name = alias = "root"
+        else:
+            name = field.name if field.name is not None else source_name
+            alias = field.alias if field.alias is not None else source_name
         return {
-            "name": field.name if field.name is not None else source_name,
-            "alias": field.alias if field.alias is not None else source_name,
+            "name": name,
+            "alias": alias,
             "original_name": field.original_name,
             "type": field.type_hint,
             "required": field.required,
@@ -6141,7 +6197,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             "source_ref": source_ref,
             "source_path": _source_path_from_reference_path(source_ref),
             "title": title if isinstance(title, str) else None,
-            "fields": [cls._field_metadata(field) for field in model.fields],
+            "fields": [cls._field_metadata(field, is_root_model=model.IS_ROOT_MODEL) for field in model.fields],
         }
 
     @classmethod

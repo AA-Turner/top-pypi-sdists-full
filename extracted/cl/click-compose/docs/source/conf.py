@@ -1,6 +1,4 @@
-"""
-Configuration for Sphinx.
-"""
+"""Configuration for Sphinx."""
 
 import importlib.metadata
 from pathlib import Path
@@ -24,8 +22,17 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
     "sphinxcontrib.spelling",
+    "sphinxcontrib.towncrier.ext",
     "sphinx_substitution_extensions",
 ]
+
+# Render the unreleased ``newsfragments/`` entries into
+# ``docs/source/unreleased.rst`` so the Sphinx spelling, doc-build and
+# link-checking gates cover the prose before it is assembled into
+# CHANGELOG.rst at release time.
+towncrier_draft_autoversion_mode = "draft"
+towncrier_draft_include_empty = True
+towncrier_draft_working_directory = f"{_pyproject_file.parent}"
 
 templates_path = ["_templates"]
 source_suffix = ".rst"
@@ -104,8 +111,10 @@ html_show_copyright = False
 html_show_sphinx = False
 html_show_sourcelink = False
 html_theme_options = {
-    "source_edit_link": "https://github.com/adamtheturtle/click-compose/edit/main/docs/source/{filename}",
     "sidebar_hide_name": False,
+    "source_repository": "https://github.com/adamtheturtle/click-compose/",
+    "source_branch": "main",
+    "source_directory": "docs/source/",
 }
 
 # Retry link checking to avoid transient network errors.

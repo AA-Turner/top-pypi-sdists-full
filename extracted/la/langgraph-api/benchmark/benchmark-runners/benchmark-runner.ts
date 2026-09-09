@@ -3,6 +3,7 @@ import type { BenchmarkResult, BenchmarkGraphOptions } from './types.js';
 export interface ErrorMetrics {
   server_errors: { add(n: number): void };
   timeout_errors: { add(n: number): void };
+  connection_errors?: { add(n: number): void };
   api_errors?: { add(n: number): void };
   missing_message_errors?: { add(n: number): void };
   other_errors: { add(n: number): void };

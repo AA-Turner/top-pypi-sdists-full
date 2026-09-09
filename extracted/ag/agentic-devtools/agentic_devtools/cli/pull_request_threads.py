@@ -130,17 +130,20 @@ def _azure_devops_context(explicit_repository: str | None = None) -> tuple[str, 
     normalized_project = project.strip() if isinstance(project, str) and project.strip() else None
     normalized_repository = repository.strip() if isinstance(repository, str) and repository.strip() else None
 
-    if normalized_organization is None or normalized_project is None or normalized_repository is None:
-        remote_context = get_azure_devops_context_from_git_remote()
-        remote_organization = remote_context[0] if remote_context else None
-        remote_project = remote_context[1] if remote_context else None
-        remote_repository = remote_context[2] if remote_context else None
-        if normalized_organization is None:
-            normalized_organization = remote_organization
-        if normalized_project is None:
-            normalized_project = remote_project
-        if normalized_repository is None:
-            normalized_repository = remote_repository
+    if normalized_organization is not None and normalized_project is not None and normalized_repository is not None:
+        return normalized_organization, normalized_project, normalized_repository
+
+    remote_context = get_azure_devops_context_from_git_remote()
+    remote_organization = remote_context[0] if remote_context else None
+    remote_project = remote_context[1] if remote_context else None
+    remote_repository = remote_context[2] if remote_context else None
+
+    if normalized_organization is None:
+        normalized_organization = remote_organization
+    if normalized_project is None:
+        normalized_project = remote_project
+    if normalized_repository is None:
+        normalized_repository = remote_repository
     if normalized_organization is None or normalized_project is None or normalized_repository is None:
         raise ValueError("Azure DevOps organization, project, and repository are required")
     return normalized_organization, normalized_project, normalized_repository

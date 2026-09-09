@@ -210,7 +210,7 @@ fn apply_residual_layer(
         .map_err(|e| format!("ClearCodec residual: zlib decode error: {e}"))?;
 
     // Convert RGB → RGBA.
-    for (i, chunk) in rgb.chunks_exact(3).enumerate() {
+    for (i, chunk) in rgb.as_chunks::<3>().0.iter().enumerate() {
         let dst = i * 4;
         if dst + 3 < rgba.len() {
             rgba[dst] = chunk[0];

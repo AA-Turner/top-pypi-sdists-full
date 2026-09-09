@@ -342,6 +342,7 @@ pub(crate) async fn pip_install(
             &overrides,
             &override_dependencies,
             &excludes,
+            dependency_mode,
             InstallationStrategy::Permissive,
             &marker_env,
             &tags,
@@ -460,7 +461,7 @@ pub(crate) async fn pip_install(
         let entries = client
             .fetch_all(index_locations.flat_indexes().map(Index::url))
             .await?;
-        FlatIndex::from_entries(entries, Some(&tags), &hasher, &build_options)
+        FlatIndex::from_entries(entries)
     };
 
     // Determine whether to enable build isolation.

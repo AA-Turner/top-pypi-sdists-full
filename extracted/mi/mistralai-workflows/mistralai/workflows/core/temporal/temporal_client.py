@@ -1,6 +1,8 @@
 import asyncio
 import contextvars
 import math
+import ssl
+from pathlib import Path
 from typing import List, Type
 
 import structlog
@@ -10,7 +12,7 @@ from temporalio.client import Interceptor
 from temporalio.contrib.pydantic import PydanticPayloadConverter
 from temporalio.converter import DataConverter, PayloadCodec, PayloadConverter
 from temporalio.runtime import Runtime
-from temporalio.service import ConnectConfig, HttpConnectProxyConfig
+from temporalio.service import ConnectConfig, HttpConnectProxyConfig, TLSConfig
 from temporalio.service import ServiceClient as TemporalServiceClient
 
 from mistralai.workflows.core.auth import (
@@ -71,6 +73,61 @@ def _get_proxy_basic_auth(
     return None
 
 
+def _resolve_temporal_tls(tls: bool, ca_path: str | None) -> bool | TLSConfig:
+    """Resolve the TLS setting for a Temporal connection, pinning a root CA when one is configured.
+
+    The CA only supplies a trust root; ``tls`` stays authoritative over whether TLS is used at all.
+    Callers pass the effective flag: local configuration if it set ``temporal.tls``, else the value
+    config discovery took from whoami.
+
+    A pinned CA *replaces* the default trust roots, so every failure to honour it raises rather than
+    falling back to plain ``tls``: falling back would connect over the public roots -- or in the
+    clear -- to precisely the endpoint the caller meant to pin.
+    """
+    if not ca_path:
+        # No pin configured: TLS, when on, verifies against the default trust roots.
+        return tls
+
+    if not tls:
+        raise WorkflowsException(
+            code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
+            message=(
+                f"Temporal TLS root CA is configured ({ca_path}) but TLS is off; "
+                "set TEMPORAL_TLS=true or unset TEMPORAL_TLS_SERVER_ROOT_CA_CERT_PATH"
+            ),
+        )
+
+    try:
+        ca_cert = Path(ca_path).read_bytes()
+    except (OSError, ValueError) as exc:
+        # ValueError rather than OSError for a path holding an embedded NUL byte.
+        raise WorkflowsException(
+            code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
+            message=f"Cannot read Temporal TLS root CA at {ca_path}",
+        ) from exc
+
+    if not ca_cert.strip():
+        raise WorkflowsException(
+            code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
+            message=f"Temporal TLS root CA at {ca_path} is empty",
+        )
+
+    # Parse it here, otherwise a wrong-but-readable file surfaces as an opaque error from Temporal's
+    # Rust core. `ssl` decodes the DER inside the PEM envelope, so a truncated or corrupted
+    # certificate is caught too.
+    try:
+        ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT).load_verify_locations(cadata=ca_cert.decode())
+    # ValueError also covers the UnicodeDecodeError of a binary (DER) file; ssl.SSLError is an OSError.
+    except (ssl.SSLError, ValueError) as exc:
+        raise WorkflowsException(
+            code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
+            message=f"Temporal TLS root CA at {ca_path} is not a valid PEM certificate: {exc}",
+        ) from exc
+
+    logger.info("pinning temporal TLS root CA", ca_path=ca_path)
+    return TLSConfig(server_root_ca_cert=ca_cert)
+
+
 def _resolve_temporal_token() -> TokenProvider | None:
     """Resolve the Temporal bearer source: explicit ``config.temporal.api_key`` wins, else the SDK provider.
 
@@ -106,10 +163,12 @@ async def create_temporal_service_client(runtime: Runtime | None = None) -> Temp
     # (self-exporting, no drainer) — metrics for static creds / explicit endpoints, disabled under rotation.
     if runtime is None:
         runtime = build_client_runtime()
+    tls = _resolve_temporal_tls(config.temporal.tls, config.temporal.tls_server_root_ca_cert_path)
     logger.info(
         "creating temporal service client",
         url=config.temporal.server_url,
-        tls=config.temporal.tls,
+        tls=bool(tls),
+        pinned_root_ca=isinstance(tls, TLSConfig),
         runtime=runtime,
     )
     provider = _resolve_temporal_token()
@@ -136,7 +195,7 @@ async def create_temporal_service_client(runtime: Runtime | None = None) -> Temp
                 target_host=config.temporal.server_url,
                 api_key=temporal_api_key or None,
                 runtime=runtime,
-                tls=config.temporal.tls,
+                tls=tls,
                 http_connect_proxy_config=http_connect_proxy_config,
             )
         )

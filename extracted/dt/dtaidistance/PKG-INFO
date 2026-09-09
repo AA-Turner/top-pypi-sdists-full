@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dtaidistance
-Version: 2.4.0
+Version: 2.5.0
 Summary: Distance measures for time series (Dynamic Time Warping, fast C implementation)
 Author-email: Wannes Meert <wannes.meert@cs.kuleuven.be>
 License-Expression: Apache-2.0
@@ -26,8 +26,13 @@ Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: matplotlib>=3.0.0; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: scipy; extra == "dev"
+Requires-Dist: pandas; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx_rtd_theme; extra == "dev"
+Requires-Dist: setuptools; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: Cython; extra == "dev"
+Requires-Dist: wurlitzer; extra == "dev"
 Provides-Extra: numpy
 Requires-Dist: numpy; extra == "numpy"
 Requires-Dist: scipy; extra == "numpy"

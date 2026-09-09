@@ -26,6 +26,7 @@ class NativeTriggerWithExternal:
         is_flow (bool): Whether the trigger targets a flow (true) or a script (false)
         service_config (NativeTriggerWithExternalServiceConfig): Configuration for the trigger including event_type and
             service_config
+        enabled (bool): Whether the trigger starts a job when it fires
         error (Union[Unset, None, str]): Error message if the trigger is in an error state
         summary (Union[Unset, None, str]): Short summary to be displayed when listed
         external_data (Optional[NativeTriggerWithExternalExternalData]): Configuration data from the external service.
@@ -40,6 +41,7 @@ class NativeTriggerWithExternal:
     script_path: str
     is_flow: bool
     service_config: "NativeTriggerWithExternalServiceConfig"
+    enabled: bool
     external_data: Optional["NativeTriggerWithExternalExternalData"]
     error: Union[Unset, None, str] = UNSET
     summary: Union[Unset, None, str] = UNSET
@@ -55,6 +57,7 @@ class NativeTriggerWithExternal:
         is_flow = self.is_flow
         service_config = self.service_config.to_dict()
 
+        enabled = self.enabled
         error = self.error
         summary = self.summary
         external_data = self.external_data.to_dict() if self.external_data else None
@@ -71,6 +74,7 @@ class NativeTriggerWithExternal:
                 "script_path": script_path,
                 "is_flow": is_flow,
                 "service_config": service_config,
+                "enabled": enabled,
                 "external_data": external_data,
             }
         )
@@ -101,6 +105,8 @@ class NativeTriggerWithExternal:
 
         service_config = NativeTriggerWithExternalServiceConfig.from_dict(d.pop("service_config"))
 
+        enabled = d.pop("enabled")
+
         error = d.pop("error", UNSET)
 
         summary = d.pop("summary", UNSET)
@@ -121,6 +127,7 @@ class NativeTriggerWithExternal:
             script_path=script_path,
             is_flow=is_flow,
             service_config=service_config,
+            enabled=enabled,
             error=error,
             summary=summary,
             external_data=external_data,

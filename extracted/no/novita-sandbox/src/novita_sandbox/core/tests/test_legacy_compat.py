@@ -1303,10 +1303,13 @@ def _sandbox_connect_json():
         "domain": "sandbox-domain",
         "envdVersion": "0.5.7",
         "envdAccessToken": "envd-access-token",
+        "trafficAccessToken": "traffic-access-token",
     }
 
 
 def test_sandbox_connect_legacy_returns_composite_sandbox_id(monkeypatch):
+    calls = []
+
     class Response:
         status_code = 200
         content = b""
@@ -1318,6 +1321,7 @@ def test_sandbox_connect_legacy_returns_composite_sandbox_id(monkeypatch):
     class HttpxClient:
         @staticmethod
         def post(*args, **kwargs):
+            calls.append(kwargs)
             return Response()
 
     class ApiClient:
@@ -1335,12 +1339,27 @@ def test_sandbox_connect_legacy_returns_composite_sandbox_id(monkeypatch):
         "sandbox-id-client-id",
         domain="sandbox.novita.ai",
         api_key="test-api-key",
+        secure=True,
+        allow_public_traffic=False,
     )
 
     assert sandbox.sandbox_id == "sandbox-id-client-id"
+    assert sandbox.traffic_access_token == "traffic-access-token"
+    assert calls == [
+        {
+            "json": {
+                "timeout": 300,
+                "autoPause": False,
+                "secure": True,
+                "allowPublicTraffic": False,
+            }
+        }
+    ]
 
 
 def test_sandbox_connect_legacy_without_client_id_returns_raw_sandbox_id(monkeypatch):
+    calls = []
+
     class Response:
         status_code = 200
         content = b""
@@ -1358,6 +1377,7 @@ def test_sandbox_connect_legacy_without_client_id_returns_raw_sandbox_id(monkeyp
     class HttpxClient:
         @staticmethod
         def post(*args, **kwargs):
+            calls.append(kwargs)
             return Response()
 
     class ApiClient:
@@ -1378,10 +1398,13 @@ def test_sandbox_connect_legacy_without_client_id_returns_raw_sandbox_id(monkeyp
     )
 
     assert sandbox.sandbox_id == "sandbox-id"
+    assert calls == [{"json": {"timeout": 300, "autoPause": False}}]
 
 
 @pytest.mark.asyncio
 async def test_async_sandbox_connect_legacy_returns_composite_sandbox_id(monkeypatch):
+    calls = []
+
     class Response:
         status_code = 200
         content = b""
@@ -1393,6 +1416,7 @@ async def test_async_sandbox_connect_legacy_returns_composite_sandbox_id(monkeyp
     class AsyncHttpxClient:
         @staticmethod
         async def post(*args, **kwargs):
+            calls.append(kwargs)
             return Response()
 
     class ApiClient:
@@ -1410,9 +1434,22 @@ async def test_async_sandbox_connect_legacy_returns_composite_sandbox_id(monkeyp
         "sandbox-id-client-id",
         domain="sandbox.novita.ai",
         api_key="test-api-key",
+        secure=False,
+        allow_public_traffic=True,
     )
 
     assert sandbox.sandbox_id == "sandbox-id-client-id"
+    assert sandbox.traffic_access_token == "traffic-access-token"
+    assert calls == [
+        {
+            "json": {
+                "timeout": 300,
+                "autoPause": False,
+                "secure": False,
+                "allowPublicTraffic": True,
+            }
+        }
+    ]
 
 
 # --- NotImplementedError on legacy domain tests ---

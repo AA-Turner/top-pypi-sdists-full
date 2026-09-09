@@ -482,16 +482,32 @@ class RunCache:
     def cache_compiled_view_sql(self, node: ManifestSQLNode) -> None:
         """Pre-populate the view definition cache from a compiled dbt model node.
 
-        Only caches plain view models (not materialized_view, ephemeral, etc.) that have
+        Only caches plain view models (not materialized_view, ephemeral, etc.) or an audit
+        relation of a data test with storage failures stored as a view that have
         compiled SQL available. This avoids expensive database round-trips for views whose
         SQL is already known from dbt compilation.
 
         Args:
             node: The compiled manifest node to potentially cache.
         """
+        is_data_test_with_failure_view = (
+            isinstance(node, (GenericTestNode, SingularTestNode))
+            and getattr(node.config, "store_failures", None)
+            and getattr(node.config, "store_failures_as", None) == "view"
+        )
         if (
             isinstance(node, ModelNode)
             and (node.get_materialization() or "view") == "view"
+            and node.compiled_code
+        ) or (
+            is_data_test_with_failure_view
+            # Skip caching the definition when the test sets `limit`. We take the definition
+            # from node.compiled_code, but `limit` is not included in the node's compiled code.
+            # dbt adds the limit only at materialization, when the view is actually created.
+            # This means compiled_code wouldn't match the built view, so the data test count
+            # query that reads this cached definition would be using a view body that does
+            # not match what was materialized.
+            and getattr(node.config, "limit", None) is None
             and node.compiled_code
         ):
             table = self._node_to_table(node)
@@ -2178,19 +2194,50 @@ class _DataTestAdapterProxy:
                     sql,
                     lambda: self._adapter.execute(sql, *args, **kwargs),
                 )
-            if isinstance(parsed_test_sql, exp.Create) and parsed_test_sql.kind == "TABLE":
-                # Handle the CTAS statement which creates a table with data test failures
+            if isinstance(parsed_test_sql, exp.Create) and parsed_test_sql.kind in (
+                "TABLE",
+                "VIEW",
+            ):
+                # Handle the CTAS statement which creates a table or the CREATE VIEW AS SELECT which creates a view
+                # with data test failures
                 cached_run_result = None
                 query_cache_response = None
+                execution_type = (
+                    shared_models.ModelExecutionType.VIEW
+                    if parsed_test_sql.kind == "VIEW"
+                    else shared_models.ModelExecutionType.FULL
+                )
+                materialization_kind = (
+                    RelationType.View.value
+                    if parsed_test_sql.kind == "VIEW"
+                    else RelationType.Table.value
+                )
                 try:
                     query_cache_response = self._run_cache._submit_sql_request(  # noqa: SLF001
-                        self._node, sql=sql, execution_type=shared_models.ModelExecutionType.FULL
+                        self._node, sql=sql, execution_type=execution_type
                     )
                     cached_run_result = self._run_cache._process_query_cache_response(  # noqa: SLF001
                         self._node, query_cache_response
                     )
                     if isinstance(cached_run_result, RunResult):
                         # We got a cache hit for the CTAS statement
+                        explained_decision = getattr(
+                            query_cache_response, "explained_decision", None
+                        )
+                        decision = (
+                            explained_decision.decision
+                            if explained_decision
+                            else shared_models.SubmitSQLResultType.SKIP_EXECUTION
+                        )
+                        description = (
+                            explained_decision.decision_description if explained_decision else ""
+                        )
+                        self._run_cache._decision_logger.log_stored_failures(  # noqa: SLF001
+                            self._node.name,
+                            materialization_kind,
+                            decision,
+                            description,
+                        )
                         self._adapter.commit_if_has_connection()
                         return AdapterResponse(_message=NO_OP_STATUS), agate.Table.from_object([])  # ty: ignore[unresolved-attribute]
                 except Exception as e:
@@ -2199,14 +2246,31 @@ class _DataTestAdapterProxy:
                         self._node.unique_id,
                         str(e),
                     )
-
+                explained_decision = getattr(query_cache_response, "explained_decision", None)
+                decision = (
+                    explained_decision.decision
+                    if explained_decision
+                    else shared_models.SubmitSQLResultType.READY_TO_EXECUTE
+                )
+                description = explained_decision.decision_description if explained_decision else ""
+                self._run_cache._decision_logger.log_stored_failures(  # noqa: SLF001
+                    self._node.name,
+                    materialization_kind,
+                    decision,
+                    description,
+                )
                 execution_start_ts = perf_counter()
                 if self._relation_to_drop:
                     # Execute the postponed drop
                     self._adapter.drop_relation(self._relation_to_drop)
                 result = self._adapter.execute(sql, *args, **kwargs)
                 elapsed_ms = int((perf_counter() - execution_start_ts) * 1000)
-                self._adapter_ext.cache_node_relation(self._node)
+                self._adapter_ext.cache_node_relation(
+                    self._node,
+                    relation_type=RelationType.View
+                    if parsed_test_sql.kind == "VIEW"
+                    else RelationType.Table,
+                )
 
                 try:
                     self._adapter.commit_if_has_connection()
@@ -2267,7 +2331,7 @@ class _DataTestAdapterProxy:
         return self._adapter.execute(sql, *args, **kwargs)
 
     def drop_relation(self, relation: BaseRelation) -> None:
-        if relation.type == RelationType.Table and (
+        if relation.type in (RelationType.Table, RelationType.View) and (
             self._node.schema.lower(),
             self._node.identifier.lower(),
         ) == (

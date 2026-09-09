@@ -45,7 +45,8 @@ class TestStageParamsQueryExpand(unittest.TestCase):
                 include_original = True,
                 rrf_k = 1,
                 fusion_strategy = 'rrf',
-                deduplicate = True
+                deduplicate = True,
+                expansion_timeout_ms = 1
             )
         else:
             return StageParamsQueryExpand(

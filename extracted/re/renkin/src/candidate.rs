@@ -56,7 +56,7 @@ use crate::chem_env::apply_retro;
 use crate::chem_env::{
     Molecule, PrecursorMol, RetroRule, TemplateBondIndex, mol_from_smiles, to_canonical,
 };
-use crate::score::step_cost;
+use crate::score::step_cost_iter;
 #[cfg(test)]
 use crate::search::is_extracted_template;
 
@@ -1128,21 +1128,45 @@ pub(crate) fn raw_propose(
     use crate::search::ElementAccountingGatePolicy;
     use crate::spectator_bond::SpectatorBondPolicy;
 
-    let target_elem_mask: u64 = crate::search::elem_mask_from_smiles(target_smi);
+    let target_inventory = crate::search::element_inventory_from_molecule(target_mol);
+
+    // Run the cheap conservative screens sequentially before entering Rayon.
+    // The extracted-template corpus is large, while only a subset can match a
+    // given target. Scheduling thousands of immediately-empty Rayon jobs costs
+    // more than one cache-friendly pass, and this also resolves each prepared
+    // rule exactly once for the later expensive reaction application.
+    let applicable_rules: Vec<(
+        &ScoredRuleRef<'_>,
+        Option<&crate::chem_env::PreparedRetroRule>,
+    )> = active_rules
+        .iter()
+        .filter_map(|r| {
+            if r.rule.required_elements != 0
+                && (target_inventory.element_mask & r.rule.required_elements
+                    != r.rule.required_elements)
+            {
+                return None;
+            }
+            let prepared = prepared_rules.and_then(|rules| rules.get(r.rule));
+            if prepared.is_some_and(|rule| !rule.matches_inventory(&target_inventory)) {
+                return None;
+            }
+            Some((r, prepared))
+        })
+        .collect();
+
     // Ring perception is target-specific but rule-independent. chematic's
     // default SMARTS entry point computes SSSR per query; prepared proposal
     // computes it once here and shares it across every active rule.
-    let target_rings = prepared_rules.and_then(|prepared| {
-        active_rules
-            .iter()
-            .any(|rule| prepared.get(rule.rule).is_some())
-            .then(|| chematic::perception::find_sssr(target_mol))
-    });
+    let target_rings = applicable_rules
+        .iter()
+        .any(|(_, prepared)| prepared.is_some())
+        .then(|| chematic::perception::find_sssr(target_mol));
 
     #[cfg(not(target_arch = "wasm32"))]
-    let iter = active_rules.par_iter();
+    let iter = applicable_rules.par_iter();
     #[cfg(target_arch = "wasm32")]
-    let iter = active_rules.iter();
+    let iter = applicable_rules.iter();
 
     // Production-default fast path. The general path below must retain one
     // diagnostics tuple per rule so it can merge optional ring/spectator/
@@ -1157,18 +1181,17 @@ pub(crate) fn raw_propose(
     ) && spectator_bond_policy == SpectatorBondPolicy::Off
         && element_accounting_policy == ElementAccountingGatePolicy::Off
     {
-        let eligible = |r: &&ScoredRuleRef<'_>| {
-            r.rule.required_elements == 0
-                || (target_elem_mask & r.rule.required_elements == r.rule.required_elements)
-        };
-        let expand = |r: &ScoredRuleRef<'_>| {
+        let expand = |&(r, prepared): &(
+            &ScoredRuleRef<'_>,
+            Option<&crate::chem_env::PreparedRetroRule>,
+        )| {
             let mut diag = crate::ring_context::RingContextDiagnostics::default();
             crate::ring_context::apply_retro_with_policy_prepared(
                 target_mol,
                 r.rule,
                 &ring.config,
                 &mut diag,
-                prepared_rules.and_then(|rules| rules.get(r.rule)),
+                prepared,
                 target_rings.as_ref(),
             )
             .into_iter()
@@ -1185,10 +1208,25 @@ pub(crate) fn raw_propose(
             })
             .collect::<Vec<_>>()
         };
+        // Rayon setup/synchronization costs dominate when bond-index
+        // retrieval leaves only a handful of applicable rules. Keep the
+        // large-pool path parallel, but use the same ordered iterator logic
+        // sequentially for small pools; candidate ordering and contents are
+        // unchanged.
+        if applicable_rules.len() < 32 {
+            let raw = applicable_rules.iter().flat_map(expand).collect();
+            return (
+                raw,
+                crate::ring_context::RingContextDiagnostics::default(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+        }
         #[cfg(not(target_arch = "wasm32"))]
-        let raw = iter.filter(eligible).flat_map_iter(expand).collect();
+        let raw = iter.flat_map_iter(expand).collect();
         #[cfg(target_arch = "wasm32")]
-        let raw = iter.filter(eligible).flat_map(expand).collect();
+        let raw = iter.flat_map(expand).collect();
         return (
             raw,
             crate::ring_context::RingContextDiagnostics::default(),
@@ -1199,18 +1237,14 @@ pub(crate) fn raw_propose(
     }
 
     let per_rule: Vec<PerRuleProposal> = iter
-        .filter(|r| {
-            r.rule.required_elements == 0
-                || (target_elem_mask & r.rule.required_elements == r.rule.required_elements)
-        })
-        .map(|r| {
+        .map(|&(r, prepared)| {
             let mut diag = crate::ring_context::RingContextDiagnostics::default();
             let mut candidates = crate::ring_context::apply_retro_with_policy_prepared(
                 target_mol,
                 r.rule,
                 &ring.config,
                 &mut diag,
-                prepared_rules.and_then(|rules| rules.get(r.rule)),
+                prepared,
                 target_rings.as_ref(),
             )
             .into_iter()
@@ -1470,13 +1504,7 @@ pub(crate) fn merge_into_candidates(
 
         let candidate_id = candidate_id_for(canonical_target, &precursor_smiles);
 
-        let base_step_cost = step_cost(
-            &proposal
-                .precursors
-                .iter()
-                .map(|p| &p.mol)
-                .collect::<Vec<_>>(),
-        );
+        let base_step_cost = step_cost_iter(proposal.precursors.iter().map(|p| &p.mol));
 
         let source = CandidateSource {
             template_id: proposal.template_id.clone(),

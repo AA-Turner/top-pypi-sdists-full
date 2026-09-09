@@ -7,11 +7,9 @@ import copy
 import dataclasses
 import json
 import math
-import threading
 from collections import deque
-from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal, cast, get_args
 from uuid import uuid4
 
@@ -40,6 +38,12 @@ from openai.types.responses.response_output_item import (
 from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 from typing_extensions import TypedDict, TypeVar
 
+from ._run_state_agent_identity import (
+    _build_agent_identity_keys_by_id,
+    _build_agent_identity_map,
+    _build_agent_map,
+    _iter_agent_graph,
+)
 from ._tool_identity import (
     FunctionToolLookupKey,
     NamedToolLookupKey,
@@ -114,8 +118,6 @@ from .run_internal.tool_caller import (
     ensure_programmatic_tool_call_parent,
     ensure_tool_caller_allowed,
 )
-from .sandbox.capabilities.capability import Capability
-from .sandbox.session.base_sandbox_session import BaseSandboxSession
 from .tool import (
     ApplyPatchTool,
     ComputerTool,
@@ -165,6 +167,15 @@ RunStateValidationErrorFactory = Callable[
 ]
 
 
+class _PendingSessionWrite(TypedDict):
+    """One canonical resumed-output append awaiting acknowledgement."""
+
+    session_id: str
+    items: list[TResponseInputItem]
+    before: list[str] | None
+    persisted_count: int
+
+
 def _default_run_state_validation_error(
     message: str,
     error_type: RunStateValidationErrorType,
@@ -179,9 +190,10 @@ def _default_run_state_validation_error(
 # 3. to_json() always emits CURRENT_SCHEMA_VERSION.
 # 4. Forward compatibility is intentionally fail-fast (older SDKs reject newer or unsupported
 #    versions).
-CURRENT_SCHEMA_VERSION = "1.16"
+CURRENT_SCHEMA_VERSION = "1.17"
 _PROGRAMMATIC_TOOL_CALLING_MIN_SCHEMA_VERSION = "1.13"
 _HOSTED_MCP_APPROVALS_MIN_SCHEMA_VERSION = "1.14"
+_CURRENT_RESPONSE_OWNERSHIP_MIN_SCHEMA_VERSION = "1.17"
 # Keep this mapping in chronological order. Every schema bump must add a one-line summary here.
 SCHEMA_VERSION_SUMMARIES: dict[str, str] = {
     "1.0": "Initial RunState snapshot format for HITL pause/resume flows.",
@@ -212,6 +224,10 @@ SCHEMA_VERSION_SUMMARIES: dict[str, str] = {
     "1.16": (
         "Persists Docker network-isolation state and lets an exact call approval decision "
         "override a sticky decision for the same tool."
+    ),
+    "1.17": (
+        "Persists Docker container labels and current-response generated-item ownership across "
+        "resume flows, including pending resumed Session writes and terminal-unrecoverable runs."
     ),
 }
 SUPPORTED_SCHEMA_VERSIONS = frozenset(SCHEMA_VERSION_SUMMARIES)
@@ -752,6 +768,13 @@ class RunState(Generic[TContext, TAgent]):
     enough information to continue an interrupted run, including model responses, generated
     items, approval state, and optional server-managed conversation identifiers.
 
+    A failed Session append after resumed tool work that continues to another model call remains
+    pending across serialization.
+    Resume with the original Session backend and session ID, with exclusive access to that history.
+    Runner reconciles the exact pending batch before the next model call without rerunning the tool.
+    Changed or ambiguous history requires application repair. Independently restored snapshots must
+    not be resumed concurrently against the same Session.
+
     Context serialization is intentionally conservative:
 
     - Mapping contexts round-trip directly.
@@ -849,6 +872,19 @@ class RunState(Generic[TContext, TAgent]):
     _schema_version: str = field(default=CURRENT_SCHEMA_VERSION, repr=False)
     """Schema version the snapshot was loaded from for schema-gated resume compatibility."""
 
+    _pending_session_write: _PendingSessionWrite | None = field(default=None, repr=False)
+    """Canonical Session append that must settle before another model call."""
+
+    _session_write_in_progress: bool = field(default=False, repr=False)
+    """Live ownership guard; independent serialized copies require caller serialization."""
+
+    _terminal_unrecoverable: bool = field(default=False, repr=False)
+    """Set once a final output, its guardrails, and its terminal hooks have all completed.
+
+    It closes the state for the window where the run owns an accepted result that no resume can
+    reproduce, and it is cleared only once that turn is fully persisted.
+    """
+
     def __init__(
         self,
         context: RunContextWrapper[TContext],
@@ -889,6 +925,9 @@ class RunState(Generic[TContext, TAgent]):
         self._trace_state = None
         self._sandbox = None
         self._schema_version = CURRENT_SCHEMA_VERSION
+        self._pending_session_write = None
+        self._session_write_in_progress = False
+        self._terminal_unrecoverable = False
         from .agent_tool_state import get_agent_tool_state_scope
 
         self._agent_tool_state_scope_id = get_agent_tool_state_scope(context)
@@ -896,6 +935,8 @@ class RunState(Generic[TContext, TAgent]):
     def _copy_for_result_checkpoint(self) -> RunState[TContext, TAgent]:
         """Copy SDK-owned decision state when nesting this checkpoint in a result snapshot."""
         copied = copy.copy(self)
+        copied._pending_session_write = copy.deepcopy(self._pending_session_write)
+        copied._session_write_in_progress = False
         if self._context is None:
             return copied
         copied._context = self._context._copy_for_run_state()
@@ -1456,6 +1497,46 @@ class RunState(Generic[TContext, TAgent]):
             indexes.append(session_index)
         return indexes
 
+    def _current_response_generated_item_ownership(
+        self,
+        generated_items: Sequence[RunItem],
+    ) -> dict[str, Any] | None:
+        """Record the response range and approval occurrences from live item identities."""
+        from .run_internal.run_steps import NextStepInterruption
+
+        if self._last_processed_response is None:
+            return None
+        if not isinstance(self._current_step, NextStepInterruption):
+            return None
+
+        processed_items = self._last_processed_response.new_items
+        interruptions = self._current_step.interruptions
+        if not processed_items or not interruptions or len(processed_items) > len(generated_items):
+            return None
+
+        candidate_starts = [
+            start
+            for start in range(len(generated_items) - len(processed_items) + 1)
+            if all(
+                generated_items[start + offset] is item
+                for offset, item in enumerate(processed_items)
+            )
+        ]
+        if len(candidate_starts) != 1:
+            return None
+
+        start = candidate_starts[0]
+        indexes_by_identity: dict[int, list[int]] = {}
+        for index in range(start + len(processed_items), len(generated_items)):
+            indexes_by_identity.setdefault(id(generated_items[index]), []).append(index)
+        interruption_indexes: list[int] = []
+        for item in interruptions:
+            indexes = indexes_by_identity.pop(id(item), [])
+            if len(indexes) != 1:
+                return None
+            interruption_indexes.append(indexes[0])
+        return {"start": start, "end": len(generated_items), "interruptions": interruption_indexes}
+
     def _serialize_context_payload(
         self,
         *,
@@ -1804,6 +1885,14 @@ class RunState(Generic[TContext, TAgent]):
             "generated_session_item_indexes": self._generated_session_item_indexes(generated_items),
         }
 
+        current_response_generated_item_ownership = self._current_response_generated_item_ownership(
+            generated_items
+        )
+        if current_response_generated_item_ownership is not None:
+            result["current_response_generated_item_ownership"] = (
+                current_response_generated_item_ownership
+            )
+
         result["generated_items"] = [
             self._serialize_item(item, agent_identity_keys_by_id=agent_identity_keys_by_id)
             for item in generated_items
@@ -1826,6 +1915,10 @@ class RunState(Generic[TContext, TAgent]):
             else None
         )
         result["current_turn_persisted_item_count"] = self._current_turn_persisted_item_count
+        if self._pending_session_write is not None:
+            result["pending_session_write"] = copy.deepcopy(self._pending_session_write)
+        if self._terminal_unrecoverable:
+            result["terminal_unrecoverable"] = True
         result["trace"] = self._serialize_trace_data(
             include_tracing_api_key=include_tracing_api_key
         )
@@ -4249,6 +4342,24 @@ async def _build_run_state_from_json(
                 current_step_data.get("data", {}).get("llm_end_hooks_started", True)
             ),
         )
+        _restore_current_response_item_identities(
+            state,
+            serialized_generated_items=serialized_generated_items,
+            generated_source_indexes=generated_source_indexes,
+            last_processed_response_data=last_processed_response_data,
+            current_step_data=current_step_data,
+            current_response_generated_item_ownership=(
+                state_json.get("current_response_generated_item_ownership")
+                if (schema_major, schema_minor)
+                >= tuple(
+                    int(part)
+                    for part in _CURRENT_RESPONSE_OWNERSHIP_MIN_SCHEMA_VERSION.split(
+                        ".", maxsplit=1
+                    )
+                )
+                else None
+            ),
+        )
         if state._current_step.response_accepted:
             state._clear_generated_items_last_processed_marker()
         for approval_item in state._current_step.interruptions:
@@ -4257,6 +4368,38 @@ async def _build_run_state_from_json(
     state._current_turn_persisted_item_count = state_json.get(
         "current_turn_persisted_item_count", 0
     )
+    pending_write = state_json.get("pending_session_write")
+    if pending_write is not None:
+        from .run_internal.run_steps import NextStepInterruption, NextStepRunAgain
+
+        if (
+            (schema_major, schema_minor) < (1, 17)
+            or not isinstance(state._current_step, NextStepRunAgain | NextStepInterruption)
+            or not isinstance(pending_write, dict)
+            or set(pending_write) != {"session_id", "items", "before", "persisted_count"}
+            or not isinstance(pending_write.get("session_id"), str)
+            or not isinstance(pending_write.get("items"), list)
+            or not pending_write["items"]
+            or not all(isinstance(item, dict) for item in pending_write["items"])
+            or (
+                pending_write.get("before") is not None
+                and (
+                    not isinstance(pending_write["before"], list)
+                    or not all(isinstance(item, str) for item in pending_write["before"])
+                )
+            )
+            or type(pending_write.get("persisted_count")) is not int
+            or pending_write["persisted_count"] < 0
+        ):
+            raise validation_error_factory("Run state pending Session write is invalid", UserError)
+        state._pending_session_write = copy.deepcopy(cast(_PendingSessionWrite, pending_write))
+    terminal_unrecoverable = state_json.get("terminal_unrecoverable")
+    if terminal_unrecoverable is not None:
+        # An older label never wrote this marker, so honoring one would let a snapshot claim a
+        # resume boundary the schema it declares does not have.
+        if (schema_major, schema_minor) < (1, 17) or terminal_unrecoverable is not True:
+            raise validation_error_factory("Run state terminal marker is invalid", UserError)
+        state._terminal_unrecoverable = True
     serialized_policy = state_json.get("reasoning_item_id_policy")
     if serialized_policy in {"preserve", "omit"}:
         state._reasoning_item_id_policy = cast(Literal["preserve", "omit"], serialized_policy)
@@ -4568,481 +4711,6 @@ def _validate_completed_tool_invocations(
                 "and output.",
                 UserError,
             )
-
-
-def _iter_agent_graph(initial_agent: Agent[Any]) -> Iterator[Agent[Any]]:
-    """Yield agents reachable from the starting agent in breadth-first order."""
-    queue: deque[Agent[Any]] = deque([initial_agent])
-    seen_agent_ids: set[int] = set()
-
-    while queue:
-        current = queue.popleft()
-        current_id = id(current)
-        if current_id in seen_agent_ids:
-            continue
-        seen_agent_ids.add(current_id)
-        yield current
-
-        for handoff_item in current.handoffs:
-            handoff_agent: Any | None = None
-            handoff_agent_name: str | None = None
-
-            if isinstance(handoff_item, Handoff):
-                # Some custom/mocked Handoff subclasses bypass dataclass initialization.
-                # Prefer agent_name, then legacy name fallback used in tests.
-                candidate_name = getattr(handoff_item, "agent_name", None) or getattr(
-                    handoff_item, "name", None
-                )
-                if isinstance(candidate_name, str):
-                    handoff_agent_name = candidate_name
-
-                handoff_ref = getattr(handoff_item, "_agent_ref", None)
-                handoff_agent = handoff_ref() if callable(handoff_ref) else None
-                if handoff_agent is None:
-                    # Backward-compatibility fallback for custom legacy handoff objects that store
-                    # the target directly on `.agent`. New code should prefer `handoff()` objects.
-                    legacy_agent = getattr(handoff_item, "agent", None)
-                    if legacy_agent is not None:
-                        handoff_agent = legacy_agent
-                        logger.debug(
-                            "Using legacy handoff `.agent` fallback while building agent map. "
-                            "This compatibility path is not recommended for new code."
-                        )
-                if handoff_agent_name is None:
-                    candidate_name = getattr(handoff_agent, "name", None)
-                    handoff_agent_name = candidate_name if isinstance(candidate_name, str) else None
-                if handoff_agent is None or not hasattr(handoff_agent, "handoffs"):
-                    if handoff_agent_name:
-                        logger.debug(
-                            "Skipping unresolved handoff target while building agent map: %s",
-                            handoff_agent_name,
-                        )
-                    continue
-            else:
-                # Backward-compatibility fallback for custom legacy handoff wrappers that expose
-                # the target directly on `.agent` without inheriting from `Handoff`.
-                legacy_agent = getattr(handoff_item, "agent", None)
-                if legacy_agent is not None:
-                    handoff_agent = legacy_agent
-                    logger.debug(
-                        "Using legacy non-`Handoff` `.agent` fallback while building agent map."
-                    )
-                else:
-                    handoff_agent = handoff_item
-                candidate_name = getattr(handoff_agent, "name", None)
-                handoff_agent_name = candidate_name if isinstance(candidate_name, str) else None
-
-            if handoff_agent is not None and handoff_agent_name:
-                queue.append(cast(Agent[Any], handoff_agent))
-
-        # Include agent-as-tool instances so nested approvals can be restored.
-        tools = getattr(current, "tools", None)
-        if tools:
-            for tool in tools:
-                if not getattr(tool, "_is_agent_tool", False):
-                    continue
-                tool_agent = getattr(tool, "_agent_instance", None)
-                tool_agent_name = getattr(tool_agent, "name", None)
-                if tool_agent is not None and tool_agent_name:
-                    queue.append(tool_agent)
-
-
-def _allocate_unique_agent_identity(agent_name: str, used_identities: set[str]) -> str:
-    """Return a deterministic identity key without colliding with literal agent names."""
-    candidate = agent_name
-    next_index = 1
-    while candidate in used_identities:
-        next_index += 1
-        candidate = f"{agent_name}#{next_index}"
-    used_identities.add(candidate)
-    return candidate
-
-
-def _identity_type_name(value: Any) -> str:
-    return f"{type(value).__module__}.{type(value).__qualname__}"
-
-
-def _callable_identity_name(value: Any) -> str:
-    module = getattr(value, "__module__", type(value).__module__)
-    qualname = getattr(value, "__qualname__", type(value).__qualname__)
-    return f"{module}.{qualname}"
-
-
-def _normalize_identity_value(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, bytes | bytearray):
-        return {"type": "bytes", "length": len(value)}
-    if callable(value):
-        return {"callable": _callable_identity_name(value)}
-    if dataclasses.is_dataclass(value):
-        return {
-            "dataclass": _identity_type_name(value),
-            "value": _normalize_identity_value(dataclasses.asdict(cast(Any, value))),
-        }
-    if hasattr(value, "model_dump"):
-        try:
-            dumped = value.model_dump(exclude_unset=True)
-        except TypeError:
-            dumped = value.model_dump()
-        return {
-            "model": _identity_type_name(value),
-            "value": _normalize_identity_value(dumped),
-        }
-    if isinstance(value, Mapping):
-        return {
-            str(key): _normalize_identity_value(item)
-            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
-        }
-    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        return [_normalize_identity_value(item) for item in value]
-
-    value_name = getattr(value, "name", None)
-    if isinstance(value_name, str):
-        return {"type": _identity_type_name(value), "name": value_name}
-    return {"type": _identity_type_name(value)}
-
-
-def _stable_identity_text(value: Any) -> str:
-    return json.dumps(
-        _normalize_identity_value(value),
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-
-
-def _tool_identity_signature(tool: Any) -> dict[str, Any]:
-    signature: dict[str, Any] = {
-        "type": _identity_type_name(tool),
-        "name": getattr(tool, "name", None),
-    }
-    namespace = get_function_tool_namespace(tool)
-    if namespace is not None:
-        signature["namespace"] = namespace
-    qualified_name = get_function_tool_qualified_name(tool)
-    if qualified_name is not None:
-        signature["qualified_name"] = qualified_name
-    if hasattr(tool, "environment"):
-        signature["environment"] = _normalize_identity_value(tool.environment)
-    if getattr(tool, "_is_agent_tool", False):
-        nested_agent = getattr(tool, "_agent_instance", None)
-        signature["agent_tool_target"] = getattr(nested_agent, "name", None)
-    return signature
-
-
-_THREADING_LOCK_TYPES = (type(threading.Lock()), type(threading.RLock()))
-
-
-def _is_capability_runtime_only_value(value: Any) -> bool:
-    return isinstance(
-        value,
-        (
-            BaseSandboxSession,
-            asyncio.Event,
-            asyncio.Lock,
-            asyncio.Semaphore,
-            asyncio.Condition,
-            threading.Event,
-            *_THREADING_LOCK_TYPES,
-        ),
-    )
-
-
-def _normalize_capability_identity_value(
-    value: Any,
-    *,
-    seen: set[int] | None = None,
-) -> Any:
-    if seen is None:
-        seen = set()
-
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, Path):
-        return value.as_posix()
-    if isinstance(value, bytes | bytearray):
-        return {"type": "bytes", "length": len(value)}
-    if callable(value):
-        return {"callable": _callable_identity_name(value)}
-    if _is_capability_runtime_only_value(value):
-        return {"runtime_only": _identity_type_name(value)}
-    if isinstance(
-        value,
-        ApplyPatchTool | ComputerTool | FunctionTool | HostedMCPTool | LocalShellTool | ShellTool,
-    ):
-        return _tool_identity_signature(value)
-
-    object_id = id(value)
-    if object_id in seen:
-        return {"recursive": _identity_type_name(value)}
-
-    if dataclasses.is_dataclass(value):
-        seen.add(object_id)
-        try:
-            merged_fields = {
-                field.name: getattr(value, field.name) for field in dataclasses.fields(value)
-            }
-            if hasattr(value, "__dict__"):
-                for name, item in vars(value).items():
-                    if name.startswith("_") or name in merged_fields:
-                        continue
-                    merged_fields[name] = item
-            return {
-                "dataclass": _identity_type_name(value),
-                "value": {
-                    name: _normalize_capability_identity_value(
-                        item,
-                        seen=seen,
-                    )
-                    for name, item in sorted(merged_fields.items())
-                },
-            }
-        finally:
-            seen.remove(object_id)
-
-    if isinstance(value, Capability):
-        seen.add(object_id)
-        try:
-            merged_fields = {}
-            for name, field_info in value.__class__.model_fields.items():
-                if field_info.exclude or name.startswith("_") or name == "session":
-                    continue
-                merged_fields[name] = getattr(value, name)
-            return {
-                "capability": _identity_type_name(value),
-                "value": {
-                    name: _normalize_capability_identity_value(
-                        item,
-                        seen=seen,
-                    )
-                    for name, item in sorted(merged_fields.items())
-                },
-            }
-        finally:
-            seen.remove(object_id)
-
-    if hasattr(value, "model_dump"):
-        seen.add(object_id)
-        try:
-            try:
-                dumped = value.model_dump(mode="json", round_trip=True)
-            except TypeError:
-                dumped = value.model_dump(mode="json")
-            return {
-                "model": _identity_type_name(value),
-                "value": _normalize_capability_identity_value(dumped, seen=seen),
-            }
-        finally:
-            seen.remove(object_id)
-
-    if isinstance(value, Mapping):
-        seen.add(object_id)
-        try:
-            return {
-                str(key): _normalize_capability_identity_value(item, seen=seen)
-                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
-            }
-        finally:
-            seen.remove(object_id)
-
-    if isinstance(value, set | frozenset):
-        seen.add(object_id)
-        try:
-            normalized_items = [
-                _normalize_capability_identity_value(item, seen=seen) for item in value
-            ]
-            return sorted(normalized_items, key=_stable_identity_text)
-        finally:
-            seen.remove(object_id)
-
-    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        seen.add(object_id)
-        try:
-            return [_normalize_capability_identity_value(item, seen=seen) for item in value]
-        finally:
-            seen.remove(object_id)
-
-    if hasattr(value, "__dict__"):
-        seen.add(object_id)
-        try:
-            return {
-                "object": _identity_type_name(value),
-                "value": {
-                    name: _normalize_capability_identity_value(item, seen=seen)
-                    for name, item in sorted(vars(value).items())
-                    if not name.startswith("_")
-                },
-            }
-        finally:
-            seen.remove(object_id)
-
-    value_name = getattr(value, "name", None)
-    if isinstance(value_name, str):
-        return {"type": _identity_type_name(value), "name": value_name}
-    return {"type": _identity_type_name(value)}
-
-
-def _capability_identity_signature(capability: Any) -> dict[str, Any]:
-    return {
-        "type": _identity_type_name(capability),
-        "value": _normalize_capability_identity_value(capability),
-    }
-
-
-def _handoff_identity_signature(handoff_item: Agent[Any] | Handoff[Any, Any]) -> dict[str, Any]:
-    if isinstance(handoff_item, Handoff):
-        tool_name = getattr(handoff_item, "tool_name", None)
-        if not isinstance(tool_name, str):
-            tool_name = getattr(handoff_item, "name", None)
-        agent_name = getattr(handoff_item, "agent_name", None)
-        return {
-            "type": _identity_type_name(handoff_item),
-            "tool_name": tool_name,
-            "agent_name": agent_name if isinstance(agent_name, str) else None,
-            "input_filter": _normalize_identity_value(getattr(handoff_item, "input_filter", None)),
-            "nest_handoff_history": getattr(handoff_item, "nest_handoff_history", None),
-        }
-
-    return {
-        "type": _identity_type_name(handoff_item),
-        "agent_name": getattr(handoff_item, "name", None),
-    }
-
-
-def _agent_identity_signature(agent: Agent[Any]) -> str:
-    signature: dict[str, Any] = {
-        "agent_type": _identity_type_name(agent),
-        "handoff_description": getattr(agent, "handoff_description", None),
-        "instructions": _normalize_identity_value(getattr(agent, "instructions", None)),
-        "prompt": _normalize_identity_value(getattr(agent, "prompt", None)),
-        "model": _normalize_identity_value(getattr(agent, "model", None)),
-        "model_settings": _normalize_identity_value(getattr(agent, "model_settings", None)),
-        "mcp_config": _normalize_capability_identity_value(getattr(agent, "mcp_config", None)),
-        "hooks": _normalize_capability_identity_value(getattr(agent, "hooks", None)),
-        "input_guardrails": sorted(
-            _stable_identity_text(_normalize_capability_identity_value(guardrail))
-            for guardrail in getattr(agent, "input_guardrails", [])
-        ),
-        "output_guardrails": sorted(
-            _stable_identity_text(_normalize_capability_identity_value(guardrail))
-            for guardrail in getattr(agent, "output_guardrails", [])
-        ),
-        "output_type": _normalize_identity_value(getattr(agent, "output_type", None)),
-        "tool_use_behavior": _normalize_capability_identity_value(
-            getattr(agent, "tool_use_behavior", None)
-        ),
-        "reset_tool_choice": getattr(agent, "reset_tool_choice", None),
-        "tools": sorted(
-            _stable_identity_text(_tool_identity_signature(tool))
-            for tool in getattr(agent, "tools", [])
-        ),
-        "handoffs": sorted(
-            _stable_identity_text(_handoff_identity_signature(handoff_item))
-            for handoff_item in getattr(agent, "handoffs", [])
-        ),
-        "mcp_servers": sorted(
-            _stable_identity_text(server) for server in getattr(agent, "mcp_servers", [])
-        ),
-    }
-
-    default_manifest = getattr(agent, "default_manifest", None)
-    if default_manifest is not None:
-        signature["default_manifest"] = _normalize_capability_identity_value(default_manifest)
-
-    base_instructions = getattr(agent, "base_instructions", None)
-    if base_instructions is not None:
-        signature["base_instructions"] = _normalize_identity_value(base_instructions)
-
-    capabilities = getattr(agent, "capabilities", None)
-    if isinstance(capabilities, Sequence):
-        signature["capabilities"] = sorted(
-            _stable_identity_text(_capability_identity_signature(capability))
-            for capability in capabilities
-        )
-
-    return _stable_identity_text(signature)
-
-
-def _agent_identity_sort_key(
-    agent: Agent[Any],
-    *,
-    root_agent: Agent[Any],
-    original_index: int,
-) -> tuple[int, str, int]:
-    return (
-        0 if agent is root_agent else 1,
-        _agent_identity_signature(agent),
-        original_index,
-    )
-
-
-def _build_agent_identity_map(initial_agent: Agent[Any]) -> dict[str, Agent[Any]]:
-    """Build a stable identity map that preserves duplicate agent names."""
-    ordered_agents = list(_iter_agent_graph(initial_agent))
-    original_indices = {id(agent): index for index, agent in enumerate(ordered_agents)}
-    literal_names = {agent.name for agent in ordered_agents}
-    agents_by_name: dict[str, list[Agent[Any]]] = {}
-    for agent in ordered_agents:
-        agents_by_name.setdefault(agent.name, []).append(agent)
-
-    agent_identity_map: dict[str, Agent[Any]] = {}
-    used_identities: set[str] = set()
-    processed_names: set[str] = set()
-
-    for agent in ordered_agents:
-        agent_name = agent.name
-        if agent_name in processed_names:
-            continue
-        processed_names.add(agent_name)
-
-        group = agents_by_name[agent_name]
-        sorted_group = sorted(
-            group,
-            key=lambda candidate: _agent_identity_sort_key(
-                candidate,
-                root_agent=initial_agent,
-                original_index=original_indices[id(candidate)],
-            ),
-        )
-
-        base_agent = sorted_group[0]
-        used_identities.add(agent_name)
-        agent_identity_map[agent_name] = base_agent
-
-        next_index = 2
-        for duplicate_agent in sorted_group[1:]:
-            candidate = f"{agent_name}#{next_index}"
-            while candidate in used_identities or candidate in literal_names:
-                next_index += 1
-                candidate = f"{agent_name}#{next_index}"
-            used_identities.add(candidate)
-            agent_identity_map[candidate] = duplicate_agent
-            next_index += 1
-
-    return agent_identity_map
-
-
-def _build_agent_identity_keys_by_id(initial_agent: Agent[Any]) -> dict[int, str]:
-    """Build stable identity keys for the reachable agent graph."""
-    return {
-        id(agent): identity for identity, agent in _build_agent_identity_map(initial_agent).items()
-    }
-
-
-def _build_agent_map(initial_agent: Agent[Any]) -> dict[str, Agent[Any]]:
-    """Build a map of agent names to agents by traversing handoffs.
-
-    Args:
-        initial_agent: The starting agent.
-
-    Returns:
-        Dictionary mapping agent names to agent instances.
-    """
-    agent_map: dict[str, Agent[Any]] = {}
-    for agent in _iter_agent_graph(initial_agent):
-        agent_map.setdefault(agent.name, agent)
-
-    return agent_map
 
 
 def _deserialize_model_responses(responses_data: list[dict[str, Any]]) -> list[ModelResponse]:
@@ -5395,6 +5063,112 @@ def _deserialize_items_with_source_indexes(
     return items, source_indexes
 
 
+def _restore_current_response_item_identities(
+    state: RunState[Any],
+    *,
+    serialized_generated_items: Any,
+    generated_source_indexes: Sequence[int],
+    last_processed_response_data: Any,
+    current_step_data: Mapping[str, Any],
+    current_response_generated_item_ownership: Any,
+) -> None:
+    """Relink one response from explicit generated-item ownership after deserialization."""
+    from .run_internal.run_steps import NextStepInterruption
+
+    processed_response = state._last_processed_response
+    if processed_response is None:
+        return
+    current_step = state._current_step
+    if not isinstance(current_step, NextStepInterruption):
+        return
+    if not isinstance(serialized_generated_items, list):
+        return
+    if not isinstance(last_processed_response_data, Mapping):
+        return
+
+    serialized_processed_items = last_processed_response_data.get("new_items")
+    if not isinstance(serialized_processed_items, list) or not serialized_processed_items:
+        return
+    if len(processed_response.new_items) != len(serialized_processed_items):
+        return
+    current_step_payload = current_step_data.get("data")
+    if not isinstance(current_step_payload, Mapping):
+        return
+    serialized_interruptions = current_step_payload.get("interruptions")
+    if not isinstance(serialized_interruptions, list) or not serialized_interruptions:
+        return
+    if len(current_step.interruptions) != len(serialized_interruptions):
+        return
+    ownership = current_response_generated_item_ownership
+    if not isinstance(ownership, Mapping):
+        return
+    source_start = ownership.get("start")
+    source_end = ownership.get("end")
+    interruption_indexes = ownership.get("interruptions")
+    if type(source_start) is not int or type(source_end) is not int:
+        return
+    if source_start < 0 or source_end != len(serialized_generated_items):
+        return
+    processed_end = source_start + len(serialized_processed_items)
+    # Handoff filters can clear prior items without resetting the model turn count.
+    if processed_end > source_end:
+        return
+    if not isinstance(interruption_indexes, list):
+        return
+    if len(interruption_indexes) != len(serialized_interruptions) or any(
+        type(index) is not int or index < processed_end or index >= source_end
+        for index in interruption_indexes
+    ):
+        return
+    if len(set(interruption_indexes)) != len(interruption_indexes):
+        return
+    source_indexes = [*range(source_start, processed_end), *interruption_indexes]
+    serialized_current_response_items = [*serialized_processed_items, *serialized_interruptions]
+    if any(
+        serialized_generated_items[source_index] != expected_item
+        for source_index, expected_item in zip(
+            source_indexes,
+            serialized_current_response_items,
+            strict=True,
+        )
+    ):
+        return
+
+    restored_indexes_by_source: dict[int, list[int]] = {}
+    for restored_index, source_index in enumerate(generated_source_indexes):
+        restored_indexes_by_source.setdefault(source_index, []).append(restored_index)
+
+    restored_current_response_items: list[RunItem] = []
+    for source_index in range(source_start, source_end):
+        restored_indexes = restored_indexes_by_source.get(source_index)
+        if restored_indexes is None or len(restored_indexes) != 1:
+            return
+        restored_current_response_items.append(state._generated_items[restored_indexes[0]])
+
+    processed_item_count = len(serialized_processed_items)
+    restored_processed_items = restored_current_response_items[:processed_item_count]
+    restored_interruptions = [
+        restored_current_response_items[index - source_start] for index in interruption_indexes
+    ]
+    if not all(isinstance(item, ToolApprovalItem) for item in restored_interruptions):
+        return
+
+    # The complete current response must be the same terminal suffix in both histories.
+    session_start = len(state._session_items) - len(restored_current_response_items)
+    if session_start < 0 or any(
+        generated_item is not session_item
+        for generated_item, session_item in zip(
+            restored_current_response_items,
+            state._session_items[session_start:],
+            strict=True,
+        )
+    ):
+        return
+
+    processed_response.new_items = restored_processed_items
+    current_step.interruptions = cast(list[ToolApprovalItem], restored_interruptions)
+
+
 def _clone_original_input(original_input: str | list[Any]) -> str | list[Any]:
     """Return a deep copy of the original input so later mutations don't leak into saved state."""
     if isinstance(original_input, str):
@@ -5414,6 +5188,8 @@ _TRUSTED_RUN_STATE_ERROR_MESSAGES = frozenset(
         ),
         "Run state agent not found in agent map",
         "Run state pending_input must be a list",
+        "Run state pending Session write is invalid",
+        "Run state terminal marker is invalid",
         "Run state references an agent identity that is not present in the restored graph",
         (
             "RunState context was serialized from a custom type; provide context_deserializer "

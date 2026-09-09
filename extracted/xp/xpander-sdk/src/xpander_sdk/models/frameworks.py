@@ -9,6 +9,13 @@ class Framework(str, Enum):
 
     Attributes:
         Agno (str): Agno framework identifier.
+        GoogleADK (str): Google ADK framework identifier.
+        LangChain (str): LangChain framework identifier.
+        OpenAIAgents (str): OpenAI Agents framework identifier.
+        Strands (str): Strands Agents framework identifier.
+        OpenClaw (str): OpenClaw framework identifier.
+        ClaudeCode (str): Claude Code CLI harness identifier.
+        Codex (str): Codex CLI harness identifier.
     """
 
     Agno = "agno"
@@ -17,6 +24,19 @@ class Framework(str, Enum):
     OpenAIAgents = "open-ai-agents"
     Strands = "strands-agents"
     OpenClaw = "open-claw"
+    ClaudeCode = "claude-code"
+    Codex = "codex"
+
+
+HARNESS_FRAMEWORKS = frozenset({Framework.ClaudeCode, Framework.Codex})
+
+
+def is_harness_framework(value: "Framework | str | None") -> bool:
+    """True for the CLI harness frameworks; accepts enum, str or None."""
+    if value is None:
+        return False
+    raw = value.value if isinstance(value, Framework) else str(value)
+    return raw.strip().lower() in {f.value for f in HARNESS_FRAMEWORKS}
 
 
 class AgnoSettings(BaseModel):

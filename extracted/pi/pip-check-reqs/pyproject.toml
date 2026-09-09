@@ -104,8 +104,6 @@ lint.unfixable = [
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
 "MESSAGES CONTROL".disable = [
-  # We will remove this in issue 97
-  "deprecated-module",
   # Too difficult to please
   "duplicate-code",
   # Let ruff handle long lines
@@ -172,6 +170,7 @@ keep_full_version = true
 max_supported_python = "3.14"
 
 [tool.mypy]
+exclude_gitignore = true
 strict = true
 
 [tool.pyright]

@@ -10,7 +10,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import pydyf
-from PIL import Image, ImageFile, ImageOps
+from PIL import EpsImagePlugin, Image, ImageFile, ImageOps
 from tinycss2.color5 import parse_color
 
 from . import DEFAULT_OPTIONS
@@ -21,6 +21,9 @@ from .urls import URLFetchingError, fetch
 
 # Don’t crash when converting truncated images
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+# Don’t use Ghostscript to render possibly dangerous EPS files.
+EpsImagePlugin.gs_binary = False
 
 
 class ImageLoadingError(ValueError):
@@ -108,7 +111,7 @@ class RasterImage:
         stream.draw_x_object(image_name)
 
     def cache_image_data(self, data, filename=None, slot='source'):
-        if filename:
+        if filename and Path(filename).is_file():
             return LazyLocalImage(filename)
         else:
             key = f'{self.id}-{slot}-{self._dpi or ""}'
@@ -322,9 +325,12 @@ def get_image_from_uri(cache, url_fetcher, options, url, forced_mime_type=None,
             else:
                 # Store image id to enable cache in Stream.add_image
                 image_id = md5(url.encode(), usedforsecurity=False).hexdigest()
-                image = RasterImage(
-                    pillow_image, image_id, bytestring, response.path, cache,
-                    orientation, options)
+                try:
+                    image = RasterImage(
+                        pillow_image, image_id, bytestring, response.path, cache,
+                        orientation, options)
+                except Exception as raster_exception:
+                    raise ImageLoadingError from raster_exception
 
     except (URLFetchingError, ImageLoadingError) as exception:
         LOGGER.error('Failed to load image at %r: %s', url, exception)
@@ -403,12 +409,22 @@ def process_color_stops(vector_length, positions, hints, style):
             previous_i = i
 
     # Calculate exponential value for PDF hints, avoid big numbers.
-    hints = [
-        0 if hint <= 0 else
-        2 ** 32 if hint >= 1 else
-        min(2 ** 32, math.log(0.5, hint)) for hint in hints]
+    pdf_hints = []
+    for i, hint in enumerate(hints):
+        if hint <= 0:
+            hint = 0
+        elif hint >= 1:
+            hint = 2 ** 32
+        else:
+            before = positions[i] / vector_length
+            after = positions[i+1] / vector_length
+            if before == after or hint >= after or hint <= before:
+                hint = 1
+            else:
+                hint = min(2 ** 32, math.log(0.5, (hint - before) / (after - before)))
+        pdf_hints.append(hint)
 
-    return positions, hints
+    return positions, pdf_hints
 
 
 def normalize_stop_positions(positions):
@@ -524,7 +540,7 @@ class Gradient:
 
         if any(alpha != 1 for alpha in alphas):
             alpha_stream = stream.set_alpha_state(
-                0, 0, concrete_width, concrete_height)
+                0, 0, concrete_width, concrete_height / scale_y)
 
             shading_type = 2 if type_ == 'linear' else 3
             sub_functions = (

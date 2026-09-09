@@ -34,23 +34,12 @@ def find_version(*file_paths):
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
 
-pypandoc_enabled = True
-try:
-    import pypandoc
-    print('pandoc enabled')
-    long_description = pypandoc.convert_file('README.md', 'rst')
-except (IOError, ImportError, ModuleNotFoundError):
-    print('WARNING: pandoc not enabled')
-    long_description = read('README.md')
-    pypandoc_enabled = False
-
-#import pypandoc
-#long_description = pypandoc.convert('README.md', 'rst')
+long_description = read('README.md')
 VERSION = find_version('insightface', '__init__.py')
 
 requirements = [
     'numpy',
-    'onnx',
+    'onnx>=1.13',
     'onnxruntime',
     'opencv-python',
     'tqdm',
@@ -60,12 +49,21 @@ requirements = [
     'scikit-image',
 ]
 
-gui_requirements = [
+privateframe_requirements = [
+    'av>=12',
+    'PyYAML>=6.0',
+]
+
+gui_only_requirements = [
     'PySide6-Essentials>=6.5',
-    'Pillow',
+    'Pillow>=9.1',
     'reportlab',
     'scikit-learn',
+    'cryptography>=42.0.0',
+    'rfc8785>=0.1.4',
 ]
+
+gui_requirements = gui_only_requirements + privateframe_requirements
 
 face3d_requirements = [
     'cython',
@@ -77,10 +75,16 @@ package_data = {
     "insightface.data.images": ["*.jpg", "*.jpeg", "*.png"],
     "insightface.data.objects": ["*.pkl"],
     "insightface.gui.assets": ["*.png", "*.ico", "*.icns"],
+    "insightface.app.privateframe": ["configs/*.yaml", "docs/*.md"],
+    "insightface.model_zoo": ["trusted_keys/*.pem"],
 }
 
 packages = find_namespace_packages(
-    include=("insightface", "insightface.*"),
+    include=(
+        "insightface",
+        "insightface.*",
+        "insightface_privateframe_bootstrap",
+    ),
     exclude=("docs", "docs.*", "tests", "tests.*", "scripts", "scripts.*"),
 )
 if not build_face3d:
@@ -161,6 +165,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     # Package info
+    python_requires='>=3.10',
     packages=packages,
     package_data=package_data,
     zip_safe=True,
@@ -171,14 +176,18 @@ setup(
             "insightface-gui=insightface.gui.__main__:main",
             "insightface-eval-studio=insightface.gui.__main__:main",
             "insightface-desktop=insightface.gui.__main__:main",
+            "insightface-privateframe=insightface_privateframe_bootstrap:main",
         ]
     },
-    extras_require={"gui": gui_requirements, "face3d": face3d_requirements},
+    extras_require={
+        "gui": gui_requirements,
+        "privateframe": privateframe_requirements,
+        "face3d": face3d_requirements,
+    },
     install_requires=requirements,
     headers=headers,
     ext_modules=ext_modules,
     include_dirs=include_dirs,
 )
 
-print('pypandoc enabled:', pypandoc_enabled)
 print('face3d build enabled:', build_face3d)

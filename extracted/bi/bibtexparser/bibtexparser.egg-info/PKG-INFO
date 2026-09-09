@@ -1,66 +1,127 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bibtexparser
-Version: 1.4.4
+Version: 2.0.0
 Summary: Bibtex parser for python 3
-Home-page: https://github.com/sciunto-org/python-bibtexparser
-Author: Francois Boulogne and other contributors
-Author-email: code@mweiss.ch
-License: LGPLv3 or BSD
-Description-Content-Type: text/x-rst
-License-File: COPYING
+Author-email: Michael Weiss and other contributors <code@mweiss.ch>
+Maintainer-email: Michael Weiss <code@mweiss.ch>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/sciunto-org/python-bibtexparser
+Project-URL: Repository, https://github.com/sciunto-org/python-bibtexparser
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Text Processing :: Markup :: LaTeX
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pylatexenc~=2.10
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: jupyter; extra == "test"
+Dynamic: license-file
 
-python-bibtexparser
-===================
+# python-bibtexparser v2
 
-Python 3 library to parse `bibtex <https://en.wikipedia.org/wiki/BibTeX>`_ files.
+Welcome to python-bibtexparser, a parser for `.bib` files with a long history and wide adoption.
 
+Bibtexparser is available in two versions: V1 and V2. **V2 is the current, recommended version** and the default you get from PyPI. It provides an overall more robust and faster experience than v1, and is where all development and maintenance effort goes. Install it using pip:
 
-.. contents::
+```bash
+pip install bibtexparser
+```
 
+Or you can install the latest development version directly from the main branch:
+```bash
+pip install --no-cache-dir --force-reinstall git+https://github.com/sciunto-org/python-bibtexparser@main
+```
 
-Documentation
--------------
+If instead you still need v1, e.g. for a legacy project which you don't want to migrate right now, pin it explicitly:
 
-Our documentation includes the installation procedure, a tutorial, the API and advices to report a bug: 
-`Documentation on readthedocs.io <https://bibtexparser.readthedocs.io/>`_
+```bash
+pip install bibtexparser~=1.0
+```
 
-Upgrading
----------
+Note that v2 is a rewrite: a lot has changed since v1, including the primary entrypoints, the data structures and the way parsing and writing are customized.
+Existing v1 code will not run unchanged on v2 - have a look at our [migration guide](https://bibtexparser.readthedocs.io/en/main/migrate.html) when upgrading. While v2 has been thoroughly tested and has been in pre-release for a long time, please don't hesitate to report any issues you may encounter.
 
-Please, read the changelog before upgrading regarding API modifications.
+V1 is in maintenance mode: small PRs are still accepted, but only as long as they are backwards compatible and don't introduce much additional technical debt.
+Development of version one happens on the dedicated [v1 branch](https://github.com/sciunto-org/python-bibtexparser/tree/v1).
 
-License
--------
+## Documentation
+Go check out our documentation on [https://bibtexparser.readthedocs.io/en/main/](https://bibtexparser.readthedocs.io/en/main/).
 
-Dual license (at your choice):
+## Advantages of `v2` compared to `v1`
 
-* LGPLv3.
-* BSD
+- :rocket: Order of magnitudes faster
+- :wrench: Easily customizable parsing **and** writing
+- :herb: Access to raw, unparsed bibtex.
+- :shield: Fault-Tolerant: Able to parse files with syntax errors
+- :mahjong: Massively simplified, more robust handling of de- and encoding (special chars, ...).
+- :copyright: Permissive MIT license
 
-See COPYING for details.
+## TLDR Usage Example
 
-History and evolutions
-----------------------
+```python
+# Parsing a bibtex string with default values
+bib_database = bibtexparser.parse_string(bibtex_string)
+# Converting it back to a bibtex string, again with default values
+new_bibtex_string = bibtexparser.write_string(bib_database)
+```
 
-The original source code was part of bibserver from `OKFN <http://github.com/okfn/bibserver>`_. This project is released under the AGPLv3. OKFN and the original authors kindly provided the permission to use a subpart of their project (ie the bibtex parser) under LGPLv3. Many thanks to them!
+Slightly more involved example:
 
-The parser evolved to a new core based on pyparsing.
+```python
 
-Since 2022, after a long stale period, this library has a new maintainer (`@MiWeiss <https://github.com/MiWeiss>`_).
+# Lets parse some bibtex string.
+bib_database = bibtexparser.parse_string(bibtex_string,
+    # Middleware layers to transform parsed entries.
+    # Here, we split multiple authors from each other and then extract first name, last name, ... for each
+    append_middleware=[SeparateCoAuthors(), SplitNameParts()],
+)
 
+# Here you have a `bib_database` with all parsed bibtex blocks.
 
-`v2` Announcement
------------------
+# Let's transform it back to a bibtex_string.
+new_bibtex_string = bibtexparser.write_string(bib_database,
+    # Revert above transformation
+    prepend_middleware=[MergeNameParts(), MergeCoAuthors()]
+)
+```
 
-Version 1.x, is trusted and used by more than 1300 projects, with much of its code being ~10 years old. Our primary objective in maintaining v1.x is to provide stability and backwards compatibility to these projects - such that they can safely and easily migrate to new versions.
+These examples really only show the bare minimum.
+Consult the documentation for a list of available middleware, parsing options and write-formatting options.
 
-Still, there's much room for large-scale improvements and changes to modernize bibtexparser. Hence, we are working on a new version 2.0.0 which is a complete rewrite of the library, providing amongst other the following advantages:
+## Architecture and Terminology
 
-- Order of magnitudes faster
-- Type-Hints and extensive documentation
-- Easily customizable parsing **and** writing
-- Access to raw, unparsed bibtex.
-- Fault-Tolerant: Able to parse files with syntax errors
-- Massively simplified, robuster handling of de- and encoding (special chars, ...).
+![bibtexparser](https://user-images.githubusercontent.com/4815944/193734283-f19f94e8-7986-4acf-b1a3-1d215e297224.png)
 
-Check out the `v2 dev branch <https://github.com/sciunto-org/python-bibtexparser/tree/v2>`_ and the `v2 coordination issue <https://github.com/sciunto-org/python-bibtexparser/issues/318>`_ to get a sneak preview. Also - if you're keen - we're always looking for contributors. Do not hesitate to get in contact with us.
+The architecture consists of the following components:
+
+#### Library
+Reflects the contents of a parsed bibtex files, including all comments, entries, strings, preambles and their metadata (e.g. order).
+
+#### A Splitter
+Splits a bibtex string into basic blocks (Entry, String, Preamble, ...), with correspondingly split content (e.g. fields on Entry, key-value on String, ...).
+The splitter aims to be forgiving when facing invalid bibtex: A line starting with a block definition (``@....``) ends the previous block, even if not yet every bracket is closed, failing the parsing of the previous block. Correspondingly, one block type is "ParsingFailedBlock".
+
+#### Middleware
+Middleware layers transform a library and its blocks, for example by decoding latex special characters, interpolating string references, resolving crossreferences or re-ordering blocks. Thus, the choice of middleware allows to customize parsing and writing to ones specific usecase. Note: Middlewares, by default, do not mutate their input, but return a modified copy.
+
+#### Writer
+Writes the content of a bibtex library to a ``.bib`` file. Optional formatting parameters can be passed using a corresponding dedicated data structure.
+
+## About
+
+Since 2022, `bibtexparser` is primarily written and maintained by Michael Weiss ([@MiWeiss](https://github.com/MiWeiss/)), supported by various awesome contributors.
+
+Credits and thanks to the many contributors who helped creating this library, including
+François Boulogne ([@sciunto](https://github.com/sciunto/), creator of the first version) and Olivier Mangin ([@omangin](https://github.com/omangin/), long-term contributor).

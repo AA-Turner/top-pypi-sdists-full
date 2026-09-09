@@ -10,6 +10,7 @@ import pathlib
 import shutil
 from filecmp import cmp
 from importlib import import_module
+from typing import Any, Sequence
 
 from fusesoc import utils
 from fusesoc.capi2.coreparser import Core2Parser
@@ -61,6 +62,7 @@ class Edalizer:
         self.resolve_env_vars = resolve_env_vars
 
         self.generators = {}
+        self.edam: dict[str, Any] = {}
 
         self._resolved_or_generated_cores = []
 
@@ -81,8 +83,8 @@ class Edalizer:
         """Get a list of all cores found by fusesoc"""
         return self.core_manager.db.find()
 
-    def apply_filters(self, global_filters):
-        filters = self.edam.get("filters", []) + global_filters
+    def apply_filters(self, global_filters: Sequence):
+        filters = (*self.edam.get("filters", ()), *global_filters)
         for f in filters:
             try:
                 filter_class = getattr(
@@ -207,14 +209,14 @@ class Edalizer:
                 )
 
     def create_edam(self):
-        first_snippets = []
-        snippets = []
-        last_snippets = []
-        parameters = {}
+        first_snippets: list[dict[str, Any]] = []
+        snippets: list[dict[str, Any]] = []
+        last_snippets: list[dict[str, Any]] = []
+        parameters: dict[str, Any] = {}
         for core in self.cores:
-            snippet = {}
+            snippet: dict[str, Any] = {}
 
-            logger.debug("Collecting EDAM parameters from {}".format(str(core.name)))
+            logger.debug(f"Collecting EDAM parameters from {str(core.name)}")
             _flags = self._core_flags(core)
 
             # Extract direct dependencies
@@ -331,7 +333,7 @@ class Edalizer:
             merge_dict(self.edam, snippet)
 
     def _build_parser(self, backend_class, edam):
-        typedict = {
+        typedict: dict[str, dict[str, Any]] = {
             "bool": {"type": str2bool, "nargs": "?", "const": True},
             "file": {"type": str, "nargs": 1, "action": FileAction},
             "int": {"type": int, "nargs": 1},
@@ -381,7 +383,7 @@ class Edalizer:
                     )
                 except KeyError as e:
                     raise RuntimeError(
-                        "Invalid data type {} for parameter '{}'".format(str(e), name)
+                        f"Invalid data type {str(e)} for parameter '{name}'"
                     )
                 param_type_map[name.replace("-", "_")] = _paramtype
             else:
@@ -474,7 +476,7 @@ class Edalizer:
             prog=progname, conflict_handler="resolve", add_help=False
         )
         backend_args = parser.add_argument_group("Flow options")
-        typedict = {
+        typedict: dict[str, dict[str, Any]] = {
             "bool": {"type": str2bool, "nargs": "?", "const": True},
             "file": {"type": str, "nargs": 1, "action": FileAction},
             "int": {"type": int, "nargs": 1},
@@ -572,10 +574,41 @@ class Ttptttg:
         }
 
     def _sha256_input_yaml_hexdigest(self):
+        """Hash the generator inputs plus the generator definition itself.
+
+        The command, interpreter, and a hash of the script bytes are folded
+        in so editing the generator invalidates the cache. The resolved
+        interpreter path and the generator ``root`` are excluded to keep the
+        hash portable across machines and checkouts.
+        """
         data = self.generator_input.copy()
         # Remove files_root since that is not deterministic
         data.pop("files_root")
+        data["generator_command"] = self.generator.get("command", "")
+        data["generator_interpreter"] = self.generator.get("interpreter", "")
+        data["generator_script_hash"] = self._generator_script_sha256()
         return hashlib.sha256(utils.yaml_dump(data).encode()).hexdigest()
+
+    def _generator_script_sha256(self):
+        """SHA-256 of the resolved generator script bytes, or ``None`` if
+        the script cannot be read.
+
+        The ``None`` sentinel is intentional: a script that is unreadable
+        on one run and readable on the next still flips the marker, which
+        is the conservative direction. Likewise, an in-place edit of the
+        script flips the hash even though the path on disk is unchanged
+        -- this is the gap that the literal command/interpreter strings
+        alone cannot close.
+        """
+        root = self.generator.get("root")
+        command = self.generator.get("command")
+        if not root or not command:
+            return None
+        script_path = os.path.join(os.path.abspath(root), command)
+        try:
+            return hashlib.sha256(pathlib.Path(script_path).read_bytes()).hexdigest()
+        except OSError:
+            return None
 
     def _sha256_file_input_hexdigest(self):
         input_files = []
@@ -732,5 +765,5 @@ class Ttptttg:
                     except SyntaxError as e:
                         w = "Failed to parse generated core file " + f + ": " + e.msg
                         raise RuntimeError(w)
-        logger.debug("Found " + ", ".join(str(c.name) for c in cores))
+        logger.debug("Found " + ", ".join(str(c.name) for c in cores))  # type: ignore[attr-defined, ty:unresolved-attribute]
         return cores

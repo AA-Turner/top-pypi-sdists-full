@@ -4,6 +4,7 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
+import openai as openai_sdk
 from matrx_connect.context.events import InfoPayload
 from matrx_utils import vcprint
 from openai import AsyncOpenAI
@@ -104,7 +105,7 @@ class GenericOpenAIChat:
             self._client = AsyncOpenAI(
                 api_key=resolved,
                 base_url=self._base_url,
-                http_client=make_capture_http_client(),
+                http_client=make_capture_http_client(sdk=openai_sdk),
             )
             self._client_key = resolved
         return self._client

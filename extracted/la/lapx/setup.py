@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Ratha SIV | MIT License
+# Copyright (c) 2026 Ratha SIV | MIT License
 
 from setuptools import Extension, setup, find_packages
 from setuptools.command.build_ext import build_ext  # custom build_ext for high-perf flags
@@ -11,7 +11,7 @@ PACKAGE_NAME = "lapx"
 PACKAGE_PATH = "lap"
 
 def get_version_string() -> str:
-    with open("lap/__init__.py") as version_file:
+    with open("lap/__init__.py", encoding="utf-8") as version_file:
         for line in version_file.read().splitlines():
             if line.startswith('__version__'):
                 delim = '"' if '"' in line else "'"
@@ -27,27 +27,34 @@ def include_pybind11():
     return pybind11.get_include()
 
 class BuildExt(build_ext):
+    """Add portable optimization flags for the compiler and linker.
+
+    Environment variables control these options:
+    - LAPX_BASEOPTS=0 disables the base flags that LAPX adds and link-time
+      optimization (LTO). Other compiler defaults may still apply.
+    - LAPX_FASTMATH=1 enables -ffast-math or /fp:fast.
+    - LAPX_NATIVE=1 enables -march=native -mtune=native.
+    - LAPX_LTO=0 disables LTO, including inherited LTO defaults.
+
+    LAPX_BASEOPTS=0 does not guarantee an unoptimized or debug build.
+    Fast-math and native tuning are independent options. Both are disabled by default.
     """
-    Add portable, high-performance compiler/linker flags and allow
-    optional opt-ins via env vars:
-      - LAPX_BASEOPTS=0  -> disable base optimizations (/O2, -O3, -DNDEBUG, LTO, etc.)
-      - LAPX_FASTMATH=1  -> -ffast-math (or /fp:fast)
-      - LAPX_NATIVE=1    -> -march=native -mtune=native
-      - LAPX_LTO=0       -> disable LTO if needed (only considered when base opts are enabled)
-    """
-    def has_flag(self, flag):
+    def has_flag(self, flag, link_flag=None):
         import tempfile, os
-        with tempfile.NamedTemporaryFile('w', suffix='.cpp', delete=False) as f:
-            f.write("int main(){return 0;}")
-            fname = f.name
-        try:
-            self.compiler.compile([fname], extra_postargs=[flag])
-        except Exception:
-            try: os.remove(fname)
-            except OSError: pass
-            return False
-        try: os.remove(fname)
-        except OSError: pass
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fname = os.path.join(tmpdir, 'flagcheck.cpp')
+            with open(fname, 'w') as f:
+                f.write("int main(){return 0;}")
+            try:
+                objects = self.compiler.compile(
+                    [fname], output_dir=tmpdir, extra_postargs=[flag], debug=self.debug)
+                if link_flag is not None:
+                    self.compiler.link_shared_object(
+                        objects,
+                        os.path.join(tmpdir, 'flagcheck' + self.compiler.shared_lib_extension),
+                        extra_postargs=[link_flag], target_lang='c++', debug=self.debug)
+            except Exception:
+                return False
         return True
 
     def build_extensions(self):
@@ -69,15 +76,17 @@ class BuildExt(build_ext):
 
         compile_opts = []
         link_opts = []
+        lto_enabled = False
 
         if is_msvc:
             # Base optimizations on MSVC
             if base_enabled:
                 compile_opts += ['/O2', '/DNDEBUG']
                 # Respect LAPX_LTO on MSVC when base opts are enabled
-                if env_lto_on and self.has_flag('/GL'):
+                if env_lto_on and self.has_flag('/GL', '/LTCG'):
                     compile_opts += ['/GL']
                     link_opts += ['/LTCG']
+                    lto_enabled = True
             # Optional fast-math (opt-in)
             if env_fastmath:
                 compile_opts += ['/fp:fast']
@@ -91,10 +100,12 @@ class BuildExt(build_ext):
                     compile_opts += ['-fno-math-errno']
                 # Link-time optimization (prefer ThinLTO when available)
                 if env_lto_on:
-                    if self.has_flag('-flto=thin'):
+                    if self.has_flag('-flto=thin', '-flto=thin'):
                         compile_opts += ['-flto=thin']; link_opts += ['-flto=thin']
-                    elif self.has_flag('-flto'):
+                        lto_enabled = True
+                    elif self.has_flag('-flto', '-flto'):
                         compile_opts += ['-flto']; link_opts += ['-flto']
+                        lto_enabled = True
                 # Minor call overhead reduction on Linux/glibc (if supported)
                 if sys.platform.startswith('linux') and self.has_flag('-fno-plt'):
                     compile_opts += ['-fno-plt']
@@ -107,6 +118,11 @@ class BuildExt(build_ext):
                     compile_opts += ['-march=native']
                 if self.has_flag('-mtune=native'):
                     compile_opts += ['-mtune=native']
+
+        # Override inherited LTO defaults when disabled or when the probe fails.
+        if not lto_enabled:
+            compile_opts += ['/GL-' if is_msvc else '-fno-lto']
+            link_opts += ['/LTCG:OFF' if is_msvc else '-fno-lto']
 
         # Apply to all extensions (always)
         for ext in self.extensions:
@@ -221,7 +237,8 @@ def main_setup():
         keywords=['Linear Assignment Problem Solver', 'LAP solver',
                   'Jonker-Volgenant Algorithm', 'LAPJV', 'LAPMOD', 'lap',
                   'lapx', 'lapjvx', 'lapjvxa', 'lapjvc', 'lapjvs', 'lapjvsa',
-                  'lapjvx_batch', 'lapjvxa_batch', 'lapjvs_batch', 'lapjvsa_batch'],
+                  'lapjvx_batch', 'lapjvxa_batch', 'lapjvs_batch', 'lapjvsa_batch',
+                  'lapmod_batch'],
         packages=find_packages(include=[PACKAGE_PATH, f"{PACKAGE_PATH}.*"]),
         include_package_data=True,
         install_requires=['numpy>=1.21.6',],
@@ -240,6 +257,7 @@ def main_setup():
                      'Programming Language :: Python :: 3.12',
                      'Programming Language :: Python :: 3.13',
                      'Programming Language :: Python :: 3.14',
+                     'Programming Language :: Python :: 3.15',
                      'Topic :: Education',
                      'Topic :: Education :: Testing',
                      'Topic :: Scientific/Engineering',
@@ -255,30 +273,36 @@ def main_setup():
     )
 
 if __name__ == "__main__":
-    """
-    Recommend using :py:mod:`build` to build the package as it does not
-    disrupt your current environment.
+    """Use :py:mod:`build` to build the package without changes to the current environment.
 
     >>> pip install wheel build
     >>> python -m build --sdist
     >>> python -m build --wheel
 
-    Base optimizations are safe and applied automatically (e.g., optimized 
-    build [/O2 on MSVC or -O3 on GCC/Clang], -DNDEBUG, and LTO when supported).
+    The build applies safe base optimizations automatically:
+    - /O2 on MSVC or -O3 on GCC and Clang enables compiler optimizations.
+    - -DNDEBUG disables debug assertions.
+    - Link-time optimization (LTO) applies when the compiler and linker support it.
 
-    Extra opt-ins can be enabled via environment variables:
-      - LAPX_BASEOPTS=0  -> disables base optimizations entirely
-      - LAPX_FASTMATH=1  -> enables fast-math (/fp:fast on MSVC, -ffast-math on GCC/Clang)
-      - LAPX_NATIVE=1    -> enables -march=native -mtune=native (GCC/Clang only)
-      - LAPX_LTO=0       -> disables LTO if needed (only considered when base opts are enabled)
+    Environment variables control additional options:
+    - LAPX_BASEOPTS=0 disables the base flags that LAPX adds and LTO.
+      Other compiler defaults may still apply.
+    - LAPX_FASTMATH=1 enables fast-math with /fp:fast on MSVC or -ffast-math on GCC and Clang.
+    - LAPX_NATIVE=1 enables -march=native -mtune=native on GCC and Clang only.
+    - LAPX_LTO=0 disables LTO, including inherited LTO defaults.
 
-    For example, to build with fast-math enabled on Linux/macOS:
+    LAPX_BASEOPTS=0 does not guarantee an unoptimized or debug build.
+    Fast-math and native tuning are independent options. Both are disabled by default.
+    Keep both options disabled for portable release wheels.
+    Fast-math may change numerical results and the treatment of NaN or infinity.
+
+    To build with fast-math on Linux or macOS, use this command:
     >>> LAPX_FASTMATH=1 python -m build --wheel
 
-    For example, to build with fast-math enabled on Windows terminal (CMD):
+    To build with fast-math in the Windows command prompt (CMD), use this command:
     >>> set "LAPX_FASTMATH=1" && python -m build --wheel
 
-    Note: Cython compiler directives (boundscheck=False, wraparound=False, cdivision=True, etc.)
-    are enabled by default for Cython modules.
+    The build applies Cython compiler directives by default for Cython modules.
+    Examples include boundscheck=False, wraparound=False, and cdivision=True.
     """
     main_setup()

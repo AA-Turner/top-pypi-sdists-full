@@ -43,7 +43,7 @@ on:
           - "false"
         default: auto
       cloud-mcp-pyairbyte-requirement:
-        description: "Optional full PyAirbyte requirement spec for cloud-mcp builds, such as 'airbyte==0.54.0.dev123' or 'airbyte @ git+https://...'. Leave empty for the pinned default."
+        description: "Optional full PyAirbyte requirement spec for cloud-mcp builds, such as 'airbyte==0.54.0.dev123' or 'airbyte @ git+https://...'. Leave empty to deploy the latest PyPI release."
         required: false
         type: string
         default: ""
@@ -293,8 +293,29 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
 
+      # cloud-mcp leaves PyAirbyte unpinned in `requirements.txt` so a release
+      # ships without a code change there. Resolve the exact version here when
+      # the caller did not request a specific build, so the deployed version is
+      # explicit and recorded in the run rather than whatever PyPI's index
+      # happened to serve mid-build.
+      - name: Resolve PyAirbyte requirement
+        id: pyairbyte-requirement
+        if: matrix.target.server == 'cloud-mcp'
+        env:
+          REQUESTED_REQUIREMENT: ${{ env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT }}
+        run: |
+          set -euo pipefail
+          requirement="$REQUESTED_REQUIREMENT"
+          if [ -z "$requirement" ]; then
+            version="$(curl -fsSL --retry 5 --retry-all-errors https://pypi.org/pypi/airbyte/json | jq -r '.info.version // empty')"
+            [ -n "$version" ] \
+              || { echo "::error::Could not resolve the latest PyAirbyte version from PyPI."; exit 1; }
+            requirement="airbyte==$version"
+          fi
+          echo "requirement=$requirement" | tee -a "$GITHUB_OUTPUT"
+
       - name: Build image
-        if: matrix.target.server != 'cloud-mcp' || env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT == ''
+        if: matrix.target.server != 'cloud-mcp'
         env:
           DOCKER_BUILDKIT: "1"
         run: >
@@ -307,11 +328,11 @@ jobs:
       # Retried because this build usually runs seconds after a PyAirbyte
       # release: PyPI's index is CDN-cached per POP, so `uv` inside the build
       # can still resolve a stale index that lacks the requested version.
-      - name: Build cloud-mcp image with PyAirbyte requirement override
-        if: matrix.target.server == 'cloud-mcp' && env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT != ''
+      - name: Build cloud-mcp image with PyAirbyte requirement
+        if: matrix.target.server == 'cloud-mcp'
         uses: nick-fields/retry@v3
         env:
-          PYAIRBYTE_REQUIREMENT: ${{ env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT }}
+          PYAIRBYTE_REQUIREMENT: ${{ steps.pyairbyte-requirement.outputs.requirement }}
           DOCKER_BUILDKIT: "1"
         with:
           timeout_minutes: 15
@@ -369,6 +390,8 @@ jobs:
             > This preview deploys to a dedicated preview service at `${{ matrix.target.public_url }}`. It shares the same OIDC config and secrets as production. Only one preview is active per service — subsequent deploys to this preview service replace the previous revision.
 
       - name: Summarize deployment
+        env:
+          PYAIRBYTE_REQUIREMENT: ${{ steps.pyairbyte-requirement.outputs.requirement }}
         run: |
           {
             printf "%s deployed.\n" "${{ matrix.target.server }}"
@@ -377,6 +400,8 @@ jobs:
             printf "Image: %s\n" "${{ matrix.target.image }}"
             printf "Service: %s\n" "${{ matrix.target.service }}"
             printf "URL: %s\n" "${{ matrix.target.public_url }}"
+            [ -z "${PYAIRBYTE_REQUIREMENT:-}" ] \
+              || printf "PyAirbyte: %s\n" "$PYAIRBYTE_REQUIREMENT"
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Append success comment

@@ -119,6 +119,9 @@ class DataType(Enum):
 
 NULL_BYTES = [DataType.null.value, 0x01]
 
+# null type code as a plain int, so the per-read null check skips the aenum lookup
+_NULL = DataType.null.value
+
 
 def _make_packer(format_string):
     packer = struct.Struct(format_string)
@@ -188,6 +191,9 @@ class GraphBinaryReader(object):
         self.deserializers = _deserializers.copy()
         if deserializer_map:
             self.deserializers.update(deserializer_map)
+        # Mirror of self.deserializers keyed by int type code instead of DataType.
+        # Avoids the per-read DataType(bt) call, whose aenum construction negatively affects performance on large results.
+        self._deserializer_by_type_code = {dt.value: des.objectify for dt, des in self.deserializers.items()}
 
     def read_object(self, b):
         if isinstance(b, bytearray):
@@ -198,11 +204,15 @@ class GraphBinaryReader(object):
     def to_object(self, buff, data_type=None, nullable=True):
         if data_type is None:
             bt = uint8_unpack(buff.read(1))
-            if bt == DataType.null.value:
+            if bt == _NULL:
                 if nullable:
                     buff.read(1)
                 return None
-            return self.deserializers[DataType(bt)].objectify(buff, self, nullable)
+            try:
+                objectify = self._deserializer_by_type_code[bt]
+            except KeyError:
+                raise ValueError("%r is not a valid DataType" % bt) from None
+            return objectify(buff, self, nullable)
         else:
             return self.deserializers[data_type].objectify(buff, self, nullable)
 
@@ -291,17 +301,13 @@ class BigIntIO(_GraphBinaryTypeIO):
 
     @classmethod
     def write_bigint(cls, obj, to_extend):
-        length = (obj.bit_length() + 7) // 8
-        if obj > 0:
-            b = obj.to_bytes(length, byteorder='big')
-            to_extend.extend(int32_pack(length + 1))
-            to_extend.extend(int8_pack(0))
-            to_extend.extend(b)
-        else:
-            # handle negative
-            b = obj.to_bytes(length, byteorder='big', signed=True)
-            to_extend.extend(int32_pack(length))
-            to_extend.extend(b)
+        # Compute the minimal signed two's-complement byte length, matching the
+        # Java reference serializer (BigInteger.toByteArray()).
+        bit_length = obj.bit_length() if obj >= 0 else (obj + 1).bit_length()
+        length = bit_length // 8 + 1
+        b = obj.to_bytes(length, byteorder='big', signed=True)
+        to_extend.extend(int32_pack(length))
+        to_extend.extend(b)
         return to_extend
 
     @classmethod

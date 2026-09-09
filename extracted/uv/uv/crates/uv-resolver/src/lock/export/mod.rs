@@ -508,18 +508,10 @@ fn conflict_marker_reachability<'lock>(
                 Node::Root => None,
             };
 
-            match child_edge.weight() {
+            let marker = match child_edge.weight() {
                 Edge::Prod { marker, .. } => {
                     // Resolve any active extras on the edge.
-                    let marker = resolve_activated_extras(*marker, scope_package, &parent_map);
-
-                    // Propagate the edge to the known conflicts.
-                    for value in parent_map.values_mut() {
-                        *value = value.and(marker);
-                    }
-
-                    // Propagate the edge to the node itself.
-                    parent_marker = parent_marker.and(marker);
+                    resolve_activated_extras(*marker, scope_package, &parent_map)
                 }
                 Edge::Optional { extra, marker, .. } => {
                     // The optional edge is only active when its extra is active. Preserve the
@@ -533,16 +525,8 @@ fn conflict_marker_reachability<'lock>(
                     };
 
                     // Resolve any active extras on the edge.
-                    let mut marker = resolve_activated_extras(*marker, scope_package, &parent_map);
-                    marker = marker.and(active_marker);
-
-                    // Propagate the edge to the known conflicts.
-                    for value in parent_map.values_mut() {
-                        *value = value.and(marker);
-                    }
-
-                    // Propagate the edge to the node itself.
-                    parent_marker = parent_marker.and(marker);
+                    let marker = resolve_activated_extras(*marker, scope_package, &parent_map);
+                    marker.and(active_marker)
                 }
                 Edge::Dev { group, marker, .. } => {
                     // The dependency group is active for this edge itself, so add it before
@@ -553,25 +537,23 @@ fn conflict_marker_reachability<'lock>(
                     }
 
                     // Resolve any active extras on the edge.
-                    let marker = resolve_activated_extras(*marker, scope_package, &parent_map);
-
-                    // Propagate the edge to the known conflicts.
-                    for value in parent_map.values_mut() {
-                        *value = value.and(marker);
-                    }
-
-                    // Propagate the edge to the node itself.
-                    parent_marker = parent_marker.and(marker);
+                    resolve_activated_extras(*marker, scope_package, &parent_map)
                 }
+            };
+
+            // Propagate the edge to the known conflicts.
+            for value in parent_map.values_mut() {
+                *value = value.and(marker);
             }
+
+            // Propagate the edge to the node itself.
+            parent_marker = parent_marker.and(marker);
 
             // Combine the inferred conflicts with the existing conflicts on the node.
             match conflict_maps.entry(child_edge.target()) {
                 Entry::Occupied(mut existing) => {
                     let child_map = existing.get_mut();
                     for (key, value) in parent_map {
-                        let mut after = child_map.get(&key).copied().unwrap_or(MarkerTree::FALSE);
-                        after = after.or(value);
                         let child_marker = child_map.entry(key).or_insert(MarkerTree::FALSE);
                         *child_marker = child_marker.or(value);
                     }

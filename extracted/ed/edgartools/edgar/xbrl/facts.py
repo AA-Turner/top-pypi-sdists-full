@@ -24,16 +24,15 @@ from rich.text import Text
 
 from edgar.exceptions import ValidationError
 
+from edgar.datatools import STR_DTYPE, null_column as _null_column
 from edgar.richtools import repr_rich
-from edgar.xbrl.core import STANDARD_LABEL, parse_date
-from edgar.xbrl.models import select_display_label
+from edgar.xbrl.core import STANDARD_LABEL, iso4217_code, parse_date, unit_currency
+from edgar.xbrl.models import is_negated_label_role, select_display_label
 
 
-# The pandas default dtype for strings changed in 3.0 (object -> str), and the
-# supported floor is still 2.0. Probing it keeps a column that had to be
-# materialized identical to the same column when rows populated it, on either
-# major — and avoids astype('str'), which turns nulls into the string "nan".
-_STR_DTYPE = pd.Series([""]).dtype
+# Probed once in edgar.datatools, where the entity path's declared schema reads it
+# too — the string dtype's pandas-3.0 change is one rule, so it gets one definition.
+_STR_DTYPE = STR_DTYPE
 
 # Columns FactQuery.to_dataframe() declares, in the order it emits them.
 #
@@ -102,55 +101,78 @@ _SKIP_COLUMNS = frozenset({'fact_key', 'original_label',
                            'statement_types', 'statement_roles'})
 
 
-def _null_column(dtype, index: pd.Index) -> pd.Series:
-    """An all-null column of `dtype`, for a declared column no row populated."""
-    return pd.Series(index=index, dtype=dtype)
-
-
 def _deduplicate_facts(df: pd.DataFrame) -> pd.DataFrame:
     """
     Remove true duplicate facts from a DataFrame.
 
     SEC XBRL instance documents often contain the same fact tagged multiple times
     (e.g. in the financial statements and again in the notes). This drops rows that
-    are identical on concept, context_ref, value, and decimals — keeping the first
-    occurrence. Rows that share concept+context but differ in value or decimals are
-    preserved, as they represent genuinely different taggings (e.g. precise vs rounded).
+    are identical on concept, context_ref, value, decimals and unit — keeping the
+    first occurrence. Rows that share concept+context but differ in value or decimals
+    are preserved, as they represent genuinely different taggings (e.g. precise vs
+    rounded).
+
+    The unit is part of that identity because XBRL 2.1 §4.10 requires unit equality
+    before two numeric items can be called duplicates. Without it, equal numbers were
+    enough: Aebi Schmidt reports a CHF 10,000,000 and a EUR 10,000,000 shareholder
+    loan in one context, and the EUR fact — a separate economic observation, with its
+    own translated amount in the filing — was deleted as a duplicate of the CHF one
+    (gh #1282). `execute()` returned all four facts; only the frame lost two.
+
+    Deduplicating on `unit_ref` rather than on the resolved measure is deliberate:
+    it is the identity the row actually carries, and it cannot merge two currencies.
+    Its one cost is under-deduplication if a filing declares the same measure under
+    two unit IDs, which keeps a redundant row rather than deleting a real one — the
+    safe direction, and not observed across the fixture corpus.
     """
     dedup_cols = ['concept', 'context_ref', 'value', 'decimals']
     if all(col in df.columns for col in dedup_cols):
+        # Repeated tags of one fact still collapse (gh #769): they share a unit.
+        if 'unit_ref' in df.columns:
+            dedup_cols.append('unit_ref')
         df = df.drop_duplicates(subset=dedup_cols, keep='first')
     return df
 
 
-def _iso4217_code(measure: Optional[str]) -> Optional[str]:
-    """Return the ISO 4217 code of an ``iso4217:`` unit measure, else ``None``."""
-    if measure and measure.startswith('iso4217:'):
-        return measure[len('iso4217:'):]
-    return None
+# The unit-currency rule lives in edgar.xbrl.core, where every consumer can
+# reach it. These names are kept as the module-local spelling used throughout
+# this file and by existing tests.
+_iso4217_code = iso4217_code
+_unit_currency = unit_currency
 
 
-def _unit_currency(unit_info: Optional[Dict[str, Any]]) -> Optional[str]:
-    """Resolve a parsed XBRL unit to its ISO 4217 currency code, or ``None``.
+def _concept_spellings(concept: str) -> tuple:
+    """The ways a caller may legitimately write a concept.
 
-    Currency facts use a simple ``iso4217:`` measure (e.g. ``iso4217:HKD`` ->
-    ``HKD``). Per-share monetary facts use a ``divide`` unit whose numerator is
-    the currency (e.g. ``iso4217:USD`` per ``xbrli:shares``), so the numerator
-    currency is returned. Non-monetary units (shares, pure, ...) return ``None``.
-    The opaque ``unit_ref`` id itself (e.g. ``UNIT_STANDARD_HKD_...``) is never
-    parsed -- only the resolved measure is used (see issue #850).
+    The QName as parsed ('us-gaap:Revenues') and its element-id form
+    ('us-gaap_Revenues'), which is how the same concept is spelled in element ids
+    and in most SEC tooling. Only the NAMESPACE separator differs between them; a
+    local name keeps whatever underscores the filer declared.
     """
-    if not unit_info:
-        return None
-    unit_type = unit_info.get('type')
-    if unit_type == 'simple':
-        return _iso4217_code(unit_info.get('measure'))
-    if unit_type == 'divide':
-        for measure in unit_info.get('numerator', []):
-            code = _iso4217_code(measure)
-            if code:
-                return code
-    return None
+    if ':' in concept:
+        return (concept, concept.replace(':', '_', 1))
+    return (concept,)
+
+
+def _sort_key(value: Any) -> tuple:
+    """A total order for a fact column, which is neither dense nor single-typed.
+
+    Facts come from a filing rather than a schema, so one column routinely holds
+    numbers, strings and ``None`` at once -- a 10-K measured at 1,733 numeric and
+    111 non-numeric facts. Comparing those directly raised
+    ``TypeError: '<' not supported between instances of 'NoneType' and 'float'``,
+    so ``sort_by('numeric_value')`` failed on most real filings.
+
+    The leading rank keeps ``<`` from ever seeing two different types: numbers
+    sort before strings, and missing values sort last on an ascending sort.
+    """
+    if value is None:
+        return (2, 0.0, '')
+    if isinstance(value, bool):
+        return (0, float(value), '')
+    if isinstance(value, (int, float, Decimal)):
+        return (0, float(value), '')
+    return (1, 0.0, str(value))
 
 
 def _apply_transformations(results: List[Dict[str, Any]],
@@ -240,12 +262,18 @@ class FactQuery:
         Returns:
             Self for method chaining
         """
-        pattern = pattern.replace('_', ':')  # Normalize underscores to colons for concept names
+        # The pattern is matched against the concept written both ways rather than
+        # being rewritten itself. Rewriting every '_' to ':' let 'us-gaap_Revenues'
+        # find 'us-gaap:Revenues', but a local name may contain a literal underscore
+        # -- YUM files yum:YUM_LesseeOperatingLeaseLeaseNotYetCommenced... -- and
+        # rewriting that produced a second colon, so the concept could not be matched
+        # in either spelling, exact or regex.
         if exact:
-            self._filters.append(lambda f: f['concept'] == pattern)
+            self._filters.append(lambda f: pattern in _concept_spellings(f['concept']))
         else:
             regex = re.compile(pattern, re.IGNORECASE)
-            self._filters.append(lambda f: bool(regex.search(f['concept'])))
+            self._filters.append(
+                lambda f: any(regex.search(s) for s in _concept_spellings(f['concept'])))
         return self
 
     def by_label(self, pattern: str, exact: bool = False) -> FactQuery:
@@ -963,10 +991,15 @@ class FactQuery:
                 groups = {}
                 for fact in results:
                     dim_value = fact.get(f'dim_{dimension}')
-                    if dim_value and 'value' in fact and fact['value'] is not None:
+                    # Aggregate the parsed number, not fact['value'] -- that is the
+                    # lexical string as filed ('298085000000'), and summing it raised
+                    # TypeError on any ordinary numeric fact. A fact with no
+                    # numeric_value is not a number and cannot be aggregated.
+                    numeric_value = fact.get('numeric_value')
+                    if dim_value and numeric_value is not None:
                         if dim_value not in groups:
                             groups[dim_value] = []
-                        groups[dim_value].append(fact['value'])
+                        groups[dim_value].append(numeric_value)
 
                 # Apply aggregation function
                 for dim_value, values in groups.items():
@@ -982,10 +1015,18 @@ class FactQuery:
 
             results = list(aggregated_results.values())
 
-        # Apply sorting if specified
-        if results and self._sort_by and self._sort_by in results[0]:
-            results.sort(key=lambda f: f.get(self._sort_by, ''),
-                         reverse=not self._sort_ascending)
+        # Apply sorting if specified.
+        #
+        # sorted() rather than results.sort(): with no filter and no transform the
+        # list here is still FactsView's cached list by reference, and sorting in
+        # place reordered the cache itself, so a later unrelated query returned
+        # different facts.
+        #
+        # The key is decided over every row, not results[0]: one fact being an
+        # instant (no period_end) used to skip the sort for the whole result set.
+        if results and self._sort_by and any(self._sort_by in f for f in results):
+            results = sorted(results, key=lambda f: _sort_key(f.get(self._sort_by)),
+                             reverse=not self._sort_ascending)
 
         # Apply limit if specified
         if self._limit is not None:
@@ -1466,18 +1507,12 @@ class FactsView:
                 # Convert preferredLabel to a numeric sign multiplier for display
                 # -1 means "negate for display", 1 means "use as-is", None means "not specified"
                 if preferred_label:
-                    # Common preferredLabel values that indicate negation
-                    negation_labels = [
-                        'negatedLabel',
-                        'http://www.xbrl.org/2003/role/negatedLabel',
-                        'negatedTerseLabel',
-                        'http://www.xbrl.org/2003/role/negatedTerseLabel',
-                        'negatedPeriodStartLabel',
-                        'http://www.xbrl.org/2003/role/negatedPeriodStartLabel',
-                        'negatedPeriodEndLabel',
-                        'http://www.xbrl.org/2003/role/negatedPeriodEndLabel'
-                    ]
-                    fact_dict['preferred_sign'] = -1 if preferred_label in negation_labels else 1
+                    # This used to be an exact-match whitelist of eight strings,
+                    # which missed the legacy xbrl.us roles entirely and the 2009
+                    # namespace's negatedTotalLabel/negatedNetLabel besides — so
+                    # the Facts API and the statement path disagreed about the
+                    # sign of the same fact. Both now read one matcher.
+                    fact_dict['preferred_sign'] = -1 if is_negated_label_role(preferred_label) else 1
                 else:
                     fact_dict['preferred_sign'] = None
 
@@ -1993,10 +2028,38 @@ class FactsView:
         Returns:
             pandas DataFrame with time series data
         """
-        df = self.query().by_concept(concept, True).to_dataframe()
+        # include_dimensions has to reach the QUERY, not just the branch below.
+        # The query defaults to excluding dimensions, so it projected every dim_*
+        # column away; the 'if include_dimensions:' branch then looked for those
+        # columns in the projected frame, found none, and silently fell through to
+        # the undimensioned series. Sibling of #1243, fixed in
+        # get_facts_with_dimensions() only.
+        query = self.query().by_concept(concept, True)
+        if include_dimensions:
+            query = query.with_dimensions()
+        df = query.to_dataframe()
 
         if df.empty:
             return pd.DataFrame()
+
+        # A fact carries EITHER period_end (a duration) or period_instant, never both,
+        # so the 'period_end' default dropped every row of an instant concept -- which
+        # is every balance-sheet item -- and returned an empty frame. Fall back to the
+        # date column the facts actually populate instead of returning nothing.
+        date_columns = ('period_end', 'period_instant')
+        if date_col in date_columns and (date_col not in df.columns or df[date_col].isna().all()):
+            for alternative in date_columns:
+                if alternative in df.columns and not df[alternative].isna().all():
+                    date_col = alternative
+                    break
+
+        if date_col not in df.columns:
+            raise ValidationError(
+                f"date_col={date_col!r} is not a date column of this fact frame.",
+                parameter='date_col', invalid_value=date_col,
+                suggestions=["period_end -- for duration facts (revenue, cash flow)",
+                             "period_instant -- for instant facts (balance-sheet items)"],
+            )
 
         # Filter to only rows with the date column
         df = df.dropna(subset=[date_col])
@@ -2012,10 +2075,16 @@ class FactsView:
             if dimension_cols:
                 # Create a combined dimension key
                 if len(dimension_cols) > 0:
-                    df['dimension_key'] = df.apply(
-                        lambda row: '-'.join(str(row.get(col, '')) for col in dimension_cols),
-                        axis=1
-                    )
+                    def _dimension_key(row):
+                        # A concept is normally filed both undimensioned (the
+                        # consolidated total) and broken down. The undimensioned row
+                        # has NaN in every dim_* column, which str() renders as the
+                        # column label 'nan'; name it for what it is.
+                        members = [str(row[col]) for col in dimension_cols
+                                   if pd.notna(row.get(col))]
+                        return '-'.join(members) if members else 'No dimensions'
+
+                    df['dimension_key'] = df.apply(_dimension_key, axis=1)
                 else:
                     df['dimension_key'] = 'No dimensions'
 

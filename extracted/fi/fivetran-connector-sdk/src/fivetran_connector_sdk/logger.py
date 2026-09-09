@@ -1,5 +1,7 @@
 import json
+import sys
 import traceback
+import unicodedata
 from enum import IntEnum
 from datetime import datetime
 from typing_extensions import deprecated
@@ -36,10 +38,11 @@ class Logging:
         """
         if constants.DEBUGGING:
             now = datetime.now()
-            current_time = now.strftime("%d-%b %H:%M:%S.") + f"{now.microsecond // 1000:03d}"
-            prefix = f"{current_time} {level.name} "
+            current_time = now.strftime("%H:%M:%S.") + f"{now.microsecond // 1000:03d}"
+            log_origin = Logging.get_aligned_log_origin(constants.CONNECTOR_LOGGING_PREFIX)
+            prefix = f"{current_time} {Logging.get_aligned_level_name(level)} {log_origin} "
             message = Logging.get_formatted_log(message, prefix)
-            print(f"{Logging.get_color(level)}{prefix}{message} {Logging.reset_color()}")
+            print(Logging.colorize(f"{prefix}{message}", level))
         else:
             escaped_message = json.dumps(message)
             log_message = f'{{"level":"{level.name}", "message": {escaped_message}, "message_origin": "connector_sdk"}}'
@@ -48,20 +51,70 @@ class Logging:
     @staticmethod
     def get_formatted_log(message, prefix):
         lines = message.split('\n')
-        padding = "\n" + " " * len(prefix)
+        padding = "\n" + " " * Logging.get_display_width(prefix)
         return padding.join(lines)
 
     @staticmethod
+    def _should_use_colors() -> bool:
+        """Check if ANSI colors should be used.
+        Colors are only safe when output goes to a terminal (TTY).
+        When redirected to files or pipes, color codes become garbage text.
+        """
+        
+        # Use colors only if running via CLI AND output is a terminal
+        return constants.EXECUTED_VIA_CLI and sys.stdout.isatty()
+
+    @staticmethod
+    def get_aligned_level_name(level: Level) -> str:
+        return level.name.ljust(len(Logging.Level.CRITICAL.name))
+
+    @staticmethod
+    def get_aligned_log_origin(origin: str) -> str:
+        known_origins = (
+            constants.SDK_LOGGING_PREFIX.strip(),
+            constants.DEBUGGER_LOGGING_PREFIX,
+            constants.CONNECTOR_LOGGING_PREFIX,
+        )
+        target_width = max(Logging.get_display_width(known_origin) for known_origin in known_origins)
+        padding = target_width - Logging.get_display_width(origin)
+        return origin + " " * max(0, padding)
+
+    @staticmethod
+    def get_display_width(value: str) -> int:
+        return sum(
+            2 if unicodedata.east_asian_width(character) in ("W", "F") else 1
+            for character in value
+        )
+
+    @staticmethod
     def get_color(level):
+        if not Logging._should_use_colors():
+            return ""
+        
         if level == Logging.Level.WARNING:
-            return "\033[130m"  # ANSI Orange-like color #af5f00
+            # 38;5; = 256-color mode (required for color codes 108-255)
+            return "\033[38;5;130m"  # ANSI Orange-like color #af5f00
         elif level in (Logging.Level.SEVERE, Logging.Level.ERROR, Logging.Level.CRITICAL):
-            return "\033[196m"  # ANSI Red color #ff0000
+            return "\033[38;5;196m"  # ANSI Red color #ff0000
         return ""
 
     @staticmethod
-    def reset_color():
-        return "\033[0m"
+    def reset_color(level):
+        # Only emit reset if this level actually applies a color; avoids no-op noise
+        if not Logging.get_color(level):
+            return ""
+        return " \033[0m"
+
+    @staticmethod
+    def colorize(text: str, level) -> str:
+        """Wrap text with the color for the given level, and reset it afterward.
+
+        Returns text unchanged if the level has no color or colors are disabled.
+        """
+        color = Logging.get_color(level)
+        if not color:
+            return text
+        return f"{color}{text}{Logging.reset_color(level)}"
 
     @staticmethod
     def debug(message: str):

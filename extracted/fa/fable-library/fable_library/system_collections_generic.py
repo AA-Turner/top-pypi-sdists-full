@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, cast
 
-from .array_ import Array, copy_to, fill, initialize, of_seq, zero_create
+from .array_ import Array, copy_to, fill, initialize, zero_create
 from .bases import EnumerableBase
 from .core import FSharpRef, int32, op_division_float64, op_remainder_int32
 from .global_ import SR_Arg_KeyNotFound
@@ -179,7 +179,7 @@ def Stack_1__ctor[T](__unit: Unit = UNIT) -> Stack_1[T]:
 
 
 def Stack_1__ctor_BB573A[T](xs: IEnumerable_1[T]) -> Stack_1[T]:
-    arr: Array[Any] = of_seq(xs)
+    arr: Array[Any] = Array[Any](xs)
     return Stack_1__ctor_Z3B4C077E(arr, len(arr))
 
 
@@ -297,7 +297,7 @@ def Queue_1__ctor[T](__unit: Unit = UNIT) -> Queue_1[T]:
 
 
 def Queue_1__ctor_BB573A[T](xs: IEnumerable_1[T]) -> Queue_1[T]:
-    arr: Array[Any] = of_seq(xs)
+    arr: Array[Any] = Array[Any](xs)
     return Queue_1__ctor_Z3B4C077E(arr, len(arr))
 
 

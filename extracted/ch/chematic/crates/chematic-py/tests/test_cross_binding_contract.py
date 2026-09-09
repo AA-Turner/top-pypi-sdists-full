@@ -21,9 +21,39 @@ def test_shared_fixture_schema_is_stable():
     assert _DOCUMENT["fingerprint_contract"]["schema_version"] == 1
     assert _DOCUMENT["fingerprint_contract"]["operations"]["ecfp4"]["bytes"] == 256
     assert _DOCUMENT["fingerprint_contract"]["operations"]["maccs"]["bytes"] == 21
+    assert _DOCUMENT["fingerprint_contract"]["operations"]["rdkit_rdk"]["bytes"] == 256
+    assert _DOCUMENT["fingerprint_contract"]["operations"]["rdkit_path"]["bytes"] == 256
     assert _DOCUMENT["fingerprint_detail_contract"]["schema_version"] == 1
     assert _DOCUMENT["fingerprint_detail_contract"]["operations"]["rdkit_ecfp4_detail"]["configuration"]["radius"] == 2
     assert _DOCUMENT["batch_canonicalization_contract"]["schema_version"] == 1
+    assert _DOCUMENT["extxyz_contract"]["schema_version"] == 1
+    assert _DOCUMENT["xyz_batch_contract"]["schema_version"] == 1
+    assert _DOCUMENT["rxn_document_contract"]["schema_version"] == 1
+    assert _DOCUMENT["semantic_expansion_contract"]["schema_version"] == 1
+
+
+def test_python_binding_matches_shared_extxyz_contract():
+    contract = _DOCUMENT["extxyz_contract"]
+    actual = chematic.from_extxyz(contract["input"])
+    expected = contract["expected"]
+    assert all(
+        observed == pytest.approx(reference)
+        for observed, reference in zip(actual["coords"], expected["coords"])
+    )
+    assert actual["lattice"] == expected["lattice"]
+    assert actual["properties"] == expected["properties"]
+    assert actual["info"] == expected["info"]
+
+
+def test_python_binding_matches_shared_rxn_document_contract():
+    contract = _DOCUMENT["rxn_document_contract"]
+    rxn = chematic.to_rxn_document_json(json.dumps(contract["document"]))
+    decoded = json.loads(chematic.from_rxn_document_json(rxn))
+    observed = [
+        {"role": component["role"], "smiles": component["smiles"]}
+        for component in decoded["steps"][0]["components"]
+    ]
+    assert observed == contract["expected_components"]
 
 
 @pytest.mark.parametrize(
@@ -56,6 +86,28 @@ def test_python_binding_matches_shared_batch_canonicalization_contract():
     assert observed == contract["expected"]
 
 
+@pytest.mark.parametrize("format_name", ["xyz", "extxyz"])
+def test_python_binding_matches_shared_xyz_batch_recovery_contract(tmp_path, format_name):
+    contract = _DOCUMENT["xyz_batch_contract"]
+    fixture = contract[format_name]
+    path = tmp_path / f"recovery.{format_name}"
+    path.write_text(fixture["input"])
+    iterator = (
+        chematic.iter_xyz_batched(str(path), batch_size=contract["batch_size"])
+        if format_name == "xyz"
+        else chematic.iter_extxyz_batched(str(path), batch_size=contract["batch_size"])
+    )
+    batches = list(iterator)
+    expected = fixture["expected"]
+    assert len(batches) == 1
+    assert len(batches[0]) == 1
+    manifest = json.loads(iterator.manifest_json())
+    assert manifest["status"] == expected["status"]
+    assert manifest["frames_seen"] == expected["record_count"]
+    assert manifest["frames_emitted"] == 1
+    assert manifest["rejected_frames"] == expected["rejected_count"]
+
+
 @pytest.mark.parametrize(
     "fixture",
     _DOCUMENT["descriptor_contract"]["fixtures"],
@@ -84,10 +136,47 @@ def test_python_binding_matches_shared_fixture(fixture):
 )
 def test_python_binding_matches_shared_fingerprint_shape(fixture):
     mol = chematic.from_smiles(fixture["smiles"])
-    assert len(mol.ecfp4()) == 256
-    assert len(mol.maccs()) == 21
+    ecfp4 = mol.ecfp4()
+    assert len(ecfp4) == 256
+    assert [i for i in range(2048) if ecfp4[i // 8] & (1 << (i % 8))] == fixture["ecfp4_bits"]
+    topo_path = mol.topo_path_fp()
+    assert len(topo_path) == 256
+    assert [i for i in range(2048) if topo_path[i // 8] & (1 << (i % 8))] == fixture["topo_path_bits"]
+    torsion = mol.torsion_fp()
+    assert len(torsion) == 256
+    assert [i for i in range(2048) if torsion[i // 8] & (1 << (i % 8))] == fixture["torsion_bits"]
+    rdkit_torsion = mol.rdkit_torsion_fp()
+    assert len(rdkit_torsion) == 256
+    assert [i for i in range(2048) if rdkit_torsion[i // 8] & (1 << (i % 8))] == fixture["rdkit_torsion_bits"]
+    maccs = mol.maccs()
+    assert len(maccs) == 21
+    assert maccs.hex() == fixture["maccs_hex"]
     assert any(mol.ecfp4())
-    assert any(mol.maccs())
+    assert any(maccs)
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    _DOCUMENT["fingerprint_contract"]["rdkit_rdk_fixtures"],
+    ids=lambda item: item["id"],
+)
+def test_python_binding_matches_shared_rdkit_rdk_contract(fixture):
+    mol = chematic.from_smiles(fixture["smiles"])
+    actual = mol.rdkit_rdk_fp()
+    assert len(actual) == 256
+    assert [i for i in range(2048) if actual[i // 8] & (1 << (i % 8))] == fixture["rdkit_rdk_bits"]
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    _DOCUMENT["fingerprint_contract"]["rdkit_path_fixtures"],
+    ids=lambda item: item["id"],
+)
+def test_python_binding_matches_shared_rdkit_path_contract(fixture):
+    mol = chematic.from_smiles(fixture["smiles"])
+    actual = mol.path_fp()
+    assert len(actual) == 256
+    assert [i for i in range(2048) if actual[i // 8] & (1 << (i % 8))] == fixture["rdkit_path_bits"]
 
 
 @pytest.mark.parametrize(
@@ -138,26 +227,23 @@ def test_python_cdxml_document_edit_preserves_multi_page_presentation():
     assert '<arrow id="a1"/>' in edited
 
 
-def test_python_semantic_markush_contract_expands_with_mapping():
-    model = {
-        "schema": "chematic.semantic.v1",
-        "atom_ids": ["a1", "a2"],
-        "bond_ids": [],
-        "r_groups": [{
-            "id": "r1",
-            "attachment_atoms": ["a2"],
-            "alternatives": ["[*]O"],
-            "selected_alternative": None,
-        }],
-        "polymer_units": [],
-        "extensions": {},
-    }
+@pytest.mark.parametrize(
+    "case",
+    _DOCUMENT["semantic_expansion_contract"]["cases"],
+    ids=lambda item: item["id"],
+)
+def test_python_semantic_expansion_matches_shared_contract(case):
     selected = chematic.semantic_apply_json_command(
-        json.dumps(model), json.dumps({"group_id": "r1", "alternative": 0})
+        json.dumps(case["model"]), json.dumps(case["command"])
     )
-    expanded = json.loads(chematic.semantic_expand_json("CC", selected))
+    selected_model = json.loads(selected)
+    if "expected_selected_alternative" in case:
+        assert selected_model["r_groups"][0]["selected_alternative"] == case["expected_selected_alternative"]
+    if "expected_repeat_count" in case:
+        assert selected_model["polymer_units"][0]["repeat_count"] == case["expected_repeat_count"]
+    expanded = json.loads(chematic.semantic_expand_json(case["base_smiles"], selected))
     assert expanded["schema"] == "chematic.semantic-expanded.v1"
-    assert expanded["source_to_expanded"]["r1"] == [2]
+    assert expanded["source_to_expanded"] == case["expected_source_to_expanded"]
 
 
 def test_python_rxn_document_contract_is_loss_aware():
@@ -181,4 +267,9 @@ def test_python_rxn_document_contract_is_loss_aware():
 
     document["steps"][0]["conditions"] = [{"key": "temperature", "value": "25 C"}]
     with pytest.raises(ValueError):
+        chematic.to_rxn_document_json(json.dumps(document))
+
+    document["steps"][0]["conditions"] = []
+    document["steps"][0]["components"][0]["smiles"] = "C>C"
+    with pytest.raises(ValueError, match="invalid component"):
         chematic.to_rxn_document_json(json.dumps(document))

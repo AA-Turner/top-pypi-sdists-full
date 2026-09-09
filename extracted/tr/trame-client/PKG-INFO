@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: trame-client
-Version: 3.13.6
+Version: 4.0.0
 Summary: Internal client of trame
 Author: Kitware Inc.
 License: MIT
@@ -17,6 +17,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: trame-common>=0.2.0
 Provides-Extra: dev
+Requires-Dist: nox; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Provides-Extra: test
@@ -27,6 +28,7 @@ Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
 Requires-Dist: pytest-playwright; extra == 'test'
 Requires-Dist: pytest-xprocess; extra == 'test'
+Requires-Dist: trame-server>=3.15; extra == 'test'
 Requires-Dist: trame>=3.13; extra == 'test'
 Description-Content-Type: text/x-rst
 
@@ -132,6 +134,27 @@ Build client side code base
     npm install
     npm run build            # build trame client application
     cd -
+
+Python environment setup
+
+.. code-block:: console
+
+    # Create venv and install all dependencies
+    uv sync --all-extras --dev
+
+    # Activate environment
+    source .venv/bin/activate
+
+    # Install commit analysis
+    pre-commit install
+    pre-commit install --hook-type commit-msg
+
+    # Run pre-commit
+    nox -s pre_commit
+
+    # Run tests for only 1 python version
+    nox -s tests-3.12
+
 
 JavaScript dependency
 -----------------------------------------------------------

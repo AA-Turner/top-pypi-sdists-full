@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import openai as openai_sdk
 from openai import AsyncOpenAI
 
 from matrx_ai.config import UnifiedConfig
@@ -35,7 +36,7 @@ class OpenAIVideoGeneration(BaseMediaGeneration):
         "OPENAI_API_KEY",
         factory=lambda api_key: AsyncOpenAI(
             api_key=api_key,
-            http_client=make_capture_http_client(),
+            http_client=make_capture_http_client(sdk=openai_sdk),
         ),
     )
 

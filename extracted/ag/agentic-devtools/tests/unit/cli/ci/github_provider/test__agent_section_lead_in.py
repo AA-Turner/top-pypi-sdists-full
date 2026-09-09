@@ -4,12 +4,9 @@ from agentic_devtools.cli.ci.github_provider import _agent_section_lead_in
 
 _CLOSING_PARAGRAPH = (
     "For these comments, please reply to each one with your decision and the rationale behind it. If you made "
-    "changes as a result of the comment, link the commit where the changes can be found in the reply. If you "
-    "create a follow-up issue (option 4), link the follow-up issue in the reply. If you decided on option 4 but "
-    "fail to create the follow-up issue for whatever reason, include everything needed to create it (title, "
-    "body, labels, issue type, etc.) in a `<details>` block at the end of your reply to that comment. After you "
-    "have replied to each comment, ensure that it is resolved and closed as well, so that those comments no "
-    "longer block a merge."
+    "changes as a result of the comment, link the commit where the changes can be found in the reply. "
+    "For option 4, include the structured follow-up issue request described below; the local dispatcher creates "
+    "the issue and records its number in the task result."
 )
 
 

@@ -36,7 +36,8 @@ class StageParamsQueryExpand(BaseModel):
     rrf_k: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=60, description="RRF constant k. Higher values give more weight to lower-ranked results. Default of 60 is standard. Use lower (20-40) for precision, higher (80-100) for recall.")
     fusion_strategy: Optional[StrictStr] = Field(default='rrf', description="How to fuse results from multiple queries. 'rrf' = Reciprocal Rank Fusion (recommended), 'linear' = simple score averaging.")
     deduplicate: Optional[StrictBool] = Field(default=True, description="Whether to deduplicate results by document_id before returning.")
-    __properties: ClassVar[List[str]] = ["num_expansions", "expansion_prompt", "expansion_model", "feature_search_config", "include_original", "rrf_k", "fusion_strategy", "deduplicate"]
+    expansion_timeout_ms: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Time budget in milliseconds for the LLM expansion call. When the LLM exceeds it, the search runs on the original query alone and the response reports that expansion was skipped. Omit to use the server default. Raise it if a response reports the expansion timed out.")
+    __properties: ClassVar[List[str]] = ["num_expansions", "expansion_prompt", "expansion_model", "feature_search_config", "include_original", "rrf_k", "fusion_strategy", "deduplicate", "expansion_timeout_ms"]
 
     @field_validator('fusion_strategy')
     def fusion_strategy_validate_enum(cls, value):
@@ -106,7 +107,8 @@ class StageParamsQueryExpand(BaseModel):
             "include_original": obj.get("include_original") if obj.get("include_original") is not None else True,
             "rrf_k": obj.get("rrf_k") if obj.get("rrf_k") is not None else 60,
             "fusion_strategy": obj.get("fusion_strategy") if obj.get("fusion_strategy") is not None else 'rrf',
-            "deduplicate": obj.get("deduplicate") if obj.get("deduplicate") is not None else True
+            "deduplicate": obj.get("deduplicate") if obj.get("deduplicate") is not None else True,
+            "expansion_timeout_ms": obj.get("expansion_timeout_ms") if obj.get("expansion_timeout_ms") is not None else null
         })
         return _obj
 

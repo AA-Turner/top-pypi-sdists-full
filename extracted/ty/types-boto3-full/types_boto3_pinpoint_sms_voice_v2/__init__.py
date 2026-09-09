@@ -34,6 +34,7 @@ Usage::
         DescribeSenderIdsPaginator,
         DescribeSpendLimitsPaginator,
         DescribeVerifiedDestinationNumbersPaginator,
+        ListAvailablePhoneNumbersPaginator,
         ListNotifyCountriesPaginator,
         ListPoolOriginationIdentitiesPaginator,
         ListProtectConfigurationRuleSetNumberOverridesPaginator,
@@ -67,6 +68,7 @@ Usage::
     describe_sender_ids_paginator: DescribeSenderIdsPaginator = client.get_paginator("describe_sender_ids")
     describe_spend_limits_paginator: DescribeSpendLimitsPaginator = client.get_paginator("describe_spend_limits")
     describe_verified_destination_numbers_paginator: DescribeVerifiedDestinationNumbersPaginator = client.get_paginator("describe_verified_destination_numbers")
+    list_available_phone_numbers_paginator: ListAvailablePhoneNumbersPaginator = client.get_paginator("list_available_phone_numbers")
     list_notify_countries_paginator: ListNotifyCountriesPaginator = client.get_paginator("list_notify_countries")
     list_pool_origination_identities_paginator: ListPoolOriginationIdentitiesPaginator = client.get_paginator("list_pool_origination_identities")
     list_protect_configuration_rule_set_number_overrides_paginator: ListProtectConfigurationRuleSetNumberOverridesPaginator = client.get_paginator("list_protect_configuration_rule_set_number_overrides")
@@ -99,6 +101,7 @@ from .paginator import (
     DescribeSenderIdsPaginator,
     DescribeSpendLimitsPaginator,
     DescribeVerifiedDestinationNumbersPaginator,
+    ListAvailablePhoneNumbersPaginator,
     ListNotifyCountriesPaginator,
     ListPoolOriginationIdentitiesPaginator,
     ListProtectConfigurationRuleSetNumberOverridesPaginator,
@@ -133,6 +136,7 @@ __all__ = (
     "DescribeSenderIdsPaginator",
     "DescribeSpendLimitsPaginator",
     "DescribeVerifiedDestinationNumbersPaginator",
+    "ListAvailablePhoneNumbersPaginator",
     "ListNotifyCountriesPaginator",
     "ListPoolOriginationIdentitiesPaginator",
     "ListProtectConfigurationRuleSetNumberOverridesPaginator",

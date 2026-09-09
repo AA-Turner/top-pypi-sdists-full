@@ -42,7 +42,7 @@ from starlette.routing import Route
 
 from langgraph_api import config as lg_config
 from langgraph_api import store as api_store
-from langgraph_api.auth.custom import DotDict, ProxyUser
+from langgraph_api.auth.custom import DotDict, ProxyUser, connection_method
 from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE
 from langgraph_api.js.base import BaseRemotePregel, RemoteInterrupt
 from langgraph_api.js.errors import RemoteException
@@ -1077,9 +1077,14 @@ async def js_healthcheck():
 class CustomJsAuthBackend(AuthenticationBackend):
     ls_auth: AuthenticationBackend | None
 
-    def __init__(self, disable_studio_auth: bool = False):
+    def __init__(
+        self,
+        disable_studio_auth: bool = False,
+        allow_langsmith_api_keys: bool | None = None,
+    ):
         from langgraph_api.utils.cache import LRUCache  # noqa: PLC0415
 
+        self.allow_langsmith_api_keys = allow_langsmith_api_keys
         self.ls_auth = None
         if not disable_studio_auth and LANGGRAPH_AUTH_TYPE == "langsmith":
             from langgraph_api.auth.langsmith.backend import (  # noqa: PLC0415
@@ -1106,17 +1111,34 @@ class CustomJsAuthBackend(AuthenticationBackend):
     async def authenticate(
         self, conn: HTTPConnection
     ) -> tuple[AuthCredentials, BaseUser] | None:
-        if self.ls_auth is not None and (
-            (auth_scheme := conn.headers.get("x-auth-scheme"))
-            and auth_scheme == "langsmith"
-        ):
-            return await self.ls_auth.authenticate(conn)
+        ls_auth = self.ls_auth
+        authorization = conn.headers.get("authorization")
+        use_langsmith = ls_auth is not None and (
+            # Studio auth uses the "langsmith" scheme.
+            conn.headers.get("x-auth-scheme") == "langsmith"
+            # LangSmith API keys travel on the Authorization header.
+            or (
+                bool(self.allow_langsmith_api_keys)
+                and (authorization is None or authorization.strip() == "")
+            )
+        )
+        if use_langsmith:
+            result = await ls_auth.authenticate(conn)
+            handler = "langsmith"
+        else:
+            result = await self._authenticate_js(conn)
+            handler = "custom"
+        await logger.ainfo("Resolved authentication handler", auth_handler=handler)
+        return result
 
+    async def _authenticate_js(
+        self, conn: HTTPConnection
+    ) -> tuple[AuthCredentials, BaseUser] | None:
         headers = dict(conn.headers)
         # need to remove content-length to prevent confusing the HTTP client
         headers.pop("content-length", None)
         headers["x-langgraph-auth-url"] = str(conn.url)
-        headers["x-langgraph-auth-method"] = conn.scope.get("method")
+        headers["x-langgraph-auth-method"] = connection_method(conn.scope)
         cache_key = None
         if self.cache_keys:
             cache_key = tuple((k, headers[k]) for k in self.cache_keys if k in headers)

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Tests of VASP calculator interface."""
 
 import lzma
@@ -1017,14 +1018,24 @@ def test_GeSn_vca_phonopy_load_builds_FC_symfc(tmp_path):
 #
 # vaspout.h5
 #
-def _write_minimal_vaspout(path, with_stress=True, with_nac=False):
-    """Build a minimal vaspout.h5 with known values for reader tests."""
+def _write_minimal_vaspout(path, with_stress=True, with_nac=False, unfinished=False):
+    """Build a minimal vaspout.h5 with known values for reader tests.
+
+    ``unfinished`` writes the ion_dynamics arrays as VASP allocates them and
+    leaves them when the run is stopped before the ionic step ends: every
+    group in place, every number zero.
+
+    """
     h5py = pytest.importorskip("h5py")
     lattice = np.array([[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]])
     positions = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]])
     forces = np.array([[0.1, 0.2, 0.3], [-0.1, -0.2, -0.3]])
     stress_kbar = np.array([[-15.0, 0.0, 0.0], [0.0, -15.0, 0.0], [0.0, 0.0, -15.0]])
     energies = np.array([[-10.0, -11.0, -12.0]])  # [free, wo_entropy, sigma->0]
+    if unfinished:
+        forces = np.zeros_like(forces)
+        stress_kbar = np.zeros_like(stress_kbar)
+        energies = np.zeros_like(energies)
     tags = np.array(
         [b"free energy    TOTEN", b"energy without entropy", b"energy(sigma->0)"]
     )
@@ -1087,6 +1098,30 @@ def test_parse_set_of_forces_vaspout(tmp_path):
     assert dataset["supercell_energies"][0] == pytest.approx(-12.0)
 
 
+def test_read_vaspout_calculation_refuses_an_unfinished_run(tmp_path):
+    """A run stopped before its ionic step ended is refused, not read as zeros.
+
+    VASP allocates the ion_dynamics arrays and fills them when the step ends.
+    The file of a killed run therefore opens and reads like any other, and
+    its zeros would go on as an energy of 0 eV and forces of zero.
+
+    """
+    pytest.importorskip("h5py")
+    path = tmp_path / "vaspout.h5"
+    _write_minimal_vaspout(path, unfinished=True)
+    with pytest.raises(RuntimeError, match="holds no result"):
+        read_vaspout_calculation(path)
+
+
+def test_parse_set_of_forces_refuses_an_unfinished_vaspout(tmp_path):
+    """The force-collecting route refuses it as well."""
+    pytest.importorskip("h5py")
+    path = tmp_path / "vaspout.h5"
+    _write_minimal_vaspout(path, unfinished=True)
+    with pytest.raises(RuntimeError, match="holds no result"):
+        parse_set_of_forces(2, [path], verbose=False)
+
+
 def test_read_vasprun_calculation_dispatches_h5(tmp_path):
     """read_vasprun_calculation routes .h5 files to the h5 reader."""
     pytest.importorskip("h5py")
@@ -1140,3 +1175,37 @@ def test_energy_sigma0_version_index():
     vasprun._version = None  # unknown version cannot pick a column
     with pytest.raises(RuntimeError):
         _ = vasprun.energy_sigma0
+
+
+def test_noncollinear_detected_from_vasprunxml():
+    """LNONCOLLINEAR is read and mapped to a spin degeneracy of 1.
+
+    The spin axis of a non-collinear calculation has length 1, exactly as for
+    a non-spin-polarized one, so the tag is the only way to tell that each
+    eigenvalue is a spinor state holding one electron.
+    """
+    with lzma.open(cwd / "vasprun_Si_noncollinear.xml.xz", "rb") as fp:
+        vasprun = VasprunxmlExpat(fp)
+        vasprun.parse()
+
+    assert vasprun.is_noncollinear is True
+    assert vasprun.spin_degeneracy == 1
+    assert vasprun.eigenvalues.shape[0] == 1  # indistinguishable on its own
+    assert vasprun.NELECT == pytest.approx(8.0)
+
+
+@pytest.mark.parametrize(
+    "filename", ["GeSn-vca-vasprun-001.xml.xz", "vasprun_kpoints_opt_spin.xml.xz"]
+)
+def test_collinear_leaves_spin_degeneracy_unset(filename):
+    """Collinear runs report no spin degeneracy, leaving it to the spin axis.
+
+    GeSn-vca is non-spin-polarized and so shares the spin axis length of the
+    non-collinear file above; kpoints_opt_spin is spin-polarized.
+    """
+    with lzma.open(cwd / filename, "rb") as fp:
+        vasprun = VasprunxmlExpat(fp)
+        vasprun.parse()
+
+    assert vasprun.is_noncollinear is False
+    assert vasprun.spin_degeneracy is None

@@ -1,9 +1,7 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
 from __future__ import annotations
 
 from typing import Any, cast
-from typing_extensions import overload
+from typing_extensions import Literal, overload
 
 import httpx
 
@@ -105,6 +103,7 @@ class ExtractResource(SyncAPIResource):
         async_: AsyncConfigV3Param | Omit = omit,
         instructions: InstructionsParam | Omit = omit,
         parsing: ParseOptionsParam | Omit = omit,
+        queue_priority: Literal["auto", "standard", "batch"] | Omit = omit,
         settings: ExtractSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -127,6 +126,9 @@ class ExtractResource(SyncAPIResource):
                           For edit pipelines, this should be a string containing the edit instructions
 
           async_: The configuration options for asynchronous processing (default synchronous).
+
+          queue_priority: Queue priority. 'batch' places the job in a lower-priority queue for
+              non-urgent bulk work. 'auto' (alias: 'standard') uses the default queue.
 
           instructions: The instructions to use for the extraction.
 
@@ -154,6 +156,7 @@ class ExtractResource(SyncAPIResource):
         parsing: ParseOptionsParam | Omit = omit,
         settings: ExtractSettingsParam | Omit = omit,
         async_: AsyncConfigV3Param | Omit = omit,
+        queue_priority: Literal["auto", "standard", "batch"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -172,6 +175,7 @@ class ExtractResource(SyncAPIResource):
                         "parsing": parsing,
                         "settings": settings,
                         "async_": async_,
+                        "queue_priority": queue_priority,
                     },
                     extract_run_params.ExtractRunParams,
                 ),
@@ -191,6 +195,7 @@ class ExtractResource(SyncAPIResource):
         async_: AsyncConfigV3Param | Omit = omit,
         instructions: InstructionsParam | Omit = omit,
         parsing: ParseOptionsParam | Omit = omit,
+        queue_priority: Literal["auto", "standard", "batch"] | Omit = omit,
         settings: ExtractSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -213,6 +218,9 @@ class ExtractResource(SyncAPIResource):
                           For edit pipelines, this should be a string containing the edit instructions
 
           async_: The configuration options for asynchronous processing (default synchronous).
+
+          queue_priority: Queue priority. 'batch' places the job in a lower-priority queue for
+              non-urgent bulk work. 'auto' (alias: 'standard') uses the default queue.
 
           instructions: The instructions to use for the extraction.
 
@@ -238,6 +246,7 @@ class ExtractResource(SyncAPIResource):
                     "instructions": instructions,
                     "parsing": parsing,
                     "settings": settings,
+                    "queue_priority": queue_priority,
                 },
                 extract_run_job_params.ExtractRunJobParams,
             ),
@@ -321,6 +330,7 @@ class AsyncExtractResource(AsyncAPIResource):
         async_: AsyncConfigV3Param | Omit = omit,
         instructions: InstructionsParam | Omit = omit,
         parsing: ParseOptionsParam | Omit = omit,
+        queue_priority: Literal["auto", "standard", "batch"] | Omit = omit,
         settings: ExtractSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -343,6 +353,9 @@ class AsyncExtractResource(AsyncAPIResource):
                           For edit pipelines, this should be a string containing the edit instructions
 
           async_: The configuration options for asynchronous processing (default synchronous).
+
+          queue_priority: Queue priority. 'batch' places the job in a lower-priority queue for
+              non-urgent bulk work. 'auto' (alias: 'standard') uses the default queue.
 
           instructions: The instructions to use for the extraction.
 
@@ -370,6 +383,7 @@ class AsyncExtractResource(AsyncAPIResource):
         parsing: ParseOptionsParam | Omit = omit,
         settings: ExtractSettingsParam | Omit = omit,
         async_: AsyncConfigV3Param | Omit = omit,
+        queue_priority: Literal["auto", "standard", "batch"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -388,6 +402,7 @@ class AsyncExtractResource(AsyncAPIResource):
                         "parsing": parsing,
                         "settings": settings,
                         "async_": async_,
+                        "queue_priority": queue_priority,
                     },
                     extract_run_params.ExtractRunParams,
                 ),
@@ -407,6 +422,7 @@ class AsyncExtractResource(AsyncAPIResource):
         async_: AsyncConfigV3Param | Omit = omit,
         instructions: InstructionsParam | Omit = omit,
         parsing: ParseOptionsParam | Omit = omit,
+        queue_priority: Literal["auto", "standard", "batch"] | Omit = omit,
         settings: ExtractSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -429,6 +445,9 @@ class AsyncExtractResource(AsyncAPIResource):
                           For edit pipelines, this should be a string containing the edit instructions
 
           async_: The configuration options for asynchronous processing (default synchronous).
+
+          queue_priority: Queue priority. 'batch' places the job in a lower-priority queue for
+              non-urgent bulk work. 'auto' (alias: 'standard') uses the default queue.
 
           instructions: The instructions to use for the extraction.
 
@@ -454,6 +473,7 @@ class AsyncExtractResource(AsyncAPIResource):
                     "instructions": instructions,
                     "parsing": parsing,
                     "settings": settings,
+                    "queue_priority": queue_priority,
                 },
                 extract_run_job_params.ExtractRunJobParams,
             ),

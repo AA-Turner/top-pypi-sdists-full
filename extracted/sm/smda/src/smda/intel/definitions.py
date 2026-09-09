@@ -298,6 +298,7 @@ GAP_SEQUENCES = {
         {
             b"\x0f\x1f\x44\x00\x00",  # NOP5_OVERRIDE_NOP - AMD / nop - INTEL
             b"\x90\x8d\x74\x26\x00",
+            b"\x2e\x8d\x74\x26\x00",  # lea esi, cs:[esi] - GCC/binutils 5-byte nop
             b"\x66\x0f\x1f\x40\x00",
         }
     ),
@@ -319,6 +320,7 @@ GAP_SEQUENCES = {
         {
             b"\x0f\x1f\x84\x00\x00\x00\x00\x00",  # NOP8_OVERRIDE_NOP - AMD / nop - INTEL
             b"\x90\x8d\xb4\x26\x00\x00\x00\x00",
+            b"\x2e\x8d\xb4\x26\x00\x00\x00\x00",  # lea esi, cs:[esi] - GCC/binutils 8-byte nop
         }
     ),
     9: frozenset(
@@ -362,7 +364,13 @@ GAP_SEQUENCES = {
     15: frozenset({b"\x66\x66\x66\x66\x66\x66\x2e\x0f\x1f\x84\x00\x00\x00\x00\x00"}),
 }
 
+# Read well beyond the alignment cut: intel/FunctionCandidateManager consults this table in
+# five places (the exact-length and any-length filler tests, the candidate scan, and the
+# gap-length walk) and X86Backend in two. Adding an encoding here sharpens every one of them,
+# so a change to this table is a change to all padding-aware discovery, not to one caller.
 GAP_SEQUENCE_FIRST_BYTES = frozenset(sequence[:1] for sequences in GAP_SEQUENCES.values() for sequence in sequences)
+#: Longest entry in the table, so a scan over a bounded window does not re-derive it per step.
+MAX_GAP_SEQUENCE_LENGTH = max(GAP_SEQUENCES)
 
 
 COMMON_START_BYTES = {

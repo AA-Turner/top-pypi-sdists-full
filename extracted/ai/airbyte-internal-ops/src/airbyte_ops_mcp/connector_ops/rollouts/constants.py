@@ -137,6 +137,15 @@ FINALIZING_GRACE_MINUTES = 20
 # operator review instead of another automatic recovery attempt.
 WORKFLOW_STARTED_STALE_MINUTES = 60
 
+# The compiled registry is published by a separate step after the rollout row
+# exists, and is then read through a 5-minute CDN cache, so an empty candidate
+# list for a recent rollout usually means lag rather than obsolescence. The
+# value is an hour — well above the observed lag and above the 30-minute
+# AutoPilot cron cadence, so a rollout gets at least one more tick before being
+# closed, and the cost of waiting is one tick of delay while the cost of closing
+# early is losing the rollout.
+REGISTRY_CANDIDATE_LAG_GRACE_MINUTES = 60
+
 # Recorded by `auto-triage-failed` when it pauses a rollout after the health
 # gate recommends rollback. This is intentionally an outcome marker, not a
 # health re-check performed while evaluating sibling rollouts.
@@ -145,3 +154,8 @@ FAILURE_THRESHOLD_EXCEEDED_MARKER = "Failure threshold exceeded:"
 # Recorded when AutoPilot creates and immediately cancels an empty next-tier
 # rollout while promoting the current tier.
 NO_OP_EMPTY_TIER_MARKER = "[No-op.] Nothing to do"
+
+# Every `error_msg` recorded by `run_auto_close` starts with this prefix; it
+# marks an administrative closure (superseded / already GA / no candidate
+# advertised) rather than a health signal about the RC.
+AUTO_CLOSE_MARKER = "AutoPilot auto-close:"

@@ -536,6 +536,9 @@ class _TemplateNamespace(_Namespace):
     def delete(self, template_id: str, **opts: Any) -> bool:
         return Template.delete(template_id, **self._merge(opts))
 
+    def get(self, template_id: str, **opts: Any):
+        return Template.get(template_id, **self._merge(opts))
+
     def build(self, *args: Any, **opts: Any):
         return Template.build(*args, **self._merge(opts))
 

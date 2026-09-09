@@ -9,8 +9,9 @@ iterations contribute to metrics.
 Continues past SLO violations (to gather the full curve) but aborts if
 error rate exceeds ABORT_ERROR_RATE to avoid destabilising the system.
 
-After all steps complete, capacity is determined analytically: the highest
-load level where the SLO held.
+After all steps complete, capacity is determined analytically: the top of the
+highest sustained plateau of SLO-passing steps. A lone passing step above a
+sustained failure region does not count (see find_capacity).
 
 Environment variables:
     BASE_URL              Target server URL (default: http://localhost:9123)
@@ -33,9 +34,16 @@ Environment variables:
     MAX_P50_DURATION_MS   SLO: maximum median duration in ms (default: 3000)
     MAX_P95_DURATION_MS   SLO: maximum p95 duration in ms (default: 10000)
     ABORT_ERROR_RATE      Stop the staircase if error rate exceeds this % (default: 10)
+    CAPACITY_CONSECUTIVE_PASSES
+                          Passing steps required to confirm capacity (default: 2)
+    MIN_ITERS_PER_VU      Completed iterations per VU a step needs before it may
+                          set capacity (default: 3)
 
     BENCHMARK_TYPE        Benchmark runner type (default: wait_write)
     BENCHMARK_PROFILE     Optional profile override (e.g. etsy, metaview)
+    DEPLOYMENT_SLUG       Deployment slug for capacity CI metadata (optional)
+    COMPUTE_TIER          Compute tier for capacity CI metadata (optional)
+    SUMMARY_PATH          Output path for summary JSON (default: staircase_summary.json)
     RUN_MODE              stateless (default) or stateful
     DATA_SIZE, DELAY, EXPAND, STEPS, MODE — agent parameters
 """
@@ -64,8 +72,44 @@ MIN_SUCCESS_RATE = float(os.environ.get("MIN_SUCCESS_RATE", "99"))
 MAX_P50_DURATION_MS = int(os.environ.get("MAX_P50_DURATION_MS", "3000"))
 MAX_P95_DURATION_MS = int(os.environ.get("MAX_P95_DURATION_MS", "10000"))
 ABORT_ERROR_RATE = float(os.environ.get("ABORT_ERROR_RATE", "10"))
+CAPACITY_CONSECUTIVE_PASSES = int(os.environ.get("CAPACITY_CONSECUTIVE_PASSES", "2"))
+# A floor rather than a derived optimum: the smallest value leaving more than one
+# post-warmup sample per VU with any margin.
+MIN_ITERS_PER_VU = float(os.environ.get("MIN_ITERS_PER_VU", "3"))
+
+BENCHMARK_TYPE = os.environ.get("BENCHMARK_TYPE", "wait_write")
+BENCHMARK_PROFILE = os.environ.get("BENCHMARK_PROFILE", "default")
+DEPLOYMENT_SLUG = os.environ.get("DEPLOYMENT_SLUG", "")
+COMPUTE_TIER = os.environ.get("COMPUTE_TIER", "")
+SUMMARY_PATH = os.environ.get("SUMMARY_PATH", "staircase_summary.json")
 
 K6_SCRIPT = Path(__file__).parent / "staircase_step_k6.js"
+
+
+def validate_geometry() -> None:
+    """Reject staircase geometry that cannot produce a result.
+
+    These are reachable from the workflow_dispatch inputs, so they are an input
+    boundary rather than developer-only config. PLATEAU_DURATION in particular
+    is a divisor for every throughput figure, and a zero would surface as a
+    ZeroDivisionError two thirds of the way through a step.
+    """
+    problems = [
+        f"{name} must be >= 1, got {value}"
+        for name, value in (
+            ("START_LOAD", START_LOAD),
+            ("STEP_SIZE", STEP_SIZE),
+            ("NUM_STEPS", NUM_STEPS),
+            ("PLATEAU_DURATION", PLATEAU_DURATION),
+        )
+        if value < 1
+    ]
+    if COOLDOWN_DURATION < 0:
+        problems.append(f"COOLDOWN_DURATION must be >= 0, got {COOLDOWN_DURATION}")
+    if WARMUP_ITERS < 0:
+        problems.append(f"WARMUP_ITERS must be >= 0, got {WARMUP_ITERS}")
+    if problems:
+        raise SystemExit("Invalid staircase configuration: " + "; ".join(problems))
 
 
 def run_step(target: int) -> dict | None:
@@ -112,6 +156,14 @@ def run_step(target: int) -> dict | None:
 def check_slo(metrics: dict) -> bool:
     if metrics["totalRuns"] == 0:
         return False
+    # An iteration killed at gracefulStop never reaches totalRuns, successRate
+    # or either duration percentile, so a step can report 100% success and fast
+    # latency from the surviving subset while a quarter of its work never
+    # finished. That is not evidence the deployment held at this load. It also
+    # cannot happen on a healthy step: truncation means an iteration ran past
+    # gracefulStop, six times the p95 SLO.
+    if metrics.get("truncatedRuns", 0) > 0:
+        return False
     if metrics["successRate"] < MIN_SUCCESS_RATE:
         return False
     if (
@@ -133,18 +185,52 @@ def should_abort(metrics: dict) -> bool:
     return error_rate > ABORT_ERROR_RATE
 
 
-def find_capacity(steps: list[dict]) -> int:
-    """Find the highest step index whose SLO passes and that isn't
-    followed by another passing step after a gap of failures.
+def has_enough_samples(step: dict, min_iters_per_vu: float = MIN_ITERS_PER_VU) -> bool:
+    """Whether a step measured enough iterations per VU to be worth believing.
 
-    Concretely: walk from the top of the staircase downward and return
-    the first (highest) step that passes SLO. This means transient
-    failures at lower steps don't truncate capacity — only the sustained
-    failure region at the top matters.
+    At the top of a staircase the sample can collapse: 1000 VUs over a 60s
+    plateau with a 36.5s median yields about 1.6 iterations per VU, and
+    WARMUP_ITERS discards the first. One sample per VU is noise.
+
+    Deliberately *not* symmetric, see find_capacity. A thin sample can never
+    grant capacity but must still be able to deny it, because a step often has
+    few samples precisely because the deployment is collapsing; treating that as
+    "no data" would let capacity climb past a real breaking point.
     """
-    for s in reversed(steps):
-        if s.get("passesSLO"):
-            return s["step"]
+    if "totalRuns" not in step:
+        # Nothing to judge, so defer to the step's own SLO verdict. check_slo
+        # already rejects totalRuns == 0, so a passing step always has a sample.
+        return True
+    target = step.get("targetVUs") or 0
+    if target <= 0:
+        return False
+    return step["totalRuns"] / target >= min_iters_per_vu
+
+
+def find_capacity(
+    steps: list[dict], consecutive: int = CAPACITY_CONSECUTIVE_PASSES
+) -> int:
+    """Find the top of the highest sustained plateau of SLO-passing steps.
+
+    Returns the highest step that passes SLO *and* is corroborated by the
+    `consecutive - 1` steps below it also passing, so neither a transient
+    failure at a lower step nor a lone pass above a sustained failure region
+    can set capacity. Near the bottom the window is clamped: step 1 needs only
+    itself, having nothing beneath it to corroborate.
+    """
+    passed = {step["step"] for step in steps if step.get("passesSLO")}
+    # Asymmetric on purpose: a thin sample cannot grant capacity, but it stays
+    # in `passed` for corroboration and still denies capacity by being absent
+    # when it failed. See has_enough_samples.
+    eligible = {
+        step["step"]
+        for step in steps
+        if step.get("passesSLO") and has_enough_samples(step)
+    }
+    for step in sorted(eligible, reverse=True):
+        window = range(max(1, step - consecutive + 1), step + 1)
+        if all(candidate in passed for candidate in window):
+            return step
     return 0
 
 
@@ -153,6 +239,8 @@ def fmt(val, width: int) -> str:
 
 
 def main():
+    validate_geometry()
+
     max_load = START_LOAD + STEP_SIZE * (NUM_STEPS - 1)
     step_duration = PLATEAU_DURATION + COOLDOWN_DURATION
     est_minutes = (NUM_STEPS * step_duration) / 60
@@ -213,6 +301,25 @@ def main():
             f"throughput={tput:.1f} runs/sec"
         )
 
+        floored = metrics.get("durationsFlooredAtTimeout") or 0
+        if floored:
+            # Those durations are a floor, not a measurement, so med/p95 above
+            # understate how slow the step really was.
+            print(
+                f"  NOTE: {floored} request(s) hit the "
+                f"{metrics.get('requestTimeoutMs')}ms timeout; their durations are "
+                f"'at least' values, not exact"
+            )
+
+        if metrics.get("truncatedRuns"):
+            # Should be 0: gracefulStop is set so iterations terminate rather
+            # than being killed. Anything else means the step ran long enough
+            # that k6 gave up on it, and the numbers above are missing those.
+            print(
+                f"  WARNING: {metrics['truncatedRuns']} iteration(s) killed before "
+                f"finishing; excluded from the numbers above, so this step fails SLO"
+            )
+
         if should_abort(metrics):
             print(f"  Error rate >{ABORT_ERROR_RATE}% — aborting staircase")
             break
@@ -255,14 +362,29 @@ def main():
         START_LOAD + STEP_SIZE * (capacity_step - 1) if capacity_step > 0 else 0
     )
 
-    valid_steps = [s for s in steps if not s.get("error") and s.get("totalRuns", 0) > 0]
+    # Only SLO-passing steps count; the max over every step is throughput at
+    # any cost, measured while the deployment was already failing.
+    healthy_steps = [
+        s
+        for s in steps
+        if not s.get("error") and s.get("totalRuns", 0) > 0 and s.get("passesSLO")
+    ]
     max_throughput = 0.0
     max_throughput_vus = 0
-    for s in valid_steps:
+    for s in healthy_steps:
         tput = s["successfulRuns"] / PLATEAU_DURATION
         if tput > max_throughput:
             max_throughput = tput
             max_throughput_vus = s["targetVUs"]
+
+    capacity_throughput = next(
+        (
+            round(s["successfulRuns"] / PLATEAU_DURATION, 1)
+            for s in steps
+            if s["step"] == capacity_step
+        ),
+        None,
+    )
 
     if capacity_step > 0:
         total_runs = sum(s.get("totalRuns", 0) for s in steps if s.get("passesSLO"))
@@ -280,7 +402,15 @@ def main():
     print(sep)
 
     summary = {
-        "capacity": {"step": capacity_step, "targetVUs": capacity_vus}
+        "capacity": {
+            "step": capacity_step,
+            "targetVUs": capacity_vus,
+            # The number a customer actually cares about. VU count is an
+            # artefact of a closed-model load generator; runs/sec is the
+            # service rate, and it orders the tiers correctly where VU
+            # capacity has been tying L with M.
+            "successfulRunsPerSec": capacity_throughput,
+        }
         if capacity_step > 0
         else None,
         "maxThroughput": {
@@ -301,12 +431,17 @@ def main():
             "maxP50DurationMs": MAX_P50_DURATION_MS,
             "maxP95DurationMs": MAX_P95_DURATION_MS,
             "abortErrorRate": ABORT_ERROR_RATE,
+            "capacityConsecutivePasses": CAPACITY_CONSECUTIVE_PASSES,
             "baseUrl": BASE_URL,
+            "benchmarkType": BENCHMARK_TYPE,
+            "benchmarkProfile": BENCHMARK_PROFILE,
+            "deploymentSlug": DEPLOYMENT_SLUG or None,
+            "computeTier": COMPUTE_TIER or None,
         },
         "steps": steps,
     }
-    Path("staircase_summary.json").write_text(json.dumps(summary, indent=2))
-    print("\nResults written to staircase_summary.json")
+    Path(SUMMARY_PATH).write_text(json.dumps(summary, indent=2))
+    print(f"\nResults written to {SUMMARY_PATH}")
 
 
 if __name__ == "__main__":

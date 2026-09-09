@@ -1,16 +1,15 @@
 """End-to-end integration test for Cloud Browser → Web Scraping API
 session handoff.
 
-Scenario (per docs/cloud-browser-wsa-handoff/ in the monorepo):
+Scenario:
 
   1. Drive a Cloud Browser session against https://web-scraping.dev/login.
      Submit the login form (user123 / password). The server sets
      `auth=user123-secret-token` as a cookie in the Chrome profile.
-  2. Stop the Cloud Browser session. The scrapium-agent flushes the
-     cookie to Default/Cookies, writes scrapium.json, zips, uploads to
-     GCS.
+  2. Stop the Cloud Browser session. The browser profile, cookie included,
+     is persisted server-side and keyed to the session id.
   3. Call the Web Scraping API with session=cb:<same-id>:
-       (a) render_js=False (curlium path) → assert authenticated HTML.
+       (a) render_js=False (plain HTTP path) → assert authenticated HTML.
        (b) render_js=True (browser path) → assert authenticated HTML and
            capture a full-page screenshot for visual evidence.
 
@@ -26,22 +25,30 @@ import time
 import uuid
 
 import pytest
-from playwright.sync_api import sync_playwright
+
+sync_playwright = pytest.importorskip(
+    'playwright.sync_api',
+    reason='needs the browser extra: pip install "scrapfly-sdk[browser]"',
+).sync_playwright
 
 from scrapfly import BrowserConfig, ScrapeConfig, ScrapflyClient
 
 
+# Cloud Browser -> Web Scraping API handoff end-to-end through the SDK.
+# Drives the live product; skipped by tests/conftest.py without credentials.
+pytestmark = [pytest.mark.integration, pytest.mark.e2e]
+
 API_KEY = os.environ.get("SCRAPFLY_KEY", "scp-live-YOUR_API_KEY_HERE")
-API_HOST = os.environ.get("SCRAPFLY_API_HOST", "https://api.scrapfly.local")
+API_HOST = os.environ.get("SCRAPFLY_API_HOST", "https://api.scrapfly.io")
 
 LOGIN_FORM_URL = "https://web-scraping.dev/login?prefill=1"
 LOGIN_PAGE_URL = "https://web-scraping.dev/login"
 LOGGED_IN_MARKER = "Logged in as User123"
 AUTH_COOKIE_VALUE = "user123-secret-token"
 
-# How long to give the scrapium-agent after stop() before WSA scrapes.
-# Shutdown path is async: flushProfileViaCDP → writeScrapiumJSON →
-# ZipUserDataDir → UploadUserDataDirToGCS. 5s comfortable on dev.
+# How long to give the server after stop() before the Web Scraping API call.
+# Profile persistence on shutdown is asynchronous, so the cookie is not
+# readable the instant stop() returns. 5s is comfortable.
 POST_STOP_GRACE_SECONDS = 5
 
 
@@ -59,7 +66,7 @@ def cb_session() -> str:
 class TestCloudBrowserHandoff:
     """Cloud Browser → WSA cookie/fingerprint/proxy inheritance."""
 
-    def test_handoff_curlium_then_browser(self, client: ScrapflyClient, cb_session: str, tmp_path):
+    def test_handoff_plain_http_then_browser(self, client: ScrapflyClient, cb_session: str, tmp_path):
         """The full scenario: log in via Cloud Browser, stop, then access
         authenticated content via WSA with and without render_js.
         """
@@ -103,16 +110,16 @@ class TestCloudBrowserHandoff:
 
         cb_session_param = f"cb:{cb_session}"
 
-        # ── 3a. WSA scrape with render_js=False (curlium) ──
-        curlium_result = client.scrape(ScrapeConfig(
+        # ── 3a. Web Scraping API scrape with render_js=False (no browser) ──
+        http_result = client.scrape(ScrapeConfig(
             url=LOGIN_PAGE_URL,
             session=cb_session_param,
             render_js=False,
             country="us",
         ))
-        assert LOGGED_IN_MARKER in curlium_result.content, (
-            "curlium did not inherit the auth cookie — response HTML lacks "
-            f"{LOGGED_IN_MARKER!r}. First 500 chars:\n{curlium_result.content[:500]}"
+        assert LOGGED_IN_MARKER in plain_result.content, (
+            "the non-browser scrape did not inherit the auth cookie — response HTML lacks "
+            f"{LOGGED_IN_MARKER!r}. First 500 chars:\n{plain_result.content[:500]}"
         )
 
         # ── 3b. WSA scrape with render_js=True (browser) + screenshot ──

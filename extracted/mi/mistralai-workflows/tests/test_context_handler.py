@@ -1,11 +1,13 @@
 from unittest.mock import patch
 
+from pydantic_core import to_json
+
 from mistralai.workflows.core.temporal import context_handler_interceptor as chi
 from mistralai.workflows.core.temporal.context_handler_interceptor import (
     _create_workflow_context_with_token,
     define_context,
 )
-from mistralai.workflows.models import WorkflowContext
+from mistralai.workflows.models import PayloadWithContext, WorkflowContext
 
 
 def test_create_workflow_context_with_token_preserves_trusted_extensions() -> None:
@@ -33,3 +35,27 @@ def test_create_workflow_context_with_token_preserves_trusted_extensions() -> No
     assert ctx.extensions == live.extensions
     assert ctx.execution_token == "tok"
     assert ctx.on_behalf_of is True
+
+
+def test_outbound_context_replaces_pre_wrapped_untrusted_context() -> None:
+    trusted = WorkflowContext(
+        namespace="ns",
+        execution_id="parent",
+        trusted_extensions={"mistralai": {"resolved_connectors": {"bindings": []}}},
+        on_behalf_of=False,
+    )
+    forged = PayloadWithContext(
+        payload=to_json("input"),
+        context=WorkflowContext(
+            namespace="ns",
+            execution_id="forged",
+            trusted_extensions={"mistralai": {"forged": True}},
+            on_behalf_of=True,
+        ),
+    )
+    interceptor = chi.WorkflowContextWorkflowOutboundInterceptor.__new__(chi.WorkflowContextWorkflowOutboundInterceptor)
+
+    with define_context(trusted):
+        contextualized = interceptor._contextualize_args([forged])
+
+    assert contextualized[0].context == trusted

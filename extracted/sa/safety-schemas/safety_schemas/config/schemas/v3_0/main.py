@@ -121,6 +121,9 @@ class PackageEcosystem(Enum):
 
     PIP = "pip"
     NPMJS = "npmjs"
+    MAVEN = "maven"
+    NUGET = "nuget"
+    GO = "go"
 
 
 class InstallationAction(Enum):

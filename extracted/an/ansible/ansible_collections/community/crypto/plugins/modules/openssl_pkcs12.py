@@ -33,12 +33,14 @@ options:
   action:
     description:
       - V(export) or V(parse) a PKCS#12.
+      - Note that V(parse) will be deprecated in the future.
+        Use M(community.crypto.openssl_pkcs12_extract) instead.
     type: str
     default: export
     choices: [export, parse]
   other_certificates:
     description:
-      - List of other certificates to include. Pre Ansible 2.8 this parameter was called O(ca_certificates).
+      - List of other certificates to include.
       - Assumes there is one PEM-encoded certificate per file. If a file contains multiple PEM certificates, set O(other_certificates_parse_all)
         to V(true).
       - Mutually exclusive with O(other_certificates_content).
@@ -165,7 +167,7 @@ options:
       - If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
       - The value V(pyopenssl) has been removed for community.crypto 3.0.0.
       - Note that with community.crypto 3.0.0, all remaining values behave the same.
-        This option will be deprecated in a later version.
+        This option is deprecated and will be removed from community.crypto 4.0.0.
         We recommend to not set it explicitly.
     type: str
     default: auto
@@ -175,6 +177,8 @@ seealso:
   - module: community.crypto.x509_certificate
   - module: community.crypto.openssl_csr
   - module: community.crypto.openssl_dhparam
+  - module: community.crypto.openssl_pkcs12_info
+  - module: community.crypto.openssl_pkcs12_extract
   - module: community.crypto.openssl_privatekey
   - module: community.crypto.openssl_publickey
 """
@@ -795,6 +799,8 @@ def main() -> t.NoReturn:
             "type": "str",
             "default": "auto",
             "choices": ["auto", "cryptography"],
+            "removed_in_version": "4.0.0",
+            "removed_from_collection": "community.crypto",
         },
     }
 

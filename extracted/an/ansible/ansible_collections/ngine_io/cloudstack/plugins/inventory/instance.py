@@ -32,6 +32,7 @@ options:
     default: v4_default_ip
     choices:
         - v4_default_ip
+        - v4_public_ip
         - hostname
   filter_by_zone:
     description: Only return instances in the provided zone.
@@ -45,6 +46,19 @@ options:
   filter_by_vpc:
     description: Only return instances in the provided VPC.
     type: string
+  filter_by_tags:
+    description: Only return instances with the provided list of tags (key-value pairs).
+    version_added: 3.1.0
+    type: list
+    elements: dict
+    suboptions:
+      key:
+        description: Tag key to filter by.
+        type: string
+      value:
+        description: Tag value to filter by.
+        type: string
+
 extends_documentation_fragment:
   - constructed
   - ngine_io.cloudstack.cloudstack
@@ -60,9 +74,12 @@ plugin: ngine_io.cloudstack.instance
 # Use the default ip as ansible_host
 hostname: v4_default_ip
 
-# Return only instances related to the VPC vpc1 and in the zone EU
+# Return only instances related to the VPC vpc1 and in the zone EU, having tag mytag.
 filter_by_vpc: vpc1
 filter_by_zone: EU
+filter_by_tags:
+ - key: mytag
+   value: mytagvalue
 
 # Group instances with a disk_offering as storage
 # Create a group dmz for instances connected to the dmz network
@@ -95,10 +112,17 @@ instance:
   name: {{ instance.name }}
   hostname: {{ instance.hostname or instance.name | lower }}
   v4_default_ip: {{ instance.nic[0].ipaddress }}
+  {% if instance.publicip %}
+  v4_public_ip: {{ instance.publicip }}
+  {% endif %}
 
   zone: {{ instance.zonename }}
   domain: {{ instance.domain | lower }}
   account: {{ instance.account }}
+  {% if instance.project %}
+  project: {{ instance.project }}
+  {% endif %}
+
   username: {{ instance.username }}
   {% if instance.group %}
   group: {{ instance.group }}
@@ -221,10 +245,18 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
     def get_filters(self):
         # Filtering as supported by ACS goes here
-        args = {"fetch_list": True}
+        args = {
+            "tags": self.get_option("filter_by_tags"),
+            "fetch_list": True,
+        }
 
+        if self.get_option("filter_by_project"):
+            if self.get_option("filter_by_project") == "-1":
+                # if the project is set to -1, we want to get all instances of any project
+                args["projectid"] = "-1"
+            else:
+                self.add_filter(args, "project", "listProjects", "projectid")
         self.add_filter(args, "domain", "listDomains", "domainid")
-        self.add_filter(args, "project", "listProjects", "projectid")
         self.add_filter(args, "zone", "listZones", "zoneid")
         self.add_filter(args, "vpc", "listVPCs", "vpcid")
 

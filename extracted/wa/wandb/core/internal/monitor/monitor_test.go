@@ -4,9 +4,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/shirou/gopsutil/v4/process"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/wandb/wandb/core/internal/monitor"
 	"github.com/wandb/wandb/core/internal/observabilitytest"
@@ -19,7 +21,7 @@ func newTestSystemMonitor(t *testing.T) *monitor.SystemMonitor {
 	t.Helper()
 	factory := &monitor.SystemMonitorFactory{
 		Logger:             observabilitytest.NewTestLogger(t),
-		Settings:           settings.From(&spb.Settings{}),
+		Settings:           settings.From(&spb.Settings{XDisableStats: wrapperspb.Bool(true)}),
 		XPUResourceManager: monitor.NewXPUResourceManager(false),
 	}
 	return factory.New(runworktest.New())
@@ -178,6 +180,20 @@ func TestShouldCaptureSamplingErr(t *testing.T) {
 		err  error
 		want bool
 	}{
+		{"ProcessExited", process.ErrorProcessNotRunning, false},
+		{
+			"ProcessExitedWithOtherError",
+			errors.Join(process.ErrorProcessNotRunning, errors.New("disk read failed")),
+			true,
+		},
+		{
+			"ProcessExitedWithOtherExpectedError",
+			errors.Join(
+				process.ErrorProcessNotRunning,
+				status.Error(codes.Unavailable, "disconnected"),
+			),
+			false,
+		},
 		{
 			"NetstatMissing",
 			errors.New(`exec: "netstat": executable file not found in $PATH`),

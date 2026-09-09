@@ -4,12 +4,14 @@ import json
 from datetime import datetime
 
 import click
+from cwsandbox import CWSandboxError, SandboxStatus
 from cwsandbox.cli.shell import _validate_cmd as _cwsandbox_validate_cmd
 
-from wandb.sandbox import CWSandboxError, Sandbox, SandboxStatus
-from wandb.sandbox._auth import override_sandbox_entity
-
 _STATUS_CHOICES = [s.value for s in SandboxStatus if s != SandboxStatus.UNSPECIFIED]
+_DEPRECATION_MESSAGE = (
+    "It will be removed in a future release. "
+    "Sandbox functionality is now maintained in the `cwsandbox` package."
+)
 
 
 class SandboxCommand(click.Command):
@@ -27,6 +29,8 @@ class SandboxCommand(click.Command):
         ]
 
     def invoke(self, ctx: click.Context) -> object:
+        from wandb.sandbox._auth import override_sandbox_entity
+
         entity = ctx.params.pop("entity", None)
 
         try:
@@ -42,7 +46,7 @@ class SandboxGroup(click.Group):
     command_class = SandboxCommand
 
 
-@click.group(cls=SandboxGroup)
+@click.group(cls=SandboxGroup, deprecated=_DEPRECATION_MESSAGE)
 def sandbox() -> None:
     """Manage W&B sandboxes.
 
@@ -118,6 +122,8 @@ def list_sandboxes(
 
         wandb beta sandbox ls --entity team
     """
+    from wandb.sandbox import Sandbox
+
     sandboxes = Sandbox.list(
         tags=list(tags) if tags else None,
         status=status,

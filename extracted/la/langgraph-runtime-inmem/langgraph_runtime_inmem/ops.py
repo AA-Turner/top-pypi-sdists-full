@@ -75,6 +75,26 @@ LANGGRAPH_PY_MINOR = tuple(map(int, __version__.split(".")[:2]))
 USE_NEW_INTERRUPTS = LANGGRAPH_PY_MINOR >= (0, 6)
 
 
+async def _decrypt_response(data: dict, model: str, fields: list[str]) -> dict:
+    from langgraph_api.encryption.middleware import decrypt_response  # noqa: PLC0415
+
+    return await decrypt_response(data, model, fields)  # type: ignore[arg-type]
+
+
+async def _encrypt_request(data: dict, model: str, fields: list[str]) -> dict:
+    from langgraph_api.encryption.middleware import encrypt_request  # noqa: PLC0415
+
+    return await encrypt_request(data, model, fields)  # type: ignore[arg-type]
+
+
+def _using_custom_encryption() -> bool:
+    from langgraph_api.encryption.shared import (  # noqa: PLC0415
+        using_custom_encryption,
+    )
+
+    return using_custom_encryption()
+
+
 def _run_stream_mode_matches(event_mode: str, stream_mode: list[str] | None) -> bool:
     """Return True if a published run-stream event matches the join filter."""
     if not stream_mode:
@@ -279,6 +299,18 @@ class Assistants(Authenticated):
 
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
+        custom_encryption = _using_custom_encryption()
+        if custom_encryption:
+            decrypted = await _decrypt_response(
+                {"config": config, "context": context, "metadata": metadata},
+                "assistant",
+                ["config", "context", "metadata"],
+            )
+            config, context, metadata = (
+                decrypted["config"],
+                decrypted["context"],
+                decrypted["metadata"],
+            )
         filters = await Assistants.handle_event(
             ctx,
             "create",
@@ -311,9 +343,14 @@ class Assistants(Authenticated):
             None,
         )
         if existing_assistant:
-            if filters and not _check_filter_match(
-                existing_assistant["metadata"], filters
-            ):
+            existing_metadata = existing_assistant["metadata"]
+            if custom_encryption:
+                existing_metadata = (
+                    await _decrypt_response(
+                        {"metadata": existing_metadata}, "assistant", ["metadata"]
+                    )
+                )["metadata"]
+            if filters and not _check_filter_match(existing_metadata, filters):
                 raise HTTPException(
                     status_code=409, detail=f"Assistant {assistant_id} already exists"
                 )
@@ -352,6 +389,13 @@ class Assistants(Authenticated):
             "name": name,
             "description": description,
         }
+        if custom_encryption and not system:
+            new_assistant = await _encrypt_request(
+                new_assistant, "assistant", ["config", "context", "metadata"]
+            )
+            new_version = await _encrypt_request(
+                new_version, "assistant", ["config", "context", "metadata"]
+            )
         conn.store["assistants"].append(new_assistant)
         conn.store["assistant_versions"].append(new_version)
 
@@ -394,6 +438,18 @@ class Assistants(Authenticated):
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
         config = config if config is not None else {}
+        custom_encryption = _using_custom_encryption()
+        if custom_encryption:
+            decrypted = await _decrypt_response(
+                {"config": config, "context": context, "metadata": metadata},
+                "assistant",
+                ["config", "context", "metadata"],
+            )
+            config, context, metadata = (
+                decrypted["config"],
+                decrypted["context"],
+                decrypted["metadata"],
+            )
         filters = await Assistants.handle_event(
             ctx,
             "update",
@@ -430,7 +486,12 @@ class Assistants(Authenticated):
             raise HTTPException(
                 status_code=404, detail=f"Assistant {assistant_id} not found"
             )
-        elif filters and not _check_filter_match(assistant["metadata"], filters):
+        stored_assistant = assistant
+        if custom_encryption:
+            assistant = await _decrypt_response(
+                assistant, "assistant", ["config", "context", "metadata"]
+            )
+        if filters and not _check_filter_match(assistant["metadata"], filters):
             raise HTTPException(
                 status_code=404, detail=f"Assistant {assistant_id} not found"
             )
@@ -464,10 +525,16 @@ class Assistants(Authenticated):
                 description if description is not None else assistant.get("description")
             ),
         }
+        if custom_encryption:
+            new_version_entry = await _encrypt_request(
+                new_version_entry,
+                "assistant",
+                ["config", "context", "metadata"],
+            )
         conn.store["assistant_versions"].append(new_version_entry)
 
         # Update assistants table
-        assistant.update(
+        stored_assistant.update(
             {
                 "graph_id": new_version_entry["graph_id"],
                 "config": new_version_entry["config"],
@@ -485,7 +552,7 @@ class Assistants(Authenticated):
         )
 
         async def _yield_updated():
-            yield assistant
+            yield stored_assistant
 
         return _yield_updated()
 
@@ -2478,6 +2545,18 @@ class Runs(Authenticated):
         if not assistant:
             return _empty_generator()
 
+        custom_encryption = _using_custom_encryption()
+        if custom_encryption:
+            assistant = await _decrypt_response(
+                assistant, "assistant", ["metadata", "config", "context"]
+            )
+            kwargs = await _decrypt_response(
+                kwargs, "run", ["input", "command", "config", "context"]
+            )
+            metadata = (
+                await _decrypt_response({"metadata": metadata}, "run", ["metadata"])
+            )["metadata"]
+
         thread_id = _ensure_uuid(thread_id) if thread_id else None
         run_id = _ensure_uuid(run_id) if run_id else None
         metadata = metadata if metadata is not None else {}
@@ -2510,6 +2589,12 @@ class Runs(Authenticated):
         if thread_id is not None:
             existing_thread = next(
                 (t for t in conn.store["threads"] if t["thread_id"] == thread_id), None
+            )
+        if custom_encryption and existing_thread:
+            existing_thread = await _decrypt_response(
+                existing_thread,
+                "thread",
+                ["metadata", "config"],
             )
         # Automatically enforce assistant ownership for non-system assistants
         # by calling the user's assistant read auth handler.
@@ -2662,6 +2747,26 @@ class Runs(Authenticated):
             updated_at=datetime.now(UTC),
             langsmith_session_name=langsmith_session_name,
         )
+        if custom_encryption:
+            # Unlike Go core, in-memory workers read nested run kwargs and thread
+            # config directly from the store, so those containers must stay readable.
+            encrypted_thread = await _encrypt_request(
+                thread if not existing_thread else existing_thread,
+                "thread",
+                ["metadata"],
+            )
+            stored_thread = next(
+                t
+                for t in conn.store["threads"]
+                if t["thread_id"] == encrypted_thread["thread_id"]
+            )
+            stored_thread.update(encrypted_thread)
+            new_run["kwargs"] = await _encrypt_request(
+                new_run["kwargs"],
+                "run",
+                ["input", "config", "context", "command"],
+            )
+            new_run = Run(**await _encrypt_request(new_run, "run", ["metadata"]))
         conn.store["runs"].append(new_run)
 
         async def _yield_new():

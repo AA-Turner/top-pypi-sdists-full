@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -698,6 +698,22 @@ def test_run_auto_advance_unavailable_estimate_holds(
             False,
             id="no_op_empty_tier_cancel",
         ),
+        pytest.param(
+            "canceled",
+            "AutoPilot auto-close: RC already GA (registry default); "
+            "closing obsolete rollout",
+            None,
+            False,
+            id="auto_close_already_ga_cancel",
+        ),
+        pytest.param(
+            "canceled",
+            "AutoPilot auto-close: RC is not the highest registry release "
+            "candidate; closing obsolete rollout",
+            None,
+            False,
+            id="auto_close_not_highest_candidate_cancel",
+        ),
         pytest.param("succeeded", "healthy", None, False, id="succeeded"),
         pytest.param("errored", "workflow error", None, True, id="errored"),
         pytest.param("paused", None, "manual pause", True, id="paused_with_reason"),
@@ -1138,6 +1154,7 @@ def test_run_auto_promote_skips_empty_intermediate_tier_and_starts_next(
     assert len(started) == 1
     assert started[0]["customer_tier"] == "TIER_0"
     assert len(progressed) == 1
+    assert progressed[0]["rollout_id"] == "rollout-2"
     assert [a.action for a in result.actions] == ["promote"]
     assert not result.errors
 
@@ -1149,6 +1166,7 @@ def _close_row(
     actor_definition_id: str = "def-1",
     repo: str = "airbyte/destination-motherduck",
     state: str = "in_progress",
+    created_at: datetime | str | None = None,
 ) -> dict:
     """Build a minimal raw rollout row for `run_auto_close` tests."""
     return {
@@ -1157,6 +1175,7 @@ def _close_row(
         "state": state,
         "rc_docker_repository": repo,
         "rc_docker_image_tag": tag,
+        "created_at": created_at,
     }
 
 
@@ -1529,8 +1548,13 @@ def test_run_auto_close_skips_when_candidates_all_unparseable(
 def test_run_auto_close_closes_when_no_candidate_advertised(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A rollout is closed when the registry advertises no release candidate."""
-    row = _close_row(rollout_id="r-380", tag="3.8.0")
+    """An old rollout is closed when no release candidate is advertised."""
+    row = _close_row(
+        rollout_id="r-380",
+        tag="3.8.0",
+        created_at=datetime.now(timezone.utc)
+        - timedelta(minutes=rollout_constants.REGISTRY_CANDIDATE_LAG_GRACE_MINUTES + 1),
+    )
     monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
     monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
     monkeypatch.setattr(
@@ -1556,9 +1580,43 @@ def test_run_auto_close_closes_when_no_candidate_advertised(
 
     assert len(calls) == 1
     assert calls[0]["rollout_id"] == "r-380"
-    assert calls[0]["failed_reason"] == "not_highest_candidate"
+    assert calls[0]["failed_reason"] == "no_candidate_advertised"
     assert calls[0]["retain_pins_on_cancellation"] is True
     assert [a.action for a in result.actions] == ["close"]
+
+
+@pytest.mark.unit
+def test_run_auto_close_skips_empty_candidates_during_registry_lag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fresh rollout is left alone while the registry catches up."""
+    row = _close_row(
+        rollout_id="r-fresh",
+        tag="3.8.0",
+        created_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(
+        autopilot, "get_registry_default_version", lambda _adid: "3.8.1"
+    )
+    monkeypatch.setattr(autopilot, "get_registry_release_candidates", lambda _adid: [])
+
+    def _fail(**_: object) -> dict:
+        raise AssertionError("a fresh rollout must not finalize during registry lag")
+
+    monkeypatch.setattr(autopilot.api_client, "finalize_connector_rollout", _fail)
+
+    result = autopilot.run_auto_close(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not result.actions
+    assert not result.errors
+    assert not result.skipped
 
 
 @pytest.mark.unit

@@ -102,6 +102,9 @@ fn shared_fingerprint_fixture_freezes_shape_and_configuration() {
         let mol = chematic_smiles::parse(smiles)
             .unwrap_or_else(|error| panic!("fingerprint fixture {id} must parse: {error}"));
         let ecfp4 = chematic_fp::ecfp4(&mol);
+        let topo_path = chematic_fp::topo_path(&mol, &chematic_fp::TopoPathConfig::default());
+        let torsion = chematic_fp::torsion_fp(&mol);
+        let rdkit_torsion = chematic_fp::rdkit_torsion_fp(&mol);
         let maccs = chematic_fp::maccs(&mol);
         assert_eq!(ecfp4.to_bitvecn().bit_width(), 2048, "{id} ECFP4 shape");
         assert_eq!(
@@ -111,10 +114,59 @@ fn shared_fingerprint_fixture_freezes_shape_and_configuration() {
         );
         assert!(ecfp4.popcount() > 0, "{id} ECFP4 must not be empty");
         assert!(maccs.popcount() > 0, "{id} MACCS must not be empty");
+        let expected_ecfp4_bits = fixture["ecfp4_bits"].as_array().unwrap();
+        let actual_ecfp4_bits: Vec<usize> = (0..2048).filter(|&bit| ecfp4.get(bit)).collect();
+        let expected_ecfp4_bits: Vec<usize> = expected_ecfp4_bits
+            .iter()
+            .map(|bit| bit.as_u64().unwrap() as usize)
+            .collect();
+        assert_eq!(actual_ecfp4_bits, expected_ecfp4_bits, "{id} ECFP4 bits");
+        let expected_topo_bits: Vec<usize> = fixture["topo_path_bits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|bit| bit.as_u64().unwrap() as usize)
+            .collect();
+        let actual_topo_bits: Vec<usize> = (0..2048).filter(|&bit| topo_path.get(bit)).collect();
+        assert_eq!(actual_topo_bits, expected_topo_bits, "{id} topo_path bits");
+        let expected_torsion_bits: Vec<usize> = fixture["torsion_bits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|bit| bit.as_u64().unwrap() as usize)
+            .collect();
+        let actual_torsion_bits: Vec<usize> = (0..2048).filter(|&bit| torsion.get(bit)).collect();
+        assert_eq!(
+            actual_torsion_bits, expected_torsion_bits,
+            "{id} torsion bits"
+        );
+        let expected_rdkit_torsion_bits: Vec<usize> = fixture["rdkit_torsion_bits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|bit| bit.as_u64().unwrap() as usize)
+            .collect();
+        let actual_rdkit_torsion_bits: Vec<usize> =
+            (0..2048).filter(|&bit| rdkit_torsion.get(bit)).collect();
+        assert_eq!(
+            actual_rdkit_torsion_bits, expected_rdkit_torsion_bits,
+            "{id} RDKit torsion bits"
+        );
         assert!(
             (166..2048).all(|bit| !maccs.get(bit)),
             "{id} MACCS upper bits"
         );
+        let expected_hex = fixture["maccs_hex"].as_str().unwrap();
+        assert_eq!(expected_hex.len(), 42, "{id} MACCS hex length");
+        for bit in 0..166 {
+            let byte = u8::from_str_radix(&expected_hex[2 * (bit / 8)..2 * (bit / 8) + 2], 16)
+                .expect("MACCS fixture hex");
+            assert_eq!(
+                maccs.get(bit),
+                (byte & (1 << (bit % 8))) != 0,
+                "{id} MACCS bit {bit}"
+            );
+        }
     }
 }
 

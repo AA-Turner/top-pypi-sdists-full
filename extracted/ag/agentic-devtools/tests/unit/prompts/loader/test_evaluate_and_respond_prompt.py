@@ -116,6 +116,15 @@ class TestPushVerification:
         """Prompt must include headRefOid comparison to verify push landed."""
         assert "headRefOid" in _content()
 
+    def test_concurrent_push_recovery_is_explicit(self) -> None:
+        """Prompt must explain how to recover when another agent advances the branch."""
+        content = _normalized().lower()
+        assert "other repair agents may update this pr branch concurrently" in content
+        assert "non-fast-forward" in content
+        assert "fetch again, merge the remote branch into your local branch" in content
+        assert "do not rebase, amend, or force-push" in content
+        assert "remote_sha" in content
+
     def test_verify_push_section_present(self) -> None:
         """A 'Verify Push Was Successful' section must exist."""
         assert "Verify Push Was Successful" in _content()
@@ -427,9 +436,11 @@ class TestTriggerTemplateMatchesBuilder:
         assert "so I know what was decided in each case and why." in prompt
         assert "Therefore, for each comment you have 4 options:" in prompt
         assert (
-            "After you have replied to each comment, ensure that it is resolved and closed as well, "
-            "so that those comments no longer block a merge." in prompt
-        )
+            "For these comments, please reply to each one with your decision and the rationale behind it."
+            " If you made changes as a result of the comment, link the commit where the changes can be found"
+            " in the reply. For option 4, include the structured follow-up issue request described below;"
+            " the local dispatcher creates the issue and records its number in the task result."
+        ) in prompt
 
 
 class TestValidationRules:

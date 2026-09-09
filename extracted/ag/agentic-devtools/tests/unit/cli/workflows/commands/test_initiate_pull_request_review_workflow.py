@@ -491,6 +491,64 @@ class TestWorkflowCommands:
 class TestInitiatePRReviewWorkflowInteractive:
     """Tests for the --interactive flag and auto_execute_command behaviour."""
 
+    def test_no_vscode_alias_enables_headless_auto_setup(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
+    ):
+        """The --no-vscode alias propagates through automatic worktree setup."""
+        state.set_value("pull_request_id", "123")
+        state.set_value("jira.issue_key", "PROJECT-1234")
+
+        with patch("agentic_devtools.cli.azure_devops.helpers.get_pull_request_source_branch") as mock_src:
+            mock_src.return_value = "feature/PROJECT-1234/test"
+            with patch("agentic_devtools.cli.workflows.commands.check_worktree_and_branch") as mock_preflight:
+                from agentic_devtools.cli.workflows.preflight import PreflightResult
+
+                mock_preflight.return_value = PreflightResult(
+                    folder_valid=False,
+                    branch_valid=False,
+                    folder_name="wrong",
+                    branch_name="main",
+                    issue_key="PROJECT-1234",
+                )
+                with patch(
+                    "agentic_devtools.cli.workflows.preflight.perform_auto_setup", return_value=True
+                ) as mock_setup:
+                    commands.initiate_pull_request_review_workflow(_argv=["--no-vscode"])
+
+        call_kwargs = mock_setup.call_args.kwargs
+        assert call_kwargs["headless"] is True
+        assert "--headless" in call_kwargs["auto_execute_command"]
+
+    def test_headless_overrides_terminal_mode_before_state_and_auto_setup(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
+    ):
+        """Headless mode suppresses dedicated-terminal state and nested flags."""
+        state.set_value("pull_request_id", "123")
+        state.set_value("jira.issue_key", "PROJECT-1234")
+
+        with patch("agentic_devtools.cli.azure_devops.helpers.get_pull_request_source_branch") as mock_src:
+            mock_src.return_value = "feature/PROJECT-1234/test"
+            with patch("agentic_devtools.cli.workflows.commands.check_worktree_and_branch") as mock_preflight:
+                from agentic_devtools.cli.workflows.preflight import PreflightResult
+
+                mock_preflight.return_value = PreflightResult(
+                    folder_valid=False,
+                    branch_valid=False,
+                    folder_name="wrong",
+                    branch_name="main",
+                    issue_key="PROJECT-1234",
+                )
+                with patch(
+                    "agentic_devtools.cli.workflows.preflight.perform_auto_setup", return_value=True
+                ) as mock_setup:
+                    commands.initiate_pull_request_review_workflow(_argv=["--no-vscode", "--terminal"])
+
+        call_kwargs = mock_setup.call_args.kwargs
+        assert call_kwargs["headless"] is True
+        assert "--headless" in call_kwargs["auto_execute_command"]
+        assert "--copilot-terminal" not in call_kwargs["auto_execute_command"]
+        assert state.get_value("copilot.terminal") is False
+
     def test_interactive_flag_false_parsed_from_cli(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
     ):
@@ -546,6 +604,31 @@ class TestInitiatePRReviewWorkflowInteractive:
 
         call_kwargs = mock_setup.call_args[1]
         assert call_kwargs["interactive"] is False
+
+    def test_programmatic_terminal_value_is_preserved(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
+    ):
+        """A programmatic terminal selection is not replaced by the CLI default."""
+        state.set_value("pull_request_id", "457")
+        state.set_value("jira.issue_key", "PROJECT-5679")
+
+        with patch("agentic_devtools.cli.azure_devops.helpers.get_pull_request_source_branch") as mock_src:
+            mock_src.return_value = "feature/PROJECT-5679/test"
+            with patch("agentic_devtools.cli.workflows.commands.check_worktree_and_branch") as mock_preflight:
+                from agentic_devtools.cli.workflows.preflight import PreflightResult
+
+                mock_preflight.return_value = PreflightResult(
+                    folder_valid=False,
+                    branch_valid=False,
+                    folder_name="wrong",
+                    branch_name="main",
+                    issue_key="PROJECT-5679",
+                )
+                with patch("agentic_devtools.cli.workflows.preflight.perform_auto_setup") as mock_setup:
+                    mock_setup.return_value = True
+                    commands.initiate_pull_request_review_workflow(terminal=True, _argv=[])
+
+        assert state.get_value("copilot.terminal") is True
 
     def test_auto_execute_command_passed_with_pr_id_and_issue_key(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
@@ -816,28 +899,28 @@ class TestInitiatePRReviewWorkflowCopilotSession:
     ):
         """_start_copilot_session_for_pr_review is called with interactive=False by default."""
         mock_session = self._run_with_preflight_passing("999", "feature/some-branch")
-        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o")
+        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o", headless=False)
 
     def test_copilot_session_respects_interactive_false(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing
     ):
         """_start_copilot_session_for_pr_review is called with interactive=False when --interactive false."""
         mock_session = self._run_with_preflight_passing("999", "feature/some-branch", argv=["--interactive", "false"])
-        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o")
+        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o", headless=False)
 
     def test_copilot_session_interactive_true_when_explicitly_set(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing
     ):
         """_start_copilot_session_for_pr_review is called with interactive=True when --interactive true."""
         mock_session = self._run_with_preflight_passing("999", "feature/some-branch", argv=["--interactive", "true"])
-        mock_session.assert_called_once_with("/fake/repo-root", interactive=True, model="gpt-4o")
+        mock_session.assert_called_once_with("/fake/repo-root", interactive=True, model="gpt-4o", headless=False)
 
     def test_copilot_session_custom_model_from_cli(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing
     ):
         """--model CLI arg overrides the default model."""
         mock_session = self._run_with_preflight_passing("999", "feature/some-branch", argv=["--model", "gpt-4"])
-        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4")
+        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4", headless=False)
 
     def test_copilot_model_id_persisted_in_state(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing

@@ -37,6 +37,7 @@ from ..core import (
     store,
     util,
 )
+from ..core import discovery as discovery_core
 from ..core import output as out
 from ..core.stackprobe import detect_stack  # re-exported: shared with Quality
 from ..errors import BoostError
@@ -62,6 +63,17 @@ def _json_array(text):
 
 def _discovery_path() -> Path:
     return paths.cache_dir() / "discovery.json"
+
+
+def _index_item_count(path: Path) -> int:
+    """Item count of an existing discovery.json, or 0 if absent/unreadable."""
+    if not path.exists():
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0
+    return len(data.get("items") or [])
 
 
 def _ai_rank(query: str, scored):
@@ -91,7 +103,7 @@ def cmd_search(argv):
     """Search the tap catalogs, optionally AI-reranked with --smart."""
     p = cliparse.parser(
         prog="boost search",
-        description="Search skills across tap registries (AI-ranked)")
+        description="Search skills across tap registries (BM25; --smart reranks with Claude)")
     p.add_argument("query", nargs="+", help="search terms")
     p.add_argument("--smart", action="store_true",
                    help="rerank the top hits with Claude")
@@ -132,23 +144,31 @@ def cmd_search(argv):
                           "building the search index (first run)"):
             use_rag = rag.ensure()
     engine = ""
+    hit_cap = False
+    k = 0
     if use_rag:
         # retrieve_any, not retrieve: this picks the dense backend when one is
         # built and floors to BM25 otherwise, so the CLI and the MCP server
         # answer from the same engine instead of the CLI being BM25-only.
+        k = max(60, args.limit * 4)
         hits, engine = rag.retrieve_any(
-            query, k=max(60, args.limit * 4),
-            collapse_near_duplicates=args.collapse_dupes)
-        scored = [(h["entry"], h["score"]) for h in (hits or [])]
+            query, k=k, collapse_near_duplicates=args.collapse_dupes)
+        hits = hits or []
+        # Retrieval never returns more than `k` — hitting that cap means
+        # there may be more matches beyond it, not that there are exactly
+        # `k`. Recorded before the category filter narrows the count further,
+        # because the cap was already in effect at retrieval time either way.
+        hit_cap = len(hits) >= k
+        scored = [(h["entry"], h["score"]) for h in hits]
     else:
         scored = catalog.search(query)
     if args.category:
         scored = [(e, s) for e, s in scored
                  if catalog.matches_category(e, args.category)]
-    if args.as_json:
-        print(json.dumps([e | {"score": s} for e, s in scored[:args.limit]]))
-        return 0
     if not scored:
+        if args.as_json:
+            print(json.dumps([]))
+            return 0
         # The standardized ○/→ empty state, so "nothing here" reads the same
         # as every other command's; both wordings are pinned by tests.
         print(out.empty_state(
@@ -164,13 +184,27 @@ def cmd_search(argv):
     # is pinned in tests/eval/baseline.json. Map instead of moving either.
     ranker = _ENGINE_LABEL.get(engine, engine) if use_rag else "heuristic relevance"
     if args.smart:
+        reranked = None
         if ai.available():
             with spin.Spinner("ranking %d matches with Claude" % len(scored)):
                 reranked = _ai_rank(query, scored)
-            if reranked:
-                scored, ranker = reranked, "Claude Haiku relevance"
+        if reranked:
+            scored, ranker = reranked, "Claude Haiku relevance"
         else:
+            # Fires whether AI was never available or was tried and failed —
+            # a silent unranked list otherwise looks identical to a
+            # deliberate BM25-only result. On stderr and unconditional on
+            # --json: a script reading stdout as JSON must still learn that
+            # --smart silently did nothing.
             out.warn(ai.fallback_note(), wrap=True, stream=sys.stderr)
+    if args.as_json:
+        # public_entry, not the raw entry: `search_blob` is index fuel
+        # precomputed at scan time and can be a third of the payload. #815
+        # strips it here; main had since moved this emit below --smart so the
+        # rows carry `ranker`. Both hold.
+        print(json.dumps([catalog.public_entry(e) | {"score": s, "ranker": ranker}
+                          for e, s in scored[:args.limit]]))
+        return 0
     shown = scored[:args.limit]
     # The dot marks "a skill by this name is installed" — a name match, with
     # the known homonym caveat (13 real skills share `code-reviewer`). A lock
@@ -192,8 +226,16 @@ def cmd_search(argv):
             str(e.get("kind") or "skill"), str(e.get("tap") or ""), sc / top,
             curated=bool(e.get("curated")),
             installed=e["name"] in installed, lay=lay))
-    out.info(out.role("%d match%s · ranked by %s"
-                   % (len(scored), "" if len(scored) == 1 else "es", ranker), "muted"))
+    if hit_cap:
+        # `len(scored)` here is the retrieval cap, not a true count — retrieval
+        # stopped at `k` and there may be more matches past it. Say what is
+        # actually known (the cap), not a number that reads as exact but is an
+        # artifact of `k = max(60, limit * 4)`.
+        footer = "top %d of %d+ retrieved · ranked by %s" % (len(shown), k, ranker)
+    else:
+        footer = ("%d match%s · ranked by %s"
+                  % (len(scored), "" if len(scored) == 1 else "es", ranker))
+    out.info(out.role(footer, "muted"))
     if use_rag:
         _note_stem_expansions(query)
     _hint_semantic_search(engine)
@@ -422,7 +464,7 @@ def cmd_reindex(argv):
     """Build/refresh the full-content (RAG) search index over tapped items."""
     p = cliparse.parser(
         prog="boost reindex",
-        description="Build or refresh the full-content search index")
+        description="Build/refresh the full-content search index")
     p.add_argument("--force", action="store_true",
                    help="reindex every tap, ignoring cached commits")
     p.add_argument("--dense", action="store_true",
@@ -626,19 +668,21 @@ def cmd_index(argv):
                  % (urllib.parse.quote(q, safe=":"), page)],
                 capture_output=True, text=True, timeout=120)
         except (subprocess.TimeoutExpired, OSError) as e:
+            spin.progress_clear()
             raise BoostError("gh api timed out on page %d" % page, hint=str(e)) from e
         if proc.returncode != 0:
-            tail = "\n".join((proc.stderr or proc.stdout or "").strip()
-                             .splitlines()[-3:])
+            spin.progress_clear()
             if not items:
                 raise BoostError("GitHub code search failed",
-                                hint=tail or "check `gh auth status`")
+                                hint=discovery_core.gh_failure_hint(
+                                    proc.stderr or proc.stdout or ""))
             out.warn("page %d failed — keeping the %d items fetched so far"
                      % (page, len(items)))
             break
         try:
             data = json.loads(proc.stdout)
         except json.JSONDecodeError:
+            spin.progress_clear()
             raise BoostError("gh api returned unparseable JSON",
                             hint="try `boost index` again, or `gh auth status`") from None
         if page == 1:
@@ -656,8 +700,14 @@ def cmd_index(argv):
                 break
         if len(items) >= args.limit or len(batch) < 100:
             break
+    dpath = _discovery_path()
+    if not discovery_core.should_write_index(len(items), dpath.exists()):
+        prev = _index_item_count(dpath)
+        out.warn("no SKILL.md files match %s — keeping the previous index "
+                 "of %d entries" % (query or "your query", prev))
+        return 0
     paths.ensure_dirs()
-    _discovery_path().write_text(json.dumps(
+    dpath.write_text(json.dumps(
         {"generated": util.now_iso(), "github_total": total, "query": query,
          "items": items}, indent=1), encoding="utf-8")
     repos = len({it["repo"] for it in items})
@@ -756,28 +806,35 @@ def _fall_back(why: str, hint: str) -> None:
 def _discover_live(args, tokens):
     """Search GitHub itself — the same reach-out the MCP tool makes.
 
-    Returns an exit code, or None to fall through to the cached index.
+    Returns ``(exit_code, fallback_reason)``. ``exit_code`` is ``None`` to fall
+    through to the cached index, in which case ``fallback_reason`` is a short
+    phrase naming *why* — fed straight into the local-index miss footer, which
+    otherwise cannot tell "gh is missing" from "the search failed" apart from
+    "no query was given at all", and used to blame all three on the same
+    ("GitHub could not be reached").
     """
     if not shutil.which("gh"):
-        return _fall_back("GitHub search needs the `gh` CLI",
-                          "install it with `brew install gh && gh auth login` "
-                          "to search GitHub itself")
+        _fall_back("GitHub search needs the `gh` CLI",
+                   "install it with `brew install gh && gh auth login` "
+                   "to search GitHub itself")
+        return None, "the `gh` CLI is not installed"
     hits = github_skill_search(" ".join(tokens), _GH_PAGE)
     if hits is None:
-        return _fall_back("GitHub code search failed", "check `gh auth status`")
+        _fall_back("GitHub code search failed", "check `gh auth status`")
+        return None, "GitHub code search failed"
     rows = _by_repo(hits)[:args.limit]
     if args.as_json:
         # `source` on every row, in both paths, because the fall-through above
         # switches corpus *and* row shape. Without it a script cannot tell
         # "GitHub has no matches" from "GitHub was never searched".
         print(json.dumps([r | {"source": "github"} for r in rows]))
-        return 0
+        return 0, None
     if not rows:
         out.info("no SKILL.md repositories on GitHub match %r"
                  % " ".join(tokens))
         out.info(out.role("try broader terms, or `boost search` for the "
                           "registries already tapped", "muted"))
-        return 0
+        return 0, None
     # The count rides the repo column, which is short: appended to the path it
     # was the first thing a narrow terminal truncated away. out.plain because
     # every field here is a GitHub string — a repo name or path carrying a
@@ -793,7 +850,7 @@ def _discover_live(args, tokens):
                       "GitHub Code Search" % (len(rows), len(hits)), "muted"))
     out.info(out.role("add one with `boost tap <repo>`, then `boost install "
                       "<skill>`", "muted"))
-    return 0
+    return 0, None
 
 
 def cmd_discover(argv):
@@ -813,21 +870,27 @@ def cmd_discover(argv):
     # A query is a question about GitHub, not about whatever `boost index`
     # happened to sample — so ask GitHub. The cached index stays the answer for
     # bare browsing and for --local, where being offline is the point.
+    fallback_reason = None
     if tokens and not args.local:
-        code = _discover_live(args, tokens)
+        code, fallback_reason = _discover_live(args, tokens)
         if code is not None:
             return code
     dpath = _discovery_path()
     if not dpath.exists():
-        if args.as_json:
-            print(json.dumps([]))
-            return 0
-        out.info("the discovery index has not been built yet")
+        # These lines must reach the user under --json too — stdout has to stay
+        # parseable, but "index not built" and "nothing matched" are different
+        # facts and a script deserves to be able to tell them apart, same as
+        # the live fall-back notice below.
+        stream = sys.stderr if args.as_json else None
+        out.info("the discovery index has not been built yet", stream=stream)
         if shutil.which("gh"):
-            out.info("build it with `boost index` (GitHub Code Search)")
+            out.info("build it with `boost index` (GitHub Code Search)",
+                     stream=stream)
         else:
             out.info("install the GitHub CLI first (`brew install gh && "
-                     "gh auth login`), then run `boost index`")
+                     "gh auth login`), then run `boost index`", stream=stream)
+        if args.as_json:
+            print(json.dumps([]))
         return 0
     try:
         data = json.loads(dpath.read_text(encoding="utf-8"))
@@ -835,41 +898,55 @@ def cmd_discover(argv):
         raise BoostError("the discovery index is corrupt",
                         hint="rebuild it with `boost index`") from None
     all_items = data.get("items") or []
-    tokens = [t.lower() for t in args.query if t.strip()]
+    query_tokens = [t.lower() for t in args.query if t.strip()]
     items = [it for it in all_items
              if all(t in ("%s %s %s" % (it.get("repo", ""), it.get("path", ""),
                                         it.get("description", ""))).lower()
-                    for t in tokens)]
-    shown = items[:args.limit]
+                    for t in query_tokens)]
     if args.as_json:
         # Tagged like the live rows above: this is the branch a script reaches
-        # after a silent fall-through, and the two row shapes differ.
+        # after a silent fall-through, and the two row shapes differ. Rows stay
+        # per-file here — a script asked for the raw matches, and repo
+        # collapsing is a table-rendering concern, not a data-shape one.
+        shown = items[:args.limit]
         print(json.dumps([it | {"source": "local-index"} for it in shown]))
         return 0
-    if not shown:
+    # One row per repository, same as the live table: code search (and a
+    # mirrored registry) can return several files from one repo, and a repo is
+    # what `boost tap` acts on.
+    repo_rows = _by_repo(items)[:args.limit]
+    if not repo_rows:
         out.info("no locally indexed skills match %r" % " ".join(args.query))
-        # Say what was actually consulted. The old wording read as a verdict on
-        # GitHub when it was only ever a verdict on this cache. The next line
-        # depends on WHY we are here: told to stay local, or fell through after
-        # GitHub was unreachable. "drop --local" to someone who never typed it
-        # is advice they cannot act on, contradicting the warning just printed.
-        out.info(out.role(
-            ("this searched a local sample of %d entries, not GitHub — drop "
-             "--local to search GitHub itself" % len(all_items))
-            if args.local else
-            ("this searched a local sample of %d entries because GitHub could "
-             "not be reached" % len(all_items)), "muted"))
+        # Say what was actually consulted. The old wording blamed "GitHub could
+        # not be reached" whatever the real reason — including a bare browse
+        # that never contacted GitHub at all. The next line depends on WHY we
+        # are here: told to stay local, a real fall-back with a known cause, or
+        # no query (so no live attempt) at all. "drop --local" to someone who
+        # never typed it is advice they cannot act on.
+        if args.local:
+            note = ("this searched a local sample of %d entries, not GitHub — "
+                     "drop --local to search GitHub itself" % len(all_items))
+        elif fallback_reason:
+            note = ("this searched a local sample of %d entries because %s"
+                     % (len(all_items), fallback_reason))
+        else:
+            note = ("this searched a local sample of %d entries — GitHub was "
+                     "not searched" % len(all_items))
+        out.info(out.role(note, "muted"))
         return 0
-    # out.plain: these rows came from GitHub too, by way of `boost index`.
-    out.table([(out.plain(it.get("repo", "?")), out.plain(it.get("path", "")),
-                out.role(out.plain(it.get("url", "")), "muted")) for it in shown],
+    # out.plain: these rows came from GitHub too, by way of `boost index`. The
+    # "(N)" cell mirrors the live table for the same reason it exists there.
+    out.table([(out.plain(it.get("repo", "?"))
+                + (" (%d)" % it["files"] if it.get("files", 1) > 1 else ""),
+                out.plain(it.get("path", "")),
+                out.role(out.plain(it.get("url", "")), "muted")) for it in repo_rows],
               headers=("repo", "path", "url"))
     # `github_total` is the match count for the query `boost index` was built
     # with, which since that command took a query is not "all of GitHub".
     scope = (" matching %r" % data["query"]) if data.get("query") else ""
-    out.info(out.role("%d of %d indexed skills · GitHub reported ~%d total%s "
-                      "when this index was built"
-                      % (len(shown), len(all_items),
+    out.info(out.role("%d repo(s) across %d of %d indexed skill files · GitHub "
+                      "reported ~%d total%s when this index was built"
+                      % (len(repo_rows), len(items), len(all_items),
                          int(data.get("github_total") or 0), scope), "muted"))
     return 0
 
@@ -929,27 +1006,38 @@ def cmd_recommend(argv):
             rec["score"] += 10
     ranked = sorted(agg.values(),
                     key=lambda r: (-r["score"], r["entry"]["name"]))
-    if args.as_json:
-        print(json.dumps({"stack": stack, "recommendations": [
-            r["entry"] | {"score": r["score"], "because": sorted(r["because"])}
-            for r in ranked[:args.limit]]}))
-        return 0
-    line = "stack: " + (", ".join(stack["languages"]) or "unknown")
-    if stack["frameworks"]:
-        line += " · frameworks: " + ", ".join(stack["frameworks"])
-    out.info(out.role("%s  (%s)" % (line, _tilde(target)), "muted"))
+    # The shown set (curated fallback included) is computed once, before the
+    # --json/text split, so both modes report the same recommendations — the
+    # bug this replaced returned `[]` from --json whenever the fallback below
+    # was what a human would actually see.
     shown: list[dict[str, Any]] = ranked[:args.limit]
-    if not shown:
+    used_curated_fallback = not shown
+    if used_curated_fallback:
         # Annotated rather than inlined: an unannotated literal of mixed value
         # types infers dict[str, object], which then makes every r["entry"][…]
         # read below an error about indexing `object`.
         curated: list[dict[str, Any]] = [
             {"entry": e, "score": 0, "because": {"curated"}}
-            for e in entries if e.get("curated")]
+            for e in catalog.curated_entries(entries)]
         shown = curated[:args.limit]
-        if not shown:
-            out.info("no recommendations for this stack — try `boost search <keyword>`")
-            return 0
+    if args.as_json:
+        print(json.dumps({"stack": stack, "recommendations": [
+            catalog.public_entry(r["entry"]) | {"score": r["score"],
+                                                "because": sorted(r["because"])}
+            for r in shown]}))
+        return 0
+    line = "stack: " + (", ".join(stack["languages"]) or "unknown")
+    if stack["frameworks"]:
+        line += " · frameworks: " + ", ".join(stack["frameworks"])
+    extra_kw = sorted(set(stack["keywords"]) - set(stack["languages"])
+                      - set(stack["frameworks"]))
+    if extra_kw:
+        line += " · also: " + ", ".join(extra_kw)
+    out.info(out.role("%s  (%s)" % (line, _tilde(target)), "muted"))
+    if not shown:
+        out.info("no recommendations for this stack — try `boost search <keyword>`")
+        return 0
+    if used_curated_fallback:
         out.info("no stack-specific matches — curated picks instead:")
     width = min(max(len(r["entry"]["name"]) for r in shown), 32)
     cols = out.term_width()
@@ -972,11 +1060,23 @@ def cmd_recommend(argv):
 
 def _browse_plain(entries, why: str):
     out.warn(why + " — showing the full catalog")
-    out.table([(e["name"], "v" + e["version"], e["tap"],
-                "★" if e.get("curated") else "") for e in entries],
-              headers=("name", "version", "tap", ""))
-    out.info(out.role("%d skills · install with `boost install <name>`"
-                   % len(entries), "muted"))
+    # Same collapse the TUI does: a registry renders one skill into
+    # .claude/, .cursor/, .gemini/ and a plugin root, and this fallback used
+    # to list every copy with nothing to tell them apart.
+    unique = [e for e, _n in browse.dedupe(entries)]
+    show_curated = any(e.get("curated") for e in unique)
+    headers = ["name", "version", "tap", "kind"]
+    rows = [[e["name"], "v" + e["version"], e["tap"],
+             out.kind_label(e.get("kind", "skill"))]
+            for e in unique]
+    if show_curated:
+        headers.append("")
+        for row, e in zip(rows, unique, strict=True):
+            row.append("★" if e.get("curated") else "")
+    out.table([tuple(row) for row in rows], headers=tuple(headers))
+    out.info(out.role(
+        "%s · install with `boost install <name>` · narrow with `boost search <query>`"
+        % browse.plain_footer(unique), "muted"))
     return 0
 
 
@@ -1725,7 +1825,17 @@ def cmd_browse(argv):
         import curses
     except ImportError:
         return _browse_plain(entries, "curses is unavailable on this Python")
-    picked = _browse_tui(curses, entries)
+    try:
+        picked = _browse_tui(curses, entries)
+    except curses.error as e:
+        # An fd that claims isatty() but isn't a real pty (IDE run consoles,
+        # `script`, TERM=dumb) can fail deep inside curses.wrapper's own
+        # setup/teardown rather than at the isatty() check above. wrapper
+        # already ran its finally block (endwin() included), so the screen is
+        # restored by the time this is caught — printing here lands on a
+        # normal terminal, not a hosed one.
+        return _browse_plain(entries,
+                             "the terminal does not support curses (%s)" % e)
     if not picked:
         return 0
     # The browser installs in place now, so anything it hands back is usually
@@ -1766,7 +1876,14 @@ def cmd_trending(argv):
                    help="max rows (default 10)")
     args = p.parse_args(argv)
     evs = journal.events(action="install")
-    by_name = {e["name"]: e for e in catalog.all_entries()}
+    # setdefault, not a dict comprehension: a comprehension keeps the LAST
+    # entry per name (whichever tap sorts last in catalog.all_entries()),
+    # while cmd_recommend's equivalent aggregation (agg.setdefault) keeps the
+    # first — so the two commands showed different descriptions for a name
+    # shipped by more than one tap. First-wins here matches that convention.
+    by_name: dict[str, dict] = {}
+    for e in catalog.all_entries():
+        by_name.setdefault(e["name"], e)
     if not evs:
         out.heading("curated picks (no local install data yet)")
         curated = [e for e in by_name.values() if e.get("curated")]
@@ -1822,28 +1939,6 @@ def cmd_stats(argv):
                         hint="try `boost search %s`" % name)
     acts = {a: len(journal.events(action=a, subject=name))
             for a in ("install", "update", "uninstall")}
-    if lock is not None and kind != "skill":
-        # Materialized kinds have no store dir or agent symlinks; the lock
-        # facts and journal activity are their whole stats surface.
-        if args.as_json:
-            print(json.dumps({"name": name, "kind": kind, "installed": True,
-                              "lock": lock, "activity": acts}))
-            return 0
-        out.heading("%s (%s)" % (name, kind))
-        out.kv("version", lock.get("version", "?"))
-        out.kv("tap", lock.get("tap", "?"))
-        out.kv("installed", util.rel_time(lock.get("installed_at", "")))
-        out.kv("updated", util.rel_time(lock.get("updated_at", "")))
-        out.kv("agents", ", ".join(sorted(
-            {m.get("agent", "?") for m in lock.get("materializations") or []}))
-            or "none")
-        out.kv("pinned", "yes" if lock.get("pinned") else "no")
-        if lock.get("quarantined"):
-            out.kv("quarantined", "yes")
-        out.kv("sha256", str(lock.get("sha256", ""))[:12])
-        out.kv("activity", "%d installs · %d updates · %d uninstalls"
-               % (acts["install"], acts["update"], acts["uninstall"]))
-        return 0
     latest = cat["version"] if cat else None
     upstream = None
     if cat:
@@ -1852,31 +1947,43 @@ def cmd_stats(argv):
             if tap.is_cloned:
                 lines = gitutil.log_for_path(tap.path, cat["rel_dir"], n=1)
                 upstream = lines[0] if lines else None
-    sdir = store.skill_store_dir(name)
-    size = util.dir_size(sdir) if lock and sdir.is_dir() else None
+    # Only a skill has a canonical store dir — a rule/workflow materializes
+    # into shared agent files instead of a directory boost owns, so `sdir`
+    # is never even looked up for those and `size` stays None rather than
+    # needing its own kind check below.
+    sdir = store.skill_store_dir(name) if kind == "skill" else None
+    size = util.dir_size(sdir) if sdir and lock and sdir.is_dir() else None
     if args.as_json:
         print(json.dumps({
-            "name": name, "installed": bool(lock), "lock": lock, "size": size,
-            "activity": acts,
+            "name": name, "kind": kind, "installed": bool(lock), "lock": lock,
+            "size": size, "activity": acts,
             "catalog": ({"latest": latest, "tap": cat["tap"],
                          "description": cat["description"],
                          "upstream": upstream} if cat else None)}))
         return 0
-    out.heading(name)
+    out.heading(name if kind == "skill" else "%s (%s)" % (name, kind))
     if lock:
         out.kv("version", lock.get("version", "?"))
         out.kv("tap", lock.get("tap", "?"))
         out.kv("installed", util.rel_time(lock.get("installed_at", "")))
         out.kv("updated", util.rel_time(lock.get("updated_at", "")))
-        out.kv("agents", ", ".join(lock.get("agents") or []) or "none")
+        # Sorted for both kinds — before this, a rule/workflow's agents line
+        # was sorted and a skill's printed raw lock/install order, which read
+        # like two commands disagreeing about the same fact rather than one
+        # command describing two kinds of item.
+        out.kv("agents", ", ".join(lockfile.agent_names(kind, lock)) or "none")
         out.kv("pinned", "yes" if lock.get("pinned") else "no")
+        if lock.get("quarantined"):
+            out.kv("quarantined", "yes")
         out.kv("sha256", str(lock.get("sha256", ""))[:12])
         if size is not None:
             out.kv("size", util.human_size(size))
+        if cat and cat.get("description"):
+            out.kv("description", cat["description"], wrap=True)
     elif cat:   # no lock means the guard above found a catalog entry
         out.kv("version", cat["version"])
         out.kv("tap", cat["tap"])
-        out.kv("description", cat["description"])
+        out.kv("description", cat["description"], wrap=True)
         out.info(out.role("not installed — `boost install %s`" % name, "muted"))
     out.kv("activity", "%d installs · %d updates · %d uninstalls"
            % (acts["install"], acts["update"], acts["uninstall"]))

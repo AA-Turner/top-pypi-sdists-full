@@ -33,7 +33,7 @@ class TestMinimizedCiWorkflows:
     def test_ai_pr_loop_uses_single_command_with_feature_flag(self) -> None:
         content = AI_PR_LOOP.read_text(encoding="utf-8")
         assert 'AGDT_USE_PYTHON_ORCHESTRATOR: "1"' in content
-        assert content.count("agdt-ai-pr-loop") == 1
+        assert content.count("agdt-ai-pr-loop\n") == 1
 
     def test_speckit_trigger_dispatches_to_phase_progression(self) -> None:
         content = SPECKIT_TRIGGER.read_text(encoding="utf-8")
@@ -58,13 +58,13 @@ class TestMinimizedCiWorkflows:
         assert "enable-cache: true" in content
         assert "cache-dependency-glob: 'pyproject.toml'" in content
 
-    def test_ai_pr_loop_uses_writer_token_for_rate_limit_redispatch(self) -> None:
+    def test_ai_pr_loop_uses_workflow_token_fallback_for_redispatch(self) -> None:
         content = AI_PR_LOOP.read_text(encoding="utf-8")
-        assert "id: run-loop" in content
-        assert 'echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"' in content
-        assert "COOLDOWN_ACTIVE: ${{ steps.cooldown-gate.outputs.cooldown_active }}" in content
-        assert "LOOP_EXIT_CODE: ${{ steps.run-loop.outputs.exit_code }}" in content
-        assert 'export GH_TOKEN="${REPO_VARIABLE_WRITER_PAT}"' in content
+        dispatch_step = content[content.index("- name: Dispatch AI PR Loop Redispatch") :]
+        assert "GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in dispatch_step
+        assert "FALLBACK_GH_TOKEN: ${{ github.token }}" in dispatch_step
+        assert 'GH_TOKEN="${FALLBACK_GH_TOKEN:-$GH_TOKEN}" gh api --method POST' in dispatch_step
+        assert "REPO_VARIABLE_WRITER_PAT" not in dispatch_step
 
     def test_ai_pr_loop_configures_loop_git_identity(self) -> None:
         content = AI_PR_LOOP.read_text(encoding="utf-8")

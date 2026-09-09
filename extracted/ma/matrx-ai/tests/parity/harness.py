@@ -125,6 +125,49 @@ def _normalize(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+#: Inert, non-secret Supabase identity handed to the TS bridge subprocess.
+#:
+#: 🚨 WHY THE PARITY BRIDGE NEEDS THIS AT ALL — and why it is not a workaround
+#: for anything of ours. The bridge imports ONE thing: the frontend's
+#: `splitContentIntoBlocksV2`. That splitter is pure text work, but its static
+#: import graph in matrx-frontend reaches, six hops down (xml-finalize ->
+#: transcript-legacy-text -> transcript-parser -> AdvancedTranscriptViewer ->
+#: ProTextarea -> utils/supabase/client), a module that builds the browser
+#: Supabase client AT MODULE LOAD. `@ai-matrx/data/next` demands its identity
+#: eagerly and correctly (`createNextSupabase` raises
+#: `MissingSupabaseIdentityError` rather than shipping a half-configured
+#: client), so importing the splitter with no identity in the environment kills
+#: the bridge before a single fixture is parsed — which is what turned the
+#: whole `kinds-parity` job red on 2026-09-08.
+#:
+#: The durable fix belongs to matrx-frontend and is one keyword: that hop is a
+#: TYPE-only import written as a value import
+#: (`components/mardown-display/blocks/transcripts/transcript-parser.ts:1`), the
+#: identical defect its sibling `tasklist-parser.tsx` already fixed and
+#: documented. But this gate must not be hostage to any one edge in a 1,964-file
+#: module graph in another repo: the NEXT accidental import would break it
+#: again. So the harness states an identity of its own.
+#:
+#: These values are DELIBERATELY INERT and are never dialled — the bridge does
+#: text splitting and exits. They mirror matrx-frontend's own committed
+#: placeholders (`jest.setup.ts`), which exist for this exact reason. Anything
+#: already set in the environment WINS, so a developer with a real local
+#: Supabase is never overridden.
+BRIDGE_PLACEHOLDER_IDENTITY = {
+    "NEXT_PUBLIC_SUPABASE_URL": "http://localhost:54321",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_parity_bridge_never_dialled",
+}
+
+
+def bridge_env() -> dict[str, str]:
+    """The environment the TS bridge runs under — inherited, plus the identity."""
+    env = dict(os.environ)
+    for name, value in BRIDGE_PLACEHOLDER_IDENTITY.items():
+        if not (env.get(name) or "").strip():
+            env[name] = value
+    return env
+
+
 def run_typescript_batch(paths: list[Path], fe_root: Path) -> dict[str, list[dict[str, Any]]]:
     """Run the TS splitter over every path in ONE tsx startup.
 
@@ -158,6 +201,7 @@ def run_typescript_batch(paths: list[Path], fe_root: Path) -> dict[str, list[dic
             capture_output=True,
             text=True,
             timeout=900,
+            env=bridge_env(),
         )
         if proc.returncode != 0:
             raise BridgeUnavailable(f"TS bridge exited {proc.returncode}\n{proc.stderr[-4000:]}")

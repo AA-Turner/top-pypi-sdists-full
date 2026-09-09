@@ -9,6 +9,7 @@ from __future__ import annotations
 import bisect
 import copy
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 import libcst as cst
@@ -21,7 +22,13 @@ CONTROL_FLOW_VIEW = "Control flow"
 DATA_FLOW_VIEW = "Data flow"
 # Ceiling on source fed to the CST parse; a larger module risks OOM.
 _MAX_SOURCE_BYTES = 512_000
-_STRUCTURAL_TYPES = frozenset({"conditional", "loop", "try_except", "parallel"})
+# Boxes whose children sit in side-by-side tracks. ``parallel`` is a real
+# ``asyncio.gather``; ``lineage`` is a split :func:`_detect_lineage_tracks`
+# found in the data. Same geometry, different claim — only ``parallel`` asserts
+# concurrency, which is why a track keeps its row in control order.
+_LANE_CONTAINER_TYPES = frozenset({"parallel", "lineage"})
+_STRUCTURAL_TYPES = frozenset({"conditional", "loop", "try_except"}) | _LANE_CONTAINER_TYPES
+_NON_VALUE_BINDINGS = (cst.FunctionDef, cst.ClassDef, cst.Import, cst.ImportFrom)
 _CF_BRANCH_KINDS = frozenset(
     {
         "branch_true",
@@ -55,53 +62,113 @@ def expand_views(cf_payload: dict[str, Any]) -> list[dict[str, Any]]:
     return [cf, *build_dataflow_views(cf)]
 
 
+def _explode_unknowns(
+    cf: dict[str, Any],
+) -> tuple[list[dict[str, Any]], set[str], list[dict[str, Any]]]:
+    """Return (transforms, unknown_ids, nodes) for a control-flow payload.
+
+    The cheap subset of :func:`_build` — parse, assignment collection and
+    ellipsis explosion only, with no edge computation, fan-out detection or
+    suppression passes. Use on hot paths that only need the transform nodes.
+    """
+    sources: dict[str, str] = cf.get("sources") or {}
+    primary_file: str | None = cf.get("primary_file")
+    source_text = _pick_source(sources, primary_file)
+    if source_text is None:
+        return [], set(), []
+    source_bytes = source_text.encode("utf-8")
+    if len(source_bytes) > _MAX_SOURCE_BYTES:
+        return [], set(), []
+    line_starts = _build_line_starts(source_bytes)
+    wrapper = meta.MetadataWrapper(cst.parse_module(source_text))
+    positions = wrapper.resolve(meta.PositionProvider)
+    collector = _AssignmentCollector()
+    wrapper.visit(collector)
+    for info in collector.assignments:
+        code_range = positions.get(info["cst_node"])
+        if code_range and isinstance(code_range, meta.CodeRange):
+            info["line"] = code_range.start.line
+            info["byte_offset"] = _line_col_to_byte_offset(
+                line_starts,
+                code_range.start.line,
+                code_range.start.column,
+            )
+            info["byte_length"] = (
+                _line_col_to_byte_offset(
+                    line_starts,
+                    code_range.end.line,
+                    code_range.end.column,
+                )
+                - info["byte_offset"]
+            )
+    nodes = copy.deepcopy(cf.get("nodes", []))
+    transforms, unknown_ids = _expand_unknown_nodes(
+        nodes,
+        collector.assignments,
+        cf.get("workflow_name", ""),
+    )
+    return transforms, unknown_ids, nodes
+
+
+def dataflow_only_nodes(
+    cf: dict[str, Any],
+    views: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Nodes the data-flow views add on top of the control-flow graph.
+
+    Two kinds: transforms (one per assignment split out of an ellipsis) and
+    fan-out groups. The summariser never sees them otherwise, because it runs
+    on the control-flow graph.
+    """
+    known = {n["id"] for n in cf.get("nodes") or []}
+    by_id: dict[str, dict[str, Any]] = {}
+    for view in views:
+        for node in view.get("nodes") or []:
+            by_id.setdefault(node["id"], node)
+
+    out: list[dict[str, Any]] = []
+    for node in by_id.values():
+        if node["id"] in known:
+            continue
+        out.append({k: v for k, v in node.items() if k != "target_var"})
+    return out
+
+
+def attach_summaries(views: list[dict[str, Any]], summaries: dict[str, Any]) -> None:
+    """Give each view the subset of *summaries* keyed to nodes it contains."""
+    for view in views:
+        ids = {n["id"] for n in view.get("nodes") or []}
+        subset = {nid: s for nid, s in summaries.items() if nid in ids}
+        if subset:
+            view["node_summaries"] = subset
+        else:
+            view.pop("node_summaries", None)
+
+
+def build_summary_nodes(cf: dict[str, Any]) -> list[dict[str, Any]]:
+    """Data-flow-only nodes for a control-flow payload, building the views.
+
+    For callers that have no built views to hand. Where the views are already
+    being built, pass them to :func:`dataflow_only_nodes` instead of paying for
+    a second analysis.
+    """
+    try:
+        return dataflow_only_nodes(cf, build_dataflow_views(cf))
+    except Exception as exc:
+        logger.warning("Data-flow summary node collection failed", exc_info=exc)
+        return []
+
+
 def build_retarget_map(cf: dict[str, Any]) -> dict[str, str]:
     """Map control-flow node ids to their data-flow transform replacements.
 
     Re-keys unknown/ellipsis node ids to transform ids by matching source
-    ranges. This is the cheap subset of :func:`_build` (parse + assignment
-    collection + ellipsis explosion only — no edge computation, fan-out
-    detection, or suppression passes). Use on hot paths that only need the
-    id re-keying, such as the LLM-summary broadcast.
+    ranges. Only single-statement ellipses match exactly; a multi-statement one
+    explodes into several transforms and is left unmapped, which is why
+    transforms are summarised directly (see :func:`dataflow_only_nodes`).
     """
     try:
-        sources: dict[str, str] = cf.get("sources") or {}
-        primary_file: str | None = cf.get("primary_file")
-        source_text = _pick_source(sources, primary_file)
-        if source_text is None:
-            return {}
-        source_bytes = source_text.encode("utf-8")
-        if len(source_bytes) > _MAX_SOURCE_BYTES:
-            return {}
-        line_starts = _build_line_starts(source_bytes)
-        wrapper = meta.MetadataWrapper(cst.parse_module(source_text))
-        positions = wrapper.resolve(meta.PositionProvider)
-        collector = _AssignmentCollector()
-        wrapper.visit(collector)
-        for info in collector.assignments:
-            code_range = positions.get(info["cst_node"])
-            if code_range and isinstance(code_range, meta.CodeRange):
-                info["line"] = code_range.start.line
-                info["byte_offset"] = _line_col_to_byte_offset(
-                    line_starts,
-                    code_range.start.line,
-                    code_range.start.column,
-                )
-                info["byte_length"] = (
-                    _line_col_to_byte_offset(
-                        line_starts,
-                        code_range.end.line,
-                        code_range.end.column,
-                    )
-                    - info["byte_offset"]
-                )
-        nodes = copy.deepcopy(cf.get("nodes", []))
-        workflow_name = cf.get("workflow_name", "")
-        transforms, unknown_ids = _expand_unknown_nodes(
-            nodes,
-            collector.assignments,
-            workflow_name,
-        )
+        transforms, unknown_ids, nodes = _explode_unknowns(cf)
         sr_to_transform: dict[tuple[int, int], str] = {}
         for t in transforms:
             sr = t.get("source_range", {})
@@ -182,6 +249,14 @@ def _offset_to_line(line_starts: list[int], offset: int) -> int:
     return bisect.bisect_right(line_starts, offset)
 
 
+def _node_span(n: dict[str, Any]) -> tuple[int, int] | None:
+    sr = n.get("source_range") or {}
+    begin, end = sr.get("begin"), sr.get("end")
+    if begin is None or end is None:
+        return None
+    return begin, end
+
+
 # ---------------------------------------------------------------------------
 # Node index — maps byte offsets to graph nodes
 # ---------------------------------------------------------------------------
@@ -226,7 +301,13 @@ def _find_node_on_line(
     index: list[tuple[int, int, dict[str, Any]]],
     line: int,
 ) -> dict[str, Any] | None:
-    """Find a non-structural leaf node on this line."""
+    """Find the node on this line that can produce a value.
+
+    ``parallel`` is eligible even though it is structural: an
+    ``await asyncio.gather(...)`` node covers only the call expression, so the
+    enclosing assignment's target sits outside its range and would otherwise be
+    credited to whatever container the gather lives in.
+    """
     for _, _, node in index:
         if node.get("line") == line and node.get("type") not in (
             "workflow",
@@ -234,7 +315,6 @@ def _find_node_on_line(
             "conditional",
             "loop",
             "try_except",
-            "parallel",
         ):
             return node
     return None
@@ -311,11 +391,14 @@ class _AssignmentCollector(cst.CSTVisitor):
 
 
 class _ReturnCollector(cst.CSTVisitor):
+    """Collect ``return <value>`` statements, whose reads leave the workflow."""
+
     def __init__(self) -> None:
         self.returns: list[cst.Return] = []
 
     def visit_Return(self, node: cst.Return) -> None:
-        self.returns.append(node)
+        if node.value is not None:
+            self.returns.append(node)
 
 
 def _cst_to_byte_offset(
@@ -376,9 +459,16 @@ def _expand_unknown_nodes(
     assignments: list[dict[str, Any]],
     workflow_name: str,
 ) -> tuple[list[dict[str, Any]], set[str]]:
-    """Replace unknown nodes with transform nodes for each assignment inside."""
+    """Replace unknown nodes with transform nodes for each assignment inside.
+
+    Returns the transforms and the ids of the unknowns they replace. An ellipsis
+    holding no assignment — a bare `self._update_step(...)` or `logger.info(...)`
+    — explodes into nothing, so it is not replaced and keeps its own node. It is
+    still a step the workflow runs, and dropping it would leave the data-flow
+    view with fewer rows than the control-flow view it is meant to re-describe.
+    """
     unknown_nodes = [n for n in nodes if n["type"] == "unknown"]
-    unknown_ids = {n["id"] for n in unknown_nodes}
+    unknown_ids: set[str] = set()
     transforms: list[dict[str, Any]] = []
     seen_tids: dict[str, int] = {}
 
@@ -394,6 +484,7 @@ def _expand_unknown_nodes(
                 count = seen_tids.get(base, 0)
                 seen_tids[base] = count + 1
                 tid = base if count == 0 else f"{base}_{count}"
+                unknown_ids.add(unode["id"])
                 transforms.append(
                     {
                         "id": tid,
@@ -413,21 +504,26 @@ def _expand_unknown_nodes(
 # ---------------------------------------------------------------------------
 
 
-def _collect_return_offsets(
-    wrapper: meta.MetadataWrapper,
-    positions: Mapping[cst.CSTNode, Any],
-    line_starts: list[int],
-) -> list[tuple[int, int]]:
-    collector = _ReturnCollector()
-    wrapper.visit(collector)
-    ranges: list[tuple[int, int]] = []
-    for ret_node in collector.returns:
-        pos = positions.get(ret_node)
-        if isinstance(pos, meta.CodeRange):
-            b = _line_col_to_byte_offset(line_starts, pos.start.line, pos.start.column)
-            e = _line_col_to_byte_offset(line_starts, pos.end.line, pos.end.column)
-            ranges.append((b, e))
-    return ranges
+def _credit_nested_helper(
+    node: dict[str, Any] | None,
+    offset: int,
+    nested_fn_callers: list[tuple[int, int, list[dict[str, Any]]]],
+) -> list[dict[str, Any]]:
+    """Re-credit a position inside a nested helper to its calling nodes.
+
+    No emitted node covers a helper body, so an offset in one resolves to
+    whichever container encloses the ``def`` — usually the entrypoint, which
+    spans the whole workflow. A node that genuinely sits inside the helper keeps
+    the credit; anything wider escaped, and belongs to every caller.
+    """
+    for fn_begin, fn_end, callers in nested_fn_callers:
+        if not callers or not (fn_begin <= offset < fn_end):
+            continue
+        span = _node_span(node) if node is not None else None
+        if node is not None and span is not None and fn_begin <= span[0] and span[1] <= fn_end:
+            return [node]
+        return callers
+    return [node] if node is not None else []
 
 
 def _compute_data_edges(
@@ -448,10 +544,52 @@ def _compute_data_edges(
             seen_scopes.add(id(scope_val))
             unique_scopes.append(scope_val)
 
-    return_offsets = _collect_return_offsets(wrapper, positions, line_starts)
-
     ep_id = f"{workflow_name}::entrypoint"
+    out_id = f"{workflow_name}::output"
     node_by_id = {n["id"]: n for n in all_nodes}
+
+    # Spans of every `return <value>`. The emitter gives the output terminus a
+    # zero-width range at the end of the body, so `_build_node_index` drops it
+    # and no read ever resolves to it — see the entrypoint check below.
+    return_spans: list[tuple[int, int]] = []
+    if out_id in node_by_id:
+        returns = _ReturnCollector()
+        wrapper.visit(returns)
+        for ret in returns.returns:
+            ret_pos = positions.get(ret)
+            if isinstance(ret_pos, meta.CodeRange):
+                return_spans.append(
+                    (
+                        _line_col_to_byte_offset(line_starts, ret_pos.start.line, ret_pos.start.column),
+                        _line_col_to_byte_offset(line_starts, ret_pos.end.line, ret_pos.end.column),
+                    )
+                )
+
+    # Map nested function body ranges to the emitted nodes that call them.
+    # A read of an outer variable inside a nested helper (e.g. `semaphore`
+    # inside `_check`) should resolve to the node that *invokes* the helper,
+    # not be dropped because no emitted node covers the helper body.
+    nested_fn_callers: list[tuple[int, int, list[dict[str, Any]]]] = []
+    for scope in unique_scopes:
+        for assignment in scope.assignments:
+            if not isinstance(assignment, meta.Assignment):
+                continue
+            if not isinstance(assignment.node, cst.FunctionDef):
+                continue
+            pos = positions.get(assignment.node)
+            if not isinstance(pos, meta.CodeRange):
+                continue
+            fn_begin = _line_col_to_byte_offset(line_starts, pos.start.line, pos.start.column)
+            fn_end = _line_col_to_byte_offset(line_starts, pos.end.line, pos.end.column)
+            callers: dict[str, dict[str, Any]] = {}
+            for ref in assignment.references:
+                ref_off = _cst_to_byte_offset(positions, ref.node, line_starts)
+                if ref_off is None:
+                    continue
+                caller_node = _find_node_at_offset(node_index, ref_off)
+                if caller_node is not None:
+                    callers[caller_node["id"]] = caller_node
+            nested_fn_callers.append((fn_begin, fn_end, list(callers.values())))
 
     edges: list[dict[str, Any]] = []
     seen_edges: set[tuple[str, str, str]] = set()
@@ -464,171 +602,224 @@ def _compute_data_edges(
             var_name = assignment.name
             def_cst = assignment.node
 
+            # A nested `def`/`class`/import binds a name but carries no workflow
+            # value; crediting the enclosing node with producing it invents a
+            # data edge (and, with two such bindings, a phantom fan-out group).
+            if isinstance(def_cst, _NON_VALUE_BINDINGS):
+                continue
+
             def_offset = _cst_to_byte_offset(positions, def_cst, line_starts)
             if def_offset is None:
                 continue
 
-            def_graph = _find_node_at_offset(node_index, def_offset)
-            if def_graph is None and entrypoint_info:
+            def_graphs = _credit_nested_helper(
+                _find_node_at_offset(node_index, def_offset),
+                def_offset,
+                nested_fn_callers,
+            )
+            if not def_graphs and entrypoint_info:
                 ep_begin = entrypoint_info.get("begin", 0)
                 ep_end = entrypoint_info.get("end", 0)
                 if ep_begin <= def_offset < ep_end:
-                    def_graph = node_by_id.get(ep_id)
-            if def_graph is None:
+                    def_graphs = [node_by_id[ep_id]]
+            if not def_graphs:
                 continue
 
             # Assignment target before the activity range lands on a container;
             # check if a leaf node on the same line should get credit
-            if def_graph.get("type") in (
-                "entrypoint",
-                "loop",
-                "try_except",
-                "conditional",
-                "parallel",
-            ):
-                def_line = _offset_to_line(line_starts, def_offset)
-                same_line = _find_node_on_line(node_index, def_line)
-                if same_line is not None:
-                    def_graph = same_line
+            for i, def_graph in enumerate(def_graphs):
+                if def_graph.get("type") in (
+                    "entrypoint",
+                    "loop",
+                    "try_except",
+                    "conditional",
+                    "parallel",
+                ):
+                    def_line = _offset_to_line(line_starts, def_offset)
+                    same_line = _find_node_on_line(node_index, def_line)
+                    if same_line is not None:
+                        def_graphs[i] = same_line
 
             for access in assignment.references:
                 use_offset = _cst_to_byte_offset(positions, access.node, line_starts)
                 if use_offset is None:
                     continue
 
-                use_graph = _find_node_at_offset(node_index, use_offset)
-
-                # The output node is reached by control flow only, so a use
-                # inside a return contributes no data edge.
-                if use_graph is not None and use_graph["id"] == ep_id:
-                    if any(rb <= use_offset < re for rb, re in return_offsets):
-                        continue
-
-                if use_graph is None:
-                    continue
-
-                from_id = def_graph["id"]
-                to_id = use_graph["id"]
-                if from_id == to_id:
-                    continue
-
-                key = (from_id, to_id, var_name)
-                if key in seen_edges:
-                    continue
-                seen_edges.add(key)
-
-                edges.append(
-                    {
-                        "id": f"e-data-{from_id}-{to_id}-{var_name}",
-                        "from": from_id,
-                        "to": to_id,
-                        "kind": "data_dep",
-                        "label": var_name,
-                    }
+                use_graphs = _credit_nested_helper(
+                    _find_node_at_offset(node_index, use_offset),
+                    use_offset,
+                    nested_fn_callers,
                 )
 
-    _repoint_preamble_edges(edges, all_nodes)
+                for use_graph in use_graphs:
+                    # The entrypoint's range spans the whole body, so it absorbs
+                    # every read no tighter node covers — a `return`, an `async
+                    # with` header, an f-string in a context manager argument.
+                    # Nothing runs before the entrypoint, so an edge into it is
+                    # temporally backwards no matter which read produced it.
+                    #
+                    # A read inside a `return` is the one exception: that value
+                    # genuinely leaves the workflow, and the output terminus is
+                    # the node that says so. Credit it there instead of dropping
+                    # it — this is what gives a lineage split a join to fan in
+                    # to. A return nested in a conditional or a loop resolves to
+                    # that container, not the entrypoint, so it never reaches
+                    # here.
+                    if use_graph["id"] == ep_id:
+                        if not any(begin <= use_offset < end for begin, end in return_spans):
+                            continue
+                        use_graph = node_by_id[out_id]
+
+                    for def_graph in def_graphs:
+                        from_id = def_graph["id"]
+                        to_id = use_graph["id"]
+                        if from_id == to_id:
+                            continue
+
+                        key = (from_id, to_id, var_name)
+                        if key in seen_edges:
+                            continue
+                        seen_edges.add(key)
+
+                        edges.append(
+                            {
+                                "id": f"e-data-{from_id}-{to_id}-{var_name}",
+                                "from": from_id,
+                                "to": to_id,
+                                "kind": "data_dep",
+                                "label": var_name,
+                            }
+                        )
+
+    # libcst hands back a scope's assignments, and an assignment's references,
+    # as sets, so the order edges are appended in follows the hash seed and
+    # changes between processes. Every later pass groups off this list — which
+    # node seeds a fan-out, the order of a group's branches — so the whole view
+    # would shift with it. `seen_edges` makes the key unique, so this is a total
+    # order.
+    edges.sort(key=lambda e: (e["from"], e["to"], e.get("label") or ""))
+
     return edges
 
 
-def _repoint_preamble_edges(
+def _lift_edges_onto_tracks(
     edges: list[dict[str, Any]],
-    all_nodes: list[dict[str, Any]],
+    nodes: list[dict[str, Any]],
+    groups: list[dict[str, Any]],
+    boundaries: dict[str, tuple[str | None, str | None]],
 ) -> None:
-    """Re-point data_dep fan-out edges from the def node to the last preamble
-    block before the first fan-out consumer.
+    """Reduce every edge crossing a box wall to the fan-out and the fan-in.
 
-    A variable defined at the top of the spine (e.g. ``all_pkgs``) and consumed
-    by a fan-out further down would otherwise draw an edge from the def over the
-    whole preamble. Re-point each such edge to the spine node immediately before
-    the first fan-out consumer so the fan-out reads as starting after the
-    preamble. Edges into conditionals (guards), unlabeled edges, and
-    mutation-chain vars (handled by :func:`_bridge_mutation_edges`) are left
-    untouched.
+    Both ends move: a node anywhere inside a track — including deep in a loop
+    body — resolves to the box, and the outside end snaps to the row adjacent to
+    it. That is what makes the two edges one step each, which is the whole point
+    of boxing the split. Edges with both ends inside the same box vanish; the
+    box already says they belong together.
     """
-    # Skip mutation-chain vars: their init's edges must stay on the init
-    # transform so _bridge_mutation_edges can copy them onto mutations.
-    # Re-pointing them off the init would make bridging miss them entirely.
-    target_var_counts: dict[str, int] = {}
-    for n in all_nodes:
-        if n.get("type") == "transform":
-            tv = n.get("target_var")
-            if tv:
-                target_var_counts[tv] = target_var_counts.get(tv, 0) + 1
-    mutation_vars = {v for v, c in target_var_counts.items() if c >= 2}
+    container_of = _build_container_of(nodes)
+    terminus = {n["id"] for n in nodes if n["type"] == "output"}
+    members = {c: g["id"] for g in groups for c in g.get("children") or []}
+    _track_of = {c: (g["id"], i) for g in groups for i, branch in enumerate(g.get("branches") or []) for c in branch}
 
-    # Top-level spine: nodes whose source range is not strictly contained in a
-    # structural container, ordered by begin offset.
-    containers = [n for n in all_nodes if n.get("type") in _STRUCTURAL_TYPES]
-    raw_container_ranges = [
-        ((c.get("source_range") or {}).get("begin"), (c.get("source_range") or {}).get("end")) for c in containers
-    ]
-    container_ranges = sorted(
-        [(cb, ce) for cb, ce in raw_container_ranges if cb is not None and ce is not None],
-        key=lambda r: r[0],
-    )
-    container_begins = [r[0] for r in container_ranges]
+    def box_of(nid: str) -> str | None:
+        cur, seen = nid, set()
+        while cur not in members and cur in container_of and cur not in seen:
+            seen.add(cur)
+            cur = container_of[cur]
+        return members.get(cur)
 
-    def _is_top_level(n: dict[str, Any]) -> bool:
-        sr = n.get("source_range") or {}
-        b, e = sr.get("begin"), sr.get("end")
-        if b is None or e is None:
-            return True
-        # Only containers starting before b can strictly contain [b, e);
-        # bisect skips the rest, turning the scan into O(log c + k).
-        idx = bisect.bisect_left(container_begins, b)
-        for i in range(idx):
-            if e <= container_ranges[i][1]:
-                return False
-        return True
-
-    spine = sorted(
-        [n for n in all_nodes if _is_top_level(n)],
-        key=lambda n: (n.get("source_range") or {}).get("begin", 0),
-    )
-    if len(spine) < 3:
-        return
-    pos = {n["id"]: i for i, n in enumerate(spine)}
-    node_by_id = {n["id"]: n for n in all_nodes}
-
-    by_var: dict[str, list[dict[str, Any]]] = {}
-    for e in edges:
-        if e["kind"] == "data_dep":
-            label = e.get("label", "")
-            # Unlabeled data_dep edges have no variable to re-point by.
-            if label:
-                by_var.setdefault(label, []).append(e)
-
-    for var, var_edges in by_var.items():
-        if var in mutation_vars:
+    resolved: dict[str, str | None] = {}
+    for edge in edges:
+        for end in ("from", "to"):
+            if edge[end] not in resolved:
+                resolved[edge[end]] = box_of(edge[end])
+        src_box, tgt_box = resolved[edge["from"]], resolved[edge["to"]]
+        if edge["kind"] != "data_dep":
+            # Control flow enters the box at the top and leaves at the bottom,
+            # and the box's own spine edges say so. A branch edge reaching from
+            # inside past the wall draws a second connector competing with them,
+            # and the renderer picks that one — so the flow appears to leave from
+            # whichever conditional happens to sit at the end of a track.
+            if src_box != tgt_box and edge["kind"] in _CF_BRANCH_KINDS:
+                edge["kind"] = "_drop"
             continue
-        by_src: dict[str, list[dict[str, Any]]] = {}
-        for e in var_edges:
-            by_src.setdefault(e["from"], []).append(e)
-        for src, outs in by_src.items():
-            if src not in pos:
-                continue
-            # Fan-out consumers: top-level, non-conditional targets of this def.
-            consumers = [e for e in outs if e["to"] in pos and node_by_id.get(e["to"], {}).get("type") != "conditional"]
-            if len(consumers) < 2:
-                continue
-            consumers.sort(key=lambda e: pos[e["to"]])
-            # Walk back past structural nodes (a guard/loop doesn't produce the
-            # var) to the last non-structural preamble block before the fan-out.
-            # Landing on a conditional would make the guard appear to emit a var
-            # it only reads.
-            target_pos = pos[consumers[0]["to"]] - 1
-            while target_pos > pos[src] and spine[target_pos].get("type") in _STRUCTURAL_TYPES:
-                target_pos -= 1
-            if target_pos <= pos[src]:
-                continue  # no non-structural spine node between def and consumer
-            target = spine[target_pos]["id"]
-            for e in consumers:
-                orig = e["from"]
-                e["from"] = target
-                # Keep the original source in the id so two producers re-pointed
-                # to the same target for the same (to, var) don't collide.
-                e["id"] = f"e-data-{target}-{e['to']}-{var}-{orig}"
+        if src_box == tgt_box and src_box is not None:
+            # Inside one box. Between two tracks the box already says it; along
+            # a track it is an ordinary hop, and the step rule below decides.
+            if _track_of.get(edge["from"]) != _track_of.get(edge["to"]):
+                edge["kind"] = "_drop"
+            continue
+        src, tgt = edge["from"], edge["to"]
+        label = edge.get("label") or ""
+        if tgt_box is not None:
+            before, _ = boundaries[tgt_box]
+            # Which track member actually reads the value. The box edge is the
+            # honest one-step statement while the box is shut, but with it open
+            # the reader can see the tracks and wants the line to reach the one
+            # that consumes it. Keep the member so the renderer can fan.
+            edge["lifted_to"] = {tgt: [label]} if label else {tgt: []}
+            tgt = tgt_box
+            if before is not None and src != before:
+                src = before
+        elif src_box is not None:
+            _, after = boundaries[src_box]
+            edge["lifted_from"] = {src: [label]} if label else {src: []}
+            src = src_box
+            # Snapping the far end to the row after the box says the box's
+            # result continues there. A value read only by the final `return`
+            # bypasses that row, so moving the edge onto it would claim a
+            # consumer that never reads the value; leave it bound for the
+            # terminus and let the distance rule decide.
+            if after is not None and tgt != after and tgt not in terminus:
+                tgt = after
+        if (src, tgt) == (edge["from"], edge["to"]):
+            continue
+        edge["from"], edge["to"] = src, tgt
+        edge["id"] = f"e-data-{src}-{tgt}-{edge.get('label', '')}"
+
+    edges[:] = [e for e in edges if e["kind"] != "_drop"]
+
+
+# ---------------------------------------------------------------------------
+# Containment-aware reachability
+# ---------------------------------------------------------------------------
+
+
+def _build_container_of(nodes: list[dict[str, Any]]) -> dict[str, str]:
+    """Map each node to the container that encloses it.
+
+    Declared ``children``/``branches`` first, then source-range nesting for
+    whatever they miss. Neither alone is enough, and neither subsumes the other:
+    a gather's range covers only the call expression, so its tasks sit outside
+    it and can only come from ``children``; a conditional links just the first
+    statement of each branch and ``_build`` drops its ``branchTrue`` fields, so
+    the rest of a branch body can only come from the ranges.
+    """
+    container_of: dict[str, str] = {}
+    for n in nodes:
+        for c in n.get("children") or []:
+            container_of[c] = n["id"]
+        for branch in n.get("branches") or []:
+            for c in branch:
+                container_of[c] = n["id"]
+
+    boxes: list[tuple[int, int, str]] = []
+    for n in nodes:
+        span = _node_span(n)
+        if span is not None and n.get("type") in _STRUCTURAL_TYPES:
+            boxes.append((span[0], span[1], n["id"]))
+    boxes.sort(key=lambda b: b[1] - b[0])
+
+    for n in nodes:
+        span = _node_span(n)
+        if span is None or n["id"] in container_of:
+            continue
+        begin, end = span
+        for bb, be, bid in boxes:
+            if bid != n["id"] and bb <= begin and end <= be and (be - bb) > (end - begin):
+                container_of[n["id"]] = bid
+                break
+    return container_of
 
 
 # ---------------------------------------------------------------------------
@@ -636,82 +827,158 @@ def _repoint_preamble_edges(
 # ---------------------------------------------------------------------------
 
 
-def _detect_fan_out(
+def _top_level_of(
+    spine_ids: set[str],
+    container_of: dict[str, str],
+) -> dict[str, str]:
+    """Map every node to the top-level spine node that positions it."""
+    top: dict[str, str] = {}
+    for nid in list(container_of) + list(spine_ids):
+        cur, seen = nid, set()
+        while cur not in spine_ids and cur in container_of and cur not in seen:
+            seen.add(cur)
+            cur = container_of[cur]
+        if cur in spine_ids:
+            top[nid] = cur
+    return top
+
+
+def _detect_lineage_tracks(
     nodes: list[dict[str, Any]],
-    data_edges: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    spine: list[dict[str, Any]],
     workflow_name: str,
-) -> list[dict[str, Any]]:
-    """Find fan-out patterns and emit parallel container nodes."""
+) -> tuple[list[dict[str, Any]], dict[str, tuple[str | None, str | None]]]:
+    """Box each lineage split as side-by-side tracks running fork to join.
+
+    A value that derives into separate chains is shape 3 of the vocabulary, and
+    the honest way to draw it is the shape itself: the chains sit in tracks, the
+    producer fans out into the box, and the box fans in to whatever they
+    reconverge on. Nothing else crosses the wall, so no line has to travel the
+    length of the diagram to say what the box already says by containing it.
+
+    Vertical order inside the box stays control order — the tracks are a claim
+    about derivation, not about running at the same time, and reordering them
+    would be the concurrency claim P6 forbids. Only ``parallel``, which the
+    walker emits from a real ``gather``, asserts that.
+    """
+    pos = {n["id"]: i for i, n in enumerate(spine)}
     node_by_id = {n["id"]: n for n in nodes}
-    _NON_FAN_TARGETS = frozenset({"output", "conditional"})
+    top_of = _top_level_of(set(pos), _build_container_of(nodes))
 
-    outgoing: dict[str, list[dict[str, Any]]] = {}
-    for e in data_edges:
-        target = node_by_id.get(e["to"])
-        if target and target["type"] not in _NON_FAN_TARGETS and e["from"] != e["to"]:
-            outgoing.setdefault(e["from"], []).append(e)
+    # Data adjacency between top-level nodes: an edge into a loop body is an
+    # edge into the loop, because the loop is what occupies a row.
+    data_next: dict[str, set[str]] = {}
+    fan_label: dict[tuple[str, str], set[str]] = {}
+    for e in edges:
+        if e["kind"] != "data_dep":
+            continue
+        a, b = top_of.get(e["from"]), top_of.get(e["to"])
+        if a is None or b is None or a == b:
+            continue
+        data_next.setdefault(a, set()).add(b)
+        if e.get("label"):
+            fan_label.setdefault((a, b), set()).add(e["label"])
 
-    # Reachability check: drop targets downstream of another target
-    data_dep_next: dict[str, set[str]] = {}
-    for e in data_edges:
-        if e["kind"] == "data_dep":
-            data_dep_next.setdefault(e["from"], set()).add(e["to"])
-
-    def reachable(start: str) -> set[str]:
-        visited: set[str] = set()
+    def downstream(start: str) -> set[str]:
+        seen: set[str] = set()
         stack = [start]
         while stack:
             cur = stack.pop()
-            for nxt in data_dep_next.get(cur, ()):
-                if nxt not in visited:
-                    visited.add(nxt)
+            for nxt in data_next.get(cur, ()):
+                if nxt not in seen:
+                    seen.add(nxt)
                     stack.append(nxt)
-        return visited
+        return seen
 
     groups: list[dict[str, Any]] = []
-    for src_id, fan_edges in outgoing.items():
-        targets = {e["to"] for e in fan_edges}
-        if len(targets) < 2:
+    boundaries: dict[str, tuple[str | None, str | None]] = {}
+    claimed: set[str] = set()
+    for src in spine:
+        src_id = src["id"]
+        if src["type"] in _STRUCTURAL_TYPES:
+            continue
+        # The workflow input reaches everything below it, so its readers do not
+        # form tracks — the box would span most of the workflow and claim a
+        # split where there is only "everything uses the arguments".
+        if src["type"] == "entrypoint":
+            continue
+        # A guard reads the value to pick a path and a return hands it back;
+        # neither derives anything from it, so neither starts a track. Without
+        # this a gate on the whole split counts as a third track, and the three
+        # never reconverge.
+        heads = sorted(
+            (
+                t
+                for t in data_next.get(src_id, ())
+                if pos[t] > pos[src_id] and node_by_id.get(t, {}).get("type") not in ("conditional", "output")
+            ),
+            key=lambda t: pos[t],
+        )
+        # A head reachable from another head is a continuation of that chain,
+        # not a track of its own.
+        tracks = [h for h in heads if not any(h in downstream(o) for o in heads if o != h)]
+        if len(tracks) < 2 or any(t in claimed for t in tracks):
             continue
 
-        src_node = node_by_id.get(src_id)
-        if not src_node or src_node["type"] in _STRUCTURAL_TYPES:
+        reach = {h: {h} | downstream(h) for h in tracks}
+        start = min(pos[h] for h in tracks)
+        # Only a split that reconverges can be bounded. Without a join the box
+        # would have no bottom and would run to the end of the workflow,
+        # swallowing rows that have nothing to do with the split.
+        common = [c for c in set.intersection(*reach.values()) - set(tracks) if pos.get(c, -1) > start]
+        if not common:
+            continue
+        join = min(common, key=lambda c: pos[c])
+        stop = pos[join]
+        members = [n for n in spine[start:stop] if n["id"] not in claimed]
+        if len(members) < 2:
             continue
 
-        # Drop targets reachable from another target (not truly parallel)
-        independent = set(targets)
-        for t in targets:
-            independent -= reachable(t)
-        if len(independent) < 2:
+        # Assign each row to a track. A row no track derives is placed with the
+        # track that consumes it (a semaphore feeding one branch's gather);
+        # failing that, with its nearest neighbour above.
+        lane_of: dict[str, int] = {}
+        for m in members:
+            owning = [i for i, h in enumerate(tracks) if m["id"] in reach[h]]
+            if owning:
+                lane_of[m["id"]] = owning[0]
+        for m in members:
+            if m["id"] in lane_of:
+                continue
+            consumers = [lane_of[c] for c in data_next.get(m["id"], ()) if c in lane_of]
+            lane_of[m["id"]] = min(consumers) if consumers else 0
+        branches = [[m["id"] for m in members if lane_of[m["id"]] == i] for i in range(len(tracks))]
+        branches = [b for b in branches if b]
+        if len(branches) < 2:
             continue
 
-        branches = [
-            [t]
-            for t in sorted(
-                independent,
-                key=lambda t: node_by_id.get(t, {}).get("line", 0),
-            )
-        ]
-        fan_vars = sorted({e.get("label", "") for e in fan_edges if e.get("label") and e["to"] in independent})
-
-        # Place group at the line of its first child so nodes between
-        # the source and the group (e.g. initializations) sort before it
-        child_lines = [node_by_id.get(t, {}).get("line", 0) for t in independent]
-        group_line = min(child_lines) if child_lines else src_node.get("line", 0)
-
+        claimed.update(m["id"] for m in members)
+        fan_vars = sorted({v for h in tracks for v in fan_label.get((src_id, h), set())})
+        spans = [_node_span(node_by_id[m["id"]]) for m in members if m["id"] in node_by_id]
+        valid = [s for s in spans if s is not None]
+        gid = f"{workflow_name}::group_{src_id.split('::')[-1]}"
+        boundaries[gid] = (
+            spine[start - 1]["id"] if start > 0 else None,
+            join,
+        )
         groups.append(
             {
-                "id": f"{workflow_name}::group_{src_id.split('::')[-1]}",
-                "type": "parallel",
+                "id": gid,
+                "type": "lineage",
                 "name": ", ".join(fan_vars) if fan_vars else "process",
-                "line": group_line,
-                "source_range": src_node.get("source_range", {"begin": 0, "end": 0}),
+                "line": min(m.get("line", 0) for m in members),
+                "source_range": (
+                    {"begin": min(b for b, _ in valid), "end": max(e for _, e in valid)}
+                    if valid
+                    else src.get("source_range", {"begin": 0, "end": 0})
+                ),
                 "branches": branches,
-                "children": [t for b in branches for t in b],
+                "children": [m["id"] for m in members],
             }
         )
 
-    return groups
+    return groups, boundaries
 
 
 # ---------------------------------------------------------------------------
@@ -734,6 +1001,53 @@ def _cf_spine_rank(cf: dict[str, Any], retarget: dict[str, str], wf_id: str) -> 
     return rank
 
 
+def _owned_by_containers(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> set[str]:
+    """Nodes a container positions, so the top-level spine must skip them."""
+    owned: set[str] = set()
+    for n in nodes:
+        for c in n.get("children") or []:
+            owned.add(c)
+        for branch in n.get("branches") or []:
+            for c in branch:
+                owned.add(c)
+    owned |= {e["to"] for e in edges if e["kind"] in ("branch_true", "branch_false")}
+    return owned
+
+
+def _spine_order(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    workflow_name: str,
+    cf_rank: dict[str, int],
+) -> list[dict[str, Any]]:
+    """Top-level nodes in the order they will render, container children elided.
+
+    Source line is not execution order: a node inlined from a helper carries the
+    helper's definition line, which may sit above the entrypoint. Order by the
+    control-flow chain where it knows the node, and keep nodes it does not know
+    (transforms split out of an ellipsis) beside the ranked node they follow in
+    the file.
+    """
+    owned = _owned_by_containers(nodes, edges)
+    line_sorted = sorted(
+        [n for n in nodes if n["id"] != workflow_name and n["id"] not in owned],
+        key=lambda n: n.get("line", 0),
+    )
+    ordered: list[tuple[tuple[int, int, int], dict[str, Any]]] = []
+    last_rank = -1
+    for i, n in enumerate(line_sorted):
+        rank = cf_rank.get(n["id"])
+        if rank is None:
+            ordered.append(((last_rank, 1, i), n))
+            continue
+        last_rank = rank
+        ordered.append(((rank, 0, i), n))
+    return [n for _, n in sorted(ordered, key=lambda t: t[0])]
+
+
 def _build_sequential_spine(
     nodes: list[dict[str, Any]],
     edges: list[dict[str, Any]],
@@ -743,16 +1057,7 @@ def _build_sequential_spine(
     """Chain top-level nodes with sequential edges so the tree builder can
     render them. Nodes inside containers (children, branch targets) are
     skipped — they're positioned by their parent."""
-    # Collect nodes owned by containers
-    owned: set[str] = set()
-    for n in nodes:
-        for c in n.get("children") or []:
-            owned.add(c)
-        for branch in n.get("branches") or []:
-            for c in branch:
-                owned.add(c)
     branch_targets = {e["to"] for e in edges if e["kind"] in ("branch_true", "branch_false")}
-    owned |= branch_targets
 
     wf_id = workflow_name
     # Ensure workflow root exists
@@ -769,25 +1074,7 @@ def _build_sequential_spine(
             },
         )
 
-    # Source line is not execution order: a node inlined from a helper carries
-    # the helper's definition line, which may sit above the entrypoint. Order
-    # by the control-flow chain where it knows the node, and keep nodes it does
-    # not know (transforms split out of an ellipsis) beside the ranked node
-    # they follow in the file.
-    line_sorted = sorted(
-        [n for n in nodes if n["id"] != wf_id and n["id"] not in owned],
-        key=lambda n: n.get("line", 0),
-    )
-    ordered: list[tuple[tuple[int, int, int], dict[str, Any]]] = []
-    last_rank = -1
-    for i, n in enumerate(line_sorted):
-        rank = cf_rank.get(n["id"])
-        if rank is None:
-            ordered.append(((last_rank, 1, i), n))
-            continue
-        last_rank = rank
-        ordered.append(((rank, 0, i), n))
-    spine = [n for _, n in sorted(ordered, key=lambda t: t[0])]
+    spine = _spine_order(nodes, edges, workflow_name, cf_rank)
 
     seq_edges: list[dict[str, Any]] = []
     chain = [wf_id] + [n["id"] for n in spine]
@@ -806,10 +1093,15 @@ def _build_sequential_spine(
     node_by_id = {n["id"]: n for n in nodes}
     for n in nodes:
         if n["type"] in ("loop", "try_except") and n.get("children"):
-            kids = sorted(
-                [c for c in n["children"] if c not in branch_targets],
-                key=lambda c: node_by_id.get(c, {}).get("line", 0),
-            )
+            runs = [[c for c in n["children"] if c not in branch_targets]]
+        elif n["type"] in _LANE_CONTAINER_TYPES and n.get("branches"):
+            # Each track is its own run: a track's members follow one another,
+            # and the tracks do not follow each other.
+            runs = [[c for c in branch if c not in branch_targets] for branch in n["branches"]]
+        else:
+            continue
+        for run in runs:
+            kids = sorted(run, key=lambda c: node_by_id.get(c, {}).get("line", 0))
             for i in range(len(kids) - 1):
                 seq_edges.append(
                     {
@@ -831,10 +1123,15 @@ def _build_sequential_spine(
 def _bridge_mutation_edges(
     edges: list[dict[str, Any]],
     transforms: list[dict[str, Any]],
-    valid_ids: set[str],
+    all_nodes: list[dict[str, Any]],
 ) -> None:
     """For each mutation transform (x.append), copy outgoing edges from x's
-    initialization transform so the mutation participates in data flow."""
+    initialization transform so the mutation participates in data flow, then
+    credit each consumer to the writer nearest before it.
+
+    Soundness, not display: an edge attributed to the wrong writer of a mutated
+    name is temporally backwards, so this belongs in :func:`analyze`.
+    """
     by_var: dict[str, list[dict[str, Any]]] = {}
     for t in transforms:
         var = t.get("target_var", t["name"])
@@ -853,8 +1150,6 @@ def _bridge_mutation_edges(
         init = group[0]
         for mutation in group[1:]:
             mid = mutation["id"]
-            if mid not in valid_ids:
-                continue
             for e in outgoing.get(init["id"], []):
                 # Only bridge consumers of the mutated variable itself. The
                 # init transform may carry re-pointed edges for other vars
@@ -877,38 +1172,52 @@ def _bridge_mutation_edges(
 
     edges.extend(new_edges)
 
-    # Index consumers by (src, label) once for the last-write-wins pass below.
-    consumers_by_src_label: dict[tuple[str, str], set[str]] = {}
-    for e in edges:
-        if e["kind"] == "data_dep":
-            consumers_by_src_label.setdefault((e["from"], e.get("label", "")), set()).add(e["to"])
+    # Nearest-preceding-writer: each consumer of a mutation-chain variable
+    # should be fed by the writer whose source position is closest before it,
+    # not the textually-last writer.
+    node_begin: dict[str, int] = {}
+    for n in all_nodes:
+        sr = n.get("source_range") or {}
+        if "begin" in sr:
+            node_begin[n["id"]] = sr["begin"]
 
-    # Last-write-wins: in a mutation chain (init + ≥1 mutation on the same
-    # var), the last mutation carries the value that reaches downstream
-    # consumers. Drop the init's and earlier mutations' edges to any consumer
-    # the last mutation also feeds with this var, so each consumer reads a
-    # single source per mutated var instead of a tangle of redundant writes.
     for var, group in by_var.items():
         if len(group) < 2:
             continue
-        # Pick the textual-last valid mutation by source position, not
-        # node-list order (which follows the walker's DFS, not source order).
-        ordered = sorted(group, key=lambda t: (t.get("source_range") or {}).get("begin", 0))
-        last = next((t for t in reversed(ordered) if t["id"] in valid_ids), None)
-        if last is None:
-            continue
-        last_consumers = consumers_by_src_label.get((last["id"], var), set())
-        if not last_consumers:
-            continue
-        superseded = {t["id"] for t in group if t["id"] != last["id"]}
+        writers = sorted(group, key=lambda t: (t.get("source_range") or {}).get("begin", 0))
+        writer_ids = {t["id"] for t in writers}
+        writer_begins = [(t["id"], (t.get("source_range") or {}).get("begin", 0)) for t in writers]
+
+        # Collect all consumers reached by any writer of this var.
+        consumers: set[str] = set()
+        for e in edges:
+            if e["kind"] == "data_dep" and e.get("label") == var and e["from"] in writer_ids:
+                consumers.add(e["to"])
+
+        # For each consumer, find the nearest preceding writer.
+        keep: set[tuple[str, str]] = set()  # (writer_id, consumer_id)
+        for cid in consumers:
+            c_begin = node_begin.get(cid, 0)
+            # Nearest preceding = largest writer begin that is ≤ consumer begin
+            # A writer is never its own source: `x.append(v)` reads x before it
+            # writes it, so its feeder is the write before, not itself.
+            best: str | None = None
+            for wid, wb in writer_begins:
+                if wb <= c_begin and wid != cid:
+                    best = wid
+            # No preceding writer → loop-carried: keep the last writer
+            if best is None:
+                best = writer_begins[-1][0]
+            keep.add((best, cid))
+
         edges[:] = [
             e
             for e in edges
             if not (
                 e["kind"] == "data_dep"
-                and e["from"] in superseded
-                and e["to"] in last_consumers
                 and e.get("label") == var
+                and e["from"] in writer_ids
+                and (e["from"], e["to"]) not in keep
             )
         ]
 
@@ -942,8 +1251,15 @@ def _assemble_view(
             new_label = e.get("label", "")
             if new_label and new_label not in (old_label or "").split(", "):
                 existing["label"] = f"{old_label}, {new_label}" if old_label else new_label
+            for field in ("lifted_from", "lifted_to"):
+                for member, labels in (e.get(field) or {}).items():
+                    into = existing.setdefault(field, {}).setdefault(member, [])
+                    into.extend(v for v in labels if v not in into)
         else:
             copy_e = {**e}
+            for field in ("lifted_from", "lifted_to"):
+                if field in copy_e:
+                    copy_e[field] = {m: list(v) for m, v in copy_e[field].items()}
             seen[key] = copy_e
             deduped.append(copy_e)
     result["edges"] = deduped
@@ -954,14 +1270,43 @@ def _assemble_view(
 
 
 # ---------------------------------------------------------------------------
-# Main build pipeline
+# Analysis boundary — the sound intermediate, exposed and assertable
 # ---------------------------------------------------------------------------
 
 
-def _build(cf: dict[str, Any]) -> dict[str, Any]:
+@dataclass(frozen=True)
+class DependencyGraph:
+    """The sound part of data-flow analysis: nodes and raw data edges before any
+    display policy is applied.
+
+    Exposed so tests can assert on the analysis directly. ``_build`` deep-copies
+    the mutable fields before mutating them, so a ``DependencyGraph`` a test (or
+    a caller) holds stays pristine regardless of which suppression passes run
+    on top of it. That boundary is what makes display changes unable to corrupt
+    the analysis — the failure mode that produced the five-exemption pile.
+    """
+
+    # CF nodes deep-copied from the input payload (read-only downstream).
+    nodes: list[dict[str, Any]]
+    # CF nodes with ellipses replaced by transform nodes (mutated by `_build`;
+    # the field holds the pristine copy, `_build` works on a deep copy).
+    df_nodes: list[dict[str, Any]]
+    # Raw data-dep edges from `_compute_data_edges`, pre-suppression. The edge
+    # dicts are never mutated in place by `_build` — policy works on copies.
+    data_edges: list[dict[str, Any]]
+    # Transform nodes split out of ellipses (read-only downstream).
+    transforms: list[dict[str, Any]]
+
+
+def analyze(cf: dict[str, Any]) -> DependencyGraph:
+    """Run the sound analysis and return the raw graph.
+
+    Parse the source, explode ellipses into transforms, and compute the raw
+    data-dep edges. Nothing here is display policy: no suppression, no fan-out
+    groups, no guard routing. Policy is applied in `_build` on a copy.
+    """
     sources: dict[str, str] = cf.get("sources") or {}
     primary_file: str | None = cf.get("primary_file")
-    # Deep-copy nodes to avoid mutating the CF payload's shared dicts
     nodes: list[dict[str, Any]] = copy.deepcopy(cf.get("nodes", []))
     entrypoint_info = cf.get("entrypoint")
     workflow_name: str = cf.get("workflow_name", "")
@@ -970,19 +1315,15 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
     if source_text is None:
         raise ValueError("No source text available for data-flow analysis")
     source_bytes = source_text.encode("utf-8")
-    # Guard against pathologically large source that could OOM during CST parse
     if len(source_bytes) > _MAX_SOURCE_BYTES:
         raise ValueError(f"Source too large for data-flow analysis ({len(source_text)} chars)")
 
     line_starts = _build_line_starts(source_bytes)
-
-    # Step 1: Parse source
     wrapper = meta.MetadataWrapper(cst.parse_module(source_text))
     positions = wrapper.resolve(meta.PositionProvider)
 
     collector = _AssignmentCollector()
     wrapper.visit(collector)
-
     for info in collector.assignments:
         code_range = positions.get(info["cst_node"])
         if code_range and isinstance(code_range, meta.CodeRange):
@@ -999,16 +1340,10 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
             )
             info["byte_length"] = end_offset - info["byte_offset"]
 
-    # Step 2: Explode ellipses into transforms
-    transforms, unknown_ids = _expand_unknown_nodes(
-        nodes,
-        collector.assignments,
-        workflow_name,
-    )
+    transforms, unknown_ids = _expand_unknown_nodes(nodes, collector.assignments, workflow_name)
     df_nodes = [n for n in nodes if n["id"] not in unknown_ids] + transforms
     node_index = _build_node_index(df_nodes)
 
-    # Step 3: Compute data-dep edges
     data_edges = _compute_data_edges(
         wrapper,
         positions,
@@ -1018,29 +1353,159 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
         entrypoint_info,
         workflow_name,
     )
+    _bridge_mutation_edges(data_edges, transforms, df_nodes)
 
-    # --- Full data-flow view ---
-    keep_types = (
-        frozenset(
-            {
-                "entrypoint",
-                "activity",
-                "output",
-                "dispatch",
-                "agent",
-                "child_workflow",
-                "human_input",
-                "wait_condition",
-                "sleep",
-                "task",
-                "memory_op",
-                "transform",
-            }
-        )
-        | _STRUCTURAL_TYPES
+    return DependencyGraph(
+        nodes=nodes,
+        df_nodes=df_nodes,
+        data_edges=data_edges,
+        transforms=transforms,
     )
 
-    full_nodes = [n for n in df_nodes if n["type"] in keep_types]
+
+# ---------------------------------------------------------------------------
+# Display policy — the one rule
+# ---------------------------------------------------------------------------
+
+
+def rendered_order(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    workflow_name: str,
+) -> dict[str, int]:
+    """Row number of every node once containers are drawn inline.
+
+    The order a reader's eye travels, which is what the rule is stated in terms
+    of — not the analysis order, and not the control-flow chain.
+    """
+    nxt: dict[str, str] = {}
+    for e in edges:
+        if e["kind"] == "sequential":
+            nxt.setdefault(e["from"], e["to"])
+    by_id = {n["id"]: n for n in nodes}
+    kids = _declared_children(nodes, edges)
+
+    order: dict[str, int] = {}
+
+    def place(nid: str) -> None:
+        if nid in order or nid not in by_id:
+            return
+        order[nid] = len(order)
+        for c in kids.get(nid, []):
+            place(c)
+
+    cur: str | None = workflow_name
+    while cur is not None and cur not in order:
+        place(cur)
+        cur = nxt.get(cur)
+    for n in nodes:
+        place(n["id"])
+    return order
+
+
+def _declared_children(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> dict[str, list[str]]:
+    kids: dict[str, list[str]] = {}
+    for n in nodes:
+        inner = list(n.get("children") or []) + [c for b in n.get("branches") or [] for c in b]
+        if inner:
+            kids[n["id"]] = inner
+    for e in edges:
+        if e["kind"] in ("branch_true", "branch_false"):
+            kids.setdefault(e["from"], []).append(e["to"])
+    return kids
+
+
+def _contained_nodes(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> dict[str, set[str]]:
+    """Transitive contents of every container."""
+    kids = _declared_children(nodes, edges)
+    out: dict[str, set[str]] = {}
+    for n in nodes:
+        seen: set[str] = set()
+        stack = list(kids.get(n["id"], []))
+        while stack:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            stack.extend(kids.get(cur, []))
+        out[n["id"]] = seen
+    return out
+
+
+def nodes_skipped(
+    edge: dict[str, Any],
+    order: dict[str, int],
+    inside: dict[str, set[str]],
+) -> int:
+    """How many nodes an edge is drawn past.
+
+    The one rule: this must be zero. A data edge earns its place as a fan-out
+    into a box or a fan-in out of one — a single step the reader can follow.
+    Anything drawn past a node is a dependency the structure failed to express,
+    and routing it around what sits between reads as connecting the wrong
+    things (P3), so the answer is to fix the structure, not the line.
+
+    A node the endpoints themselves contain does not count: a box sits directly
+    above whatever follows it however many rows its tracks occupy.
+    """
+    a, b = order.get(edge["from"]), order.get(edge["to"])
+    if a is None or b is None:
+        return 0
+    lo, hi = min(a, b), max(a, b)
+    own = inside.get(edge["from"], set()) | inside.get(edge["to"], set()) | {edge["from"], edge["to"]}
+    return sum(1 for nid, i in order.items() if lo < i < hi and nid not in own)
+
+
+# ---------------------------------------------------------------------------
+# Main build pipeline
+# ---------------------------------------------------------------------------
+
+
+def _build(cf: dict[str, Any]) -> dict[str, Any]:
+    graph = analyze(cf)
+
+    # Build the fully-exploded view once. If any `data_dep` edge (bar `self`)
+    # survives every suppression pass, the view has data flow to show and the
+    # restructure earns its place. Otherwise the explosion reshapes the graph
+    # for nothing — keep every ellipsis so the data-flow view tracks control
+    # flow node-for-node. `self`-into-the-first-assignment is universal method
+    # noise, true of every method, so it never counts as data flow.
+    probe = _build_view(graph, cf, graph.df_nodes)
+    has_data_flow = any(e["kind"] == "data_dep" and e.get("label") != "self" for e in probe.get("edges") or [])
+    if has_data_flow:
+        return probe
+
+    df_nodes = [copy.deepcopy(n) for n in graph.df_nodes if n["type"] != "transform"]
+    # An ellipsis that explodes into nothing is already in `df_nodes`; only the
+    # ones a transform replaced need putting back.
+    kept = {n["id"] for n in df_nodes}
+    df_nodes.extend(copy.deepcopy(n) for n in graph.nodes if n["type"] == "unknown" and n["id"] not in kept)
+    return _build_view(graph, cf, df_nodes)
+
+
+def _build_view(
+    graph: DependencyGraph,
+    cf: dict[str, Any],
+    df_nodes_in: list[dict[str, Any]],
+) -> dict[str, Any]:
+    workflow_name: str = cf.get("workflow_name", "")
+
+    # Policy mutates node and edge dicts; work on deep copies so the raw
+    # `DependencyGraph` a caller or test holds is not corrupted.
+    nodes = graph.nodes
+    df_nodes = copy.deepcopy(df_nodes_in)
+    data_edges = graph.data_edges
+
+    # ``analyze`` already replaced exploded ellipses and preserved every other
+    # control-flow node. Its node list is authoritative: filtering it here
+    # makes each new executable type require a second registration.
+    full_nodes = df_nodes
     full_ids = {n["id"] for n in full_nodes}
     cond_ids = {n["id"] for n in full_nodes if n["type"] == "conditional"}
 
@@ -1115,7 +1580,9 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
 
     # Keep data_dep edges to conditionals: a guard's condition variable needs
     # an incoming edge so the data-flow view shows what feeds the guard.
-    full_edges = [e for e in data_edges if e["from"] in full_ids and e["to"] in full_ids]
+    # Deep-copy the edge dicts: the policy passes below re-point `from`/`to` in
+    # place, and without the copy that would corrupt `DependencyGraph.data_edges`.
+    full_edges = [copy.deepcopy(e) for e in data_edges if e["from"] in full_ids and e["to"] in full_ids]
 
     # Carry over branch/merge edges from CF for conditionals
     cf_edges = cf.get("edges") or []
@@ -1127,8 +1594,6 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
         if src in cond_ids or e["kind"] == "branch_merge":
             if src in full_ids and tgt in full_ids:
                 full_edges.append({**e, "from": src, "to": tgt})
-
-    _bridge_mutation_edges(full_edges, transforms, full_ids)
 
     # Suppress data_dep edges where the target is inside a container.
     # Build the set of all descendants for each container (iterative BFS
@@ -1147,7 +1612,9 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
             node = node_by_id.get(cur)
             if not node:
                 continue
-            for c in node.get("children") or []:
+            # A gather declares its lanes in `branches`, not `children`, so
+            # reading only `children` leaves its own tasks outside it.
+            for c in (node.get("children") or []) + [c for b in node.get("branches") or [] for c in b]:
                 if c not in result:
                     result.add(c)
                     stack.append(c)
@@ -1160,7 +1627,7 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
 
     container_descendants: dict[str, set[str]] = {}
     for n in full_nodes:
-        if n.get("children"):
+        if n.get("children") or n.get("branches"):
             container_descendants[n["id"]] = _collect_descendants(n["id"])
 
     # Flatten all descendants for a quick "is inside any container" check
@@ -1196,24 +1663,35 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
         if not (e["kind"] == "data_dep" and (e["from"], e["to"], e.get("label", "")) in redundant_branch_body)
     ]
 
-    # Drop data_dep edges that pierce a container the producer is not inside:
-    # the line would cross the box boundary. Being inside *some* container is
-    # not enough — an edge from one loop's body into another loop's body
-    # crosses just as much as one from the top level. A container feeding its
-    # own child counts too; the loop header already shows the loop variable.
+    # Structural constraint, not an exemption to the display rule: no line may
+    # cross a box wall, because a line that does reads as connecting the box
+    # rather than the node inside it. Being inside *some* container is not
+    # enough — an edge from one loop's body into another loop's body crosses
+    # just as much as one from the top level. A container feeding its own child
+    # counts too; the loop header already shows the loop variable.
     def _pierces_container(src: str, tgt: str) -> bool:
         return any(tgt in desc and src not in desc for desc in container_descendants.values())
 
     full_edges = [e for e in full_edges if not (e["kind"] == "data_dep" and _pierces_container(e["from"], e["to"]))]
 
-    # Step 4: Detect fan-out process groups
-    fan_out_groups = _detect_fan_out(full_nodes, full_edges, workflow_name)
-    full_nodes = full_nodes + fan_out_groups
-    full_ids = {n["id"] for n in full_nodes}
+    # Adopt transforms into containers when all their data consumers are inside
+    # that container. Moving a transform off the spine keeps a lineage box's
+    # edge-lifting honest: the row above the box becomes the guard that tests
+    # the value, not the accumulator init. So adoption only helps containers
+    # that sit inside a lineage split — detect the tracks first (on the
+    # non-adopted graph) and restrict adoption to their members. A standalone
+    # loop keeps its preamble at the top level (the init runs once before the
+    # loop, not each iteration); adopting it would draw it inside the box and
+    # misrepresent the control flow.
+    cf_rank = _cf_spine_rank(cf, retarget, workflow_name)
+    _pre_tracks, _ = _detect_lineage_tracks(
+        full_nodes,
+        full_edges,
+        _spine_order(full_nodes, full_edges, workflow_name, cf_rank),
+        workflow_name,
+    )
+    lineage_containers = {c for g in _pre_tracks for c in g.get("children") or []}
 
-    # Adopt transforms into containers when all their data consumers
-    # are inside that container (e.g. loop accumulator init before a loop).
-    # Uses pre-suppression data_edges since cross-boundary edges were removed.
     node_by_id = {n["id"]: n for n in full_nodes}
     for t in [n for n in full_nodes if n["type"] == "transform"]:
         consumers = {
@@ -1222,11 +1700,28 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
         if not consumers:
             continue
         for cid, desc in container_descendants.items():
+            if cid not in lineage_containers:
+                continue
             if consumers <= desc:
                 container = node_by_id.get(cid)
                 if container and t["id"] not in (container.get("children") or []):
                     container.setdefault("children", []).insert(0, t["id"])
                 break
+
+    tracks, boundaries = _detect_lineage_tracks(
+        full_nodes,
+        full_edges,
+        _spine_order(full_nodes, full_edges, workflow_name, cf_rank),
+        workflow_name,
+    )
+    full_nodes = full_nodes + tracks
+    full_ids = {n["id"] for n in full_nodes}
+
+    # Everything the box spans is now inside it, so the only data edges left
+    # crossing its wall are the fan-out that feeds the tracks and the fan-in to
+    # whatever they reconverge on. Land both on the box: that is what makes them
+    # one step, and the box says the rest by containing it.
+    _lift_edges_onto_tracks(full_edges, full_nodes, tracks, boundaries)
 
     full_nodes = [{**n, "name": "input"} if n["type"] == "entrypoint" else n for n in full_nodes]
 
@@ -1240,26 +1735,14 @@ def _build(cf: dict[str, Any]) -> dict[str, Any]:
         )
     )
 
-    # A standalone data_dep edge only earns its place when it shows a
-    # data-based branch: with a single consumer the value just travels forward
-    # and the spine already shows that. Two exemptions:
-    #   - edges sharing a pair with a spine edge, which the renderer folds into
-    #     the control-flow edge as a label rather than drawing a second line;
-    #   - edges into a conditional, which carry the value the guard branches on.
-    spine_pairs = {(e["from"], e["to"]) for e in full_edges if e["kind"] != "data_dep"}
-    guard_ids = {n["id"] for n in full_nodes if n["type"] == "conditional"}
-    consumers_by_producer: dict[str, set[str]] = {}
-    for e in full_edges:
-        if e["kind"] == "data_dep":
-            consumers_by_producer.setdefault(e["from"], set()).add(e["to"])
-    full_edges = [
-        e
-        for e in full_edges
-        if e["kind"] != "data_dep"
-        or e["to"] in guard_ids
-        or (e["from"], e["to"]) in spine_pairs
-        or len(consumers_by_producer[e["from"]]) >= 2
-    ]
+    # The rule, in full: a data edge may only join consecutive rows. Boxing a
+    # split turns its long-range dependencies into a fan-out and a fan-in, both
+    # one step, and anything still jumping rows is a dependency the structure
+    # failed to express — drawing it would only route a line around everything
+    # in between and read as connecting the wrong things (P3).
+    order = rendered_order(full_nodes, full_edges, workflow_name)
+    inside = _contained_nodes(full_nodes, full_edges)
+    full_edges = [e for e in full_edges if e["kind"] != "data_dep" or nodes_skipped(e, order, inside) == 0]
 
     # Carry LLM summaries from the control-flow view, re-keying any
     # unknown/ellipsis node ids to the transform ids that replaced them

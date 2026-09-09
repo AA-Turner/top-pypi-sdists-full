@@ -15,20 +15,48 @@
     state: absent
   delegate_to: localhost
 
+- name: get working directory set for connection plugin
+  win_powershell:
+    script: '$pwd.Path'
+  register: win_cwd_raw
+
+- name: set working directory for connection plugin
+  set_fact:
+    win_cwd: '{{ win_cwd_raw.output[0] }}'
+
 - name: create test folder
   win_file:
     path: '{{test_win_copy_path}}'
     state: directory
 
+- name: create local temp directory
+  tempfile:
+    state: directory
+  register: local_tmp
+  delegate_to: localhost
+
 - block:
   - name: run tests for local to remote
     include_tasks: tests.yml
-  
+
   - name: run tests for remote to remote
     include_tasks: remote_tests.yml
 
+  - name: run diff tests
+    include_tasks: diff_tests.yml
+
   always:
-  - name: remove test folder
+  - name: remove test files
     win_file:
-      path: '{{test_win_copy_path}}'
+      path: '{{ item }}'
       state: absent
+    loop:
+    - '{{ test_win_copy_path }}'
+    - '{{ win_cwd }}\local-file.txt'
+    - '{{ win_cwd }}\remote-file.txt'
+
+  - name: remove local temp directory
+    file:
+      path: '{{ local_tmp.path }}'
+      state: absent
+    delegate_to: localhost

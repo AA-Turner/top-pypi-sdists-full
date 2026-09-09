@@ -17,10 +17,10 @@ jobs:
           - macos-14
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.0
+        uses: pypa/cibuildwheel@v4.2.0
         env:
           # Only build native arch on linux (x86_64 and arm64)
           CIBW_ARCHS_LINUX: auto
@@ -33,7 +33,7 @@ jobs:
         run: ls -lh wheelhouse
         shell: bash
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
@@ -42,12 +42,12 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/*.tar.gz

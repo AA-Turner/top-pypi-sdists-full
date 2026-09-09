@@ -4,8 +4,9 @@ Crawler API Configuration
 This module provides the CrawlerConfig class for configuring crawler jobs.
 """
 
-from typing import Optional, List, Dict, Literal
+from typing import Optional, List, Dict, Literal, Union
 from ..api_config import BaseApiConfig
+from ..scrape_config import _UNSET, _Unset, _resolve_unblocker
 
 
 class CrawlerConfig(BaseApiConfig):
@@ -48,6 +49,14 @@ class CrawlerConfig(BaseApiConfig):
     WEBHOOK_CRAWLER_STOPPED = 'crawler_stopped'
     WEBHOOK_CRAWLER_CANCELLED = 'crawler_cancelled'
     WEBHOOK_CRAWLER_FINISHED = 'crawler_finished'
+    WEBHOOK_CRAWLER_SEARCH_READY = 'crawler_search_ready'
+    WEBHOOK_CRAWLER_SEARCH_FAILED = 'crawler_search_failed'
+    WEBHOOK_CRAWLER_UPDATED = 'crawler_updated'
+
+    # Auto-refresh interval bounds. The floor decides the cost: a crawl
+    # refreshing every minute re-scrapes the whole site 1,440 times a day.
+    REFRESH_MIN_INTERVAL = 3600
+    REFRESH_MAX_INTERVAL = 90 * 24 * 3600
 
     ALL_WEBHOOK_EVENTS = [
         WEBHOOK_CRAWLER_STARTED,
@@ -58,6 +67,9 @@ class CrawlerConfig(BaseApiConfig):
         WEBHOOK_CRAWLER_STOPPED,
         WEBHOOK_CRAWLER_CANCELLED,
         WEBHOOK_CRAWLER_FINISHED,
+        WEBHOOK_CRAWLER_SEARCH_READY,
+        WEBHOOK_CRAWLER_SEARCH_FAILED,
+        WEBHOOK_CRAWLER_UPDATED,
     ]
 
     def __init__(
@@ -111,7 +123,7 @@ class CrawlerConfig(BaseApiConfig):
         extraction_rules: Optional[Dict] = None,
 
         # Web scraping features
-        asp: bool = False,
+        asp: Union[bool, _Unset] = _UNSET,  # deprecated alias of `unblocker`, which is declared last
         proxy_pool: Optional[str] = None,
         country: Optional[str] = None,
 
@@ -120,7 +132,21 @@ class CrawlerConfig(BaseApiConfig):
         webhook_events: Optional[List[str]] = None,
 
         # Cost control
-        max_api_credit: Optional[int] = None
+        max_api_credit: Optional[int] = None,
+
+        # New options follow every legacy positional argument. Inserting them
+        # above asp would reinterpret existing bypass/proxy settings as search
+        # and recurring refresh settings.
+        # Search index built during the crawl, queried through
+        # client.crawl_search() / client.crawl_prompt() once READY.
+        search: bool = False,
+
+        # Auto-refresh: re-scrape this crawl's own URLs in place, on a period.
+        # Same crawler_uuid, same artifacts, only changed pages re-indexed.
+        refresh: bool = False,
+        refresh_interval: Optional[int] = None,
+
+        unblocker: Union[bool, _Unset] = _UNSET
     ):
         """
         Initialize a CrawlerConfig
@@ -155,7 +181,14 @@ class CrawlerConfig(BaseApiConfig):
             content_formats: List of content formats to extract ('html', 'markdown', 'text', 'clean_html')
             extraction_rules: Custom extraction rules
 
-            asp: Enable Anti-Scraping Protection bypass
+            search: Build a semantic search index while the crawl runs
+
+            refresh: Keep this crawl fresh by re-scraping its own URLs in place
+            refresh_interval: Seconds between refresh runs (3600 to 7776000)
+
+            unblocker: Enable the anti-bot bypass (Unblocker)
+            asp: Deprecated alias of `unblocker`, permanently supported. When
+                both are supplied, `asp` wins.
             proxy_pool: Proxy pool to use (e.g., 'public_residential_pool')
             country: Target country for geo-located content
 
@@ -166,6 +199,13 @@ class CrawlerConfig(BaseApiConfig):
         """
         if exclude_paths and include_only_paths:
             raise ValueError("exclude_paths and include_only_paths are mutually exclusive")
+
+        if refresh_interval is not None and not (self.REFRESH_MIN_INTERVAL <= refresh_interval <= self.REFRESH_MAX_INTERVAL):
+            raise ValueError(
+                f"refresh_interval must be between {self.REFRESH_MIN_INTERVAL} and {self.REFRESH_MAX_INTERVAL} seconds"
+            )
+        if refresh_interval is not None and not refresh:
+            raise ValueError("refresh_interval requires refresh=True")
 
         sources_set = sum(1 for v in (url, url_list, remote_url_list) if v)
         if sources_set == 0:
@@ -245,8 +285,23 @@ class CrawlerConfig(BaseApiConfig):
         if extraction_rules:
             params['extraction_rules'] = extraction_rules
 
-        # Web scraping features
-        if asp:
+        # Search index
+        if search:
+            params['search'] = True
+
+        # Auto-refresh. The interval is omitted when unset so the server
+        # default period applies.
+        if refresh:
+            params['refresh'] = True
+        if refresh_interval is not None:
+            params['refresh_interval'] = refresh_interval
+
+        # Web scraping features. Both input names collapse here, and the key
+        # emitted to POST /crawl stays `asp`: published SDK versions are
+        # immutable and upgraded per installation, so emitting `unblocker`
+        # against an API deployment that has not learned it yet would silently
+        # drop a paid feature (crawl succeeds, is billed, returns blocked pages).
+        if _resolve_unblocker(asp, unblocker):
             params['asp'] = True
         if proxy_pool:
             params['proxy_pool'] = proxy_pool
@@ -269,6 +324,34 @@ class CrawlerConfig(BaseApiConfig):
             params['max_api_credit'] = max_api_credit
 
         self._params = params
+
+    @property
+    def unblocker(self) -> bool:
+        """Anti-bot bypass toggle, the current name for what used to be `asp`.
+
+        Backed by the single `asp` entry of the request body, so reading or
+        writing either name sees the same state. Assigning a falsy value drops
+        the key entirely, which is how "disabled" has always been expressed.
+        """
+
+        return bool(self._params.get('asp', False))
+
+    @unblocker.setter
+    def unblocker(self, value: bool):
+        if value:
+            self._params['asp'] = True
+        else:
+            self._params.pop('asp', None)
+
+    @property
+    def asp(self) -> bool:
+        """Deprecated alias of `unblocker`, permanently supported."""
+
+        return self.unblocker
+
+    @asp.setter
+    def asp(self, value: bool):
+        self.unblocker = value
 
     def to_api_params(self, key: Optional[str] = None) -> Dict:
         """

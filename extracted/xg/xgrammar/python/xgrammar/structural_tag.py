@@ -31,11 +31,15 @@ class JSONSchemaFormat(BaseModel):
     """The type of the format."""
     json_schema: Union[bool, Dict[str, Any]]
     """The JSON schema."""
-    style: Literal["json", "qwen_xml", "minimax_xml", "deepseek_xml", "glm_xml"] = "json"
+    style: Literal[
+        "json", "qwen_xml", "minimax_xml", "deepseek_xml", "glm_xml", "cohere_xml", "kimi_k3_xml"
+    ] = "json"
     """How to parse the content. Valid values: \"json\" (standard JSON), \"qwen_xml\" (Qwen XML:
     <parameter=key>value</parameter>), \"minimax_xml\" (MiniMax XML: <parameter name=\"key\">value</parameter>),
     \"deepseek_xml\" (DeepSeek XML(DeepSeek-v3.2): <{dsml_token}parameter name=\"key\" string=\"true|false\">value</{dsml_token}parameter>),
-    \"glm_xml\" (GLM XML: <arg_key>key</arg_key><arg_value>value</arg_value>)."""
+    \"glm_xml\" (GLM XML: <arg_key>key</arg_key><arg_value>value</arg_value>),
+    \"cohere_xml\" (Cohere XML: <cofl:value name=\"key\" type=\"raw|json|dict|list\">value</cofl:value>),
+    \"kimi_k3_xml\" (Kimi-K3: <|open|>argument key=\"key\" type=\"type\"<|sep|>value<|close|>argument<|sep|>)."""
     any_order: bool = False
     """Whether object properties may appear in any order.
 
@@ -59,6 +63,15 @@ class AnyTextFormat(BaseModel):
 
     excludes: List[str] = []
     """List of strings that should not appear in the matched text."""
+
+    max_tokens: Optional[int] = Field(default=None, ge=0, le=2_147_483_647)
+    """Maximum number of LLM tokens this region may consume. None means unbounded. This is
+    enforced during token-mask-driven generation; ``GrammarMatcher.accept_string`` does not
+    consume the token budget."""
+
+    max_chars: Optional[int] = Field(default=None, ge=0, le=2_147_483_647)
+    """Maximum number of Unicode codepoints this region may consume. None means unbounded. This
+    also applies to ``GrammarMatcher.accept_string``."""
 
 
 class TokenFormat(BaseModel):
@@ -89,6 +102,10 @@ class AnyTokensFormat(BaseModel):
 
     exclude_tokens: List[Union[int, str]] = []
     """List of token IDs or strings to exclude."""
+
+    max_tokens: Optional[int] = Field(default=None, ge=0, le=2_147_483_647)
+    """Maximum number of tokens this region may consume. None means unbounded. This is enforced
+    during token-mask-driven generation."""
 
 
 class GrammarFormat(BaseModel):

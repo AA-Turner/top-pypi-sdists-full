@@ -3,7 +3,8 @@ import type { ErrorMetrics } from './benchmark-runner.js';
 import { check } from 'k6';
 import http from 'k6/http';
 import type { BenchmarkResult, BenchmarkGraphOptions } from './types.js';
-import { addResponse, okResult } from './types.js';
+import { addResponse, okResult, failResult } from './types.js';
+import { classifyError, recordError } from './classify-error.js';
 import { logFailure } from './log-failure.js';
 
 interface WaitWriteData {
@@ -19,6 +20,7 @@ export class WaitWrite extends BenchmarkRunner {
     const context = benchmarkGraphOptions.context;
     const expand = context.expand;
     const steps = context.steps;
+    const responses: Record<string, import('./types.js').HttpResponse> = {};
     let url = `${baseUrl}/runs/wait`;
     const payload = JSON.stringify({
       assistant_id: benchmarkGraphOptions.graph_id,
@@ -29,12 +31,17 @@ export class WaitWrite extends BenchmarkRunner {
 
     if (benchmarkGraphOptions.stateful) {
       const thread = http.post(`${baseUrl}/threads`, '{}', requestParams);
+      addResponse(responses, 'create_thread', thread);
+      // Check before parsing. `thread.json()` on a failed create throws, and the
+      // throw surfaced as a generic other_error instead of the real cause.
+      if (thread.status !== 200) {
+        return failResult('create_thread', responses) as BenchmarkResult<WaitWriteData>;
+      }
       const threadId = (thread.json() as { thread_id: string }).thread_id;
       url = `${baseUrl}/threads/${threadId}/runs/wait`;
     }
 
     const response = http.post(url, payload, requestParams);
-    const responses: Record<string, import('./types.js').HttpResponse> = {};
     addResponse(responses, 'wait', response);
     return okResult(responses, { rawResponse: response });
   }
@@ -76,16 +83,16 @@ export class WaitWrite extends BenchmarkRunner {
 
     if (!success) {
       logFailure(WaitWrite.toString(), result, { extra: `status=${res?.status}` });
-      if (res?.status != null && res.status >= 500) {
-        errorMetrics.server_errors.add(1);
-      } else if (res?.status === 408 || (res as { error?: string }).error?.includes('timeout')) {
-        errorMetrics.timeout_errors.add(1);
-      } else if (json && typeof json === 'object' && (json as Record<string, unknown>).__error__) {
-        if (errorMetrics.api_errors) errorMetrics.api_errors.add(1);
-        else errorMetrics.other_errors.add(1);
-      } else {
-        errorMetrics.other_errors.add(1);
-      }
+      recordError(
+        classifyError({
+          response: res ?? result.responses?.create_thread ?? null,
+          hasApiError:
+            !!json &&
+            typeof json === 'object' &&
+            (json as Record<string, unknown>).__error__ !== undefined,
+        }),
+        errorMetrics
+      );
     }
     return success;
   }

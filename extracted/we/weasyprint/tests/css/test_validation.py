@@ -5,12 +5,13 @@ from math import pi
 
 import pytest
 import tinycss2
+from tinycss2.color5 import parse_color
 
 from weasyprint.css import preprocess_declarations
 from weasyprint.css.validation.properties import PROPERTIES
 from weasyprint.images import LinearGradient, RadialGradient
 
-from ..testing_utils import assert_no_logs, capture_logs
+from ..testing_utils import assert_no_logs, capture_logs, render_pages
 
 
 def get_value(css, expected_error=None, level=None):
@@ -375,6 +376,9 @@ def test_image_orientation_invalid(rule):
     ('1% 2% 3% 4%', ((1, '%'), (2, '%'), (3, '%'), (4, '%'))),
     ('fill 10% 20', ('fill', (10, '%'), (20, None))),
     ('0 1 0.5 fill', ((0, None), (1, None), (0.5, None), 'fill')),
+    ('calc(10%)', ((10, '%'),)),
+    ('min(10%, 20%)', ((10, '%'),)),
+    ('clamp(0%, 50%, 100%) fill', ((50, '%'), 'fill')),
 ])
 def test_border_image_slice(rule, value):
     assert get_value(f'border-image-slice: {rule}') == value
@@ -390,9 +394,34 @@ def test_border_image_slice(rule, value):
     '-0.3',
     '1 fill 2',
     'fill 1 2 3 fill',
+    # A math function that cannot resolve to a number or percentage must be
+    # rejected, not crash with an AttributeError on a FunctionBlock.
+    'scale(calc(0))',
+    'min(0px, 0)',
 ])
 def test_border_image_slice_invalid(rule):
     assert_invalid(f'border-image-slice: {rule}')
+
+
+@assert_no_logs
+@pytest.mark.parametrize(('prop', 'value'), [
+    ('border-image-slice', 'scale(calc(0))'),
+    ('border-image-slice', 'min(0px, 0)'),
+    ('mask-border-slice', 'scale(calc(0))'),
+    ('mask-border-slice', 'rgb(calc(0%) 0 0)'),
+])
+def test_border_image_slice_math_no_crash(prop, value):
+    # Regression test: an unresolvable math function in *-border-slice used to
+    # raise an AttributeError out of get_percentage that aborted the whole
+    # render. It must instead be ignored with an "invalid value" warning.
+    with capture_logs() as logs:
+        page, = render_pages(f'<div style="{prop}: {value}">a</div>')
+    assert len(logs) == 1
+    assert 'invalid value' in logs[0]
+    # The page still renders.
+    html, = page.children
+    body, = html.children
+    assert body.children
 
 
 @assert_no_logs
@@ -498,6 +527,8 @@ def test_mask_border_slice(rule, value):
     '-0.3',
     '1 fill 2',
     'fill 1 2 3 fill',
+    'scale(calc(0))',
+    'rgb(calc(0%) 0 0)',
 ])
 def test_mask_border_slice_invalid(rule):
     assert_invalid(f'mask-border-slice: {rule}')
@@ -1319,3 +1350,56 @@ def test_color_scheme(rule, value):
 ])
 def test_color_scheme_invalid(rule):
     assert_invalid(f'color-scheme: {rule}')
+
+
+@assert_no_logs
+@pytest.mark.parametrize(('rule', 'value'), [
+    ('none', ()),
+    ('1px 10px', (
+        ((1, 'px'), (10, 'px'), (0, 'px'), (0, 'px'), 'currentcolor', False),)),
+    ('1px 10px 0 3cm', (
+        ((1, 'px'), (10, 'px'), (0, None), (3, 'cm'), 'currentcolor', False),)),
+    ('1px 10px inset', (
+        ((1, 'px'), (10, 'px'), (0, 'px'), (0, 'px'), 'currentcolor', True),)),
+    ('1px 10px 2px 5cm inset', (
+        ((1, 'px'), (10, 'px'), (2, 'px'), (5, 'cm'), 'currentcolor', True),)),
+    ('black 1px 10px 2px 5cm', (
+        ((1, 'px'), (10, 'px'), (2, 'px'), (5, 'cm'), 'black', False),)),
+    ('red 1px 10px inset, blue 1px 10px inset', (
+        ((1, 'px'), (10, 'px'), (0, 'px'), (0, 'px'), 'red', True),
+        ((1, 'px'), (10, 'px'), (0, 'px'), (0, 'px'), 'blue', True))),
+    ('red 1px 10px 2px 5cm', (
+        ((1, 'px'), (10, 'px'), (2, 'px'), (5, 'cm'), 'red', False),)),
+    ('inset red 1px 10px 2px 5cm', (
+        ((1, 'px'), (10, 'px'), (2, 'px'), (5, 'cm'), 'red', True),)),
+    ('1px 10px 2px 5cm red inset', (
+        ((1, 'px'), (10, 'px'), (2, 'px'), (5, 'cm'), 'red', True),)),
+    ('1px 10px, 2px 4px #ff0000', (
+        ((1, 'px'), (10, 'px'), (0, 'px'), (0, 'px'), 'currentcolor', False),
+        ((2, 'px'), (4, 'px'), (0, 'px'), (0, 'px'), 'red', False))),
+])
+def test_box_shadow(rule, value):
+    result = get_value(f'box-shadow: {rule}')
+    for result_shadow, value_shadow in zip(result, value, strict=True):
+        assert result_shadow[:4] == value_shadow[:4]
+        assert result_shadow[5] == value_shadow[5]
+        assert parse_color(result_shadow[4]) == parse_color(result_shadow[4])
+
+
+@assert_no_logs
+@pytest.mark.parametrize('rule', [
+    '1px 10px,',
+    '1px 10px,,1px',
+    '1px red inset',
+    '1px 1px red blue inset',
+    'blue 1px 1px red',
+    'inset 1px 1px 1px blue inset',
+    '1px 10px red 3px',
+    '1px 10px inset 3px',
+    '1px 1px 1px inset inset',
+    '1px 0 0 3%',
+    '1px 0, none',
+    'none, none',
+])
+def test_box_shadow_invalid(rule):
+    assert_invalid(f'box-shadow: {rule}')

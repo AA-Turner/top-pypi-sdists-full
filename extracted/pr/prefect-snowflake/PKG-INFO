@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-snowflake
-Version: 0.28.8
+Version: 0.28.9
 Summary: Prefect integrations for interacting with Snowflake
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0

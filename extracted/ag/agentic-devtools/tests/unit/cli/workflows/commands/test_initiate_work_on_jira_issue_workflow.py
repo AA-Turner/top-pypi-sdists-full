@@ -106,6 +106,30 @@ class TestInitiateWorkOnJiraIssueInteractive:
         call_kwargs = mock_setup.call_args[1]
         assert call_kwargs["interactive"] is False
 
+    def test_headless_suppresses_terminal_mode(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
+    ):
+        """When headless is enabled, terminal mode is forced off before persistence."""
+        state.set_value("jira.issue_key", "PROJECT-1234")
+
+        with patch("agentic_devtools.cli.workflows.commands.check_worktree_and_branch") as mock_preflight:
+            from agentic_devtools.cli.workflows.preflight import PreflightResult
+
+            mock_preflight.return_value = PreflightResult(
+                folder_valid=False,
+                branch_valid=False,
+                folder_name="wrong",
+                branch_name="main",
+                issue_key="PROJECT-1234",
+            )
+
+            with patch("agentic_devtools.cli.workflows.preflight.perform_auto_setup") as mock_setup:
+                mock_setup.return_value = True
+                commands.initiate_work_on_jira_issue_workflow(_argv=["--no-vscode", "--terminal"])
+
+        assert state.get_value("copilot.terminal") is False
+        assert "--terminal" not in mock_setup.call_args.kwargs["auto_execute_command"]
+
     def test_issue_key_parsed_from_cli(self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys):
         """Test that --issue-key from CLI overrides when not set programmatically."""
         # Don't set issue_key in state — the CLI arg should populate it
@@ -326,12 +350,13 @@ class TestWorkflowCommands:
                         "agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_work_on_jira_issue"
                     ):
                         # Execute command
-                        commands.initiate_work_on_jira_issue_workflow(_argv=[])
+                        commands.initiate_work_on_jira_issue_workflow(_argv=[], terminal=True)
 
         # Verify - should be in planning step
         workflow = state.get_workflow_state()
         assert workflow["active"] == "work-on-jira-issue"
         assert workflow["step"] == "planning"
+        assert state.get_value("copilot.terminal") is True
         captured = capsys.readouterr()
         assert "Planning work for PROJECT-1234" in captured.out
 

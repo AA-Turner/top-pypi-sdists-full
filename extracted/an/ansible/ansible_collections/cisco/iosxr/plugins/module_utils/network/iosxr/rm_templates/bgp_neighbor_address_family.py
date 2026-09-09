@@ -116,15 +116,15 @@ def _tmpl_remove_private_AS(config_data):
 
 def _tmpl_default_originate(config_data):
     conf = config_data.get("default_originate", {})
-    command = ""
-    if conf:
-        if "set" in conf:
-            command = "default-originate"
-        if "inheritance_disable" in conf:
-            command = "default-originate inheritance-disable"
-        if "route_policy" in conf:
-            command = "default-originate route_policy " + conf["route_policy"]
-    return command
+    if not conf:
+        return ""
+    if conf.get("set"):
+        return "default-originate"
+    if conf.get("inheritance_disable"):
+        return "default-originate inheritance-disable"
+    if conf.get("route_policy"):
+        return "default-originate route-policy " + conf["route_policy"]
+    return ""
 
 
 class Bgp_neighbor_address_familyTemplate(NetworkTemplate):
@@ -357,7 +357,9 @@ class Bgp_neighbor_address_familyTemplate(NetworkTemplate):
                                 "address_family": {
                                     '{{"address_family_" + afi + "_" + safi}}': {
                                         "default_originate": {
-                                            "set": "{{True if default_originate is defined}}",
+                                            "set": "{{True if default_originate is defined "
+                                                   "and route_policy is not defined "
+                                                   "and inheritance_disable is not defined}}",
                                             "route_policy": "{{route_policy}}",
                                             "inheritance_disable": "{{True if inheritance_disable is defined}}",
                                         },

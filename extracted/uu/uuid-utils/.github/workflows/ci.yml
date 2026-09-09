@@ -13,8 +13,8 @@ jobs:
     name: Check code quality
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install dependencies
@@ -31,8 +31,8 @@ jobs:
       matrix:
         target: [x86_64, i686]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - name: Build wheels
@@ -61,8 +61,8 @@ jobs:
       matrix:
         target: [aarch64, armv7, ppc64le]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - name: Build wheels
@@ -72,7 +72,7 @@ jobs:
           target: ${{ matrix.target }}
           manylinux: auto
           args: --release --out dist -i 3.10 3.11 3.12 3.13 3.14 3.14t pypy3.11
-      - uses: uraimo/run-on-arch-action@v3.1.0
+      - uses: uraimo/run-on-arch-action@v3.2.0
         if: matrix.target != 'ppc64'
         name: Install built wheel
         with:
@@ -101,8 +101,8 @@ jobs:
           - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
           architecture: x64
@@ -141,8 +141,8 @@ jobs:
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - name: Build wheels
@@ -177,8 +177,8 @@ jobs:
             os: windows-11-arm
             interpreter: "3.11 3.12 3.13 3.14"
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
           architecture: ${{ matrix.platform.py_arch }}
@@ -220,9 +220,9 @@ jobs:
             py_arch: "arm64"
             interpreter: 3.14t
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.14t
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14t"
           architecture: ${{ matrix.platform.py_arch }}
@@ -243,8 +243,8 @@ jobs:
     name: "MacOS"
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - uses: dtolnay/rust-toolchain@stable
@@ -274,7 +274,7 @@ jobs:
     name: Source Distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
@@ -296,9 +296,9 @@ jobs:
         # from the host Python, so we build one wheel per host interpreter.
         python-version: ["3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -332,7 +332,7 @@ jobs:
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           rust-toolchain: nightly
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "18"
 
@@ -380,7 +380,7 @@ jobs:
         with:
           subject-path: "release-dist/*"
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.14.0
+        uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           packages-dir: release-dist
           skip-existing: true
@@ -394,10 +394,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install dependencies
@@ -413,8 +413,9 @@ jobs:
           if ! git merge-base --is-ancestor "${GITHUB_REF_NAME}" origin/main; then
             mike deploy --push "$VERSION"
           elif echo "${GITHUB_REF_NAME}" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
-            mike deploy --push --update-aliases "$VERSION" latest
-            mike set-default --push latest
+            mike deploy --update-aliases "$VERSION" latest
+            mike set-default latest
+            git push origin gh-pages
           else
             mike deploy --push "${MAJOR}.x-pre"
           fi

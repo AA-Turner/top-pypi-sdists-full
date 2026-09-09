@@ -70,18 +70,18 @@ class Pending(ABC):
         self._reported_error = False
 
     @abstractmethod
-    def validate(self, tokens, wanted_key):
+    def validate(self, tokens, wanted_key, base_url):
         """Get validated value for wanted key."""
         raise NotImplementedError
 
-    def solve(self, tokens, wanted_key):
+    def solve(self, tokens, wanted_key, base_url):
         """Get validated value or raise error."""
         try:
             if not tokens:
                 # Having no tokens is allowed by grammar but refused by all
                 # properties and expanders.
                 raise InvalidValues('no value')
-            return self.validate(tokens, wanted_key)
+            return self.validate(tokens, wanted_key, base_url)
         except InvalidValues as exception:
             if self._reported_error:
                 raise exception
@@ -390,8 +390,8 @@ def get_percentage(token, negative=True):
         except (PercentageInMath, RelativeLengthInMath):
             return
         else:
-            # Range clamp.
-            if not negative:
+            # Range clamp percentages.
+            if token.type == 'percentage' and not negative:
                 token.value = max(0, token.value)
     if token.type == 'percentage' and (negative or token.value >= 0):
         return Dimension(token.value, '%')

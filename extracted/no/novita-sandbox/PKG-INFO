@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: novita-sandbox
-Version: 2.1.0
+Version: 2.1.1
 Summary: Novita Agent Sandbox SDK - Python library for Novita Agent Sandbox
 Project-URL: Homepage, https://novita.ai
 Project-URL: Documentation, https://novita.ai/docs/guides/sandbox-overview
@@ -71,7 +71,13 @@ A Python SDK for Novita Agent Sandbox environments that provides code execution,
 
 ```bash
 pip install novita-sandbox
+pip install novita-sandbox[runtime]
+pip install novita-sandbox[code-interpreter]
+pip install novita-sandbox[desktop]
+pip install novita-sandbox[all]
 ```
+
+`runtime` is for users who only need Agent Runtime-related features; `all` includes every optional dependency.
 
 ## Quick Start
 

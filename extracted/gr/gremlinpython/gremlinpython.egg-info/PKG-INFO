@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gremlinpython
-Version: 3.8.1
+Version: 3.8.2
 Summary: Gremlin-Python for Apache TinkerPop
 Maintainer-email: Apache TinkerPop <dev@tinkerpop.apache.org>
 License: Apache 2
@@ -9,7 +9,11 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE

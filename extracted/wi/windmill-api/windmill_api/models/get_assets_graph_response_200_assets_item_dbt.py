@@ -9,6 +9,9 @@ from ..models.get_assets_graph_response_200_assets_item_dbt_resource_type import
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_assets_graph_response_200_assets_item_dbt_column_schema_item import (
+        GetAssetsGraphResponse200AssetsItemDbtColumnSchemaItem,
+    )
     from ..models.get_assets_graph_response_200_assets_item_dbt_columns import (
         GetAssetsGraphResponse200AssetsItemDbtColumns,
     )
@@ -39,7 +42,12 @@ class GetAssetsGraphResponse200AssetsItemDbt:
             description (Union[Unset, str]):
             data_tests (Union[Unset, List['GetAssetsGraphResponse200AssetsItemDbtDataTestsItem']]):
             columns (Union[Unset, GetAssetsGraphResponse200AssetsItemDbtColumns]): Declared column metadata (name ->
-                description). NOT column lineage — `manifest.json` carries none.
+                description) — what `manifest.json` carries, which is only the columns an author wrote down. Omitted when the
+                caller cannot read the script.
+            column_schema (Union[Unset, List['GetAssetsGraphResponse200AssetsItemDbtColumnSchemaItem']]): Every column of
+                the relation, typed and in the order the model produces them, from the engine's static analysis. Present only
+                for a project that opted into it, and gated like `columns` and the model's SQL: a full column list is the shape
+                of what the author wrote.
             freshness (Union[Unset, GetAssetsGraphResponse200AssetsItemDbtFreshness]): A source's declared freshness policy,
                 for the staleness chip.
             raw_code (Union[Unset, str]): The model's SQL as written, at the deploy this graph belongs to. Omitted when the
@@ -55,6 +63,7 @@ class GetAssetsGraphResponse200AssetsItemDbt:
     description: Union[Unset, str] = UNSET
     data_tests: Union[Unset, List["GetAssetsGraphResponse200AssetsItemDbtDataTestsItem"]] = UNSET
     columns: Union[Unset, "GetAssetsGraphResponse200AssetsItemDbtColumns"] = UNSET
+    column_schema: Union[Unset, List["GetAssetsGraphResponse200AssetsItemDbtColumnSchemaItem"]] = UNSET
     freshness: Union[Unset, "GetAssetsGraphResponse200AssetsItemDbtFreshness"] = UNSET
     raw_code: Union[Unset, str] = UNSET
     original_file_path: Union[Unset, str] = UNSET
@@ -83,6 +92,14 @@ class GetAssetsGraphResponse200AssetsItemDbt:
         if not isinstance(self.columns, Unset):
             columns = self.columns.to_dict()
 
+        column_schema: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.column_schema, Unset):
+            column_schema = []
+            for column_schema_item_data in self.column_schema:
+                column_schema_item = column_schema_item_data.to_dict()
+
+                column_schema.append(column_schema_item)
+
         freshness: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.freshness, Unset):
             freshness = self.freshness.to_dict()
@@ -110,6 +127,8 @@ class GetAssetsGraphResponse200AssetsItemDbt:
             field_dict["data_tests"] = data_tests
         if columns is not UNSET:
             field_dict["columns"] = columns
+        if column_schema is not UNSET:
+            field_dict["column_schema"] = column_schema
         if freshness is not UNSET:
             field_dict["freshness"] = freshness
         if raw_code is not UNSET:
@@ -121,6 +140,9 @@ class GetAssetsGraphResponse200AssetsItemDbt:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_assets_graph_response_200_assets_item_dbt_column_schema_item import (
+            GetAssetsGraphResponse200AssetsItemDbtColumnSchemaItem,
+        )
         from ..models.get_assets_graph_response_200_assets_item_dbt_columns import (
             GetAssetsGraphResponse200AssetsItemDbtColumns,
         )
@@ -158,6 +180,15 @@ class GetAssetsGraphResponse200AssetsItemDbt:
         else:
             columns = GetAssetsGraphResponse200AssetsItemDbtColumns.from_dict(_columns)
 
+        column_schema = []
+        _column_schema = d.pop("column_schema", UNSET)
+        for column_schema_item_data in _column_schema or []:
+            column_schema_item = GetAssetsGraphResponse200AssetsItemDbtColumnSchemaItem.from_dict(
+                column_schema_item_data
+            )
+
+            column_schema.append(column_schema_item)
+
         _freshness = d.pop("freshness", UNSET)
         freshness: Union[Unset, GetAssetsGraphResponse200AssetsItemDbtFreshness]
         if isinstance(_freshness, Unset):
@@ -178,6 +209,7 @@ class GetAssetsGraphResponse200AssetsItemDbt:
             description=description,
             data_tests=data_tests,
             columns=columns,
+            column_schema=column_schema,
             freshness=freshness,
             raw_code=raw_code,
             original_file_path=original_file_path,

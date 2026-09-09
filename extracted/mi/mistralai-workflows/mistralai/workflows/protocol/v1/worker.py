@@ -11,6 +11,7 @@ class WorkerFeatures(BaseModel):
     """
 
     upload_graph: bool | None = None
+    events_api_version: str | None = None
 
 
 class WorkerInfo(BaseModel):

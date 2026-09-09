@@ -1,43 +1,10 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Collection of physical units.
 
 Use get_physical_units() for getting the physical units.
 To overwrite the physical units, use set_physical_units().
 
 """
-
-# Copyright (C) 2025 Atsushi Togo
-# All rights reserved.
-#
-# This file is part of phonopy.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in
-#   the documentation and/or other materials provided with the
-#   distribution.
-#
-# * Neither the name of the phonopy project nor the names of its
-#   contributors may be used to endorse or promote products derived
-#   from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import annotations
 
@@ -338,6 +305,7 @@ def get_calculator_physical_units(
     lammps        : eV,      angstrom,  AMU,         eV/angstrom,  eV/angstrom^2
     qlm           : Ry,      au,        AMU,         Ry/au,        Ry/au^2
     pwmat         : eV,      angstrom,  AMU,         eV/angstrom,  eV/angstrom^2
+    octopus       : hartree, au,        AMU,         hartree/au,   hartree/au^2
 
     units['force_constants_unit'] is used in
     the 'get_force_constant_conversion_factor' method.
@@ -419,7 +387,14 @@ def get_calculator_physical_units(
             force_unit="mRy/au",
             energy_unit="Ry",
         )
-    elif interface_mode in ("elk", "dftbp", "turbomole", "fleur", "exciting"):
+    elif interface_mode in (
+        "elk",
+        "dftbp",
+        "turbomole",
+        "fleur",
+        "exciting",
+        "octopus",
+    ):
         ElkToTHz = (
             sqrt(physical_units.Hartree * physical_units.EV / physical_units.AMU)
             / (physical_units.Bohr * 1e-10)
@@ -428,7 +403,9 @@ def get_calculator_physical_units(
         )  # [THz] 154.10794
         units = CalculatorPhysicalUnits(
             factor=ElkToTHz,
-            nac_factor=physical_units.Hartree * physical_units.Bohr,
+            # e^2/(4*pi*eps0) in force_constants_unit * length_unit^3, i.e.
+            # 1 hartree*bohr. Cf. qe (2 Ry*bohr), wien2k (2000 mRy*bohr).
+            nac_factor=1.0,
             distance_to_A=physical_units.Bohr,
             force_to_eVperA=physical_units.Hartree / physical_units.Bohr,
             energy_to_eV=physical_units.Hartree,

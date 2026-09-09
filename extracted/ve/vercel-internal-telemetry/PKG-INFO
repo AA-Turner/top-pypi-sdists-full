@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: vercel-internal-telemetry
-Version: 0.7.2
+Version: 0.7.3
 Summary: Internal telemetry helpers for Vercel Python packages
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: httpx<1,>=0.27.0
-Requires-Dist: vercel-oidc>=0.8.0
+Requires-Dist: vercel-oidc>=0.8.1
 Description-Content-Type: text/markdown
 
 # Internal Telemetry

@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.engine.v1.datasource_service_pb2 import (
+    ListRunningDatasourceQueriesRequest,
+    ListRunningDatasourceQueriesResponse,
     TestDatasourceRequest,
     TestDatasourceResponse,
 )
@@ -33,6 +35,18 @@ class DatasourceServiceStub:
     an error rather than a FAIL status whenever the test could not be run at all -- so a
     successful response always carries a verdict about the data source.
     """
+    ListRunningDatasourceQueries: UnaryUnaryMultiCallable[
+        ListRunningDatasourceQueriesRequest,
+        ListRunningDatasourceQueriesResponse,
+    ]
+    """Lists the queries one data source reports as currently in flight, by having the driver
+    introspect the data source with the caller-supplied credentials.
+
+    Like TestDatasource, this errors only when the request could not be served at all -- an
+    unknown kind, or a connection that could not be established. A driver with no introspection,
+    and an introspection query the data source rejected, are both successful responses carrying a
+    status, because both are facts about the data source that the caller asked for.
+    """
 
 class DatasourceServiceServicer(metaclass=ABCMeta):
     """Connection testing for configured data sources. Separate from QueryService because it runs no
@@ -49,6 +63,20 @@ class DatasourceServiceServicer(metaclass=ABCMeta):
         """Tests one data source. Returns UNIMPLEMENTED for a kind this engine has no support for, and
         an error rather than a FAIL status whenever the test could not be run at all -- so a
         successful response always carries a verdict about the data source.
+        """
+    @abstractmethod
+    def ListRunningDatasourceQueries(
+        self,
+        request: ListRunningDatasourceQueriesRequest,
+        context: ServicerContext,
+    ) -> ListRunningDatasourceQueriesResponse:
+        """Lists the queries one data source reports as currently in flight, by having the driver
+        introspect the data source with the caller-supplied credentials.
+
+        Like TestDatasource, this errors only when the request could not be served at all -- an
+        unknown kind, or a connection that could not be established. A driver with no introspection,
+        and an introspection query the data source rejected, are both successful responses carrying a
+        status, because both are facts about the data source that the caller asked for.
         """
 
 def add_DatasourceServiceServicer_to_server(servicer: DatasourceServiceServicer, server: Server) -> None: ...

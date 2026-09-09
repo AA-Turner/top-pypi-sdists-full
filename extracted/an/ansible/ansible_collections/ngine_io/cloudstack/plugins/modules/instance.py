@@ -30,6 +30,12 @@ options:
       - Display name will be set to I(name) if not specified.
       - Either I(name) or I(display_name) is required.
     type: str
+  match_display_name:
+    description:
+      - When searching for an instance name, also match the display name.
+    type: bool
+    default: true
+    version_added: 3.1.0
   group:
     description:
       - Group in where the new instance should be in.
@@ -200,12 +206,12 @@ options:
     description:
       - Force stop/start the instance if required to apply changes, otherwise a running instance will not be changed.
     type: bool
-    default: no
+    default: false
   allow_root_disk_shrink:
     description:
       - Enables a volume shrinkage when the new size is smaller than the old one.
     type: bool
-    default: no
+    default: false
   tags:
     description:
       - List of tags. Tags are a list of dictionaries having keys C(key) and C(value).
@@ -217,7 +223,7 @@ options:
     description:
       - Poll async jobs until job has finished.
     type: bool
-    default: yes
+    default: true
   details:
     description:
       - Map to specify custom parameters.
@@ -250,7 +256,7 @@ EXAMPLES = """
     display_name: web-vm-01.example.com
     iso: Linux Debian 7 64-bit
     service_offering: 2cpu_2gb
-    force: yes
+    force: true
 
 # NOTE: user_data can be used to kickstart the instance using cloud-init yaml config.
 - name: create or update a instance on Exoscale's public cloud using display_name.
@@ -434,11 +440,21 @@ instance_name:
   returned: success
   type: str
   sample: i-44-3992-VM
-user-data:
+user_data:
   description: Optional data sent to the instance.
   returned: success
   type: str
   sample: VXNlciBkYXRhIGV4YW1wbGUK
+user_data_name:
+  description: Name of user data used for the instance.
+  returned: success
+  type: str
+  sample: my_userdata
+user_data_details:
+  description: Parameter values used for the variables in user data.
+  returned: success
+  type: dict
+  sample: { "foo": "bar" }
 """
 
 import base64
@@ -466,6 +482,9 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             "templatedisplaytext": "template_display_text",
             "keypairs": "ssh_keys",
             "hostname": "host",
+            "userdata": "user_data",
+            "userdataname": "user_data_name",
+            "userdatadetails": "user_data_details",
         }
         self.instance = None
         self.template = None
@@ -588,6 +607,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
         if not instance or refresh:
             instance_name = self.get_or_fallback("name", "display_name")
             args = {
+                "keyword": instance_name,
                 "account": self.get_account(key="name"),
                 "domainid": self.get_domain(key="id"),
                 "projectid": self.get_project(key="id"),
@@ -595,9 +615,14 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             }
             # Do not pass zoneid, as the instance name must be unique across zones.
             instances = self.query_api("listVirtualMachines", **args)
+
+            # How many instances match the name or displayname?
+            matches = []
+
+            match_display_name = self.module.params.get("match_display_name")
             if instances:
                 for v in instances:
-                    if instance_name.lower() in [v["name"].lower(), v["displayname"].lower(), v["id"]]:
+                    if instance_name.lower() == v["name"].lower() or (match_display_name and instance_name.lower() == v["displayname"].lower()):
 
                         if "keypairs" not in v:
                             v["keypairs"] = list()
@@ -606,8 +631,17 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
                         if not isinstance(v["keypairs"], list):
                             v["keypairs"] = [v["keypairs"]]
 
-                        self.instance = v
-                        break
+                        matches.append(v)
+
+                # Keyword filter may return multiple instances: we need to ensure we get exactly one or none match
+                if matches:
+                    if len(matches) > 1:
+                        self.module.fail_json(
+                            msg="Multiple instances found with name / displayname '%s' in zone '%s', consider using the 'match_display_name=false' option"
+                            % (instance_name, self.get_zone(key="name"))
+                        )
+                    else:
+                        self.instance = matches[0]
 
         return self.instance
 
@@ -617,21 +651,19 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             return None
 
         args = {
+            "name": name,
             "account": self.get_account(key="name"),
             "domainid": self.get_domain(key="id"),
             "projectid": self.get_project(key="id"),
             "listall": True,
-            # name or keyword is documented but not work on cloudstack 4.19
-            # commented util will work it
-            # 'name': name,
+            "fetch_list": True,
         }
 
         user_data_list = self.query_api("listUserData", **args)
         if user_data_list:
-            for v in user_data_list.get("userdata") or []:
-                if name in [v["name"], v["id"]]:
-                    return v["id"]
-        self.module.fail_json(msg="User data '%s' not found" % user_data_list)
+            return user_data_list[0]["id"]
+
+        self.module.fail_json(msg="User data '%s' not found" % name)
 
     def _get_instance_user_data(self, instance):
         # Query the user data if we need to
@@ -687,7 +719,7 @@ class AnsibleCloudStackInstance(AnsibleCloudStack):
             if not ssh_keys:
                 return True
 
-            # Get fingerprint for keypair of instance but do not fail if inexistent.
+            # Get fingerprint for the instance keypair but do not fail if it does not exist.
             instance_ssh_key_fingerprint = self.get_ssh_keypair(key="fingerprint", name=instance_ssh_key, fail_on_missing=False)
             if not instance_ssh_key_fingerprint:
                 return True
@@ -1165,6 +1197,7 @@ def main():
             details=dict(type="dict"),
             poll_async=dict(type="bool", default=True),
             allow_root_disk_shrink=dict(type="bool", default=False),
+            match_display_name=dict(type="bool", default=True),
         )
     )
 

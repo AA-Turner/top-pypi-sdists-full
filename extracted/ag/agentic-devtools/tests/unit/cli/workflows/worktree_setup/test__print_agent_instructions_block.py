@@ -143,6 +143,7 @@ class TestPrintAgentInstructionsBlock:
             "Create a feature",
             {"parent_key": "PROJECT-1000"},
             model=None,
+            headless=False,
         )
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_ai_agent_continuation_prompt")
@@ -164,4 +165,28 @@ class TestPrintAgentInstructionsBlock:
             None,
             {"pull_request_id": "30779"},
             model="gemini-3.7-flash",
+            headless=False,
+        )
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_ai_agent_continuation_prompt")
+    def test_headless_manual_start_message_uses_headless_prompt(self, mock_ai_prompt, capsys):
+        """Headless manual fallback wording should avoid VS Code-specific instructions."""
+        mock_ai_prompt.return_value = "prompt"
+
+        _print_agent_instructions_block(
+            autostart_injected=False,
+            issue_key="PROJECT-1234",
+            workflow_name="work-on-jira-issue",
+            headless=True,
+        )
+
+        captured = capsys.readouterr()
+        assert "Automatic headless startup was not successful" in captured.out
+        mock_ai_prompt.assert_called_once_with(
+            "PROJECT-1234",
+            "work-on-jira-issue",
+            None,
+            None,
+            model=None,
+            headless=True,
         )

@@ -17,6 +17,17 @@ def mock_setup_network():
 
 
 @pytest.fixture(autouse=True)
+def isolate_provider_runtime():
+    """Prevent dry-run setup tests from launching Copilot for model readiness."""
+    with patch(
+        "agentic_devtools.cli.setup.provider_configuration.ProviderFactory.preflight",
+        return_value=None,
+    ):
+        with patch.object(commands, "_query_copilot_models", return_value=["model-a"]):
+            yield
+
+
+@pytest.fixture(autouse=True)
 def isolate_os_environ():
     """Keep test environment variables isolated per test case."""
     original_env = os.environ.copy()

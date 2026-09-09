@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognite-sdk
-Version: 8.15.0
+Version: 8.16.0
 Summary: Cognite Python SDK
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -24,7 +24,7 @@ Requires-Dist: PyYAML (>=6,<7) ; extra == "yaml"
 Requires-Dist: authlib (>=1,<2)
 Requires-Dist: geopandas (>=0.14) ; extra == "all"
 Requires-Dist: geopandas (>=0.14) ; extra == "geo"
-Requires-Dist: httpx (>=0,<1)
+Requires-Dist: httpx2 (>=2,<3)
 Requires-Dist: msal (>=1.31,<2)
 Requires-Dist: numpy (>=1.25,<2.3) ; (python_version == "3.10") and (extra == "all")
 Requires-Dist: numpy (>=1.25,<2.3) ; (python_version == "3.10") and (extra == "numpy")
@@ -42,7 +42,7 @@ Requires-Dist: shapely (>=1.7.0) ; extra == "all"
 Requires-Dist: shapely (>=1.7.0) ; extra == "geo"
 Requires-Dist: sympy ; extra == "all"
 Requires-Dist: sympy ; extra == "sympy"
-Requires-Dist: typing_extensions (>=4)
+Requires-Dist: typing_extensions (>=4.5.0)
 Requires-Dist: tzdata (>=2024.1) ; sys_platform == "win32" or sys_platform == "emscripten"
 Project-URL: Documentation, https://cognite-sdk-python.readthedocs-hosted.com
 Description-Content-Type: text/markdown

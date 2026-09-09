@@ -668,13 +668,15 @@ class BaseAdapterExtension(abc.ABC):
             if cache.claim_if_available(fqn):
                 cache.fulfill(fqn, view_def, no_expire=True)
 
-    def cache_node_relation(self, node: ManifestNode) -> None:
+    def cache_node_relation(
+        self, node: ManifestNode, relation_type: RelationType = RelationType.Table
+    ) -> None:
         """Add an entry to the model cache based on the supplied ModelNode.
 
         This is for when the plugin creates new database objects after dbt has populated its relation cache, to ensure those
         objects are reflected / available to the remainder of the dbt invocation.
         """
-        relation = self._node_to_relation(node)
+        relation = self._node_to_relation(node, relation_type=relation_type)
         self.adapter.cache_added(relation)
 
     def relation_exists(self, relation: BaseRelation) -> bool:
@@ -777,7 +779,11 @@ class BaseAdapterExtension(abc.ABC):
 
         return database, schema, identifier, quote_policy
 
-    def _node_to_relation(self, node: ManifestNode | SourceDefinition) -> BaseRelation:
+    def _node_to_relation(
+        self,
+        node: ManifestNode | SourceDefinition,
+        relation_type: RelationType = RelationType.Table,
+    ) -> BaseRelation:
         """Turn a dbt manifest node into an adapter-specific Relation object suitable for putting
         into the Relation cache, while respecting the configured quote policy"""
 
@@ -787,7 +793,7 @@ class BaseAdapterExtension(abc.ABC):
             database=database,
             schema=schema,
             identifier=identifier,
-            type=RelationType.Table,
+            type=relation_type,
             quote_policy=dbt_quote_policy,
         )
 

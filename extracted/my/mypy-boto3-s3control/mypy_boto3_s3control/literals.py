@@ -65,14 +65,17 @@ __all__ = (
     "ReplicationTimeStatusType",
     "RequestedJobStatusType",
     "ResourceServiceName",
+    "S3AnnotationDirectiveType",
     "S3CannedAccessControlListType",
     "S3ChecksumAlgorithmType",
     "S3ControlServiceName",
     "S3GlacierJobTierType",
     "S3GranteeTypeIdentifierType",
     "S3MetadataDirectiveType",
+    "S3ObjectLockEventHoldType",
     "S3ObjectLockLegalHoldStatusType",
     "S3ObjectLockModeType",
+    "S3ObjectLockRetentionEventHoldType",
     "S3ObjectLockRetentionModeType",
     "S3PermissionType",
     "S3PrefixTypeType",
@@ -200,6 +203,7 @@ ReplicationStorageClassType = Literal[
 ]
 ReplicationTimeStatusType = Literal["Disabled", "Enabled"]
 RequestedJobStatusType = Literal["Cancelled", "Ready"]
+S3AnnotationDirectiveType = Literal["COPY", "EXCLUDE"]
 S3CannedAccessControlListType = Literal[
     "authenticated-read",
     "aws-exec-read",
@@ -224,8 +228,10 @@ S3ChecksumAlgorithmType = Literal[
 S3GlacierJobTierType = Literal["BULK", "STANDARD"]
 S3GranteeTypeIdentifierType = Literal["emailAddress", "id", "uri"]
 S3MetadataDirectiveType = Literal["COPY", "REPLACE"]
+S3ObjectLockEventHoldType = Literal["OFF", "ON"]
 S3ObjectLockLegalHoldStatusType = Literal["OFF", "ON"]
 S3ObjectLockModeType = Literal["COMPLIANCE", "GOVERNANCE"]
+S3ObjectLockRetentionEventHoldType = Literal["OFF", "ON"]
 S3ObjectLockRetentionModeType = Literal["COMPLIANCE", "GOVERNANCE"]
 S3PermissionType = Literal["FULL_CONTROL", "READ", "READ_ACP", "WRITE", "WRITE_ACP"]
 S3PrefixTypeType = Literal["Object"]
@@ -257,8 +263,11 @@ S3ControlServiceName = Literal["s3control"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -433,6 +442,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -447,8 +457,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -475,6 +483,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -542,10 +552,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -563,6 +573,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -606,6 +617,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -627,7 +639,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -648,6 +659,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

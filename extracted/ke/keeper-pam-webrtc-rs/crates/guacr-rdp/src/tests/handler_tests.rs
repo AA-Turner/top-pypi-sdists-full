@@ -127,6 +127,44 @@ fn test_rdp_settings_from_params() {
 }
 
 #[test]
+fn vault_server_layouts_map_to_rdp_keyboard_layout_ids() {
+    let layouts = [
+        ("en-us-qwerty", 0x0000_0409),
+        ("en-gb-qwerty", 0x0000_0809),
+        ("de-de-qwertz", 0x0000_0407),
+        ("de-ch-qwertz", 0x0000_0807),
+        ("fr-fr-azerty", 0x0000_040c),
+        ("fr-ch-qwertz", 0x0000_100c),
+        ("fr-be-azerty", 0x0000_080c),
+        ("es-es-qwerty", 0x0000_040a),
+        ("es-latam-qwerty", 0x0000_080a),
+        ("it-it-qwerty", 0x0000_0410),
+        ("pt-br-qwerty", 0x0001_0416),
+        ("da-dk-qwerty", 0x0000_0406),
+        ("sv-se-qwerty", 0x0000_041d),
+        ("hu-hu-qwertz", 0x0000_040e),
+        ("ja-jp-qwerty", 0x0000_0411),
+        ("tr-tr-qwerty", 0x0000_041f),
+        ("failsafe", 0x0000_0409),
+    ];
+
+    for (layout, expected_keyboard_layout) in layouts {
+        let params = HashMap::from([
+            ("hostname".to_string(), "server.example.com".to_string()),
+            ("username".to_string(), "user".to_string()),
+            ("password".to_string(), "pass".to_string()),
+            ("serverLayout".to_string(), layout.to_string()),
+        ]);
+        let settings = RdpSettings::from_params(&params, &RdpConfig::default()).unwrap();
+
+        assert_eq!(
+            settings.keyboard_layout, expected_keyboard_layout,
+            "{layout}"
+        );
+    }
+}
+
+#[test]
 fn test_normalize_graphics_rect_zero_rect_with_image_content_is_full_frame() {
     // IronRDP emits {0,0,0,0} for the initial full-frame GraphicsUpdate.
     // It must NOT be skipped when the image has content.

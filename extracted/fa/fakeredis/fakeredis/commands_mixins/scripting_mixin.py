@@ -52,6 +52,32 @@ REDIS_LOG_LEVELS_TO_LOGGING = {
 
 _lua_cjson_null = object()  # sentinel value
 
+# Dragonfly's SCRIPT HELP text, verbatim: the trailing space on the "following flags" line and the "sript" typo.
+DRAGONFLY_SCRIPT_HELP = [
+    "SCRIPT <subcommand> [<arg> [value] [opt] ...]",
+    "Subcommands are:",
+    "EXISTS <sha1> [<sha1> ...]",
+    "   Return information about the existence of the scripts in the script cache.",
+    "FLUSH",
+    "   Flush the Lua scripts cache. Very dangerous on replicas.",
+    "LOAD <script>",
+    "   Load a script into the scripts cache without executing it.",
+    "FLAGS <sha> [flags ...]",
+    "   Set specific flags for script. Can be called before the sript is loaded.",
+    "   The following flags are possible: ",
+    "      - Use 'allow-undeclared-keys' to allow accessing undeclared keys",
+    "      - Use 'disable-atomicity' to allow running scripts non-atomically",
+    "      - Use 'legacy-float' to return floats as integers",
+    "LIST",
+    "   Lists loaded scripts.",
+    "LATENCY",
+    "   Prints latency histograms in usec for every called function.",
+    "GC",
+    "   Invokes garbage collection on all unused interpreter instances.",
+    "HELP",
+    "   Prints this help.",
+]
+
 
 class ScriptingCommandsMixin(CommandsMixinBase):
     _name_to_func: Callable[[str], tuple[Callable[..., Any] | None, Signature]]
@@ -65,15 +91,30 @@ class ScriptingCommandsMixin(CommandsMixinBase):
         if isinstance(result, (bytes, int)):
             return result
         if isinstance(result, float):
+            # Redis hands a double reply (ZSCORE, INCRBYFLOAT, ...) to Lua as a string under RESP2 and {double=...}
+            # under RESP3. Dragonfly always hands it over as a plain number, so it is checked first.
+            if self.server_type == "dragonfly":
+                return result
+            if self._resp_version == 3:
+                return lua_runtime.table_from({b"double": result})
             return Float.encode(result, humanfriendly=False)
         elif isinstance(result, SimpleString):
             return lua_runtime.table_from({b"ok": result.value})
         elif result is None:
             return False
+        elif isinstance(result, str):
+            return result.encode()
         elif isinstance(result, list):
             converted = [self._convert_redis_result(lua_runtime, item) for item in result]
             return lua_runtime.table_from(converted)
         if isinstance(result, dict):
+            # RESP3 keeps a map a map, keyed as {map={...}}. RESP2 flattens it to key, value, ...
+            if self._resp_version == 3:
+                converted_map = {
+                    self._convert_redis_result(lua_runtime, k): self._convert_redis_result(lua_runtime, v)
+                    for k, v in result.items()
+                }
+                return lua_runtime.table_from({b"map": lua_runtime.table_from(converted_map)})
             result = list(itertools.chain(*result.items()))
             converted = [self._convert_redis_result(lua_runtime, item) for item in result]
             return lua_runtime.table_from(converted)
@@ -97,6 +138,17 @@ class ScriptingCommandsMixin(CommandsMixinBase):
                         return SimpleError(msg.decode("utf-8", "replace"))
                     else:
                         raise SimpleError(msg.decode("utf-8", "replace"))
+            # The RESP3 shapes a script can hand back, mirroring what redis.call produces for a script that ran
+            # redis.setresp(3). A RESP2 client still gets the RESP2 rendering of these — a bulk string for a double, a
+            # flat array for a map. Dragonfly, which has no redis.setresp, knows `map` but not `double`: a table keyed
+            # `double` has no array part left, so it comes back as an empty array.
+            if b"double" in result and self.server_type != "dragonfly":
+                double = result[b"double"]
+                if isinstance(double, bool) or not isinstance(double, (int, float)):
+                    raise SimpleError(msgs.LUA_WRONG_NUMBER_ARGS_MSG)
+                return float(double)
+            if b"map" in result:
+                return {self._convert_lua_result(k): self._convert_lua_result(v) for k, v in result[b"map"].items()}
             # Convert Lua tables into lists, starting from index 1, mimicking the behavior of StrictRedis.
             result_list = []
             for index in itertools.count(1):
@@ -108,6 +160,11 @@ class ScriptingCommandsMixin(CommandsMixinBase):
         elif isinstance(result, str):
             return result.encode()
         elif isinstance(result, float):
+            # Redis truncates every Lua number to an integer. Dragonfly, whose interpreter is Lua 5.4, keeps a
+            # non-integral one and replies with a double. It tells 3 from 3.0 through Lua 5.4's integer subtype, which
+            # the 5.1 runtime used here does not have, so a whole number is returned as an integer either way.
+            if self.server_type == "dragonfly" and not result.is_integer():
+                return result
             return int(result)
         elif isinstance(result, bool):
             return 1 if result else None
@@ -123,6 +180,23 @@ class ScriptingCommandsMixin(CommandsMixinBase):
         result = self._run_command(func, sig, new_args, True)
         result = self._convert_redis_result(lua_runtime, result)
         return result
+
+    def _lua_setresp(self, lua_runtime: Any, expected_globals: set[Any], *args: Any) -> None:
+        """`redis.setresp(n)` — pick the RESP version `redis.call` replies in for this script."""
+        _check_for_lua_globals(lua_runtime, expected_globals)
+        if len(args) != 1:
+            raise SimpleError(msgs.LUA_SETRESP_ARGS_MSG)
+        resp = args[0]
+        if isinstance(resp, bytes):
+            # redis reads the argument with lua_tonumber, which coerces a numeric string.
+            try:
+                resp = float(resp)
+            except ValueError:
+                raise SimpleError(msgs.LUA_SETRESP_VERSION_MSG)
+        # Lua has one number type, so 3 arrives as 3.0; anything that is not exactly 2 or 3 is an error.
+        if isinstance(resp, bool) or not isinstance(resp, (int, float)) or resp not in (2, 3):
+            raise SimpleError(msgs.LUA_SETRESP_VERSION_MSG)
+        self._script_resp = int(resp)
 
     def _lua_redis_pcall(self, lua_runtime: Any, expected_globals: set[Any], op: bytes, *args: Any) -> Any:
         try:
@@ -151,15 +225,19 @@ class ScriptingCommandsMixin(CommandsMixinBase):
             )
             # Valkey exposes a `server` alias for the `redis` global in Lua scripts
             server_alias_str = "server = redis" if server.server_type == "valkey" else ""
+            # Dragonfly has no `redis.setresp`; leaving the field unset makes a script that calls it fail the way the
+            # real server does, with "attempt to call a nil value (field 'setresp')".
+            setresp_str = "" if server.server_type == "dragonfly" else "redis.setresp = redis_setresp"
 
             # Create initialization function that sets up callbacks once
             set_globals_init = lua_runtime.eval(
                 f"""
-                function(redis_call, redis_pcall, redis_log, cjson_encode, cjson_decode, cjson_null)
+                function(redis_call, redis_pcall, redis_log, redis_setresp, cjson_encode, cjson_decode, cjson_null)
                     redis = {{}}
                     redis.call = redis_call
                     redis.pcall = redis_pcall
                     redis.log = redis_log
+                    {setresp_str}
                     {log_levels_str}
                     redis.error_reply = function(msg) return {{err=msg}} end
                     redis.status_reply = function(msg) return {{ok=msg}} end
@@ -194,6 +272,7 @@ class ScriptingCommandsMixin(CommandsMixinBase):
                 lambda *args: None,
                 lambda *args: None,
                 lambda *args: None,
+                lambda *args: None,
                 _lua_cjson_null,
             )
             s._lua_expected_globals = set(lua_runtime.globals().keys())
@@ -217,10 +296,18 @@ class ScriptingCommandsMixin(CommandsMixinBase):
 
                 return wrapper
 
+            def make_setresp_wrapper() -> Callable[..., Any]:
+                def wrapper(*args: Any) -> Any:
+                    socket = s._lua_current_socket[0]
+                    return socket._lua_setresp(lua_runtime, expected_globals, *args)
+
+                return wrapper
+
             # Cache the callback wrappers and static partials
             s._lua_redis_call_wrapper = make_redis_call_wrapper()
             s._lua_redis_pcall_wrapper = make_redis_pcall_wrapper()
-            s._lua_log_partial = functools.partial(_lua_redis_log, lua_runtime, expected_globals)
+            s._lua_setresp_wrapper = make_setresp_wrapper()
+            s._lua_log_partial = functools.partial(_lua_redis_log, lua_runtime, expected_globals, server.server_type)
             s._lua_cjson_encode_partial = functools.partial(_lua_cjson_encode, lua_runtime, expected_globals)
             s._lua_cjson_decode_partial = functools.partial(_lua_cjson_decode, lua_runtime, expected_globals)
 
@@ -229,6 +316,7 @@ class ScriptingCommandsMixin(CommandsMixinBase):
                 s._lua_redis_call_wrapper,
                 s._lua_redis_pcall_wrapper,
                 s._lua_log_partial,
+                s._lua_setresp_wrapper,
                 s._lua_cjson_encode_partial,
                 s._lua_cjson_decode_partial,
                 _lua_cjson_null,
@@ -251,6 +339,8 @@ class ScriptingCommandsMixin(CommandsMixinBase):
 
         # Update the current socket so cached callbacks can find it
         s._lua_current_socket[0] = self
+        # Every script starts at RESP2 whatever the calling client speaks; `redis.setresp` does not carry over.
+        self._script_resp = 2
 
         # Only update KEYS and ARGV per call (callbacks are already set up)
         s._lua_set_keys_argv(
@@ -261,14 +351,21 @@ class ScriptingCommandsMixin(CommandsMixinBase):
         try:
             result = lua_runtime.execute(script)
         except SimpleError as ex:
-            if ex.value == msgs.LUA_COMMAND_ARG_MSG:
-                raise SimpleError(_get_lua_bad_command_arg_msg(self._server.server_type, self.version))
-            if self.version < (7,):
-                raise SimpleError(msgs.SCRIPT_ERROR_MSG.format(sha1.decode(), ex))
-            raise SimpleError(ex.value)
+            error_msg = ex.value
+            if error_msg == msgs.LUA_COMMAND_ARG_MSG:
+                error_msg = _get_lua_bad_command_arg_msg(self._server.server_type, self.version)
+            elif self.version < (7,):
+                error_msg = msgs.SCRIPT_ERROR_MSG.format(sha1.decode(), error_msg)
+            if self.server_type == "dragonfly":
+                error_msg = msgs.DRAGONFLY_SCRIPT_ERROR_MSG.format(sha1.decode(), error_msg)
+            raise SimpleError(error_msg)
         except LUA_MODULE.LuaError as ex:
+            if self.server_type == "dragonfly":
+                raise SimpleError(msgs.DRAGONFLY_SCRIPT_ERROR_MSG.format(sha1.decode(), ex))
             raise SimpleError(msgs.SCRIPT_ERROR_MSG.format(sha1.decode(), ex))
         finally:
+            # Back to the client's own protocol, so the EVAL reply itself is shaped for it.
+            self._script_resp = None
             # Clean up Lua tables (KEYS/ARGV) created for this script execution
             lua_runtime.execute("collectgarbage()")
 
@@ -301,7 +398,10 @@ class ScriptingCommandsMixin(CommandsMixinBase):
 
     @command(name="SCRIPT FLUSH", fixed=(), repeat=(bytes,), flags=msgs.FLAG_NO_SCRIPT)
     def script_flush(self, *args: bytes) -> SimpleString:
-        if len(args) > 1 or (len(args) == 1 and null_terminate(args[0]) not in {b"sync", b"async"}):
+        # Dragonfly has no ASYNC/SYNC mode for SCRIPT FLUSH and ignores whatever follows.
+        if self.server_type != "dragonfly" and (
+            len(args) > 1 or (len(args) == 1 and null_terminate(args[0]) not in {b"sync", b"async"})
+        ):
             raise SimpleError(msgs.BAD_SUBCOMMAND_MSG.format("SCRIPT"))
         self._server.script_cache = {}
         return OK
@@ -312,6 +412,8 @@ class ScriptingCommandsMixin(CommandsMixinBase):
 
     @command(name="SCRIPT HELP", fixed=())
     def script_help(self, *args: bytes) -> list[bytes]:
+        if self.server_type == "dragonfly":
+            return [s.encode() for s in DRAGONFLY_SCRIPT_HELP]
         help_strings = [
             "SCRIPT <subcommand> [<arg> [value] [opt] ...]. Subcommands are:",
             "DEBUG (YES|SYNC|NO)",
@@ -360,11 +462,14 @@ def _check_for_lua_globals(lua_runtime: Any, expected_globals: set[Any]) -> None
         raise SimpleError(msgs.GLOBAL_VARIABLE_MSG.format(", ".join(unexpected)))
 
 
-def _lua_redis_log(lua_runtime: Any, expected_globals: set[Any], lvl: int, *args: Any) -> None:
+def _lua_redis_log(lua_runtime: Any, expected_globals: set[Any], server_type: ServerType, lvl: int, *args: Any) -> None:
     _check_for_lua_globals(lua_runtime, expected_globals)
     if len(args) < 1:
         raise SimpleError(msgs.REQUIRES_MORE_ARGS_MSG.format("redis.log()", "two"))
     if lvl not in REDIS_LOG_LEVELS_TO_LOGGING:
+        # Dragonfly accepts any level and drops the message rather than erroring.
+        if server_type == "dragonfly":
+            return
         raise SimpleError(msgs.LOG_INVALID_DEBUG_LEVEL_MSG)
     msg = " ".join([x.decode("utf-8") if isinstance(x, bytes) else str(x) for x in args if not isinstance(x, bool)])
     LOGGER.log(REDIS_LOG_LEVELS_TO_LOGGING[lvl], msg)
@@ -394,9 +499,8 @@ def _cjson_lua_to_python(obj: Any) -> Any:
     if lua_type != "table":
         return obj
 
-    # Check for array-like structure: integer keys from 1 to len(items)
-    # (this check matches what cjson does, e.g. tables like {"a", "b", c=3} are treated as dicts
-    # with int keys for the array-like parts)
+    # Check for array-like structure: integer keys from 1 to len(items) (this check matches what cjson does, e.g. tables
+    # like {"a", "b", c=3} are treated as dicts with int keys for the array-like parts)
     keys = list(obj.keys())
     is_array = all(isinstance(k, int) for k in keys) and sorted(keys) == list(range(1, len(keys) + 1))
 
@@ -426,6 +530,7 @@ def _lua_cjson_decode(lua_runtime: Any, expected_globals: set[Any], json_str: st
 def _get_lua_bad_command_arg_msg(server_type: ServerType, server_version: VersionType) -> str:
     if server_type == "valkey":
         return msgs.VALKEY_LUA_COMMAND_ARG_MSG
-    if server_version < (7,):
+    # Dragonfly kept the pre-7 wording, which names `redis()` rather than "redis lib".
+    if server_type == "dragonfly" or server_version < (7,):
         return msgs.LUA_COMMAND_ARG_MSG6
     return msgs.LUA_COMMAND_ARG_MSG

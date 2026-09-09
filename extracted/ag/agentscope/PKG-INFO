@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope
-Version: 2.0.7.post1
+Version: 2.0.8
 Summary: AgentScope: A Flexible yet Robust Multi-Agent Platform.
 Author-email: SysML team of Alibaba Tongyi Lab <gaodawei.gdw@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -24,7 +24,7 @@ Requires-Dist: dashscope
 Requires-Dist: docstring_parser
 Requires-Dist: filetype
 Requires-Dist: json5
-Requires-Dist: json_repair
+Requires-Dist: json_repair[schema]>=0.63.4
 Requires-Dist: mcp<2.0.0
 Requires-Dist: httpx
 Requires-Dist: numpy
@@ -88,7 +88,12 @@ Requires-Dist: agentscope[workspace-daytona]; extra == "workspace"
 Requires-Dist: agentscope[workspace-k8s]; extra == "workspace"
 Requires-Dist: agentscope[workspace-opensandbox]; extra == "workspace"
 Provides-Extra: tools
-Requires-Dist: ripgrep; extra == "tools"
+Requires-Dist: ripgrep<15,>=14.1; extra == "tools"
+Provides-Extra: realtime
+Requires-Dist: websockets>=13; extra == "realtime"
+Requires-Dist: sounddevice; extra == "realtime"
+Provides-Extra: a2a
+Requires-Dist: a2a-sdk>=1.1.1; extra == "a2a"
 Provides-Extra: vdb-qdrant
 Requires-Dist: qdrant-client; extra == "vdb-qdrant"
 Provides-Extra: vdb-milvus
@@ -145,6 +150,7 @@ Requires-Dist: agentscope[storage-s3]; extra == "full"
 Requires-Dist: agentscope[channel]; extra == "full"
 Requires-Dist: agentscope[workspace]; extra == "full"
 Requires-Dist: agentscope[tools]; extra == "full"
+Requires-Dist: agentscope[a2a]; extra == "full"
 Requires-Dist: agentscope[rag]; extra == "full"
 Requires-Dist: agentscope[vdb-qdrant]; extra == "full"
 Requires-Dist: agentscope[vdb-milvus]; extra == "full"
@@ -158,7 +164,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
 Requires-Dist: myst_parser; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
-Requires-Dist: fakeredis; extra == "dev"
+Requires-Dist: fakeredis[lua]; extra == "dev"
 Requires-Dist: aiosqlite; extra == "dev"
 Requires-Dist: moto[s3,server]; extra == "dev"
 Requires-Dist: boto3; extra == "dev"
@@ -240,6 +246,8 @@ rather than constraining them with strict prompts and opinionated orchestrations
 
 ## News
 <!-- BEGIN NEWS -->
+- **[2026-09] `FEAT` `Experimental`:** Realtime voice agent supported — full-duplex speech-to-speech via `RealtimeAgent` on the DashScope Realtime API (Qwen-Omni, Qwen-Audio-3.0), with barge-in and tool calls. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/realtime)
+- **[2026-09] `FEAT`:** A2A protocol supported — chat with any remote A2A agent via `A2AAgent`. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/a2a) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/a2a)
 - **[2026-08] `FEAT`:** Pipeline supported — run multiple agents by a fixed logic behind one event stream. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/pipeline) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/pipeline/overview)
 - **[2026-08] `INTE`:** DingTalk channel supported. [Docs](https://docs.agentscope.io/latest/en/deploy/channel/dingtalk)
 - **[2026-08] `FEAT`:** Console supported — test and debug agents in the terminal. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/console) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/console)
@@ -248,8 +256,6 @@ rather than constraining them with strict prompts and opinionated orchestrations
 - **[2026-08] `INTE`:** GitHub MCP Registry and ClawHub supported as built-in hubs. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/agent_service) | [Docs](https://docs.agentscope.io/latest/en/deploy/hub)
 - **[2026-08] `FEAT`:** MCP & Skill Hub supported — browse a hub, install into your library, add to a workspace. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/agent_service) | [Docs](https://docs.agentscope.io/latest/en/deploy/hub)
 - **[2026-07] `INTE`:** Daytona-based workspace/sandbox supported. [Docs](https://docs.agentscope.io/latest/en/building-blocks/workspace)
-- **[2026-07] `INTE`:** K8s, OpenSandbox-based workspace/sandbox supported. [Docs](https://docs.agentscope.io/latest/en/building-blocks/workspace)
-- **[2026-07] `INTE`:** ReMe long-term memory supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/long_term_memory/reme) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/long-term-memory)
 <!-- END NEWS -->
 
 [More news →](./docs/NEWS.md)
@@ -294,7 +300,7 @@ The SDK layer — compose an agent from a rich set of building blocks:
 |---|---|
 | [**ReAct**](https://docs.agentscope.io/latest/en/building-blocks/agent/overview) | Reasoning-acting loop with structured output, realtime interruption & resume, and batched (sequential / concurrent) tool acting |
 | [**Toolkit**](https://docs.agentscope.io/latest/en/building-blocks/tool/overview) | Agentic tool management over Python tools, MCP servers, and skills; ships with built-in coding tools (shell, file edit, search) and task/plan tools |
-| [**Model**](https://docs.agentscope.io/latest/en/building-blocks/model/overview) | LLM, embedding, and TTS across major providers (OpenAI, Anthropic, Gemini, DashScope, DeepSeek, Moonshot, xAI, Ollama) |
+| [**Model**](https://docs.agentscope.io/latest/en/building-blocks/model/overview) | LLM, embedding, and TTS across major providers (OpenAI, Anthropic, Gemini, DashScope, DeepSeek, Moonshot, Volcengine, xAI, Ollama) |
 | [**Context**](https://docs.agentscope.io/latest/en/building-blocks/context/overview) | Automatic compaction, tool-result offload, and context injection (system prompt, RAG, memory) via built-in middleware |
 | [**Event System**](https://docs.agentscope.io/latest/en/building-blocks/message-and-event) | Unified event bus streaming reasoning, tool calls, and multimodal content (text, image, audio) to the frontend |
 | [**Permission & HITL**](https://docs.agentscope.io/latest/en/building-blocks/permission-system/overview) | Fine-grained control over tools and resources, confirmation, bypass mode |

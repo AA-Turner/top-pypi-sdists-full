@@ -779,6 +779,36 @@ def test_text_underline_thickness_calc(assert_pixels):
       <div>abc</div>''')
 
 
+def test_text_underline_thickness_calc_inherit(assert_pixels):
+    # Regression test for #2833.
+    assert_pixels('''
+        _____________
+        _zzzzzzzzzzz_
+        _zRRRRRRRRRz_
+        _zRRRRRRRRRz_
+        _zzzzzzzzzzz_
+        _zzzzzzzzzzz_
+        _zBBBBBBBBBz_
+        _zBBBBBBBBBz_
+        _zzzzzzzzzzz_
+    ''', '''
+      <style>
+        @page {
+          size: 13px 9px;
+          margin: 2px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 3px;
+          text-decoration: underline blue max(1rem, 1px);
+          text-underline-offset: 2px;
+        }
+        div::after { content: "abc" }
+      </style>
+      <div></div>''')
+
+
 def test_text_overline(assert_pixels):
     # Ascent value seems to be a bit random, don’t try to get the exact
     # position of the line
@@ -1310,9 +1340,9 @@ def test_unicode_range(assert_pixels):
         }
         body {
           color: red;
-          font-family: uni;
+          font-family: uni, %s;
           font-size: 2px;
           line-height: 0;
           margin: 2px 1px;
         }
-      </style>ADZB''')
+      </style>ADZB''' % SANS_FONTS)

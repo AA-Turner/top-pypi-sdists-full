@@ -500,9 +500,7 @@ async def persist_completed_request(
         async with standalone_coordinator(
             reason="persist_completed_request",
             request_id=str(resolved_request_id) if resolved_request_id else None,
-            conversation_id=(
-                str(resolved_conversation_id) if resolved_conversation_id else None
-            ),
+            conversation_id=(str(resolved_conversation_id) if resolved_conversation_id else None),
         ):
             return await persist_completed_request(
                 completed,
@@ -555,7 +553,11 @@ async def persist_completed_request(
         "request_ids": [],
     }
 
-    if not _is_valid_uuid(user_id):
+    from matrx_ai.context.app_context import try_get_app_context
+    from matrx_ai.db.ownership_fields import is_organization_system_actor
+
+    _organization_system_actor = is_organization_system_actor(user_id, try_get_app_context())
+    if not _is_valid_uuid(user_id) and not _organization_system_actor:
         vcprint(
             f"[CX PERSISTENCE PERSIST COMPLETED REQUEST] REJECTED — non-UUID user_id: {user_id!r}. "
             f"Cannot persist data without a valid user identity.",
@@ -1171,6 +1173,12 @@ async def persist_completed_request(
                 "trim_summary": req.get("trim_summary"),
             }
 
+            if _organization_system_actor:
+                # Cost rows remain org-owned even when no human initiated this
+                # machine run. Do not rely on a host's ambient owner default.
+                req_create_data["created_by"] = None
+                req_create_data["organization_id"] = _ctx.organization_id
+
             # Mark THIS iteration failed when it's the attempt that failed: the
             # request failed AND no model resolved from a response (i.e. the
             # provider rejected before producing usage). Prior SUCCESSFUL
@@ -1387,9 +1395,7 @@ async def persist_completed_request(
                     await _refresh_cache_state(
                         conversation_id=db_conversation_id,
                         req_rows=req_list,
-                        trim_summary=req_list[0].get("trim_summary")
-                        if req_rows_available(req_list)
-                        else None,
+                        trim_summary=_latest_trim_summary(req_list),
                     )
                 except Exception as cs_err:
                     vcprint(
@@ -1418,9 +1424,7 @@ async def persist_completed_request(
                         agg_input=agg_input,
                         agg_output=agg_output,
                         agg_cached=agg_cached,
-                        trim_summary=req_list[0].get("trim_summary")
-                        if req_rows_available(req_list)
-                        else None,
+                        trim_summary=_latest_trim_summary(req_list),
                     )
                 except Exception as ev_err:
                     vcprint(
@@ -1586,6 +1590,22 @@ _DEFAULT_CACHE_TTLS_SECS: dict[str, int] = {
     "fireworks": 300,
     "cohere": 300,
 }
+
+
+def _latest_trim_summary(req_list: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The trim audit from the LAST iteration that carried one.
+
+    Iteration 1 holds the resolver's pre-run trim; later iterations hold the
+    executor's send-boundary trims (each on the row it compacted). The cache
+    state and the live context event care about the most recent one.
+    """
+    if not req_rows_available(req_list):
+        return None
+    for row in reversed(req_list):
+        ts = row.get("trim_summary")
+        if ts:
+            return ts
+    return None
 
 
 async def _refresh_cache_state(

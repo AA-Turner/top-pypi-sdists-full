@@ -7,7 +7,9 @@ from novita_sandbox.core.api.client.api.volumes import (
     get_volumes,
     get_volumes_volume_id,
     delete_volumes_volume_id,
+    post_volumes,
 )
+from novita_sandbox.core.api.client.models.new_volume import NewVolume
 from novita_sandbox.core.api.client.models import Error
 from novita_sandbox.core.api.client_async import get_api_client as get_core_api_client
 from novita_sandbox.core.compat import raise_if_legacy
@@ -21,6 +23,9 @@ from novita_sandbox.core.volume.types import (
     VolumeAndToken,
     VolumeInfo,
 )
+
+def _quota_inodes_for_size(quota_size_gib: int) -> int:
+    return quota_size_gib * 1000
 
 
 def _api_field(obj, attr_name: str, json_name: str, default=0):
@@ -63,7 +68,7 @@ class AsyncVolume:
         return self._token
 
     @classmethod
-    async def create(cls, name: str, quota_size_gib: Optional[int] = None, quota_inodes: Optional[int] = None, **opts: Unpack[ApiParams]) -> "AsyncVolume":
+    async def create(cls, name: str, quota_size_gib: Optional[int] = None, **opts: Unpack[ApiParams]) -> "AsyncVolume":
         """
         Create a new volume.
 
@@ -75,9 +80,15 @@ class AsyncVolume:
 
         :return: An AsyncVolume instance for the new volume
         """
-        raise NotImplementedError(
-            "AsyncVolume.create is deprecated and disabled. Use an existing volume instead."
-        )
+        config = ConnectionConfig(**opts)
+        raise_if_legacy(opts, "AsyncVolume.create")
+        body = {"name": name}
+        if quota_size_gib is not None:
+            body.update(quotaSizeGiB=quota_size_gib, quotaInodes=_quota_inodes_for_size(quota_size_gib))
+        res = await post_volumes.asyncio_detailed(client=get_core_api_client(config), body=NewVolume.from_dict(body))
+        if res.status_code >= 300 or res.parsed is None or isinstance(res.parsed, Error):
+            raise handle_api_exception(res, VolumeException)
+        return cls(res.parsed.volume_id, res.parsed.name, res.parsed.token, config.domain, config.debug)
 
     @classmethod
     async def connect(cls, volume_id: str, **opts: Unpack[ApiParams]) -> "AsyncVolume":
@@ -134,9 +145,7 @@ class AsyncVolume:
             name=res.parsed.name,
             token=res.parsed.token,
             quota_size_gib=_api_field(res.parsed, "quota_size_gib", "quotaSizeGiB"),
-            quota_inodes=_api_field(res.parsed, "quota_inodes", "quotaInodes"),
             used_size_bytes=_api_field(res.parsed, "used_size_bytes", "usedSizeBytes"),
-            used_inodes=_api_field(res.parsed, "used_inodes", "usedInodes"),
         )
 
     @staticmethod
@@ -168,15 +177,13 @@ class AsyncVolume:
                 volume_id=v.volume_id,
                 name=v.name,
                 quota_size_gib=_api_field(v, "quota_size_gib", "quotaSizeGiB"),
-                quota_inodes=_api_field(v, "quota_inodes", "quotaInodes"),
                 used_size_bytes=_api_field(v, "used_size_bytes", "usedSizeBytes"),
-                used_inodes=_api_field(v, "used_inodes", "usedInodes"),
             )
             for v in res.parsed
         ]
 
     @staticmethod
-    async def update_quota(volume_id: str, quota_size_gib: Optional[int] = None, quota_inodes: Optional[int] = None, **opts: Unpack[ApiParams]) -> VolumeAndToken:
+    async def update_quota(volume_id: str, quota_size_gib: Optional[int] = None, **opts: Unpack[ApiParams]) -> VolumeAndToken:
         """
         Update volume quota.
 
@@ -193,8 +200,7 @@ class AsyncVolume:
         body = {}
         if quota_size_gib is not None:
             body["quotaSizeGiB"] = quota_size_gib
-        if quota_inodes is not None:
-            body["quotaInodes"] = quota_inodes
+            body["quotaInodes"] = _quota_inodes_for_size(quota_size_gib)
 
         async_client = api_client.get_async_httpx_client()
         res = await async_client.patch(
@@ -215,9 +221,7 @@ class AsyncVolume:
             name=data["name"],
             token=data.get("token", ""),
             quota_size_gib=data.get("quotaSizeGiB", 0) or 0,
-            quota_inodes=data.get("quotaInodes", 0) or 0,
             used_size_bytes=data.get("usedSizeBytes", 0) or 0,
-            used_inodes=data.get("usedInodes", 0) or 0,
         )
 
     @staticmethod

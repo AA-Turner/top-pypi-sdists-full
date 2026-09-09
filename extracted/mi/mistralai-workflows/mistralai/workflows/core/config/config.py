@@ -153,6 +153,9 @@ class EventsApiVersion(StrEnum):
     V2_ONLY = "v2-only"
 
 
+DEFAULT_EVENTS_API_VERSION = EventsApiVersion.V1
+
+
 class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     app_name: str = "mistral-workflows"
     app_version: str = "0.0.0"
@@ -173,7 +176,6 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     otel_export_interval_ms: int = 30000
     temporal_runtime_metrics_buffer_size: int = 30000
     temporal_runtime_metrics_drain_interval_s: float = 5.0
-    otel_tail_sampling: bool = False
     otel_local: bool = False
     otel_inject_logs: bool = True
     # Client-side redaction applied to all spans before OTLP export.
@@ -244,6 +246,15 @@ class TemporalConfig(_ConflictDetectionMixin, BaseSettings):
     )
     task_queue: str = Field(default="default")  # Allow override
     tls: bool = False
+    tls_server_root_ca_cert_path: str | None = Field(
+        default=None,
+        description=(
+            "Path to a PEM CA certificate used to verify the Temporal server. It supplies a trust "
+            "root but does not by itself enable TLS: setting it while tls=False is an error. The CA replaces the "
+            "default trust roots rather than adding to them, so it must be the CA that issued the "
+            "certificate this client actually sees -- typically a TLS-intercepting proxy's CA."
+        ),
+    )
     http_proxy_target_host: str | None = Field(
         default=None,
         description="Target host for the HTTP CONNECT proxy (e.g. 'proxy.example.com:8080')",
@@ -460,7 +471,7 @@ def adopt_remote_default(settings: BaseSettings, field: str, value: Any) -> None
         setattr(settings, field, value)
 
 
-def apply_remote_defaults(root: BaseSettings, values: Mapping[str, bool | None]) -> dict[str, bool]:
+def apply_remote_defaults(root: BaseSettings, values: Mapping[str, Any]) -> dict[str, Any]:
     """Apply server-resolved defaults to the marked fields, returning the values that won.
 
     A `None` value is the server declining to have an opinion, which leaves the SDK default in
@@ -473,7 +484,7 @@ def apply_remote_defaults(root: BaseSettings, values: Mapping[str, bool | None])
     self-assign it, or the server value becomes permanently inert.
     """
     targets = _collect_remotely_overridable(root)
-    effective: dict[str, bool] = {}
+    effective: dict[str, Any] = {}
     for field, value in values.items():
         settings = targets.get(field)
         if settings is None:
@@ -483,7 +494,7 @@ def apply_remote_defaults(root: BaseSettings, values: Mapping[str, bool | None])
             )
         if value is not None:
             adopt_remote_default(settings, field, value)
-        effective[field] = bool(getattr(settings, field))
+        effective[field] = getattr(settings, field)
     return effective
 
 
@@ -534,8 +545,8 @@ class WorkerConfig(BaseSettings):
         default="https://api.mistral.ai",
         validation_alias=AliasChoices("SERVER_URL", "server_url"),
     )
-    api_version: str = "v1"
-    events_api_version: EventsApiVersion = EventsApiVersion.V1
+    # Remotely defaulted: never assign in a validator.
+    events_api_version: Annotated[EventsApiVersion, RemotelyOverridable()] = DEFAULT_EVENTS_API_VERSION
     allow_multiple_workers: bool = True
     enable_config_discovery: bool = True
     mistral_api_headers: dict[str, str] | None = None

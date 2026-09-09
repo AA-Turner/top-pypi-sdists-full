@@ -195,6 +195,7 @@ agdt-network-status = "agentic_devtools.cli.runner:run_as_script"
 agdt-pr-checks = "agentic_devtools.cli.checks.commands:main"
 agdt-vpn-run = "agentic_devtools.cli.runner:run_as_script"
 agdt-setup-worktree-background = "agentic_devtools.cli.runner:run_as_script"
+agdt-setup-worktree = "agentic_devtools.cli.runner:run_as_script"
 agdt-advance-workflow = "agentic_devtools.cli.runner:run_as_script"
 agdt-get-next-workflow-prompt = "agentic_devtools.cli.runner:run_as_script"
 agdt-create-checklist = "agentic_devtools.cli.runner:run_as_script"
@@ -256,6 +257,7 @@ exclude = ["agentic_devtools/resources/setup-templates/**"]
 ".github/agents" = "agentic_devtools/_bundled_skills/agents"
 ".github/prompts" = "agentic_devtools/_bundled_skills/prompts"
 ".agents/skills" = "agentic_devtools/_bundled_skills/skills"
+"agentic_devtools/resources/setup-templates" = "agentic_devtools/resources/setup-templates"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

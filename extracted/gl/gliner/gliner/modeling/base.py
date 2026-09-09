@@ -18,7 +18,7 @@ Classes:
 
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, Union, Optional
+from typing import Any, Tuple
 from pathlib import Path
 
 import torch
@@ -45,7 +45,7 @@ from .outputs import (
 )
 from .scorers import Scorer
 from .span_rep import SpanRepLayer
-from .loss_functions import cross_entropy_loss, focal_loss_with_logits
+from .loss_functions import span_dice_loss, cross_entropy_loss, focal_loss_with_logits
 from .multitask.triples_layers import TriplesScoreLayer
 from .multitask.relations_layers import RelationsRepLayer
 
@@ -67,7 +67,11 @@ class BaseModel(ABC, nn.Module):
     data_processor = None
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the base model.
 
@@ -75,6 +79,7 @@ class BaseModel(ABC, nn.Module):
             config: Configuration object containing model hyperparameters.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory path for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
         super().__init__()
         self.config = config
@@ -115,7 +120,7 @@ class BaseModel(ABC, nn.Module):
         in a canonical label order; inference just expands it to the batch size.
         """
         param_name = "precomputed_rel_prompts" if rel else "precomputed_prompts"
-        stored: Optional[torch.Tensor] = getattr(self, param_name)
+        stored: torch.Tensor | None = getattr(self, param_name)
         if stored is None:
             raise RuntimeError(
                 f"Precomputed prompts not initialised (attr={param_name}). Call compress_prompt_embeddings first."
@@ -200,6 +205,8 @@ class BaseModel(ABC, nn.Module):
         negatives: float = 1.0,
         masking: str = "none",
         normalize_prob: bool = True,
+        loss_type: str = "focal",
+        dice_gamma: float = 1.0,
     ) -> torch.Tensor:
         """Compute loss with optional negative sampling and masking.
 
@@ -216,20 +223,25 @@ class BaseModel(ABC, nn.Module):
             negatives: Probability of sampling negative examples.
             masking: Masking strategy, one of "none", "global", "label", or "span".
             normalize_prob: Whether to normalize probabilities in loss computation.
+            loss_type: One of "focal" (default) or "dice"; "bce" is focal with alpha=-1, gamma=0.
+            dice_gamma: Focusing exponent used by span_dice_loss when loss_type="dice".
 
         Returns:
             Loss tensor of same shape as labels.
         """
-        # Compute the loss per element using the focal loss function
-        all_losses = focal_loss_with_logits(
-            logits,
-            labels,
-            alpha=alpha,
-            gamma=gamma,
-            prob_margin=prob_margin,
-            label_smoothing=label_smoothing,
-            normalize_prob=normalize_prob,
-        )
+        if loss_type == "dice":
+            all_losses = span_dice_loss(logits, targets=labels, gamma=dice_gamma, reduction="none")
+        else:
+            # "focal" (default) and "bce" (alpha=-1, gamma=0) both go through focal_loss_with_logits
+            all_losses = focal_loss_with_logits(
+                logits,
+                labels,
+                alpha=alpha,
+                gamma=gamma,
+                prob_margin=prob_margin,
+                label_smoothing=label_smoothing,
+                normalize_prob=normalize_prob,
+            )
 
         # Create a mask of the same shape as labels:
         # For elements where labels==0, sample a Bernoulli random variable that is 1 with probability `negatives`
@@ -284,7 +296,11 @@ class BaseUniEncoderModel(BaseModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the uni-encoder model.
 
@@ -292,9 +308,12 @@ class BaseUniEncoderModel(BaseModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
-        self.token_rep_layer = self._init_token_rep_layer(config, from_pretrained, cache_dir=cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
+        self.token_rep_layer = self._init_token_rep_layer(
+            config, from_pretrained, cache_dir=cache_dir, local_files_only=local_files_only
+        )
 
         if self.config.num_rnn_layers > 0:
             self.rnn = LstmSeq2SeqEncoder(config, num_layers=self.config.num_rnn_layers)
@@ -313,7 +332,8 @@ class BaseUniEncoderModel(BaseModel):
         self,
         config: Any,
         from_pretrained: bool = False,
-        cache_dir: Optional[Union[str, Path]] = None,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> nn.Module:
         """Initialize the token representation layer.
 
@@ -321,8 +341,9 @@ class BaseUniEncoderModel(BaseModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        return Encoder(config, from_pretrained, cache_dir=cache_dir)
+        return Encoder(config, from_pretrained, cache_dir=cache_dir, local_files_only=local_files_only)
 
     def _extract_prompt_features_and_word_embeddings(
         self,
@@ -362,10 +383,10 @@ class BaseUniEncoderModel(BaseModel):
 
     def get_representations(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        words_mask: torch.LongTensor | None = None,
         **kwargs: Any,
     ) -> GLiNERRepresentationOutput:
         """Get entity label and word representations from input.
@@ -433,7 +454,11 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the span-based uni-encoder model.
 
@@ -441,8 +466,9 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
         self.span_rep_layer = SpanRepLayer(
             span_mode=config.span_mode,
             hidden_size=config.hidden_size,
@@ -455,17 +481,18 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        span_idx: Optional[torch.LongTensor] = None,
-        span_mask: Optional[torch.LongTensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        span_idx: torch.LongTensor | None = None,
+        span_mask: torch.LongTensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        return_embeddings: bool = False,
         **kwargs: Any,
     ) -> GLiNERBaseOutput:
         """Forward pass through the span-based model.
@@ -482,6 +509,7 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
             span_idx: Span indices of shape (B, L*K, 2).
             span_mask: Mask for valid spans of shape (B, L, K).
             labels: Ground truth labels of shape (B, L, K, C).
+            return_embeddings: Whether to include span representations in the output.
             **kwargs: Additional arguments.
 
         Returns:
@@ -530,6 +558,7 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
             prompts_embedding_mask=prompts_embedding_mask,
             words_embedding=words_embedding,
             mask=mask,
+            span_embeddings=span_rep if return_embeddings else None,
         )
         return output
 
@@ -546,6 +575,9 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
         reduction: str = "sum",
         negatives: float = 1.0,
         masking: str = "none",
+        loss_type: str = "focal",
+        use_span_width_weight: bool = False,
+        dice_gamma: float = 1.0,
         **kwargs: Any,
     ) -> torch.Tensor:
         """Compute span classification loss.
@@ -562,6 +594,11 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
             reduction: Loss reduction method ('sum' or 'mean').
             negatives: Negative sampling probability.
             masking: Masking strategy for negative sampling.
+            loss_type: Loss function — 'focal' (default), 'bce', or 'dice'.
+            use_span_width_weight: If True, scale positive-span losses by
+                w(k) = 1 + log(k+1) where k is the 1-indexed span width.
+                Zero inference overhead; applied before final reduction.
+            dice_gamma: Self-adjustment exponent for Dice loss. Ignored for focal/bce.
             **kwargs: Additional arguments.
 
         Returns:
@@ -570,15 +607,39 @@ class UniEncoderSpanModel(BaseUniEncoderModel):
         batch_size = scores.shape[0]
         num_classes = prompts_embedding_mask.shape[-1]
 
-        # Reshape scores and labels to match the expected shape
-        BS, _, _, CL = scores.shape
+        BS, _L, K, CL = scores.shape
+
+        # Span-width-aware positive weighting: w(k) = 1 + log(k+1), k in [1..K].
+        # Applied before flattening so the K axis is still accessible.
+        if use_span_width_weight:
+            k_idx = torch.arange(1, K + 1, dtype=scores.dtype, device=scores.device)
+            width_weight = 1.0 + torch.log(k_idx)  # (K,)
+            # Broadcast to (B, L, K, C); boost positives only, leave negatives at 1.0
+            w = width_weight.view(1, 1, K, 1)
+            label_clamped = labels.clamp(min=0.0)
+            # weight tensor: 1 everywhere, boosted by w where label=1
+            pos_boost = 1.0 + (w - 1.0) * label_clamped  # (B, L, K, C)
+        else:
+            pos_boost = None
 
         scores = scores.view(BS, -1, CL)
         labels = labels.view(BS, -1, CL)
 
         all_losses = self._loss(
-            scores, labels, alpha, gamma, prob_margin, label_smoothing, negatives=negatives, masking=masking
+            scores,
+            labels,
+            alpha,
+            gamma,
+            prob_margin,
+            label_smoothing,
+            negatives=negatives,
+            masking=masking,
+            loss_type=loss_type,
+            dice_gamma=dice_gamma,
         )
+
+        if pos_boost is not None:
+            all_losses = all_losses * pos_boost.view(BS, -1, CL)
 
         masked_loss = all_losses.view(batch_size, -1, num_classes) * prompts_embedding_mask.unsqueeze(1)
         all_losses = masked_loss.view(-1, num_classes)
@@ -608,7 +669,8 @@ class StreamingSpanModel(UniEncoderSpanModel):
         self,
         config: Any,
         from_pretrained: bool = False,
-        cache_dir: Optional[Union[str, Path]] = None,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the streaming span model.
 
@@ -616,8 +678,9 @@ class StreamingSpanModel(UniEncoderSpanModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
         if self.token_rep_layer.decoder_hidden_size != config.hidden_size:
             self.token_projection = nn.Linear(self.token_rep_layer.decoder_hidden_size, config.hidden_size)
         self.labels_encoder = StreamingSpanLabelsEncoder(config)
@@ -633,7 +696,8 @@ class StreamingSpanModel(UniEncoderSpanModel):
         self,
         config: Any,
         from_pretrained: bool = False,
-        cache_dir: Optional[Union[str, Path]] = None,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> Decoder:
         """Initialize the token representation layer for the streaming span model.
 
@@ -641,8 +705,11 @@ class StreamingSpanModel(UniEncoderSpanModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        return Decoder(config, from_pretrained, cache_dir=cache_dir, use_causal_lm=False)
+        return Decoder(
+            config, from_pretrained, cache_dir=cache_dir, use_causal_lm=False, local_files_only=local_files_only
+        )
 
     @staticmethod
     def _merge_cached_words(
@@ -650,7 +717,7 @@ class StreamingSpanModel(UniEncoderSpanModel):
         past_word_mask: torch.Tensor,
         current_word_embeddings: torch.Tensor,
         current_word_mask: torch.Tensor,
-        past_word_length: Optional[Union[int, torch.Tensor]] = None,
+        past_word_length: int | torch.Tensor | None = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Append each row's valid words into reusable capacity-backed storage.
 
@@ -757,16 +824,16 @@ class StreamingSpanModel(UniEncoderSpanModel):
 
     def get_representations(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        label_attention_mask: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[Any] = None,
-        past_word_embeddings: Optional[torch.FloatTensor] = None,
-        past_word_mask: Optional[torch.LongTensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        label_attention_mask: torch.LongTensor | None = None,
+        past_key_values: Any | None = None,
+        past_word_embeddings: torch.FloatTensor | None = None,
+        past_word_mask: torch.LongTensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        words_mask: torch.LongTensor | None = None,
         **kwargs: Any,
     ) -> GLiNERRepresentationOutput:
         """Get entity label and word representations from input.
@@ -904,22 +971,23 @@ class StreamingSpanModel(UniEncoderSpanModel):
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        label_attention_mask: Optional[torch.LongTensor] = None,
-        label_mask: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[Any] = None,
-        past_word_embeddings: Optional[torch.FloatTensor] = None,
-        past_word_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        span_idx: Optional[torch.LongTensor] = None,
-        span_mask: Optional[torch.LongTensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        label_attention_mask: torch.LongTensor | None = None,
+        label_mask: torch.LongTensor | None = None,
+        past_key_values: Any | None = None,
+        past_word_embeddings: torch.FloatTensor | None = None,
+        past_word_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        span_idx: torch.LongTensor | None = None,
+        span_mask: torch.LongTensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        return_embeddings: bool = False,
         **kwargs: Any,
     ) -> GLiNERStreamingSpanOutput:
         """Forward pass through the span-based model.
@@ -942,6 +1010,7 @@ class StreamingSpanModel(UniEncoderSpanModel):
             span_idx: Span indices of shape (B, L*K, 2).
             span_mask: Mask for valid spans of shape (B, L, K).
             labels: Ground truth labels of shape (B, L, K, C).
+            return_embeddings: Whether to include span representations in the output.
             **kwargs: Additional arguments.
 
         Returns:
@@ -1033,6 +1102,7 @@ class StreamingSpanModel(UniEncoderSpanModel):
             mask=mask,
             span_idx=flat_span_idx,
             span_mask=flat_span_mask,
+            span_embeddings=span_rep if return_embeddings else None,
             past_key_values=representations.past_key_values,
             past_word_embeddings=representations.past_word_embeddings,
             past_word_mask=representations.past_word_mask,
@@ -1052,7 +1122,11 @@ class UniEncoderTokenModel(BaseUniEncoderModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the token-based uni-encoder model.
 
@@ -1060,8 +1134,9 @@ class UniEncoderTokenModel(BaseUniEncoderModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
         self.scorer = Scorer(config.hidden_size, config.dropout)
 
         if getattr(config, "represent_spans", False):
@@ -1094,19 +1169,19 @@ class UniEncoderTokenModel(BaseUniEncoderModel):
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        span_idx: Optional[torch.Tensor] = None,
-        span_mask: Optional[torch.Tensor] = None,
-        span_labels: Optional[torch.Tensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
-        threshold: Optional[float] = 0.5,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        span_idx: torch.Tensor | None = None,
+        span_mask: torch.Tensor | None = None,
+        span_labels: torch.Tensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        threshold: float | None = 0.5,
         **kwargs: Any,
     ) -> GLiNERBaseOutput:
         """Forward pass through the token-based model.
@@ -1266,7 +1341,11 @@ class BaseBiEncoderModel(BaseModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the bi-encoder model.
 
@@ -1274,9 +1353,12 @@ class BaseBiEncoderModel(BaseModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
-        self.token_rep_layer = BiEncoder(config, from_pretrained, cache_dir=cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
+        self.token_rep_layer = BiEncoder(
+            config, from_pretrained, cache_dir=cache_dir, local_files_only=local_files_only
+        )
 
         if self.config.num_rnn_layers:
             self.rnn = LstmSeq2SeqEncoder(config, num_layers=self.config.num_rnn_layers)
@@ -1295,8 +1377,8 @@ class BaseBiEncoderModel(BaseModel):
         self,
         text_embeds: torch.Tensor,
         labels_embeds: torch.Tensor,
-        text_mask: Optional[torch.Tensor] = None,
-        labels_mask: Optional[torch.Tensor] = None,
+        text_mask: torch.Tensor | None = None,
+        labels_mask: torch.Tensor | None = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Enhance features using cross-attention fusion.
 
@@ -1316,13 +1398,15 @@ class BaseBiEncoderModel(BaseModel):
 
     def get_representations(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        labels_embeds: Optional[torch.FloatTensor] = None,
-        labels_input_ids: Optional[torch.FloatTensor] = None,
-        labels_attention_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        labels_embeds: torch.FloatTensor | None = None,
+        labels_input_ids: torch.FloatTensor | None = None,
+        labels_attention_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        labels_gather_indices: torch.LongTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
         **kwargs: Any,
     ) -> GLiNERRepresentationOutput:
         """Get entity label and word representations using bi-encoder.
@@ -1335,6 +1419,8 @@ class BaseBiEncoderModel(BaseModel):
             labels_attention_mask: Attention mask for labels.
             text_lengths: Length of each text in batch.
             words_mask: Word boundary mask.
+            labels_gather_indices: Per-row indices into the shared label embeddings.
+            prompts_embedding_mask: Mask for valid labels in each row.
             **kwargs: Additional arguments for the encoder.
 
         Returns:
@@ -1365,16 +1451,39 @@ class BaseBiEncoderModel(BaseModel):
             getattr(self.config, "subtoken_pooling", "first"),
         )
 
-        labels_embeds = labels_embeds.unsqueeze(0)
-        labels_embeds = labels_embeds.expand(batch_size, -1, -1)
-        labels_mask = torch.ones(labels_embeds.shape[:-1], dtype=attention_mask.dtype, device=attention_mask.device)
+        if labels_gather_indices is not None:
+            if labels_embeds.dim() != 2:
+                raise ValueError("labels_gather_indices requires 2D shared label embeddings")
+            if labels_gather_indices.dim() != 2:
+                raise ValueError("labels_gather_indices must have shape (B, C)")
+            if labels_gather_indices.shape[0] != batch_size:
+                raise ValueError("labels_gather_indices must have one row per input text")
+
+            labels_gather_indices = labels_gather_indices.to(device=labels_embeds.device, dtype=torch.long)
+            labels_embeds = labels_embeds[labels_gather_indices]
+        elif labels_embeds.dim() == 2:
+            labels_embeds = labels_embeds.unsqueeze(0).expand(batch_size, -1, -1)
+        elif labels_embeds.dim() == 3:
+            if labels_embeds.shape[0] != batch_size:
+                raise ValueError("Batched label embeddings must have one row per input text")
+        else:
+            raise ValueError("labels_embeds must have shape (C, D) or (B, C, D)")
+
+        if prompts_embedding_mask is None:
+            labels_mask = torch.ones(labels_embeds.shape[:-1], dtype=attention_mask.dtype, device=labels_embeds.device)
+        else:
+            if prompts_embedding_mask.shape != labels_embeds.shape[:-1]:
+                raise ValueError("prompts_embedding_mask must match the batched label layout")
+            labels_mask = prompts_embedding_mask.to(device=labels_embeds.device, dtype=attention_mask.dtype)
 
         labels_embeds = labels_embeds.to(words_embedding.dtype)
+        labels_embeds = labels_embeds * labels_mask.unsqueeze(-1).to(labels_embeds.dtype)
 
         if hasattr(self, "cross_fuser"):
             words_embedding, labels_embeds = self.features_enhancement(
                 words_embedding, labels_embeds, text_mask=mask, labels_mask=labels_mask
             )
+            labels_embeds = labels_embeds * labels_mask.unsqueeze(-1).to(labels_embeds.dtype)
 
         return GLiNERRepresentationOutput(
             prompts_embedding=labels_embeds,
@@ -1393,7 +1502,11 @@ class BiEncoderSpanModel(BaseBiEncoderModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the span-based bi-encoder model.
 
@@ -1401,8 +1514,9 @@ class BiEncoderSpanModel(BaseBiEncoderModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
         self.span_rep_layer = SpanRepLayer(
             span_mode=config.span_mode,
             hidden_size=config.hidden_size,
@@ -1415,20 +1529,22 @@ class BiEncoderSpanModel(BaseBiEncoderModel):
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        labels_embeds: Optional[torch.FloatTensor] = None,
-        labels_input_ids: Optional[torch.FloatTensor] = None,
-        labels_attention_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        span_idx: Optional[torch.LongTensor] = None,
-        span_mask: Optional[torch.LongTensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        labels_embeds: torch.FloatTensor | None = None,
+        labels_input_ids: torch.FloatTensor | None = None,
+        labels_attention_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        span_idx: torch.LongTensor | None = None,
+        span_mask: torch.LongTensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        labels_gather_indices: torch.LongTensor | None = None,
+        return_embeddings: bool = False,
         **kwargs: Any,
     ) -> GLiNERBaseOutput:
         """Forward pass through the bi-encoder span model.
@@ -1448,6 +1564,8 @@ class BiEncoderSpanModel(BaseBiEncoderModel):
             span_idx: Span indices of shape (B, L*K, 2).
             span_mask: Mask for valid spans of shape (B, L, K).
             labels: Ground truth labels of shape (B, L, K, C).
+            labels_gather_indices: Per-row indices into the shared label embeddings.
+            return_embeddings: Whether to include span representations in the output.
             **kwargs: Additional arguments.
 
         Returns:
@@ -1460,13 +1578,15 @@ class BiEncoderSpanModel(BaseBiEncoderModel):
         }
 
         representations = self.get_representations(
-            input_ids,
-            attention_mask,
-            labels_embeds,
-            labels_input_ids,
-            labels_attention_mask,
-            text_lengths,
-            words_mask,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            labels_embeds=labels_embeds,
+            labels_input_ids=labels_input_ids,
+            labels_attention_mask=labels_attention_mask,
+            text_lengths=text_lengths,
+            words_mask=words_mask,
+            labels_gather_indices=labels_gather_indices,
+            prompts_embedding_mask=prompts_embedding_mask,
             **encoder_kwargs,
         )
         prompts_embedding = representations.prompts_embedding
@@ -1504,6 +1624,7 @@ class BiEncoderSpanModel(BaseBiEncoderModel):
             prompts_embedding_mask=prompts_embedding_mask,
             words_embedding=words_embedding,
             mask=mask,
+            span_embeddings=span_rep if return_embeddings else None,
         )
         return output
 
@@ -1581,7 +1702,11 @@ class BiEncoderTokenModel(BaseBiEncoderModel, UniEncoderTokenModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the token-based bi-encoder model.
 
@@ -1589,28 +1714,30 @@ class BiEncoderTokenModel(BaseBiEncoderModel, UniEncoderTokenModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
         self.scorer = Scorer(config.hidden_size, config.dropout)
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        labels_embeds: Optional[torch.FloatTensor] = None,
-        labels_input_ids: Optional[torch.FloatTensor] = None,
-        labels_attention_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        span_idx: Optional[torch.Tensor] = None,
-        span_mask: Optional[torch.Tensor] = None,
-        span_labels: Optional[torch.Tensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
-        threshold: Optional[float] = 0.5,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        labels_embeds: torch.FloatTensor | None = None,
+        labels_input_ids: torch.FloatTensor | None = None,
+        labels_attention_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        span_idx: torch.Tensor | None = None,
+        span_mask: torch.Tensor | None = None,
+        span_labels: torch.Tensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        threshold: float | None = 0.5,
+        labels_gather_indices: torch.LongTensor | None = None,
         **kwargs: Any,
     ) -> GLiNERBaseOutput:
         """Forward pass through the bi-encoder token model.
@@ -1633,6 +1760,7 @@ class BiEncoderTokenModel(BaseBiEncoderModel, UniEncoderTokenModel):
             text_lengths: Length of each text sequence.
             labels: Ground truth labels of shape (B, W, C).
             threshold: float value for filtering spans.
+            labels_gather_indices: Per-row indices into the shared label embeddings.
             **kwargs: Additional arguments.
 
         Returns:
@@ -1645,13 +1773,15 @@ class BiEncoderTokenModel(BaseBiEncoderModel, UniEncoderTokenModel):
         }
 
         representations = self.get_representations(
-            input_ids,
-            attention_mask,
-            labels_embeds,
-            labels_input_ids,
-            labels_attention_mask,
-            text_lengths,
-            words_mask,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            labels_embeds=labels_embeds,
+            labels_input_ids=labels_input_ids,
+            labels_attention_mask=labels_attention_mask,
+            text_lengths=text_lengths,
+            words_mask=words_mask,
+            labels_gather_indices=labels_gather_indices,
+            prompts_embedding_mask=prompts_embedding_mask,
             **encoder_kwargs,
         )
         prompts_embedding = representations.prompts_embedding
@@ -1716,7 +1846,11 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the span-decoder model.
 
@@ -1724,12 +1858,13 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
-        self.decoder = self._init_decoder(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
+        self.decoder = self._init_decoder(config, from_pretrained, cache_dir, local_files_only=local_files_only)
 
-    def _init_decoder(self, config, from_pretrained, cache_dir) -> Decoder:
-        decoder = Decoder(config, from_pretrained, cache_dir=cache_dir)
+    def _init_decoder(self, config, from_pretrained, cache_dir, local_files_only=False) -> Decoder:
+        decoder = Decoder(config, from_pretrained, cache_dir=cache_dir, local_files_only=local_files_only)
         if self.config.hidden_size != decoder.decoder_hidden_size:
             self._enc2dec_proj = create_projection_layer(
                 self.config.hidden_size,
@@ -1818,11 +1953,11 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
 
     def decode_labels(
         self,
-        decoder_embedding: Optional[torch.FloatTensor] = None,
-        decoder_embedding_mask: Optional[torch.LongTensor] = None,
-        decoder_labels_ids: Optional[torch.FloatTensor] = None,
-        decoder_labels_mask: Optional[torch.LongTensor] = None,
-        decoder_labels: Optional[torch.FloatTensor] = None,
+        decoder_embedding: torch.FloatTensor | None = None,
+        decoder_embedding_mask: torch.LongTensor | None = None,
+        decoder_labels_ids: torch.FloatTensor | None = None,
+        decoder_labels_mask: torch.LongTensor | None = None,
+        decoder_labels: torch.FloatTensor | None = None,
         **kwargs: Any,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decode labels using the decoder in teacher forcing mode.
@@ -1865,15 +2000,15 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
 
     def generate_labels(
         self,
-        decoder_embedding: Optional[torch.FloatTensor] = None,
-        decoder_embedding_mask: Optional[torch.LongTensor] = None,
+        decoder_embedding: torch.FloatTensor | None = None,
+        decoder_embedding_mask: torch.LongTensor | None = None,
         max_new_tokens: int = 32,
-        eos_token_id: Optional[int] = None,
-        pad_token_id: Optional[int] = None,
+        eos_token_id: int | None = None,
+        pad_token_id: int | None = None,
         temperature: float = 1.0,
         do_sample: bool = False,
         num_return_sequences: int = 1,
-        labels_trie: Optional[Any] = None,
+        labels_trie: Any | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
         """Generate entity type labels from decoder embeddings.
@@ -1915,14 +2050,14 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
         span_rep: torch.Tensor,
         span_scores: torch.Tensor,
         span_mask: torch.Tensor,
-        decoder_text_embeds: Optional[torch.Tensor] = None,
-        decoder_words_mask: Optional[torch.Tensor] = None,
-        span_labels: Optional[torch.Tensor] = None,
+        decoder_text_embeds: torch.Tensor | None = None,
+        decoder_words_mask: torch.Tensor | None = None,
+        span_labels: torch.Tensor | None = None,
         threshold: float = 0.5,
-        top_k: Optional[int] = None,
-        decoder_input_ids: Optional[torch.Tensor] = None,
-        decoder_labels_ids: Optional[torch.Tensor] = None,
-    ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        top_k: int | None = None,
+        decoder_input_ids: torch.Tensor | None = None,
+        decoder_labels_ids: torch.Tensor | None = None,
+    ) -> Tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
         """Select span embeddings for decoder input based on predictions or labels.
 
         This method selects which spans to provide to the decoder, either based on
@@ -2022,24 +2157,25 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        decoder_input_ids: Optional[torch.FloatTensor] = None,
-        decoder_attention_mask: Optional[torch.LongTensor] = None,
-        decoder_labels_ids: Optional[torch.FloatTensor] = None,
-        decoder_labels_mask: Optional[torch.LongTensor] = None,
-        decoder_words_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        span_idx: Optional[torch.LongTensor] = None,
-        span_mask: Optional[torch.LongTensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
-        decoder_labels: Optional[torch.FloatTensor] = None,
-        threshold: Optional[float] = 0.5,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        decoder_input_ids: torch.FloatTensor | None = None,
+        decoder_attention_mask: torch.LongTensor | None = None,
+        decoder_labels_ids: torch.FloatTensor | None = None,
+        decoder_labels_mask: torch.LongTensor | None = None,
+        decoder_words_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        span_idx: torch.LongTensor | None = None,
+        span_mask: torch.LongTensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        decoder_labels: torch.FloatTensor | None = None,
+        threshold: float | None = 0.5,
+        return_embeddings: bool = False,
         **kwargs: Any,
     ) -> GLiNERDecoderOutput:
         """Forward pass through the span-decoder model.
@@ -2063,6 +2199,7 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
             labels: Ground truth span labels of shape (B, L, K, C).
             decoder_labels: Ground truth decoder labels of shape (M, L).
             threshold: Confidence threshold for span selection.
+            return_embeddings: Whether to include span representations in the output.
             **kwargs: Additional arguments.
 
         Returns:
@@ -2142,6 +2279,7 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
             decoder_span_idx=decoder_span_idx,
             words_embedding=words_embedding,
             mask=mask,
+            span_embeddings=span_rep if return_embeddings else None,
         )
         return output
 
@@ -2157,7 +2295,7 @@ class UniEncoderSpanDecoderModel(UniEncoderSpanModel):
         reduction: str = "sum",
         negatives: float = 1.0,
         masking: str = "none",
-        decoder_loss: Optional[torch.Tensor] = None,
+        decoder_loss: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
         """Compute combined loss for span classification and decoder.
@@ -2235,7 +2373,11 @@ class UniEncoderTokenDecoderModel(UniEncoderTokenModel, UniEncoderSpanDecoderMod
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the token-level encoder-decoder model.
 
@@ -2243,23 +2385,24 @@ class UniEncoderTokenDecoderModel(UniEncoderTokenModel, UniEncoderSpanDecoderMod
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
         # Cooperative MRO initializes both the token scorer and decoder.
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
 
     def select_token_decoder_embedding(
         self,
         prompts_embedding: torch.Tensor,
         prompts_embedding_mask: torch.Tensor,
-        span_logits: Optional[torch.Tensor] = None,
-        span_rep: Optional[torch.Tensor] = None,
-        span_idx: Optional[torch.Tensor] = None,
-        span_mask: Optional[torch.Tensor] = None,
-        span_labels: Optional[torch.Tensor] = None,
-        decoder_text_embeds: Optional[torch.Tensor] = None,
-        decoder_words_mask: Optional[torch.Tensor] = None,
-        top_k: Optional[int] = None,
-    ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        span_logits: torch.Tensor | None = None,
+        span_rep: torch.Tensor | None = None,
+        span_idx: torch.Tensor | None = None,
+        span_mask: torch.Tensor | None = None,
+        span_labels: torch.Tensor | None = None,
+        decoder_text_embeds: torch.Tensor | None = None,
+        decoder_words_mask: torch.Tensor | None = None,
+        top_k: int | None = None,
+    ) -> Tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
         """Select entity embeddings for decoder input based on token predictions or labels.
 
         This method extracts entity spans from token-level predictions and prepares
@@ -2306,7 +2449,7 @@ class UniEncoderTokenDecoderModel(UniEncoderTokenModel, UniEncoderSpanDecoderMod
         else:
             # During inference: use predicted scores
             span_scores = torch.sigmoid(span_logits).max(-1).values  # (B, S)
-            keep = (span_scores > 0.5) & span_mask.bool
+            keep = (span_scores > 0.5) & span_mask.bool()
 
         if top_k:
             sel_scores = span_scores.masked_fill(~keep, -1.0)
@@ -2375,25 +2518,25 @@ class UniEncoderTokenDecoderModel(UniEncoderTokenModel, UniEncoderSpanDecoderMod
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        decoder_input_ids: Optional[torch.FloatTensor] = None,
-        decoder_attention_mask: Optional[torch.LongTensor] = None,
-        decoder_labels_ids: Optional[torch.FloatTensor] = None,
-        decoder_labels_mask: Optional[torch.LongTensor] = None,
-        decoder_words_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        span_idx: Optional[torch.Tensor] = None,
-        span_mask: Optional[torch.Tensor] = None,
-        span_labels: Optional[torch.Tensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
-        decoder_labels: Optional[torch.FloatTensor] = None,
-        threshold: Optional[float] = 0.5,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        decoder_input_ids: torch.FloatTensor | None = None,
+        decoder_attention_mask: torch.LongTensor | None = None,
+        decoder_labels_ids: torch.FloatTensor | None = None,
+        decoder_labels_mask: torch.LongTensor | None = None,
+        decoder_words_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        span_idx: torch.Tensor | None = None,
+        span_mask: torch.Tensor | None = None,
+        span_labels: torch.Tensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        decoder_labels: torch.FloatTensor | None = None,
+        threshold: float | None = 0.5,
         **kwargs: Any,
     ) -> GLiNERDecoderOutput:
         """Forward pass through the token-level encoder-decoder model.
@@ -2526,10 +2669,10 @@ class UniEncoderTokenDecoderModel(UniEncoderTokenModel, UniEncoderSpanDecoderMod
         label_smoothing: float = 0.0,
         reduction: str = "sum",
         negatives: float = 1.0,
-        span_logits: Optional[torch.Tensor] = None,
-        span_labels: Optional[torch.Tensor] = None,
-        span_mask: Optional[torch.Tensor] = None,
-        decoder_loss: Optional[torch.Tensor] = None,
+        span_logits: torch.Tensor | None = None,
+        span_labels: torch.Tensor | None = None,
+        span_mask: torch.Tensor | None = None,
+        decoder_loss: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
         """Compute combined loss for token classification, spans, and decoder.
@@ -2615,7 +2758,11 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the span-based relation extraction model.
 
@@ -2623,8 +2770,9 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
 
         if config.relations_layer is not None:
             if config.relations_layer != "none":
@@ -2644,11 +2792,11 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
         span_rep: torch.FloatTensor,
         span_scores: torch.FloatTensor,
         span_mask: torch.LongTensor,
-        span_labels: Optional[torch.FloatTensor] = None,
+        span_labels: torch.FloatTensor | None = None,
         threshold: float = 0.5,
-        top_k: Optional[int] = None,
-        span_idx: Optional[torch.LongTensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+        top_k: int | None = None,
+        span_idx: torch.LongTensor | None = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
         """Select entity spans for relation extraction.
 
         Filters spans based on entity classification scores or ground truth labels,
@@ -2706,7 +2854,7 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
         return target_rep, target_mask, target_span_idx
 
     def select_target_embedding(
-        self, representations: Optional[torch.FloatTensor] = None, rep_mask: Optional[torch.LongTensor] = None
+        self, representations: torch.FloatTensor | None = None, rep_mask: torch.LongTensor | None = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Pack valid representations by removing masked positions.
 
@@ -2746,10 +2894,11 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
         words_embeddings,
         words_mask,
         prompts_embeddings,
-        span_idx: Optional[torch.Tensor] = None,
-        span_mask: Optional[torch.Tensor] = None,
-        labels: Optional[torch.Tensor] = None,
+        span_idx: torch.Tensor | None = None,
+        span_mask: torch.Tensor | None = None,
+        labels: torch.Tensor | None = None,
         threshold: float = 0.5,
+        return_embeddings: bool = False,
     ):
         span_idx = span_idx * span_mask.unsqueeze(-1).long()
         span_rep = self.span_rep_layer(words_embeddings, span_idx)
@@ -2766,25 +2915,29 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
             )
         else:
             target_span_rep, target_span_mask, entity_spans = None, None, None
-        return scores, target_span_rep, target_span_mask, entity_spans
+        output = (scores, target_span_rep, target_span_mask, entity_spans)
+        if return_embeddings:
+            return (*output, span_rep)
+        return output
 
     def forward(
         self,
-        input_ids: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        words_embedding: Optional[torch.FloatTensor] = None,
-        mask: Optional[torch.LongTensor] = None,
-        prompts_embedding: Optional[torch.FloatTensor] = None,
-        prompts_embedding_mask: Optional[torch.LongTensor] = None,
-        words_mask: Optional[torch.LongTensor] = None,
-        text_lengths: Optional[torch.Tensor] = None,
-        span_idx: Optional[torch.LongTensor] = None,
-        span_mask: Optional[torch.LongTensor] = None,
-        labels: Optional[torch.FloatTensor] = None,
-        adj_matrix: Optional[torch.FloatTensor] = None,
-        rel_matrix: Optional[torch.FloatTensor] = None,
-        threshold: Optional[float] = 0.5,
-        adjacency_threshold: Optional[float] = 0.5,
+        input_ids: torch.FloatTensor | None = None,
+        attention_mask: torch.LongTensor | None = None,
+        words_embedding: torch.FloatTensor | None = None,
+        mask: torch.LongTensor | None = None,
+        prompts_embedding: torch.FloatTensor | None = None,
+        prompts_embedding_mask: torch.LongTensor | None = None,
+        words_mask: torch.LongTensor | None = None,
+        text_lengths: torch.Tensor | None = None,
+        span_idx: torch.LongTensor | None = None,
+        span_mask: torch.LongTensor | None = None,
+        labels: torch.FloatTensor | None = None,
+        adj_matrix: torch.FloatTensor | None = None,
+        rel_matrix: torch.FloatTensor | None = None,
+        threshold: float | None = 0.5,
+        adjacency_threshold: float | None = 0.5,
+        return_embeddings: bool = False,
         **kwargs: Any,
     ) -> GLiNERRelexOutput:
         """Forward pass through the relation extraction model.
@@ -2805,6 +2958,7 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
             rel_matrix: Ground truth relation labels of shape (B, N, C_rel).
             threshold: Confidence threshold for entity selection.
             adjacency_threshold: Threshold for relation adjacency.
+            return_embeddings: Whether to include entity and relation representations in the output.
             **kwargs: Additional arguments.
 
         Returns:
@@ -2871,12 +3025,25 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
         prompts_embedding = self.prompt_rep_layer(prompts_embedding)
         batch_size, _, embed_dim = prompts_embedding.shape
 
-        scores, target_span_rep, target_span_mask, entity_spans = self.represent_spans(
-            words_embedding, mask, prompts_embedding, span_idx, span_mask, labels, threshold
+        span_outputs = self.represent_spans(
+            words_embedding,
+            mask,
+            prompts_embedding,
+            span_idx,
+            span_mask,
+            labels,
+            threshold,
+            return_embeddings=return_embeddings,
         )
+        if return_embeddings:
+            scores, target_span_rep, target_span_mask, entity_spans, span_embeddings = span_outputs
+        else:
+            scores, target_span_rep, target_span_mask, entity_spans = span_outputs
+            span_embeddings = None
 
         pair_idx, pair_mask, pair_scores = None, None, None
         rel_prompts_embedding, rel_prompts_embedding_mask = None, None
+        relation_embeddings = relation_head_embeddings = relation_tail_embeddings = None
         pred_adj_matrix = None
 
         has_relex = (
@@ -2923,6 +3090,8 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
                 pair_rep = torch.cat((head_rep_selected, tail_rep_selected), dim=-1)
                 pair_rep = self.pair_rep_layer(pair_rep)
                 pair_scores = torch.einsum("BND,BCD->BNC", pair_rep, rel_prompts_embedding)
+                if return_embeddings:
+                    relation_embeddings = pair_rep
 
             elif hasattr(self, "triples_score_layer"):
                 h = head_rep_selected.unsqueeze(2).expand(B, N, C_rel, D)
@@ -2935,6 +3104,9 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
 
                 triple_scores_flat = self.triples_score_layer(h_flat, r_flat, t_flat)
                 pair_scores = triple_scores_flat.view(B, N, C_rel)
+                if return_embeddings:
+                    relation_head_embeddings = head_rep_selected
+                    relation_tail_embeddings = tail_rep_selected
 
         loss = None
         if labels is not None:
@@ -3007,6 +3179,10 @@ class UniEncoderSpanRelexModel(UniEncoderSpanModel):
             rel_prompts_embedding=rel_prompts_embedding,
             rel_prompts_embedding_mask=rel_prompts_embedding_mask,
             entity_spans=None if is_training else entity_spans,
+            span_embeddings=span_embeddings,
+            relation_embeddings=None if is_training else relation_embeddings,
+            relation_head_embeddings=None if is_training else relation_head_embeddings,
+            relation_tail_embeddings=None if is_training else relation_tail_embeddings,
         )
         return output
 
@@ -3151,7 +3327,11 @@ class UniEncoderTokenRelexModel(UniEncoderSpanRelexModel):
     """
 
     def __init__(
-        self, config: Any, from_pretrained: bool = False, cache_dir: Optional[Union[str, Path]] = None
+        self,
+        config: Any,
+        from_pretrained: bool = False,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """Initialize the span-based relation extraction model.
 
@@ -3159,8 +3339,9 @@ class UniEncoderTokenRelexModel(UniEncoderSpanRelexModel):
             config: Model configuration object.
             from_pretrained: Whether to load from pretrained weights.
             cache_dir: Directory for caching pretrained models.
+            local_files_only: Only load local or cached files.
         """
-        super().__init__(config, from_pretrained, cache_dir)
+        super().__init__(config, from_pretrained, cache_dir, local_files_only=local_files_only)
         self.scorer = Scorer(config.hidden_size, config.dropout)
 
     def loss(
@@ -3218,10 +3399,11 @@ class UniEncoderTokenRelexModel(UniEncoderSpanRelexModel):
         words_embeddings,
         words_mask,
         prompts_embeddings,
-        span_idx: Optional[torch.Tensor] = None,
-        span_mask: Optional[torch.Tensor] = None,
-        labels: Optional[torch.Tensor] = None,
+        span_idx: torch.Tensor | None = None,
+        span_mask: torch.Tensor | None = None,
+        labels: torch.Tensor | None = None,
         threshold: float = 0.5,
+        return_embeddings: bool = False,
     ):
         scores = self.scorer(words_embeddings, prompts_embeddings)
 
@@ -3230,5 +3412,9 @@ class UniEncoderTokenRelexModel(UniEncoderSpanRelexModel):
             span_idx = span_idx * span_mask.unsqueeze(-1).long()
         target_span_rep = self.span_rep_layer(words_embeddings, span_idx)
 
-        # span_idx directly corresponds to target_span_rep positions
-        return scores, target_span_rep, span_mask, span_idx
+        # span_idx directly corresponds to target_span_rep positions. Token-level
+        # public span embeddings are pooled from words_embeddings by the caller.
+        output = (scores, target_span_rep, span_mask, span_idx)
+        if return_embeddings:
+            return (*output, None)
+        return output

@@ -30,8 +30,8 @@ from edgar.attachments import Attachments
 from edgar.config import VERBOSE_EXCEPTIONS
 from edgar.core import log
 from edgar.richtools import repr_rich
-from edgar.xbrl.core import STANDARD_LABEL, STANDARD_TAXONOMIES, split_element_id
-from edgar.xbrl.models import Axis, Domain, PresentationNode
+from edgar.xbrl.core import STANDARD_LABEL, STANDARD_TAXONOMIES, split_element_id, unit_currency_measure
+from edgar.xbrl.models import Axis, Domain, PresentationNode, is_negated_label_role
 from edgar.xbrl.parsers import XBRLParser
 from edgar.xbrl.period_selector import select_periods
 from edgar.xbrl.periods import get_period_views
@@ -114,6 +114,40 @@ def _capture_sgml_period_of_report(xbrl: "XBRL", filing) -> None:
             "period_of_report is the unvalidated XBRL date.",
             getattr(filing, "accession_no", "<unknown filing>"), e,
         )
+
+
+# Members that aggregate other members of the same axis, rather than being a
+# disjoint part of the breakdown. Adding one of these to its own components
+# double-counts them.
+#
+# 'Total' in the local name catches the issuer's own total member, which is how
+# filers usually spell it (Disney files
+# dis:TotalexcludingredeemablenoncontrollinginterestMember). The named members
+# are the standard aggregates whose names do not say so: ParentMember is equity
+# attributable to the parent, i.e. every component except the noncontrolling
+# interest, and ConsolidatedEntitiesMember/ConsolidationEliminationsMember play
+# the same role on a consolidation axis.
+_AGGREGATE_MEMBER_NAMES = frozenset({
+    'parentmember',
+    'consolidatedentitiesmember',
+})
+
+
+def _is_aggregate_member(member: str) -> bool:
+    """Whether a dimension member aggregates other members of its axis.
+
+    Compared on the LOCAL NAME: members reach here with either separator
+    ('us-gaap:ParentMember' from a context, 'us-gaap_ParentMember' from the
+    rendered dimension info), and matching the qualified spelling silently
+    matches neither half the time.
+    """
+    if not member:
+        return False
+    local_name = member.split(':', 1)[-1]
+    if ':' not in member and '_' in local_name:
+        local_name = local_name.split('_', 1)[1]
+    lowered = local_name.lower()
+    return lowered in _AGGREGATE_MEMBER_NAMES or 'total' in lowered
 
 
 class XBRLFilingWithNoXbrlData(NotFoundError):
@@ -1354,9 +1388,6 @@ class XBRL:
 
         tree = self.presentation_trees[found_role]
 
-        # Find the root element
-        root_id = tree.root_element_id
-
         # If should_display_dimensions wasn't provided, default to True
         # Issue #504: Always include dimensional data by default - users can filter themselves if needed
         if should_display_dimensions is None:
@@ -1366,11 +1397,17 @@ class XBRL:
         # This ensures we only show members that are actually defined in the linkbase
         valid_dimensional_members = self._get_valid_dimensional_members(tree) if should_display_dimensions else {}
 
-        # Generate line items recursively
+        # Generate line items recursively, from EVERY root the role declares.
+        # Walking only tree.root_element_id left everything beneath the second
+        # and later roots unreachable, which silently truncated the statement --
+        # Union Pacific's Leases Details returned 13 rows from a 22-node tree,
+        # and its consolidated statement of comprehensive income is multi-root
+        # too, so this reached a primary face statement (edgartools-0q0d).
         line_items = []
-        self._generate_line_items(root_id, tree.all_nodes, line_items, period_filter, None,
-                                  should_display_dimensions, valid_dimensional_members, view,
-                                  statement_role=found_role)
+        for root_id in tree.root_element_ids:
+            self._generate_line_items(root_id, tree.all_nodes, line_items, period_filter, None,
+                                      should_display_dimensions, valid_dimensional_members, view,
+                                      statement_role=found_role)
 
         # Apply revenue deduplication for income statements to fix Issue #438
         if actual_statement_type == 'IncomeStatement':
@@ -1430,6 +1467,16 @@ class XBRL:
 
         # Get node information
         node = nodes[element_id]
+
+        # This OCCURRENCE's position, taken from the walk rather than from the
+        # shared node. `nodes` is keyed by element ID, so a concept presented
+        # more than once in a role — a roll-forward's beginning and ending
+        # balance, a total repeated under two sections — has a single entry
+        # whose `parent` and `depth` are whichever occurrence the parser wrote
+        # last. Reading them here gave every earlier occurrence the last one's
+        # parent and indentation. The path is the occurrence (edgartools-f07v).
+        occurrence_parent = path[-1] if path else None
+        occurrence_depth = len(path)
 
         # edgartools-0609: Honor this reference's preferred label when it differs
         # from the shared node's (roll-forward concepts referenced more than once).
@@ -1497,15 +1544,11 @@ class XBRL:
         # This determines display transformation: -1 = negate, 1 = as-is, None = not specified
         preferred_sign_value = None
         if effective_preferred_label:
-            # Check if this is a negatedLabel (indicates value should be negated for display)
-            # Use pattern matching to support any XBRL namespace version (2003, 2009, future versions)
-            # Matches: 'negatedLabel', 'negatedTerseLabel', 'http://www.xbrl.org/YYYY/role/negated*Label', etc.
-            label_lower = effective_preferred_label.lower()
-            is_negated = 'negated' in label_lower and (
-                label_lower.startswith('negated') or  # Short form: 'negatedLabel'
-                '/role/negated' in label_lower        # Full URI: 'http://www.xbrl.org/*/role/negated*'
-            )
-            preferred_sign_value = -1 if is_negated else 1
+            # Negation is decided by the role's local name, which covers every
+            # namespace version and the legacy xbrl.us LRR roles (see
+            # is_negated_label_role). The Facts API reads the same helper so the
+            # two surfaces cannot disagree about a sign.
+            preferred_sign_value = -1 if is_negated_label_role(effective_preferred_label) else 1
 
         # Find facts for any of these concept names
         all_relevant_facts = self._find_facts_for_element(node.element_name, period_filter)
@@ -1755,9 +1798,9 @@ class XBRL:
                 'preferred_signs': preferred_signs,  # Include preferred_sign for display (Issue #463)
                 'balance': balance,  # Include balance (debit/credit) for display (Issue #463)
                 'weight': weight,  # Include calculation weight for metadata (Issue #463)
-                'parent': node.parent,  # Presentation tree parent (may be abstract) (Issue #514)
+                'parent': occurrence_parent,  # Presentation tree parent (may be abstract) (Issue #514)
                 'calculation_parent': calculation_parent,  # Calculation tree parent (metric) (Issue #514 refinement)
-                'level': node.depth,
+                'level': occurrence_depth,
                 'preferred_label': effective_preferred_label,
                 'is_abstract': node.is_abstract,  # Issue #450: Use node's actual abstract flag
                 'children': node.children,
@@ -1779,9 +1822,9 @@ class XBRL:
                 'preferred_signs': preferred_signs,  # Include preferred_sign for display (Issue #463)
                 'balance': balance,  # Include balance (debit/credit) for display (Issue #463)
                 'weight': weight,  # Include calculation weight for metadata (Issue #463)
-                'parent': node.parent,  # Presentation tree parent (may be abstract) (Issue #514)
+                'parent': occurrence_parent,  # Presentation tree parent (may be abstract) (Issue #514)
                 'calculation_parent': calculation_parent,  # Calculation tree parent (metric) (Issue #514 refinement)
-                'level': node.depth,
+                'level': occurrence_depth,
                 'preferred_label': effective_preferred_label,
                 'is_abstract': node.is_abstract,
                 'children': node.children,
@@ -1885,7 +1928,7 @@ class XBRL:
                     'units': dim_units,  # Include unit_ref for each period
                     'period_types': dim_period_types,  # Include period_type for each period
                     'preferred_signs': dim_preferred_signs,  # Include preferred_sign for display (Issue #463)
-                    'level': node.depth + 1,  # Increase depth by 1
+                    'level': occurrence_depth + 1,  # Increase depth by 1
                     'preferred_label': node.preferred_label,
                     'is_abstract': False,
                     'children': [],
@@ -2120,6 +2163,54 @@ class XBRL:
 
         # Pick the axis with most members (most complete breakdown)
         best_axis = max(axis_groups.values(), key=len)
+
+        # Sharing an axis does not make members disjoint. A statement of
+        # shareholders' equity breaks equity down by component AND carries the
+        # filer's own subtotals as members of the same axis, so adding
+        # everything counts the components two or three times over: Disney's
+        # 2022-10-01 beginning balance came out as $292,766,000,000 against a
+        # filed $98,879,000,000, because the four components, their
+        # ParentMember subtotal, the noncontrolling interest and the issuer's
+        # own total member were all added together (gh #1281).
+        aggregates, components = [], []
+        for entry in best_axis:
+            member = (entry[1]['dimension_info'][0].get('member') or '')
+            (aggregates if _is_aggregate_member(member) else components).append(entry)
+
+        if aggregates:
+            # The filing states its own total; report that rather than adding
+            # anything up. Never fall through to the sum here: an aggregate and
+            # its own components in one group is exactly the double count.
+            #
+            # Which aggregate is THE total is settled by agreement with the
+            # components when there are any, since a filing can carry several
+            # nested subtotals -- Disney files ParentMember at 95,008 AND a
+            # total-equity member at 98,879, and only the latter covers the
+            # whole axis.
+            component_total = sum(v for _, _, v in components)
+            if components:
+                scale = max((abs(v) for _, _, v in best_axis), default=0)
+                tolerance = max(abs(component_total), scale) * 1e-6
+                for cid, wf, value in aggregates:
+                    if abs(value - component_total) <= tolerance:
+                        return {'total': value, 'fact': wf['fact'], 'context_id': cid}
+
+            # Either the group is nothing but an aggregate -- Coca-Cola tags
+            # shareowners' equity solely against ParentMember, so there is no
+            # arithmetic to do and no ambiguity -- or several aggregates are
+            # present and none reconciles, which happens when the members are
+            # not parts of one whole at all (Apple's receivable concentration
+            # lists two named customers beside a carriers total). In both cases
+            # a filed total is a better answer than a sum that mixes levels,
+            # so prefer the filer's explicitly named total.
+            named = [e for e in aggregates
+                     if 'total' in (e[1]['dimension_info'][0].get('member') or '').lower()]
+            cid, wf, value = max(named or aggregates, key=lambda e: abs(e[2]))
+            return {'total': value, 'fact': wf['fact'], 'context_id': cid}
+
+        # No aggregate members: a genuine disjoint breakdown, which is the case
+        # this helper was added for (gh #646 -- Disney's own cost of services
+        # and cost of products summing to total costs).
         total = sum(v for _, _, v in best_axis)
         first_cid, first_wf, _ = best_axis[0]
 
@@ -2771,9 +2862,13 @@ class XBRL:
         for _, wrapped_fact in facts.items():
             fact = wrapped_fact['fact']
             if hasattr(fact, 'unit_ref') and fact.unit_ref and fact.unit_ref in self.units:
-                unit_info = self.units[fact.unit_ref]
-                if 'measure' in unit_info:
-                    currency_measure = unit_info['measure']
+                # A divided unit (USD per share) carries its currency in the
+                # numerator and has no 'measure' key, so testing for that key
+                # dropped the currency symbol from every per-share cell once
+                # divided units began parsing correctly (edgartools-uetp).
+                measure = unit_currency_measure(self.units[fact.unit_ref])
+                if measure:
+                    currency_measure = measure
                     break
 
         # Cache the result (including None values to avoid repeated lookups)

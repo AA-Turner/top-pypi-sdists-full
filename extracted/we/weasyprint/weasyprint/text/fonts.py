@@ -18,8 +18,8 @@ from .constants import (  # isort:skip
     CAPS_KEYS, EAST_ASIAN_KEYS, FONTCONFIG_STRETCH, FONTCONFIG_STYLE, FONTCONFIG_WEIGHT,
     LIGATURE_KEYS, NUMERIC_KEYS, PANGO_STRETCH, PANGO_STYLE, PANGO_VARIANT)
 from .ffi import (  # isort:skip
-    FROM_UNITS, TO_UNITS, ffi, fontconfig, gobject, harfbuzz, pango, pangoft2,
-    unicode_to_char_p)
+    FROM_UNITS, TO_UNITS, ffi, fontconfig, gobject, harfbuzz, harfbuzz_vector, pango,
+    pangoft2, unicode_to_char_p)
 
 PREFERRED_ENCODING = getpreferredencoding(False)
 
@@ -96,8 +96,7 @@ class FontConfiguration:
 
         """
         # Load the main config file and the fonts.
-        self._config = ffi.gc(
-            fontconfig.FcInitLoadConfigAndFonts(), fontconfig.FcConfigDestroy)
+        self._config = fontconfig.FcInitLoadConfigAndFonts()
         self.font_map = ffi.gc(
             pangoft2.pango_ft2_font_map_new(), gobject.g_object_unref)
         pangoft2.pango_fc_font_map_set_config(
@@ -196,7 +195,7 @@ class FontConfiguration:
             root = Element('fontconfig')
             match = SubElement(root, 'match', target='scan')
             test = SubElement(match, 'test', name='file', compare='eq')
-            SubElement(test, 'string').text = str(font_path)
+            SubElement(test, 'string').text = font_path.as_posix()
             # Prepend, as replacing the font family breaks Pango, see #2510.
             edit = SubElement(match, 'edit', name='family', mode='prepend')
             SubElement(edit, 'string').text = rule_descriptors['font_family']
@@ -214,7 +213,7 @@ class FontConfiguration:
                 SubElement(edit, 'const').text = text
             match = SubElement(root, 'match', target='font')
             test = SubElement(match, 'test', name='file', compare='eq')
-            SubElement(test, 'string').text = str(font_path)
+            SubElement(test, 'string').text = font_path.as_posix()
             descriptors = {
                 rules[0][0].replace('-', '_'): rules[0][1] for rules in
                 rule_descriptors.get('font_variant', [])}
@@ -242,7 +241,7 @@ class FontConfiguration:
             # too as explained in Behdad's blog entry.
             fontconfig.FcConfigParseAndLoadFromMemory(self._config, xml, True)
             font_added = fontconfig.FcConfigAppFontAddFile(
-                self._config, str(font_path).encode(PREFERRED_ENCODING))
+                self._config, font_path.as_posix().encode(PREFERRED_ENCODING))
             if font_added:
                 return pangoft2.pango_fc_font_map_config_changed(
                     ffi.cast('PangoFcFontMap *', self.font_map))
@@ -351,9 +350,9 @@ def get_font_description(style):
 
 def get_pango_font_hb_face(pango_font):
     """Get Harfbuzz face out of given Pango font."""
-    fc_font = ffi.cast('PangoFcFont *', pango_font)
-    fontmap = ffi.cast('PangoFcFontMap *', pango.pango_font_get_font_map(pango_font))
-    return pangoft2.pango_fc_font_map_get_hb_face(fontmap, fc_font)
+    hb_font = pango.pango_font_get_hb_font(pango_font)
+    hb_face = harfbuzz.hb_font_get_face(hb_font)
+    return ffi.gc(harfbuzz.hb_face_reference(hb_face), harfbuzz.hb_face_destroy)
 
 
 def get_hb_object_data(hb_object, ot_color=None, glyph=None):
@@ -367,6 +366,14 @@ def get_hb_object_data(hb_object, ot_color=None, glyph=None):
         hb_blob = harfbuzz.hb_ot_color_glyph_reference_png(hb_object, glyph)
     elif ot_color == 'svg':
         hb_blob = harfbuzz.hb_ot_color_glyph_reference_svg(hb_object, glyph)
+    elif ot_color == 'colr':
+        if not harfbuzz_vector:
+            return
+        paint = harfbuzz_vector.hb_vector_paint_create_or_fail(
+            harfbuzz_vector.HB_VECTOR_FORMAT_SVG)
+        harfbuzz_vector.hb_vector_paint_glyph(
+            paint, hb_object, glyph, harfbuzz.HB_VECTOR_EXTENTS_MODE_EXPAND)
+        hb_blob = harfbuzz_vector.hb_vector_paint_render(paint)
     else:
         hb_blob = harfbuzz.hb_face_reference_blob(hb_object)
     with ffi.new('unsigned int *') as length:

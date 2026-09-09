@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-pinpoint-sms-voice-v2
-Version: 1.43.84
-Summary: Type annotations for boto3 PinpointSMSVoiceV2 1.43.84 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.90
+Summary: Type annotations for boto3 PinpointSMSVoiceV2 1.43.90 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 PinpointSMSVoiceV2 1.43.84](https://pypi.org/project/boto3/) compatible
+[boto3 PinpointSMSVoiceV2 1.43.90](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.84' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.90' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `PinpointSMSVoiceV2` service.
 4. Use provided commands to install generated packages.
@@ -364,6 +364,7 @@ from mypy_boto3_pinpoint_sms_voice_v2.paginator import (
     DescribeSenderIdsPaginator,
     DescribeSpendLimitsPaginator,
     DescribeVerifiedDestinationNumbersPaginator,
+    ListAvailablePhoneNumbersPaginator,
     ListNotifyCountriesPaginator,
     ListPoolOriginationIdentitiesPaginator,
     ListProtectConfigurationRuleSetNumberOverridesPaginator,
@@ -438,6 +439,9 @@ describe_spend_limits_paginator: DescribeSpendLimitsPaginator = client.get_pagin
 )
 describe_verified_destination_numbers_paginator: DescribeVerifiedDestinationNumbersPaginator = (
     client.get_paginator("describe_verified_destination_numbers")
+)
+list_available_phone_numbers_paginator: ListAvailablePhoneNumbersPaginator = client.get_paginator(
+    "list_available_phone_numbers"
 )
 list_notify_countries_paginator: ListNotifyCountriesPaginator = client.get_paginator(
     "list_notify_countries"

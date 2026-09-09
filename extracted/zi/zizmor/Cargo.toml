@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/github-actions-expressions", "crates/github-actions-models", "crates/pre-commit-models", "crates/subfeature", "crates/tree-sitter-iter", "crates/yamlpatch", "crates/yamlpath", "crates/zizmor", "crates/zizmor-sarif"]
 
 [workspace.package]
-version = "1.30.0"
+version = "1.30.1"
 edition = "2024"
 rust-version = "1.97.0"
 readme = "README.md"
@@ -11,14 +11,14 @@ homepage = "https://docs.zizmor.sh"
 license = "MIT"
 
 [workspace.dependencies]
-github-actions-expressions = { path = "crates/github-actions-expressions", version = "1.30.0" }
-github-actions-models = { path = "crates/github-actions-models", version = "1.30.0" }
-pre-commit-models = { path = "crates/pre-commit-models", version = "1.30.0" }
-subfeature = { path = "crates/subfeature", version = "1.30.0" }
-tree-sitter-iter = { path = "crates/tree-sitter-iter", version = "1.30.0" }
-yamlpatch = { path = "crates/yamlpatch", version = "1.30.0" }
-yamlpath = { path = "crates/yamlpath", version = "1.30.0" }
-zizmor-sarif = { path = "crates/zizmor-sarif", version = "1.30.0" }
+github-actions-expressions = { path = "crates/github-actions-expressions", version = "1.30.1" }
+github-actions-models = { path = "crates/github-actions-models", version = "1.30.1" }
+pre-commit-models = { path = "crates/pre-commit-models", version = "1.30.1" }
+subfeature = { path = "crates/subfeature", version = "1.30.1" }
+tree-sitter-iter = { path = "crates/tree-sitter-iter", version = "1.30.1" }
+yamlpatch = { path = "crates/yamlpatch", version = "1.30.1" }
+yamlpath = { path = "crates/yamlpath", version = "1.30.1" }
+zizmor-sarif = { path = "crates/zizmor-sarif", version = "1.30.1" }
 
 annotate-snippets = "0.12.16"
 anstream = "1.0.0"
@@ -36,14 +36,14 @@ flate2 = "1.1.9"
 fst = "0.4.7"
 futures = "0.3"
 http = "1.4.1"
-http-cache-reqwest = { version = "1.0.0-alpha.7", default-features = false, features = ["manager-cacache", "manager-moka", "url-standard"] }
+http-cache-reqwest = { version = "1.0.0-alpha.7", default-features = false, features = ["manager-cacache", "manager-moka", "reqwest-middleware", "url-standard"] }
 human-panic = "2.0.8"
 ignore = "0.4.25"
 indexmap = { version = "2.13.1", features = ["serde"] }
 indicatif = "0.18"
 insta = "1.48.0"
 itertools = "0.15.0"
-jsonschema = { version = "0.49.1", default-features = false }
+jsonschema = { version = "0.51.0", default-features = false }
 line-index = "0.1.2"
 memchr = "2.8.0"
 owo-colors = "4.3.0"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reducto
-Version: 0.22.0
+Version: 0.24.0
 Summary: Alias package — installs the official reductoai SDK. Prefer `pip install reductoai`.
 Author-email: Reducto <dev-feedback@reductoai.com>
 Project-URL: Homepage, https://github.com/reductoai/reducto-python-sdk
@@ -18,7 +18,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: reductoai==0.22.0
+Requires-Dist: reductoai==0.24.0
 
 # reducto (PyPI alias)
 

@@ -11,6 +11,7 @@ from mistralai.extra.workflows.encoding.config import PayloadEncryptionMode
 from mistralai.extra.workflows.encoding.models import EncodedPayloadOptions
 from pydantic import TypeAdapter, ValidationError
 
+from mistralai.workflows.exceptions import ErrorCode
 from mistralai.workflows.protocol.v1.events import (
     JSON_PATCH_PAYLOAD_TYPE,
     JSONPatchPayload,
@@ -274,6 +275,42 @@ class EventPayloadEncoder:
         return decrypted
 
 
+def _strip_unserializable_payloads(event: WorkflowEvent) -> WorkflowEvent:
+    """Replace payload values that cannot be JSON-serialized with an error marker.
+
+    Payload values are typed ``Any`` and serialized by inference, so a value Pydantic
+    cannot infer a serializer for would otherwise take down whichever activity produced
+    it. The marker carries no user data, so it is safe to leave unencrypted.
+
+    Rebuilt with ``model_copy`` rather than the dump/validate round-trip used by
+    ``encode_event``: the dump is the thing that fails here.
+    """
+    attributes = event.attributes
+    if attributes is None:
+        return event
+
+    replacements: dict[str, Any] = {}
+    for field_name in type(attributes).model_fields:
+        payload = getattr(attributes, field_name, None)
+        if not isinstance(payload, (JSONPayload, JSONPatchPayload)):
+            continue
+        try:
+            payload.model_dump(mode="json")
+        except Exception as e:
+            logger.warning(
+                "Replacing unserializable event payload",
+                event_type=event.event_type,
+                field=field_name,
+                error=str(e),
+            )
+            replacements[field_name] = JSONPayload(value={"error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value})
+
+    if not replacements:
+        return event
+
+    return event.model_copy(update={"attributes": attributes.model_copy(update=replacements)})
+
+
 async def maybe_encode_event(
     event: WorkflowEvent,
     encoder: EventPayloadEncoder | None,
@@ -284,7 +321,15 @@ async def maybe_encode_event(
 
     Use this before batching to ensure size calculations account for
     the base64 overhead of encrypted payloads.
+
+    Never raises: a payload that cannot be serialized is replaced with an error marker
+    rather than failing the caller, so the event still reaches consumers and the
+    activity that produced it still completes.
     """
     if encoder is None:
         return event
-    return await encoder.encode_event(event)
+    try:
+        return await encoder.encode_event(event)
+    except Exception as e:
+        logger.warning("Failed to encode event", event_type=event.event_type, error=str(e))
+        return await encoder.encode_event(_strip_unserializable_payloads(event))

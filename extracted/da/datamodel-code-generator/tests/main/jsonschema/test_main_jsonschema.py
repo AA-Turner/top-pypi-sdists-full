@@ -48,6 +48,7 @@ from datamodel_code_generator.__main__ import Exit
 from datamodel_code_generator.format import Formatter, is_supported_in_black
 from datamodel_code_generator.model import base as model_base
 from datamodel_code_generator.model import get_data_model_types
+from datamodel_code_generator.model.base import TEMPLATE_DIR
 from datamodel_code_generator.model.msgspec import DataModelField as MsgspecDataModelField
 from datamodel_code_generator.model.pydantic_v2.version import (
     PYDANTIC_V2_DATACLASS_ALIAS_NEEDS_FALLBACK,
@@ -3708,6 +3709,95 @@ def test_main_generate_pydantic_v2_dataclass_field(output_file: Path) -> None:
         )
     finally:
         sys.modules.pop(module_name, None)
+
+
+def test_generate_pydantic_v2_dataclass_dict_default_api(output_file: Path) -> None:
+    """Generate dictionary factories through the public Python API."""
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "pydantic_v2_dataclass_dict_default.json",
+        output_path=output_file,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="pydantic_v2_dataclass_dict_default.py",
+        output_model_type=DataModelType.PydanticV2Dataclass,
+        disable_timestamp=True,
+        formatters=[Formatter.BUILTIN],
+    )
+
+
+@pytest.mark.parametrize(
+    ("extra_args", "module_name"),
+    [
+        pytest.param((), "generated_pydantic_v2_dataclass_dict_default", id="default"),
+        pytest.param(
+            ("--use-annotated", "--field-constraints"),
+            "generated_pydantic_v2_dataclass_dict_default_annotated",
+            id="annotated-field-constraints",
+        ),
+        pytest.param(
+            ("--use-type-alias",),
+            "generated_pydantic_v2_dataclass_dict_default_type_alias",
+            id="type-alias",
+        ),
+    ],
+)
+def test_main_generate_pydantic_v2_dataclass_dict_default(
+    output_file: Path,
+    extra_args: tuple[str, ...],
+    module_name: str,
+) -> None:
+    """Import dataclasses with empty and populated dictionary factories."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "pydantic_v2_dataclass_dict_default.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="pydantic_v2_dataclass_dict_default.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2Dataclass.value,
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *extra_args,
+        ],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, module_name, "Payload") as model:
+        first = model()
+        second = model()
+        for field_name, label in (
+            ("empty", "empty dict"),
+            ("nonempty", "populated dict"),
+            ("untyped", "untyped dict"),
+            ("tags", "type alias dict"),
+        ):
+            assert_mutable_copy_is_isolated(
+                original=getattr(second, field_name),
+                copied=getattr(first, field_name),
+                mutate_copied=lambda value: value.update(copied=True),
+                label=f"pydantic dataclass {label} default",
+            )
+
+
+def test_main_generate_pydantic_v2_dataclass_dict_default_edge_cases(output_file: Path) -> None:
+    """Keep ClassVar and required dictionary defaults free of Field imports."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "pydantic_v2_dataclass_dict_default_edge_cases.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="pydantic_v2_dataclass_dict_default_edge_cases.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2Dataclass.value,
+            "--field-include-all-keys",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
 
 
 def test_main_generate_pydantic_v2_dataclass_required_field_order(output_file: Path) -> None:
@@ -14798,6 +14888,261 @@ def test_generate_refreshes_custom_template_directory_between_calls(tmp_path: Pa
         )
 
 
+def test_generate_refreshes_mutable_custom_templates_between_calls(tmp_path: Path) -> None:
+    """Repeated API calls observe custom root, include, fallback, and added templates."""
+    output_path = tmp_path / "output.py"
+    custom_template_dir = tmp_path / "templates"
+    custom_template_path = custom_template_dir / "pydantic_v2" / "BaseModel.jinja2"
+    included_template_path = custom_template_path.with_name("body.jinja2")
+    custom_template_path.parent.mkdir(parents=True)
+    template_data_path = DATA_PATH / "templates_refresh_mutable"
+    shutil.copyfile(template_data_path / "root_include.jinja2", custom_template_path)
+    shutil.copyfile(template_data_path / "body_first.jinja2", included_template_path)
+    generate_kwargs = {
+        "custom_template_dir": custom_template_dir,
+        "disable_timestamp": True,
+        "formatters": [Formatter.BUILTIN],
+    }
+
+    for _ in range(2):
+        run_generate_file_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+            output_path=output_path,
+            input_file_type=InputFileType.JsonSchema,
+            assert_func=assert_file_content,
+            expected_file="custom_template_refresh/first.py",
+            **generate_kwargs,
+        )
+
+    shutil.copyfile(template_data_path / "body_second.jinja2", included_template_path)
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/second.py",
+        **generate_kwargs,
+    )
+
+    shutil.copyfile(template_data_path / "root_changed.jinja2", custom_template_path)
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/changed.py",
+        **generate_kwargs,
+    )
+
+    legacy_template_path = custom_template_path.parent.parent / "BaseModel.jinja2"
+    shutil.copyfile(template_data_path / "root_legacy.jinja2", legacy_template_path)
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/legacy.py",
+        **generate_kwargs,
+    )
+
+    legacy_template_path.unlink()
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/changed.py",
+        **generate_kwargs,
+    )
+
+    custom_template_path.unlink()
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/fallback.py",
+        **generate_kwargs,
+    )
+
+    shutil.copyfile(template_data_path / "root_added.jinja2", custom_template_path)
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/added.py",
+        **generate_kwargs,
+    )
+
+
+def test_generate_refreshes_legacy_pydantic_template_detection_between_calls(tmp_path: Path) -> None:
+    """Repeated API calls re-evaluate a custom Pydantic template in both directions."""
+    custom_template_dir = tmp_path / "templates"
+    custom_template_path = custom_template_dir / "pydantic_v2" / "BaseModel.jinja2"
+    custom_template_path.parent.mkdir(parents=True)
+    output_path = tmp_path / "output.py"
+    generate_kwargs = {
+        "custom_template_dir": custom_template_dir,
+        "disable_timestamp": True,
+        "formatters": [Formatter.BUILTIN],
+    }
+
+    template_sources = (
+        (TEMPLATE_DIR / "pydantic_v2" / "BaseModel.jinja2", False),
+        (
+            DATA_PATH / "templates_pydantic_extra_pre_3593" / "pydantic_v2" / "BaseModel.jinja2",
+            True,
+        ),
+        (TEMPLATE_DIR / "pydantic_v2" / "BaseModel.jinja2", False),
+    )
+    legacy_warning_fragment = "was rewritten automatically for Pydantic typed-extra compatibility"
+    compatibility_warning_fragment = "Legacy custom template"
+    for template_source, expects_legacy_warning in template_sources:
+        shutil.copyfile(template_source, custom_template_path)
+        with warnings.catch_warnings(record=True) as recorded_warnings:
+            warnings.simplefilter("always", UserWarning)
+            run_generate_file_and_assert(
+                input_path=JSON_SCHEMA_DATA_PATH / "additional_properties_schema_with_properties.json",
+                output_path=output_path,
+                input_file_type=InputFileType.JsonSchema,
+                assert_func=assert_file_content,
+                expected_file="custom_template_refresh/legacy_pydantic_extra.py",
+                output_model_type=DataModelType.PydanticV2BaseModel,
+                **generate_kwargs,
+            )
+        if expects_legacy_warning:
+            assert_warnings_contain(recorded_warnings, legacy_warning_fragment)
+        else:
+            assert_warnings_do_not_contain(recorded_warnings, compatibility_warning_fragment)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="directory symlink creation requires elevated privileges")
+def test_generate_refreshes_custom_template_directory_symlink(tmp_path: Path) -> None:
+    """Repeated API calls observe updates in a custom template directory symlink."""
+    template_data_path = DATA_PATH / "templates_refresh_mutable"
+    source_template_dir = tmp_path / "source" / "pydantic_v2"
+    source_template_dir.mkdir(parents=True)
+    (source_template_dir / "cycle").symlink_to(source_template_dir, target_is_directory=True)
+    (source_template_dir / "linked_template.jinja2").symlink_to(template_data_path / "root_first.jinja2")
+    os.mkfifo(source_template_dir / "non_template")
+    custom_template_dir = tmp_path / "templates"
+    custom_template_dir.mkdir()
+    (custom_template_dir / "pydantic_v2").symlink_to(source_template_dir, target_is_directory=True)
+    custom_template_path = source_template_dir / "BaseModel.jinja2"
+    output_path = tmp_path / "output.py"
+    generate_kwargs = {
+        "custom_template_dir": custom_template_dir,
+        "disable_timestamp": True,
+        "formatters": [Formatter.BUILTIN],
+    }
+
+    shutil.copyfile(template_data_path / "root_first.jinja2", custom_template_path)
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/first.py",
+        **generate_kwargs,
+    )
+
+    shutil.copyfile(template_data_path / "root_second.jinja2", custom_template_path)
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/second.py",
+        **generate_kwargs,
+    )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="directory symlink creation requires elevated privileges")
+def test_generate_refreshes_retargeted_custom_template_directory_symlink(tmp_path: Path) -> None:
+    """A custom template directory alias reloads after its target changes."""
+    custom_template_dir = tmp_path / "templates"
+    custom_template_dir.mkdir()
+    target_directories = [custom_template_dir / f"a-target-{index:02}" for index in range(64)]
+    for target_directory in target_directories:
+        target_directory.mkdir()
+    template_data_path = DATA_PATH / "templates_refresh_mutable"
+    custom_template_alias = custom_template_dir / "pydantic_v2"
+    custom_template_alias.symlink_to(target_directories[0], target_is_directory=True)
+    root_directories = next(os.walk(custom_template_dir))[1]
+    alias_index = root_directories.index(custom_template_alias.name)
+    candidates = [
+        custom_template_dir / name
+        for name in (*root_directories[:alias_index], *root_directories[alias_index + 1 :])
+        if name.startswith("a-target-")
+    ]
+    first_target, second_target = candidates[:2]
+    shutil.copyfile(template_data_path / "root_first.jinja2", first_target / "BaseModel.jinja2")
+    shutil.copyfile(template_data_path / "root_second.jinja2", second_target / "BaseModel.jinja2")
+    custom_template_alias.unlink()
+    custom_template_alias.symlink_to(first_target, target_is_directory=True)
+    output_path = tmp_path / "output.py"
+    generate_kwargs = {
+        "custom_template_dir": custom_template_dir,
+        "disable_timestamp": True,
+        "formatters": [Formatter.BUILTIN],
+    }
+
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/first.py",
+        **generate_kwargs,
+    )
+
+    custom_template_alias.unlink()
+    custom_template_alias.symlink_to(second_target, target_is_directory=True)
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/second.py",
+        **generate_kwargs,
+    )
+
+
+def test_main_refreshes_modified_custom_template_between_calls(tmp_path: Path) -> None:
+    """Repeated main() calls reload an updated custom root template."""
+    custom_template_dir = tmp_path / "templates"
+    custom_template_path = custom_template_dir / "pydantic_v2" / "BaseModel.jinja2"
+    custom_template_path.parent.mkdir(parents=True)
+    output_path = tmp_path / "output.py"
+    extra_args = [
+        "--custom-template-dir",
+        str(custom_template_dir),
+        "--disable-timestamp",
+    ]
+    template_data_path = DATA_PATH / "templates_refresh_mutable"
+
+    shutil.copyfile(template_data_path / "root_first.jinja2", custom_template_path)
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/first.py",
+        extra_args=extra_args,
+    )
+
+    shutil.copyfile(template_data_path / "root_second.jinja2", custom_template_path)
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_template_refresh.json",
+        output_path=output_path,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="custom_template_refresh/second.py",
+        extra_args=extra_args,
+    )
+
+
 @pytest.mark.parametrize(
     ("output_model", "expected_output"),
     [
@@ -18422,6 +18767,26 @@ def test_main_jsonschema_enum_member_special_defaults(output_file: Path) -> None
         assert_func=assert_file_content,
         expected_file="enum_member_special_defaults.py",
         importable_module_name="generated_enum_member_special_defaults",
+    )
+
+
+@pytest.mark.parametrize(
+    "deserialize_args",
+    [
+        pytest.param(["--deserialize-default-values", "enum"], id="generic-option"),
+        pytest.param(["--set-default-enum-member"], id="legacy-option"),
+    ],
+)
+def test_main_jsonschema_enum_list_defaults(deserialize_args: list[str], output_file: Path) -> None:
+    """Preserve unmatched enum-list defaults while converting every matching enum branch."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "enum_list_defaults.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", *deserialize_args],
+        assert_func=assert_file_content,
+        expected_file="enum_list_defaults.py",
+        importable_module_name="generated_enum_list_defaults",
     )
 
 

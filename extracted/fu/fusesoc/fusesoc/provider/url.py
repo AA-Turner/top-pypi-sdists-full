@@ -7,16 +7,11 @@ import os.path
 import shutil
 import sys
 import tarfile
+import urllib.request as urllib
 import zipfile
+from urllib.error import HTTPError, URLError
 
-if sys.version_info[0] >= 3:
-    import urllib.request as urllib
-    from urllib.error import HTTPError, URLError
-else:
-    import urllib
-    from urllib2 import URLError
-    from urllib2 import HTTPError
-
+from fusesoc.library import Library
 from fusesoc.provider.provider import Provider
 
 logger = logging.getLogger(__name__)
@@ -26,7 +21,7 @@ _HAS_TAR_FILTER = hasattr(tarfile, "tar_filter")  # Requires Python 3.12
 
 class Url(Provider):
     @staticmethod
-    def init_library(library):
+    def init_library(library: Library) -> None:
         try:
             logger.info(f"Downloading library from {library.sync_uri}...")
             Url._download(library.sync_uri, library.location, "zip")
@@ -35,7 +30,7 @@ class Url(Provider):
             raise RuntimeError(str(e))
 
     @staticmethod
-    def update_library(library):
+    def update_library(library: Library) -> None:
         try:
             Url._download(library.sync_uri, library.location, "zip")
         except Exception as e:
@@ -49,7 +44,7 @@ class Url(Provider):
         if not self.config.get("verify_cert", True):
             import ssl
 
-            ssl._create_default_https_context = ssl._create_unverified_context
+            ssl._create_default_https_context = ssl._create_unverified_context  # type: ignore[assignment, ty:invalid-assignment]
 
         Url._download(url, local_dir, filetype, user_agent)
 
@@ -66,10 +61,10 @@ class Url(Provider):
 
         if filetype == "tar":
             t = tarfile.open(filename)
-            extraction_arguments = {"path": local_dir}
             if _HAS_TAR_FILTER:
-                extraction_arguments["filter"] = "data"
-            t.extractall(**extraction_arguments)
+                t.extractall(path=local_dir, filter="data")
+            else:
+                t.extractall(path=local_dir)
         elif filetype == "zip":
             with zipfile.ZipFile(filename, "r") as z:
                 z.extractall(local_dir)

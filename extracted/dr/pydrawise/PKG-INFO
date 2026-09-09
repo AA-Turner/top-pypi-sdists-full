@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydrawise
-Version: 2026.8.0
+Version: 2026.9.0
 Summary: Python API for interacting with Hydrawise sprinkler controllers.
 Author-email: David Knowles <dknowles2@gmail.com>
 License: Apache-2.0
@@ -25,7 +25,7 @@ Requires-Dist: requests
 Provides-Extra: docs
 Requires-Dist: mkdocs==1.6.1; extra == "docs"
 Requires-Dist: mkdocstrings==1.0.6; extra == "docs"
-Requires-Dist: mkdocstrings-python==2.0.7; extra == "docs"
+Requires-Dist: mkdocstrings-python==2.0.8; extra == "docs"
 Dynamic: license-file
 
 # Pydrawise

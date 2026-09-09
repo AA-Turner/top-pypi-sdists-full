@@ -91,3 +91,8 @@ disable = [
 [tool.bandit]
 targets = ["petl", "examples"]
 skips = ["B101"]
+
+[tool.esbonio.sphinx]
+buildCommand = ["sphinx-build", "--builder", "dirhtml", "docs", "docs/_build/html"]
+# cwd = "${scopeFsPath}/docs"
+# pythonCommand = ["${scopeFsPath}/.venv/bin/python"]

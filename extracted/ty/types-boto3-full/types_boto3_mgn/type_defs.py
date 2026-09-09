@@ -479,6 +479,8 @@ class LaunchTemplateDiskConfTypeDef(TypedDict):
     volumeType: NotRequired[VolumeTypeType]
     iops: NotRequired[int]
     throughput: NotRequired[int]
+    volumeInitializationRate: NotRequired[int]
+    deleteOnTermination: NotRequired[bool]
 
 
 class LicensingTypeDef(TypedDict):

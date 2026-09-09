@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+import cerebras.cloud.sdk as cerebras_sdk
 from cerebras.cloud.sdk import AsyncCerebras
 from matrx_connect.context.events import InfoPayload
 from matrx_utils import vcprint
@@ -43,7 +44,7 @@ class CerebrasChat:
         "CEREBRAS_API_KEY",
         factory=lambda api_key: AsyncCerebras(
             api_key=api_key,
-            http_client=make_capture_http_client(),
+            http_client=make_capture_http_client(sdk=cerebras_sdk),
             warm_tcp_connection=False,
         ),
     )

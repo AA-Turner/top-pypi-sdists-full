@@ -4,10 +4,10 @@
 
 [project]
 name = "types-aiobotocore"
-version = "3.9.0"
+version = "3.9.1"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for aiobotocore 3.9.0 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for aiobotocore 3.9.1 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -68,13 +68,16 @@ full = [
     "types-aiobotocore-full>=3.9.0, <3.10.0",
 ]
 aiobotocore = [
-    "aiobotocore==3.9.0",
+    "aiobotocore==3.9.1",
 ]
 all = [
     "types-aiobotocore-accessanalyzer>=3.9.0, <3.10.0",
     "types-aiobotocore-account>=3.9.0, <3.10.0",
+    "types-aiobotocore-account-access>=3.9.0, <3.10.0",
     "types-aiobotocore-acm>=3.9.0, <3.10.0",
     "types-aiobotocore-acm-pca>=3.9.0, <3.10.0",
+    "types-aiobotocore-agent-registry>=3.9.0, <3.10.0",
+    "types-aiobotocore-agent-registry-control>=3.9.0, <3.10.0",
     "types-aiobotocore-aiops>=3.9.0, <3.10.0",
     "types-aiobotocore-amp>=3.9.0, <3.10.0",
     "types-aiobotocore-amplify>=3.9.0, <3.10.0",
@@ -379,6 +382,7 @@ all = [
     "types-aiobotocore-pipes>=3.9.0, <3.10.0",
     "types-aiobotocore-polly>=3.9.0, <3.10.0",
     "types-aiobotocore-pricing>=3.9.0, <3.10.0",
+    "types-aiobotocore-pricing-plan-manager>=3.9.0, <3.10.0",
     "types-aiobotocore-proton>=3.9.0, <3.10.0",
     "types-aiobotocore-qapps>=3.9.0, <3.10.0",
     "types-aiobotocore-qbusiness>=3.9.0, <3.10.0",
@@ -512,11 +516,20 @@ accessanalyzer = [
 account = [
     "types-aiobotocore-account>=3.9.0, <3.10.0",
 ]
+account-access = [
+    "types-aiobotocore-account-access>=3.9.0, <3.10.0",
+]
 acm = [
     "types-aiobotocore-acm>=3.9.0, <3.10.0",
 ]
 acm-pca = [
     "types-aiobotocore-acm-pca>=3.9.0, <3.10.0",
+]
+agent-registry = [
+    "types-aiobotocore-agent-registry>=3.9.0, <3.10.0",
+]
+agent-registry-control = [
+    "types-aiobotocore-agent-registry-control>=3.9.0, <3.10.0",
 ]
 aiops = [
     "types-aiobotocore-aiops>=3.9.0, <3.10.0",
@@ -1429,6 +1442,9 @@ polly = [
 ]
 pricing = [
     "types-aiobotocore-pricing>=3.9.0, <3.10.0",
+]
+pricing-plan-manager = [
+    "types-aiobotocore-pricing-plan-manager>=3.9.0, <3.10.0",
 ]
 proton = [
     "types-aiobotocore-proton>=3.9.0, <3.10.0",

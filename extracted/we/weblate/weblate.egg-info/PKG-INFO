@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate
-Version: 2026.9
+Version: 2026.9.1
 Summary: A web-based continuous localization system with tight version control integration
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -48,27 +48,27 @@ Requires-Dist: cryptography==50.0.1
 Requires-Dist: cssselect==1.5.0
 Requires-Dist: cyrtranslit==1.2.0
 Requires-Dist: cysignals==1.12.6
-Requires-Dist: dateparser==1.4.2
+Requires-Dist: dateparser==1.4.3
 Requires-Dist: diff-match-patch==20241021
-Requires-Dist: disposable-email-domains==0.0.248
+Requires-Dist: disposable-email-domains==0.0.250
 Requires-Dist: django-appconf==1.2.0
 Requires-Dist: django-celery-beat==2.9.0
 Requires-Dist: django-cors-headers==4.9.0
 Requires-Dist: django-crispy-forms==2.7
 Requires-Dist: django-filter[drf]==26.1
 Requires-Dist: django-otp-webauthn==0.10.3
-Requires-Dist: django-otp==1.7.1
+Requires-Dist: django-otp==1.7.3
 Requires-Dist: django-redis==7.0.0
 Requires-Dist: Django[argon2]==6.0.8
 Requires-Dist: djangorestframework-csv==3.0.2
-Requires-Dist: djangorestframework==3.18.0
+Requires-Dist: djangorestframework==3.18.1
 Requires-Dist: docutils==0.21.2
 Requires-Dist: drf-spectacular[sidecar]==0.30.0
 Requires-Dist: drf-standardized-errors[openapi]==0.16.0
 Requires-Dist: fedora-messaging==3.9.1
 Requires-Dist: filelock==3.32.5
 Requires-Dist: fluent.syntax==0.19.0
-Requires-Dist: GitPython==3.1.61
+Requires-Dist: GitPython==3.1.62
 Requires-Dist: hiredis==3.4.1
 Requires-Dist: html2text==2025.4.15
 Requires-Dist: httpx2[brotli,socks,zstd]==2.12.0
@@ -120,12 +120,12 @@ Requires-Dist: user-agents==2.2.0
 Requires-Dist: webauthn==3.0.0
 Requires-Dist: weblate-fonts==2026.1
 Requires-Dist: weblate-language-data==2026.10
-Requires-Dist: weblate-schemas==2026.7
+Requires-Dist: weblate-schemas==2026.8
 Provides-Extra: all
 Requires-Dist: weblate[amazon,gelf,gerrit,google,google-errors,ldap,mercurial,postgres,rollbar,sphinx,zxcvbn]; extra == "all"
 Provides-Extra: amazon
-Requires-Dist: boto3==1.43.87; extra == "amazon"
-Requires-Dist: django-ses==4.7.2; extra == "amazon"
+Requires-Dist: boto3==1.43.89; extra == "amazon"
+Requires-Dist: django-ses==4.8.0; extra == "amazon"
 Provides-Extra: asgi
 Requires-Dist: granian==2.8.2; extra == "asgi"
 Provides-Extra: gelf

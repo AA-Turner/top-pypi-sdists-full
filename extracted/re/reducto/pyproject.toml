@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reducto"
-version = "0.22.0"
+version = "0.24.0"
 description = "Alias package — installs the official reductoai SDK. Prefer `pip install reductoai`."
 readme = "README.md"
 authors = [
   { name = "Reducto", email = "dev-feedback@reductoai.com" },
 ]
 requires-python = ">= 3.9"
-dependencies = ["reductoai==0.22.0"]
+dependencies = ["reductoai==0.24.0"]
 classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: Apache Software License",

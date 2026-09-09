@@ -26,24 +26,33 @@ Design contract
    asyncio Task sees its own value. Parallel agents and child sub-agents
    cannot leak per-call metadata into each other's HTTP traffic.
 
+5. **The SDK chooses the httpx flavor, not us.** Provider SDKs vendor
+   their own HTTP layer and REJECT a client built on a different one
+   (``anthropic`` 1.x raises ``TypeError: Invalid `http_client` argument;
+   `httpx.AsyncClient` is from the `httpx` package, but this SDK uses
+   `httpx2```). So callers pass ``sdk=<the SDK module>`` and the factory
+   resolves the AsyncClient class **from the SDK itself** — a future
+   vendoring change is followed automatically instead of breaking every
+   call.
+
 The hook is installed via ``make_capture_http_client()`` which returns a
-pre-configured ``httpx.AsyncClient`` that the provider SDKs accept via
-their ``http_client=`` constructor argument.
+pre-configured ``AsyncClient`` that the provider SDKs accept via their
+``http_client=`` constructor argument.
 """
 
 from __future__ import annotations
 
+import importlib
 import json
+import sys
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from matrx_utils import vcprint
-
 from matrx_connect.context.app_context import try_get_app_context
 from matrx_connect.context.events import ContextAnalysisPayload
-
+from matrx_utils import vcprint
 
 # ---------------------------------------------------------------------------
 # Auth-bearing headers to redact in the emitted event (NOT on the wire)
@@ -236,19 +245,109 @@ async def _outbound_request_hook(request: httpx.Request) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _httpx_flavor_of_class(cls: type) -> Any | None:
+    """Return the top-level httpx-like module a client class belongs to.
+
+    ``anthropic.DefaultAsyncHttpxClient`` subclasses ``httpx2.AsyncClient``;
+    ``openai.DefaultAsyncHttpxClient`` subclasses ``httpx.AsyncClient``.
+    Walking the MRO and taking the first base whose root module exposes
+    ``AsyncClient`` gives us the flavor without hardcoding a name.
+    """
+    for base in cls.__mro__[1:]:
+        root_name = (base.__module__ or "").split(".")[0]
+        if not root_name:
+            continue
+        module = sys.modules.get(root_name)
+        if module is None:
+            try:
+                module = importlib.import_module(root_name)
+            except ImportError:
+                continue
+        if hasattr(module, "AsyncClient"):
+            return module
+    return None
+
+
+def resolve_sdk_httpx(sdk: Any) -> Any:
+    """Return the httpx-compatible module the given provider SDK is built on.
+
+    ``sdk`` may be the SDK module itself or its importable name. Resolution
+    order — each step asks the SDK, never a hardcoded table:
+
+    1. The SDK's own ``DefaultAsyncHttpxClient`` (every openai-style SDK
+       exports one); its base class names the flavor.
+    2. The ``httpx`` symbol its ``_base_client`` module imported.
+    3. Plain ``httpx`` — the historical default.
+
+    NOTHING SILENT: an unresolvable SDK falls back to ``httpx`` and says so,
+    because the SDK will then raise its own explicit TypeError if that is
+    the wrong flavor (which is exactly the loud failure we want).
+    """
+    if sdk is None:
+        return httpx
+
+    module = sdk
+    if isinstance(sdk, str):
+        try:
+            module = importlib.import_module(sdk)
+        except ImportError as exc:
+            vcprint(
+                f"[ContextAnalysis] could not import SDK {sdk!r} to resolve its "
+                f"httpx flavor ({exc}); falling back to `httpx`. If the SDK "
+                f"vendors another flavor its constructor will reject the client "
+                f"loudly — pass the imported module instead of a name.",
+                color="yellow",
+            )
+            return httpx
+
+    for attr in ("DefaultAsyncHttpxClient", "DefaultHttpxClient"):
+        cls = getattr(module, attr, None)
+        if isinstance(cls, type):
+            flavor = _httpx_flavor_of_class(cls)
+            if flavor is not None:
+                return flavor
+
+    base_client_name = f"{getattr(module, '__name__', '')}._base_client"
+    base_client = sys.modules.get(base_client_name)
+    if base_client is None:
+        try:
+            base_client = importlib.import_module(base_client_name)
+        except ImportError:
+            base_client = None
+    if base_client is not None:
+        for candidate_attr in ("httpx", "httpx2"):
+            candidate = getattr(base_client, candidate_attr, None)
+            if candidate is not None and hasattr(candidate, "AsyncClient"):
+                return candidate
+
+    return httpx
+
+
 def make_capture_http_client(
     *,
+    sdk: Any = None,
     timeout: float | httpx.Timeout = 600.0,
     **kwargs: Any,
-) -> httpx.AsyncClient:
-    """Construct an ``httpx.AsyncClient`` with the CONTEXT_ANALYSIS request
-    hook installed.
+) -> Any:
+    """Construct an ``AsyncClient`` with the CONTEXT_ANALYSIS request hook
+    installed, **built on the httpx flavor the target SDK itself uses**.
 
     Provider SDKs (OpenAI, Anthropic, Groq, xAI, Cerebras, Together,
     GenericOpenAI) accept this via their ``http_client=`` constructor
     argument and will route every outbound request through it. Any
-    additional ``httpx.AsyncClient`` kwargs (proxies, transport overrides,
-    etc.) are forwarded.
+    additional ``AsyncClient`` kwargs (proxies, transport overrides, etc.)
+    are forwarded.
+
+    Pass ``sdk=<the SDK module>`` whenever the client is handed to an SDK
+    constructor. SDKs vendor their HTTP layer independently — ``anthropic``
+    1.x is built on ``httpx2`` and rejects an ``httpx.AsyncClient`` with a
+    ``TypeError`` — so the flavor must come from the SDK, never from this
+    module's own import. Omitting ``sdk`` (raw call sites that use the
+    client directly, e.g. the xAI TTS POST) keeps plain ``httpx``.
+
+    The capture behaviour is identical on every flavor: the same request
+    event-hook, the same timeout default, the same forwarded kwargs. Only
+    the ``AsyncClient`` class changes.
     """
     existing_hooks = kwargs.pop("event_hooks", {}) or {}
     request_hooks = list(existing_hooks.get("request", []))
@@ -256,7 +355,9 @@ def make_capture_http_client(
         request_hooks.append(_outbound_request_hook)
     response_hooks = list(existing_hooks.get("response", []))
 
-    return httpx.AsyncClient(
+    client_cls = resolve_sdk_httpx(sdk).AsyncClient
+
+    return client_cls(
         timeout=timeout,
         event_hooks={"request": request_hooks, "response": response_hooks},
         **kwargs,

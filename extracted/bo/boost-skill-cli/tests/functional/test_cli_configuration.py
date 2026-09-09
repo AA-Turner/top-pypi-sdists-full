@@ -121,6 +121,18 @@ class TestConfig:
         assert "telemetry not set" in r.out
         assert not paths.config_path().exists()
 
+    def test_stray_positionals_are_usage_errors(self, boost, sandbox):
+        # `config list KEY`, `config get KEY VALUE` and `config unset KEY VALUE`
+        # used to silently ignore the extra word — the sharpest case being
+        # `config get ai.enabled false`, a typo for `set`, reading as a
+        # confirmed set with exit 0.
+        r = boost("config", "list", "extra", expect=2)
+        assert "config list takes no KEY/VALUE" in r.err
+        r = boost("config", "get", "ai.enabled", "false", expect=2)
+        assert "config get takes no VALUE" in r.err
+        r = boost("config", "unset", "ai.enabled", "false", expect=2)
+        assert "config unset takes no VALUE" in r.err
+
 
 # ---------------------------------------------------------------- clean
 
@@ -267,9 +279,45 @@ class TestCreate:
 
     def test_description_and_slug(self, boost, sandbox, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        boost("create", "My Fancy Skill", "--description", "Does a thing")
+        r = boost("create", "My Fancy Skill", "--description", "Does a thing")
         text = (tmp_path / "my-fancy-skill" / "SKILL.md").read_text(encoding="utf-8")
         assert frontmatter.parse(text)[0]["description"] == "Does a thing"
+        # The slugging is no longer silent: the typed name and its slug both
+        # show up somewhere in the output.
+        assert "My Fancy Skill" in r.out
+        assert "my-fancy-skill" in r.out
+
+    def test_refuses_a_name_with_no_letters_or_digits(self, boost, sandbox,
+                                                       tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r = boost("create", "!!!", expect=1)
+        assert "name has no letters or digits" in r.err
+        assert not (tmp_path / "skill").exists()
+
+    def test_multiline_description_round_trips(self, boost, sandbox, tmp_path,
+                                                monkeypatch):
+        # Bug: `create multi-desc --description $'first line\nsecond line'`
+        # wrote an unquoted "description: first line" line followed by a
+        # bare "second line" inside the frontmatter fences — invalid YAML
+        # that boost's own parser then read back as just "first line".
+        monkeypatch.chdir(tmp_path)
+        boost("create", "multi-desc", "--description", "first line\nsecond line")
+        text = (tmp_path / "multi-desc" / "SKILL.md").read_text(encoding="utf-8")
+        meta, _ = frontmatter.parse(text)
+        assert meta["description"] == "first line\nsecond line"
+
+    def test_description_with_colon_and_quotes_round_trips(self, boost, sandbox,
+                                                            tmp_path, monkeypatch):
+        # Bug: a quoted, escaped description came back from boost's own
+        # reader with the backslashes still in it (`\"quotes\"` rather than
+        # `"quotes"`), because `_scalar` stripped the outer quotes without
+        # unescaping the inside.
+        monkeypatch.chdir(tmp_path)
+        desc = 'has: colon and "quotes" and #hash'
+        boost("create", "quote-desc", "--description", desc)
+        text = (tmp_path / "quote-desc" / "SKILL.md").read_text(encoding="utf-8")
+        meta, _ = frontmatter.parse(text)
+        assert meta["description"] == desc
 
     def test_install_flag(self, boost, sandbox, tmp_path):
         r = boost("create", "inst-skill", "--dir", tmp_path, "--install")
@@ -340,14 +388,16 @@ class TestPolicy:
         r = boost("policy", "check", "--json")
         assert json.loads(r.out) == {
             "skills": 1, "counts": {"skill": 1, "rule": 0, "workflow": 0},
-            "total": 1, "violations": [], "pin_only": False, "unpinned": []}
+            "total": 1, "violations": [], "pin_only": False, "unpinned": [],
+            "enforce": True, "not_checked": []}
         boost("policy", "set", "blocked_skills", "brainstorming")
         r = boost("policy", "check", expect=1)
         assert "on the blocklist" in r.out
         assert "1 policy violation(s) across 1 installed item(s)" in r.err
         r = boost("policy", "check", "--json", expect=1)
         assert json.loads(r.out)["violations"] == [
-            {"skill": "brainstorming", "violation": "on the blocklist"}]
+            {"name": "brainstorming", "kind": "skill",
+             "skill": "brainstorming", "violation": "on the blocklist"}]
 
     def test_check_min_quality_and_pin_only_note(self, boost, installed):
         from boost_cli.core import store
@@ -355,9 +405,70 @@ class TestPolicy:
         boost("policy", "set", "min_quality_score", "101")
         boost("policy", "set", "pin_only", "true")
         r = boost("policy", "check", expect=1)
-        assert "pin-only mode is on — installs/updates are frozen" in r.out
+        assert "pin-only mode is on — new installs and skill updates are frozen" in r.out
         assert "1 unpinned item(s): brainstorming" in r.out
         assert "quality score %d < required 101" % score in r.out
+
+    def test_check_catches_what_install_would_have_blocked(self, boost, installed):
+        """The coverage gap the audit found: require_version, max_skills and
+        denied_capabilities all passed silently under `policy check` even
+        though `install` enforces every one of them
+        (docs/roadmap/items/audit-policy-findings.md)."""
+        boost("policy", "set", "require_version", "true")
+        boost("policy", "set", "max_skills", "0")
+        boost("policy", "set", "denied_capabilities", "network")
+        r = boost("policy", "check", expect=1)
+        assert "max_skills limit (0) exceeded (1 installed)" in r.out
+        r = boost("policy", "check", "--json", expect=1)
+        violations = {v["violation"] for v in json.loads(r.out)["violations"]}
+        assert "max_skills limit (0) exceeded (1 installed)" in violations
+
+    def test_check_flags_missing_description(self, boost, installed):
+        boost("policy", "set", "require_description", "true")
+        r = boost("policy", "check")  # brainstorming's fixture has one
+        assert "policy check passed" in r.out
+        from boost_cli.core import store
+        (store.skill_store_dir("brainstorming") / "SKILL.md").write_text(
+            "---\nname: brainstorming\nversion: 1.4.0\n---\nbody",
+            encoding="utf-8")
+        r = boost("policy", "check", expect=1)
+        assert "skill has no description (required by policy)" in r.out
+
+    def test_check_not_checked_when_store_copy_missing(self, boost, installed):
+        from boost_cli.core import store
+        util.rmtree(store.skill_store_dir("brainstorming"))
+        boost("policy", "set", "require_description", "true")
+        r = boost("policy", "check")
+        assert "not checked: require_description/denied_capabilities " \
+               "(store copy unreadable)" in r.out
+        r = boost("policy", "check", "--json")
+        assert json.loads(r.out)["not_checked"] == [
+            "require_description/denied_capabilities (store copy unreadable)"]
+
+    def test_check_names_enforcement_being_off(self, boost, installed):
+        boost("policy", "set", "blocked_skills", "brainstorming")
+        boost("config", "set", "policy_enforce", "false")
+        r = boost("policy", "check", expect=1)
+        assert "policy_enforce is off" in r.out
+        assert "does not enforce" in r.out
+        # Still reports what WOULD be blocked, so the gap stays visible.
+        assert "on the blocklist" in r.out
+
+    def test_check_enforce_true_by_default_has_no_off_note(self, boost, installed):
+        r = boost("policy", "check")
+        assert "policy_enforce is off" not in r.out
+        assert json.loads(
+            boost("policy", "check", "--json").out)["enforce"] is True
+
+    def test_stray_positionals_are_usage_errors(self, boost, sandbox):
+        # `policy list KEY VALUE` and `policy check KEY` used to be silently
+        # accepted and ignored, same for a stray VALUE on `policy unset`.
+        r = boost("policy", "list", "extra", "positional", expect=2)
+        assert "policy list takes no KEY/VALUE" in r.err
+        r = boost("policy", "check", "extra", expect=2)
+        assert "policy check takes no KEY/VALUE" in r.err
+        r = boost("policy", "unset", "pin_only", "true", expect=2)
+        assert "policy unset takes no VALUE" in r.err
 
 
 # ---------------------------------------------------------------- onboard
@@ -390,6 +501,29 @@ class TestOnboard:
         lock = json.loads((repo / ".skill-lock.json").read_text(encoding="utf-8"))
         assert lock["version"] == 3 and "brainstorming" in lock["skills"]
         assert journal.events(action="onboard")
+
+    def test_committed_lock_has_no_absolute_home_paths(self, boost, installed,
+                                                        tmp_path):
+        # A rule/workflow's materialization path is absolute on this machine
+        # ($HOME/.claude/CLAUDE.md); onboard commits a lock snapshot into a
+        # shared repo, so the raw path — and the username inside it — must
+        # not leak into what --pr pushes to GitHub.
+        from boost_cli.core import lockfile
+        home = paths.home()
+        rule_path = home / ".cursor" / "rules" / "house.mdc"
+        lockfile.set_rule("house-style", {
+            "kind": "rule", "version": "1.0.0", "tap": "rule-tap",
+            "materializations": [
+                {"agent": "cursor", "mode": "file", "path": str(rule_path),
+                 "sha256": "abc"}]})
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        boost("onboard", "--repo", repo)
+        raw = (repo / ".skill-lock.json").read_text(encoding="utf-8")
+        assert str(home) not in raw
+        lock = json.loads(raw)
+        path = lock["rules"]["house-style"]["materializations"][0]["path"]
+        assert path == "~/.cursor/rules/house.mdc"
 
     def test_pr_without_gh_fails_before_writing(self, boost, sandbox, tmp_path,
                                                 monkeypatch):
@@ -687,6 +821,50 @@ class TestCompletions:
         assert "boost __complete" in r.out
 
 
+class TestCompletionsShellDetection:
+    """An empty or unsupported `$SHELL` used to fall back to bash with zero
+    warning — silent for a real-but-unsupported shell, and actively
+    misleading (an empty shell name) for an unset one. See
+    docs/roadmap/items/audit-completions-findings.md, cluster
+    completions-shell-detection.
+    """
+
+    def test_unset_shell_env_is_an_error_not_a_silent_bash_guess(
+            self, boost, sandbox, monkeypatch):
+        monkeypatch.delenv("SHELL", raising=False)
+        r = boost("completions", expect=1)
+        assert "SHELL" in r.err
+        assert "cannot detect your shell" in r.err
+
+    def test_unset_shell_env_errors_the_same_way_for_install(
+            self, boost, sandbox, monkeypatch):
+        # "Fixed once, at the detection site": the print path and the
+        # --install path must not diverge on this — --install used to reach
+        # `_rc_path("")` and print "no one-shot install for  yet" instead.
+        monkeypatch.delenv("SHELL", raising=False)
+        r = boost("completions", "--install", expect=1)
+        assert "cannot detect your shell" in r.err
+        assert "no one-shot install for  yet" not in r.err
+
+    def test_unsupported_real_shell_warns_before_the_bash_fallback(
+            self, boost, sandbox, monkeypatch):
+        monkeypatch.setenv("SHELL", "/usr/local/bin/nu")
+        r = boost("completions")
+        assert "nu" in r.err
+        assert "not a supported shell" in r.err
+        assert "_boost_complete" in r.out       # still gets the bash script
+        assert "not a supported shell" not in r.out    # never mixed into it
+
+    def test_unsupported_real_shell_still_names_it_on_the_install_path(
+            self, boost, sandbox, monkeypatch):
+        # `_rc_path`'s message is what the item says to preserve — an
+        # unsupported-but-real shell already names itself there, unlike the
+        # empty-string case above.
+        monkeypatch.setenv("SHELL", "/usr/local/bin/nu")
+        r = boost("completions", "--install", expect=1)
+        assert "no one-shot install for nu yet" in r.err
+
+
 class TestCompletionsInstall:
     """`boost completions --install` — the one-shot alternative to the
     copy-paste-into-your-rc-file instructions `INSTALL_HINT` used to be.
@@ -828,6 +1006,34 @@ class TestScheduleDarwin:
         r = boost("schedule", "disable")
         assert "no schedule was configured" in r.out
 
+    def test_status_missing_start_interval(self, boost, sandbox):
+        plist = sandbox / "Library" / "LaunchAgents" / "com.boost.sync.plist"
+        plist.parent.mkdir(parents=True, exist_ok=True)
+        plist.write_text(
+            "<?xml version=\"1.0\"?><plist><dict>"
+            "<key>Label</key><string>com.boost.sync</string>"
+            "</dict></plist>", encoding="utf-8")
+        r = boost("schedule", "status")
+        assert "unknown (plist has no usable StartInterval)" in r.out
+        assert "next run" in r.out and "unknown" in r.out
+        r = boost("schedule", "status", "--json")
+        data = json.loads(r.out)
+        assert data["interval"] is None
+        assert data["next_run"] is None
+
+    def test_status_zero_start_interval_does_not_hang(self, boost, sandbox):
+        # A StartInterval of 0 used to spin the next-run loop forever: it
+        # advanced `nxt` by zero seconds every pass and never caught up to
+        # `now`. This must return promptly instead.
+        plist = sandbox / "Library" / "LaunchAgents" / "com.boost.sync.plist"
+        plist.parent.mkdir(parents=True, exist_ok=True)
+        plist.write_text(
+            "<?xml version=\"1.0\"?><plist><dict>"
+            "<key>StartInterval</key><integer>0</integer>"
+            "</dict></plist>", encoding="utf-8")
+        r = boost("schedule", "status")
+        assert "unknown (plist has no usable StartInterval)" in r.out
+
 
 class TestScheduleCron:
     """Non-darwin branches, with sys.platform and crontab faked."""
@@ -847,6 +1053,14 @@ class TestScheduleCron:
                         "scheduled": True, "interval": "6h",
                         "next_run": data["next_run"]}
         assert data["next_run"]
+
+    def test_interval_outside_enable_is_a_usage_error(self, boost, sandbox):
+        # `schedule status --interval daily` used to silently accept and
+        # discard the flag it never reads.
+        r = boost("schedule", "status", "--interval", "daily", expect=2)
+        assert "--interval only applies to `schedule enable`" in r.err
+        r = boost("schedule", "disable", "--interval", "daily", expect=2)
+        assert "--interval only applies to `schedule enable`" in r.err
 
     def test_status_custom_spec(self, boost, sandbox, monkeypatch):
         line = "30 6 * * * /x/boost update # boost-sync"
@@ -1755,9 +1969,11 @@ class TestMcp:
                                                              sandbox,
                                                              monkeypatch):
         # naming a host you have not installed yet must still show its argv —
-        # `auto` is the mode that skips silently, not `--host <name>`.
+        # `auto` is the mode that skips silently, not `--host <name>`. And a
+        # script naming exactly one host cannot tell "it worked" from "that
+        # CLI is not installed here" unless the exit code says so.
         calls = self._fake_clis(monkeypatch, "claude")
-        r = boost("mcp", "register", "--host", "gemini")
+        r = boost("mcp", "register", "--host", "gemini", expect=1)
         assert calls == []
         assert "`gemini` CLI not found — run this yourself:" in r.out
         assert " ".join(self._gemini_add()) in r.out
@@ -1777,6 +1993,18 @@ class TestMcp:
         assert " ".join(self._gemini_add()) in r.out
         assert "`agy` CLI not found — run this yourself:" in r.out
         assert " ".join(self._agy_add()) in r.out
+
+    def test_host_all_with_nothing_installed_still_succeeds(
+            self, boost, sandbox, monkeypatch):
+        # Unlike a single named host, `all` exists specifically to preview
+        # every host's argv whether or not it is installed — the exit-1 fix
+        # for a named missing host must not spread to it.
+        calls = self._fake_clis(monkeypatch)           # no agent CLI at all
+        r = boost("mcp", "register", "--host", "all")
+        assert calls == []
+        assert "`claude` CLI not found — run this yourself:" in r.out
+        assert "`gemini` CLI not found — run this yourself:" in r.out
+        assert "`agy` CLI not found — run this yourself:" in r.out
 
     def test_unknown_host_rc1(self, boost, sandbox, monkeypatch):
         self._fake_clis(monkeypatch, "claude", "gemini")
@@ -1799,6 +2027,31 @@ class TestMcp:
         assert ("unregistered boost as an MCP server for Gemini CLI "
                 "(scope: user)") in r.out
         assert journal.events(action="mcp")[0]["subject"] == "unregister"
+
+    def test_unregister_when_nothing_was_registered_reports_it_and_succeeds(
+            self, boost, sandbox, monkeypatch):
+        # `gemini mcp remove --scope user boost` against nothing registered
+        # prints `Server "boost" not found in user settings.` on stderr and
+        # still exits 0 — mapping that rc-0 blindly to "ran" claimed success
+        # for a no-op. It must read the same as register's "already" path,
+        # worded for the direction it actually ran in.
+        self._clis_with_results(monkeypatch, {
+            "gemini": (0, 'Server "boost" not found in user settings.\n'),
+        })
+        r = boost("mcp", "unregister")
+        assert "Gemini CLI: not registered — nothing to do" in r.out
+        assert "unregistered boost as an MCP server" not in r.out
+        assert journal.events(action="mcp")[0]["hosts"] == "gemini"
+
+    def test_unregister_success_is_not_mistaken_for_not_registered(
+            self, boost, sandbox, monkeypatch):
+        # A real, successful removal must not accidentally trip the new
+        # not-registered detection.
+        self._clis_with_results(monkeypatch, {"gemini": (0, "")})
+        r = boost("mcp", "unregister")
+        assert ("unregistered boost as an MCP server for Gemini CLI "
+                "(scope: user)") in r.out
+        assert "not registered" not in r.out
 
     def test_register_names_server_before_env_flags(self, boost, sandbox,
                                                      monkeypatch):
@@ -1841,6 +2094,43 @@ class TestMcp:
         # the failing host names itself — not a generic "an agent CLI failed"
         r = boost("mcp", "register", "--host", "gemini", expect=1)
         assert "gemini mcp register failed — no auth" in r.out
+
+    def test_dry_run_prints_argv_and_install_status_without_acting(
+            self, boost, sandbox, monkeypatch):
+        # The one behaviour `--dry-run` exists for: the argv boost would run
+        # is visible even for a host whose CLI IS on PATH, not only for the
+        # one case that was already visible for free (the CLI missing
+        # entirely). Nothing may run and nothing may be tapped.
+        from boost_cli.core import bootstrap, registry
+        monkeypatch.delenv(bootstrap.NO_SEED_ENV, raising=False)
+        monkeypatch.setattr(registry, "add", lambda *a, **kw: pytest.fail(
+            "--dry-run tapped the catalog"))
+        calls = self._fake_clis(monkeypatch, "claude")
+        r = boost("mcp", "register", "--dry-run")
+        assert calls == []                             # nothing was run
+        assert ("Claude Code (installed): %s"
+                % " ".join(self._claude_add())) in r.out
+        assert ("Gemini CLI (not installed): %s"
+                % " ".join(self._gemini_add())) in r.out
+        assert "dry run — nothing was registered, nothing tapped" in r.out
+        assert "registered boost as an MCP server" not in r.out
+
+    def test_dry_run_scopes_to_the_named_host(self, boost, sandbox,
+                                              monkeypatch):
+        calls = self._fake_clis(monkeypatch, "claude")
+        r = boost("mcp", "register", "--host", "gemini", "--dry-run")
+        assert calls == []
+        assert "Gemini CLI (not installed):" in r.out
+        assert "Claude Code" not in r.out
+
+    def test_dry_run_for_unregister_shows_the_removal_argv(
+            self, boost, sandbox, monkeypatch):
+        calls = self._fake_clis(monkeypatch, "claude")
+        r = boost("mcp", "unregister", "--dry-run")
+        assert calls == []
+        assert ("Claude Code (installed): %s"
+                % " ".join(["claude", "mcp", "remove", "boost"])) in r.out
+        assert "dry run — nothing was unregistered, nothing tapped" in r.out
 
 
 # ---------------------------------------------------------------- self-update
@@ -2214,6 +2504,13 @@ class TestTypedValues:
             assert ("using the default; fix it with "
                     "`boost policy set max_skills <int-or-null>`") in r.out
 
+    def test_policy_set_and_unset_json(self, boost, sandbox):
+        r = boost("policy", "set", "pin_only", "no", "--json")
+        assert json.loads(r.out) == {"key": "pin_only", "value": False}
+        r = boost("policy", "unset", "pin_only", "--json")
+        assert json.loads(r.out) == {"key": "pin_only",
+                                     "value": policy.DEFAULTS["pin_only"]}
+
     def test_policy_json_output_stays_machine_readable(self, boost, sandbox):
         # The warning is chrome, so --json must not gain a line.
         paths.ensure_dirs()
@@ -2257,6 +2554,19 @@ class TestTypedValues:
         # integrations that already write their own.
         boost("config", "set", "custom.flag", "true")
         assert boost("config", "get", "custom.flag", "--json").out.strip() == "true"
+
+    def test_config_set_json(self, boost, sandbox):
+        r = boost("config", "set", "telemetry", "no", "--json")
+        assert json.loads(r.out) == {"key": "telemetry", "value": False}
+        r = boost("config", "set", "ai.enabled", "true", "--json")
+        assert json.loads(r.out) == {"key": "ai.enabled", "value": True}
+
+    def test_config_unset_json(self, boost, sandbox):
+        boost("config", "set", "telemetry", "no")
+        r = boost("config", "unset", "telemetry", "--json")
+        assert json.loads(r.out) == {"key": "telemetry", "unset": True}
+        r = boost("config", "unset", "telemetry", "--json")
+        assert json.loads(r.out) == {"key": "telemetry", "unset": False}
 
     def test_serve_help_survives_a_hand_edited_port(self, boost, sandbox):
         # `serve --help` used to die with a bare ValueError and exit 70,

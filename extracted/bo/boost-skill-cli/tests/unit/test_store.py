@@ -243,6 +243,42 @@ class TestInstall:
         assert ei.value.hint == "run `boost update fixture-tap`"
 
 
+class TestInstallVia:
+    """``via`` names the caller for the journal event, the same way a tap's
+    own journal entry already can (``registry.add``'s ``via=``). Threaded
+    through all four install dispatch paths (skill, project skill, rule,
+    workflow) so a one-click ``boost protocol open`` install can be told
+    apart from an ordinary ``boost install`` — before this, only taps could.
+    """
+
+    def test_default_omits_via(self, tap, entry):
+        store.install(entry)
+        ev = journal.events(action="install")[0]
+        assert "via" not in ev   # None-valued fields are dropped (journal.log)
+
+    def test_skill_install_records_via(self, tap, entry):
+        store.install(entry, via="protocol")
+        ev = journal.events(action="install")[0]
+        assert ev["via"] == "protocol"
+
+    def test_rule_install_records_via(self, tap):
+        store.install(_rule_entry(tap), via="protocol")
+        ev = journal.events(action="install")[0]
+        assert ev["via"] == "protocol"
+
+    def test_workflow_install_records_via(self, tap):
+        store.install(_workflow_entry(tap), via="protocol")
+        ev = journal.events(action="install")[0]
+        assert ev["via"] == "protocol"
+
+    def test_project_skill_install_records_via(self, entry, tmp_path):
+        repo = tmp_path / "proj"
+        (repo / ".git").mkdir(parents=True)
+        store.install(entry, scope="project", base=str(repo), via="protocol")
+        ev = journal.events(action="install")[0]
+        assert ev["via"] == "protocol"
+
+
 class TestSourceDirFor:
     """A tap `boost catalog --import` registered but never cloned.
 
@@ -302,6 +338,55 @@ class TestHasContent:
         paths.store_dir().mkdir(parents=True, exist_ok=True)
         (paths.store_dir() / ".tmp-scratch").mkdir()
         assert not store.has_content()
+
+
+class TestReadSkillMeta:
+    """store.read_skill_meta() — a skill's store-copy frontmatter/body, or
+    None when it cannot be read honestly.
+
+    Feeds `boost policy check`'s retrospective require_description and
+    denied_capabilities checks (docs/roadmap/items/audit-policy-findings.md):
+    those checks must never run on absent data, so every failure mode here
+    has to come back as None, not as an empty dict a caller could mistake
+    for "no description".
+    """
+
+    def test_installed_skill_reads_frontmatter_and_body(self, brainstorming):
+        result = store.read_skill_meta("brainstorming")
+        assert result is not None
+        meta, body = result
+        assert meta["description"].startswith("Structured ideation")
+        assert meta["version"] == "1.4.0"
+        assert "Diverge" in body
+
+    def test_missing_skill_returns_none(self, sandbox):
+        assert store.read_skill_meta("never-installed") is None
+
+    def test_store_dir_with_no_skill_md_returns_none(self, sandbox):
+        d = store.skill_store_dir("ghost")
+        d.mkdir(parents=True)
+        assert store.read_skill_meta("ghost") is None
+
+    def test_unclosed_frontmatter_fence_returns_none(self, sandbox):
+        d = store.skill_store_dir("broken")
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(
+            "---\nname: broken\ndescription: no closing fence\n",
+            encoding="utf-8")
+        assert store.read_skill_meta("broken") is None
+
+    def test_unreadable_skill_md_returns_none(self, sandbox):
+        d = store.skill_store_dir("locked")
+        d.mkdir(parents=True)
+        skill_md = d / "SKILL.md"
+        skill_md.write_text("---\nname: locked\n---\nbody", encoding="utf-8")
+        skill_md.chmod(0o000)
+        try:
+            if os.access(skill_md, os.R_OK):
+                pytest.skip("running as a user that ignores chmod 0o000")
+            assert store.read_skill_meta("locked") is None
+        finally:
+            skill_md.chmod(0o644)
 
 
 class TestUnlinkAgents:
@@ -1015,7 +1100,10 @@ class TestSyncApply:
         ghost = paths.home() / ".claude" / "skills" / "ghost"
         ghost.symlink_to(paths.store_dir() / "ghost")
         actions = store.sync_apply(store.sync_plan())
-        assert actions == ["removed stale link %s" % ghost]
+        # Tilde-contracted so this action string agrees with what `--diff`
+        # shows for the same path (`_tilde` in commands/pkg.py) — the raw
+        # absolute form used to make the two views disagree.
+        assert actions == ["removed stale link %s" % paths.tilde(ghost)]
         assert not ghost.is_symlink()
 
     def test_missing_store_reinstalled_from_tap(self, brainstorming):
@@ -1096,6 +1184,51 @@ class TestSyncApply:
 
     def test_nothing_to_do_no_actions(self, brainstorming):
         assert store.sync_apply(store.sync_plan()) == []
+
+    def _local_skill(self, tmp_path, name="local-skill", body="Body v1"):
+        src = tmp_path / name
+        src.mkdir()
+        (src / "SKILL.md").write_text(
+            "---\nname: %s\nversion: 1.0.0\n---\n\n%s\n" % (name, body),
+            encoding="utf-8")
+        return src
+
+    def test_missing_store_reinstalled_from_local_source(self, sandbox, tmp_path):
+        src = self._local_skill(tmp_path)
+        store.install_from_path(src)
+        shutil.rmtree(paths.store_dir() / "local-skill")
+        actions = store.sync_apply(store.sync_plan())
+        assert len(actions) == 5           # 4 stale links + reinstall
+        assert actions[-1] == "reinstalled missing local-skill from local source %s" % src
+        assert (paths.store_dir() / "local-skill" / "SKILL.md").is_file()
+        assert lockfile.get_skill("local-skill") is not None
+
+    def test_missing_store_local_source_gone_dropped_from_lock(self, sandbox, tmp_path):
+        src = self._local_skill(tmp_path)
+        store.install_from_path(src)
+        shutil.rmtree(paths.store_dir() / "local-skill")
+        shutil.rmtree(src)
+        actions = store.sync_apply(store.sync_plan())
+        assert ("dropped local-skill from lock (store dir missing, source gone)"
+                in actions)
+        assert lockfile.get_skill("local-skill") is None
+
+    def test_missing_store_local_source_pinned_and_changed_declined(
+            self, sandbox, tmp_path):
+        src = self._local_skill(tmp_path)
+        store.install_from_path(src)
+        lk = lockfile.get_skill("local-skill")
+        lk["pinned"] = True
+        lockfile.set_skill("local-skill", lk)
+        shutil.rmtree(paths.store_dir() / "local-skill")
+        (src / "SKILL.md").write_text(
+            "---\nname: local-skill\nversion: 2.0.0\n---\n\nBody v2\n",
+            encoding="utf-8")
+        actions = store.sync_apply(store.sync_plan())
+        assert any("is pinned and its local source has moved — repair declined"
+                  in a for a in actions)
+        assert not (paths.store_dir() / "local-skill").is_dir()
+        assert lockfile.get_skill("local-skill") is not None
 
 
 class TestCopySkillAtomic:
@@ -1283,6 +1416,49 @@ class TestRuleInstall:
         assert res.upgraded is True
         assert self._claude_md().read_text(encoding="utf-8").count("boost:rule:team-conventions start") == 1
 
+    def test_a_project_install_of_a_user_scoped_rule_is_refused(self, tap, tmp_path):
+        """A rule installed at user scope has nowhere else to be recorded
+        (rules share the one global lock, keyed by bare name) — so a project
+        install of the same name must be refused, accurately, rather than
+        raising the generic same-scope 'already installed'."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        entry = _rule_entry(tap)
+        store.install(entry)
+        with pytest.raises(BoostError, match="already installed at user scope"):
+            store.install(entry, scope="project", base=str(repo))
+        # Refused even with --force: overwriting would orphan the user-scope
+        # materializations with no lock entry left to uninstall them from.
+        with pytest.raises(BoostError, match="already installed at user scope"):
+            store.install(entry, scope="project", base=str(repo), force=True)
+        rec = lockfile.get_rule("team-conventions")
+        assert rec["scope"] == "user"          # untouched by the refused attempt
+
+    def test_a_user_install_of_a_project_scoped_rule_is_refused(self, tap, tmp_path):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        entry = _rule_entry(tap)
+        store.install(entry, scope="project", base=str(repo))
+        with pytest.raises(BoostError, match=r"already installed at project scope"):
+            store.install(entry, force=True)
+        rec = lockfile.get_rule("team-conventions")
+        assert rec["scope"] == "project"
+
+    def test_a_second_project_base_is_also_a_cross_location_conflict(self, tap, tmp_path):
+        """Rule/workflow lock entries are keyed by bare name only, with no
+        per-location table the way skills get a separate project lock — so
+        two different project bases collide on the same name exactly like a
+        user/project mismatch does, and must be refused the same way rather
+        than silently overwritten."""
+        repo1 = tmp_path / "repo1"
+        repo2 = tmp_path / "repo2"
+        repo1.mkdir()
+        repo2.mkdir()
+        entry = _rule_entry(tap)
+        store.install(entry, scope="project", base=str(repo1))
+        with pytest.raises(BoostError, match="already installed at project scope"):
+            store.install(entry, scope="project", base=str(repo2))
+
     def test_only_agents_limits_materialization(self, tap):
         res = store.install(_rule_entry(tap), only_agents=["cursor"])
         assert res.linked == ["cursor"]
@@ -1459,6 +1635,15 @@ class TestWorkflowInstall:
             store.install(entry)
         res = store.install(entry, force=True)
         assert res.upgraded is True
+
+    def test_a_project_install_of_a_user_scoped_workflow_is_refused(self, tap, tmp_path):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        entry = _workflow_entry(tap)
+        store.install(entry)
+        with pytest.raises(BoostError, match="already installed at user scope"):
+            store.install(entry, scope="project", base=str(repo), force=True)
+        assert lockfile.get_workflow("ship-it")["scope"] == "user"
 
     def test_only_agents_limits_drop(self, tap):
         res = store.install(_workflow_entry(tap), only_agents=["claude-code"])
@@ -1639,6 +1824,86 @@ class TestRestorePreserveNewerLockSections:
         catalog.rebuild_tap(tap)
         store.install(entry)
         return entry
+
+
+class TestCheckScopeConflict:
+    """Direct tests of the guard that keeps a rule/workflow install from
+    force-overwriting a lock entry that belongs to a different scope/base —
+    no tap or filesystem needed, since the function only reads plain dicts.
+    """
+
+    def test_no_existing_entry_never_raises(self):
+        store._check_scope_conflict("x", None, "user", None, force=False)
+        store._check_scope_conflict("x", None, "project", Path("/repo"), force=True)
+
+    def test_same_scope_no_force_raises_plain_already_installed(self):
+        with pytest.raises(BoostError) as ei:
+            store._check_scope_conflict(
+                "x", {"scope": "user", "base": None}, "user", None, force=False)
+        assert ei.value.message == "x is already installed"
+        assert ei.value.hint == "`boost reinstall x` to force"
+
+    def test_same_scope_with_force_does_not_raise(self):
+        store._check_scope_conflict(
+            "x", {"scope": "user", "base": None}, "user", None, force=True)
+
+    def test_same_project_base_with_force_does_not_raise(self):
+        # The literal is built through Path, not typed as "/repo", because
+        # that is how the value under test is produced: every writer of this
+        # field stores `str(resolved_base)` (store.py's three lock writes), so
+        # a POSIX-shaped literal compares against "\\repo" on Windows and the
+        # guard refuses a same-scope force that a real install never hits.
+        # Green on macOS and Linux, red on windows-latest only.
+        base = Path("/repo")
+        store._check_scope_conflict(
+            "x", {"scope": "project", "base": str(base)}, "project", base,
+            force=True)
+
+    def test_user_existing_vs_project_requested_raises_regardless_of_force(self):
+        existing = {"scope": "user", "base": None}
+        for force in (False, True):
+            with pytest.raises(BoostError, match="already installed at user scope"):
+                store._check_scope_conflict(
+                    "x", existing, "project", Path("/repo"), force=force)
+
+    def test_project_existing_vs_user_requested_raises_regardless_of_force(self):
+        existing = {"scope": "project", "base": "/repo"}
+        for force in (False, True):
+            with pytest.raises(BoostError, match="already installed at project scope"):
+                store._check_scope_conflict("x", existing, "user", None, force=force)
+
+    def test_different_project_bases_conflict(self):
+        existing = {"scope": "project", "base": "/repo1"}
+        with pytest.raises(BoostError, match=r"project scope \(/repo1\)"):
+            store._check_scope_conflict(
+                "x", existing, "project", Path("/repo2"), force=True)
+
+    def test_cross_scope_hint_points_at_uninstalling_the_other_location(self):
+        existing = {"scope": "user", "base": None}
+        with pytest.raises(BoostError) as ei:
+            store._check_scope_conflict("x", existing, "project", Path("/repo"), force=True)
+        assert "uninstall it there first" in (ei.value.hint or "")
+
+    def test_scope_defaults_to_user_when_entry_predates_the_field(self):
+        """A lock entry written before ``scope`` existed has no such key —
+        must read as user scope, not crash or silently mismatch forever."""
+        existing = {"base": None}    # no "scope" key at all
+        store._check_scope_conflict("x", existing, "user", None, force=True)
+
+
+class TestLockLocation:
+    def test_user_scope(self):
+        assert store._lock_location({"scope": "user"}) == "user scope"
+
+    def test_project_scope_with_base(self):
+        assert store._lock_location(
+            {"scope": "project", "base": "/repo"}) == "project scope (/repo)"
+
+    def test_project_scope_without_base_still_says_project(self):
+        assert store._lock_location({"scope": "project", "base": None}) == "project scope"
+
+    def test_missing_scope_key_defaults_to_user(self):
+        assert store._lock_location({}) == "user scope"
 
 
 class TestInstallScope:
@@ -2850,6 +3115,40 @@ class TestMaterializedGovernance:
             "rule", "team-conventions", lockfile.get_rule("team-conventions"))
         text = p.read_text(encoding="utf-8")
         assert "# my own notes" in text
+        assert "Always write tests first." in text
+
+    def test_release_restores_block_position_not_just_append(self, tap):
+        # Regression: a rule release used to hand the post-quarantine file to
+        # merge_block, which finds no block and unconditionally appends —
+        # reordering any user text that sat *after* the block back above it.
+        store.install(_rule_entry(tap))
+        p = self._claude_md()
+        original = p.read_text(encoding="utf-8")
+        p.write_text(original + "\n# my notes after the block\n",
+                     encoding="utf-8")
+        full_before = p.read_text(encoding="utf-8")
+        store.quarantine_materialized(
+            "rule", "team-conventions", lockfile.get_rule("team-conventions"))
+        store.release_materialized(
+            "rule", "team-conventions", lockfile.get_rule("team-conventions"))
+        assert p.read_text(encoding="utf-8") == full_before
+
+    def test_release_falls_back_to_append_when_surrounding_text_changed(
+            self, tap):
+        # If the surrounding text moved between quarantine and release (the
+        # user edited the file), reinserting at the stashed position would be
+        # guessing — merge_block's append is the honest fallback, same as
+        # before this fix.
+        store.install(_rule_entry(tap))
+        store.quarantine_materialized(
+            "rule", "team-conventions", lockfile.get_rule("team-conventions"))
+        p = self._claude_md()
+        base = p.read_text(encoding="utf-8") if p.exists() else ""
+        p.write_text(base + "\n# added after quarantine\n", encoding="utf-8")
+        store.release_materialized(
+            "rule", "team-conventions", lockfile.get_rule("team-conventions"))
+        text = p.read_text(encoding="utf-8")
+        assert "# added after quarantine" in text
         assert "Always write tests first." in text
 
     def test_workflow_quarantine_removes_files_and_release_restores(self, tap):

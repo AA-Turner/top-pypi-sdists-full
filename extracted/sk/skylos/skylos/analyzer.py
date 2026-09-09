@@ -1490,10 +1490,6 @@ class Skylos:
             return [], Path(os.path.abspath(raw_path)).parent.resolve()
         p = raw_path.resolve()
 
-        if p.is_file():
-            return [p], p.parent
-
-        root = p
         exts = {
             *PYTHON_SIGNATURE_SUFFIXES,
             ".go",
@@ -1506,6 +1502,13 @@ class Skylos:
             *(_KOTLIN_SOURCE_EXTS),
             *(_SHELL_SOURCE_EXTS),
         }
+        if p.is_file():
+            # Explicit paths need the same source filter as directory scans.
+            # Config files also have a worker adapter for the later repo checks.
+            supported = p.name.lower().endswith((*exts, *_SECRET_CONFIG_SUFFIXES))
+            return ([p] if supported else []), p.parent
+
+        root = p
         ext_list = [
             "py",
             "pyi",
@@ -1562,7 +1565,8 @@ class Skylos:
                 all_files = [
                     Path(f)
                     for f in rust_files
-                    if not should_exclude_path(Path(f), root, exclude_folders)
+                    if Path(f).suffix.lower() in exts
+                    and not should_exclude_path(Path(f), root, exclude_folders)
                 ]
             except Exception:
                 all_files = discover_source_files(
@@ -2071,6 +2075,20 @@ class Skylos:
                 )
         except Exception:
             self._dead_code_liveness_report = None
+            if os.getenv("SKYLOS_DEBUG"):
+                logger.error(traceback.format_exc())
+
+    def _apply_external_protocol_liveness(self, files):
+        report = getattr(self, "_dead_code_liveness_report", None)
+        if report is None:
+            return
+        try:
+            from skylos.deadcode.liveness import apply_external_protocol_liveness
+
+            apply_external_protocol_liveness(
+                self.defs, self._project_root, files, report
+            )
+        except Exception:
             if os.getenv("SKYLOS_DEBUG"):
                 logger.error(traceback.format_exc())
 
@@ -3015,7 +3033,7 @@ class Skylos:
         project_ignore = set(project_cfg.get("ignore", []))
 
         if not files:
-            logger.warning(f"No Python files found in {path}")
+            logger.warning(f"No supported source files found in {path}")
             no_source_scan_target, no_source_manifest_root = _no_source_danger_targets(
                 _first,
                 Path(root),
@@ -4728,6 +4746,9 @@ class Skylos:
         if progress_callback:
             progress_callback(0, 1, Path("PHASE: transitive dead code"))
         self._propagate_transitive_dead()
+        # Resolve library callbacks from surviving callers, so speculative
+        # callback cycles cannot become roots or consume ordinary references.
+        self._apply_external_protocol_liveness(files)
         self._suppress_standalone_orm_models()
 
         grep_verify_report = {

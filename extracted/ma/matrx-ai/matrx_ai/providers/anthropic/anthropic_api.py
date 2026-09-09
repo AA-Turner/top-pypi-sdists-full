@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+import anthropic as anthropic_sdk
 from anthropic import AsyncAnthropic
 from matrx_connect.chat_timing import chat_timing_mark
 from matrx_connect.context.events import CitationPayload, InfoPayload, WarningPayload
@@ -55,7 +56,7 @@ class AnthropicChat:
         "ANTHROPIC_API_KEY",
         factory=lambda api_key: AsyncAnthropic(
             api_key=api_key,
-            http_client=make_capture_http_client(),
+            http_client=make_capture_http_client(sdk=anthropic_sdk),
         ),
     )
 

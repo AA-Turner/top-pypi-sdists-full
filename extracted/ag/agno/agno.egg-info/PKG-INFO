@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.0.6
+Version: 3.0.9
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -243,6 +243,7 @@ Requires-Dist: pytest-mock==3.15.1; extra == "dev"
 Requires-Dist: timeout-decorator; extra == "dev"
 Requires-Dist: types-pyyaml; extra == "dev"
 Requires-Dist: types-aiofiles; extra == "dev"
+Requires-Dist: types-regex; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: python-multipart>=0.0.18; extra == "dev"
 Requires-Dist: uvicorn; extra == "dev"
@@ -473,6 +474,12 @@ Requires-Dist: asyncmy; extra == "mysql"
 Provides-Extra: postgres
 Requires-Dist: sqlalchemy; extra == "postgres"
 Requires-Dist: psycopg[binary]; extra == "postgres"
+Provides-Extra: pages
+Requires-Dist: agno[postgres]; extra == "pages"
+Requires-Dist: agno[pgvector]; extra == "pages"
+Requires-Dist: dnspython>=2.6.1; extra == "pages"
+Requires-Dist: beautifulsoup4; extra == "pages"
+Requires-Dist: regex>=2024.5.15; extra == "pages"
 Provides-Extra: redis
 Requires-Dist: redis>=4.5.4; extra == "redis"
 Requires-Dist: redisvl>=0.12.1; extra == "redis"
@@ -691,6 +698,7 @@ Requires-Dist: agno[pdf-ocr]; extra == "knowledge-full"
 Provides-Extra: embedders
 Requires-Dist: agno[huggingface]; extra == "embedders"
 Provides-Extra: tests
+Requires-Dist: agno[pages]; extra == "tests"
 Requires-Dist: agno[a2a]; extra == "tests"
 Requires-Dist: agno[slack]; extra == "tests"
 Requires-Dist: agno[dev]; extra == "tests"
@@ -708,6 +716,7 @@ Requires-Dist: twine; extra == "tests"
 Requires-Dist: build; extra == "tests"
 Requires-Dist: grpcio>=1.76.0; extra == "tests"
 Provides-Extra: integration-tests
+Requires-Dist: agno[pages]; extra == "integration-tests"
 Requires-Dist: exa_py>=2.0.0; extra == "integration-tests"
 Requires-Dist: ddgs; extra == "integration-tests"
 Requires-Dist: yfinance; extra == "integration-tests"

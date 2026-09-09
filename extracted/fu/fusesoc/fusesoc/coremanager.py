@@ -71,7 +71,7 @@ class CoreDB:
         package_names = []
         for virtual in virtuals:
             for simple in virtual.simpleVLNVs():
-                package_names.append("{}".format(self._package_name(simple)))
+                package_names.append(f"{self._package_name(simple)}")
         return ", ".join(package_names)
 
     def add(self, core, library):
@@ -173,7 +173,7 @@ class CoreDB:
                 "Due to implementation details, mappings can only be applied once."
             )
 
-        mappings = {}
+        mappings: dict[str, str] = {}
         for mapping_vlnv in mapping_vlnvs:
             new_mapping_name = str(Vlnv(mapping_vlnv))
             new_mapping_core = self._cores.get(new_mapping_name)
@@ -247,7 +247,7 @@ class CoreDB:
     def solve(self, top_core, flags):
         return self._solve(top_core, flags)
 
-    def _get_conflict_map(self):
+    def _get_conflict_map(self, flags):
         """Return a map of cores to their conflicts
 
         Only one core that implements a virtual VLNV may be selected in a
@@ -256,11 +256,11 @@ class CoreDB:
         VLNVs. In the resulting package definitions, these must get "conflicts"
         constraints.
         """
-        conflict_map = {}
-        virtual_map = {}
+        conflict_map: dict[str, set[str]] = {}
+        virtual_map: dict[str, set[str]] = {}
         for core_data in self._cores.values():
             core = core_data["core"]
-            _virtuals = core.get_virtuals()
+            _virtuals = core.get_virtuals(flags)
             for virtual in _virtuals:
                 for simple in virtual.simpleVLNVs():
                     virtual_pkg = self._package_name(simple)
@@ -293,7 +293,7 @@ class CoreDB:
         repo = Repository()
         _flags = flags.copy()
         cores = [x["core"] for x in self._cores.values()]
-        conflict_map = self._get_conflict_map()
+        conflict_map = self._get_conflict_map(_flags)
 
         for core in cores:
             if only_matching_vlnv:
@@ -333,6 +333,9 @@ class CoreDB:
                     logger.warning(
                         f"Ignoring {core.name} due to syntax error in dependencies: {e.msg}"
                     )
+                    # Skip core since it has errors in the dependencies
+                    continue
+
                 if _depends:
                     for depend in _depends:
                         self._mapping_apply(depend)
@@ -416,11 +419,7 @@ class CoreManager:
     def __init__(self, config, library_manager=None):
         self.config = config
         self.db = CoreDB()
-        self._lm = (
-            LibraryManager(config.library_root)
-            if library_manager is None
-            else library_manager
-        )
+        self._lm = LibraryManager() if library_manager is None else library_manager
         self.core2parser = Core2Parser(
             config.resolve_env_vars_early, config.allow_additional_properties
         )
@@ -575,7 +574,7 @@ class CoreManager:
         )
         resolved_core = self.db.find(core)
         deps = self.db.solve(resolved_core.name, flags)
-        logger.debug(" Resolved core to {}".format(str(resolved_core.name)))
+        logger.debug(f" Resolved core to {str(resolved_core.name)}")
         logger.debug(" with dependencies " + ", ".join([str(c.name) for c in deps]))
         return deps
 

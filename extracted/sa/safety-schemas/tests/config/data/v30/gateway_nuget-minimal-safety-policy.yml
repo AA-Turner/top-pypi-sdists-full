@@ -1,0 +1,30 @@
+version: '3.0'
+
+installation:
+  default-action: allow
+  audit-logging:
+    enabled: true
+  allow:
+    packages:
+      - ecosystem: nuget
+        specifications:
+          - "Newtonsoft.Json@13.0.1"
+          - "Microsoft.Extensions.Logging@8.0.0"
+  deny:
+    packages:
+      warning-on-any-of:
+        age-below: "3 months"
+        packages:
+          - ecosystem: nuget
+            specifications:
+              - "Newtonsoft.Json"
+      block-on-any-of:
+        age-below: "1 month"
+        packages:
+          - ecosystem: nuget
+            specifications:
+              - "Newtonsoft.Json"
+    vulnerabilities:
+      block-on-any-of:
+        cvss-severity:
+          - critical

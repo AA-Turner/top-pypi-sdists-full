@@ -164,6 +164,24 @@ def test_process_pi_is_cropland_weighted_and_crs_safe():
 
 @pytest.mark.skipif(not GEOPREPARE.exists(),
                     reason="geoprepare checkout not alongside geocif")
+def test_pi_var_directory_points_at_the_static_dir():
+    """validate_datasets requires _get_var_directory(var) to exist and hold
+    .tif files, or it adds the var to the missing set and DROPS it from every
+    task list -- the run then reports success having extracted nothing. PI has
+    no per-year intermediate product, so its directory must be
+    dir_metadata/static. This cost one silent no-op extraction run."""
+    src = (GEOPREPARE / "extract" / "extract_EO.py").read_text(
+        encoding="utf-8", errors="ignore")
+    body = src[src.index("def _get_var_directory("):]
+    body = body[:body.index("\ndef ", 1)]
+    assert 'elif var == "pi":' in body
+    assert 'dir_metadata / "static"' in body, (
+        "PI must validate against the static raster dir, not dir_intermed/pi"
+    )
+
+
+@pytest.mark.skipif(not GEOPREPARE.exists(),
+                    reason="geoprepare checkout not alongside geocif")
 def test_geomerge_treats_pi_as_a_static_left_join():
     """pi has no time dimension, so it must be ordered with the other statics
     and LEFT-joined -- an outer join would multiply rows."""

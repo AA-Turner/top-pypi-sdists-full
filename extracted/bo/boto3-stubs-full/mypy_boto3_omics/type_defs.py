@@ -683,6 +683,7 @@ class DefaultRunSettingOutputTypeDef(TypedDict):
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
+    sessionPolicy: NotRequired[str]
     engineSettings: NotRequired[dict[str, Any]]
     scratchStorageMode: NotRequired[ScratchStorageModeType]
 
@@ -708,6 +709,7 @@ class DefaultRunSettingTypeDef(TypedDict):
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
+    sessionPolicy: NotRequired[str]
     engineSettings: NotRequired[Mapping[str, Any]]
     scratchStorageMode: NotRequired[ScratchStorageModeType]
 
@@ -1467,6 +1469,7 @@ class StartRunRequestTypeDef(TypedDict):
     networkingMode: NotRequired[NetworkingModeType]
     scratchStorageMode: NotRequired[ScratchStorageModeType]
     configurationName: NotRequired[str]
+    sessionPolicy: NotRequired[str]
     engineSettings: NotRequired[Mapping[str, Any]]
 
 
@@ -2500,6 +2503,7 @@ GetRunResponseTypeDef = TypedDict(
         "configuration": ConfigurationDetailsTypeDef,
         "vpcConfig": VpcConfigResponseTypeDef,
         "engineSettings": dict[str, Any],
+        "sessionPolicy": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

@@ -6,14 +6,18 @@ on:
     - cron: "0 0 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
 
   corpus-default:
     name: Default corpus tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 1
           submodules: true
 
@@ -29,13 +33,14 @@ jobs:
 
   corpus-coverage:
     name: Corpus tests for the coverage phase (${{ matrix.mode }})
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         mode: [positive, negative]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 1
           submodules: true
 
@@ -51,10 +56,11 @@ jobs:
 
   corpus-inference:
     name: Corpus tests for dependency inference
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 1
           submodules: true
 
@@ -70,10 +76,11 @@ jobs:
 
   corpus-stateful:
     name: Corpus tests for stateful testing
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 1
           submodules: true
 
@@ -89,10 +96,11 @@ jobs:
 
   corpus-graphql:
     name: GraphQL corpus tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 1
           submodules: true
 
@@ -108,10 +116,11 @@ jobs:
 
   corpus-schemastore:
     name: Schemastore conformance probe
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 1
           submodules: true
 

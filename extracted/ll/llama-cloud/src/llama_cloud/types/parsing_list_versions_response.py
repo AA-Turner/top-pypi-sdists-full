@@ -5,7 +5,23 @@ from typing_extensions import Literal
 
 from .._models import BaseModel
 
-__all__ = ["ParsingListVersionsResponse"]
+__all__ = ["ParsingListVersionsResponse", "Latest"]
+
+
+class Latest(BaseModel):
+    """Version `latest` currently resolves to, per tier"""
+
+    agentic: str
+    """Version `latest` resolves to for the agentic tier"""
+
+    agentic_plus: str
+    """Version `latest` resolves to for the agentic_plus tier"""
+
+    cost_effective: str
+    """Version `latest` resolves to for the cost_effective tier"""
+
+    fast: str
+    """Version `latest` resolves to for the fast tier"""
 
 
 class ParsingListVersionsResponse(BaseModel):
@@ -13,6 +29,7 @@ class ParsingListVersionsResponse(BaseModel):
 
     agentic: List[
         Literal[
+            "2026-09-07",
             "2026-08-19",
             "2026-07-24",
             "2026-07-23",
@@ -129,3 +146,6 @@ class ParsingListVersionsResponse(BaseModel):
 
     fast: List[Literal["2026-06-15", "2025-12-11"]]
     """Versions for the fast tier"""
+
+    latest: Latest
+    """Version `latest` currently resolves to, per tier"""

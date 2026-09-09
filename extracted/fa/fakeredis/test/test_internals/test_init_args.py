@@ -40,6 +40,20 @@ def test_deprecated_args_no_warnings(warn_mock: mock.MagicMock):
 
 
 @pytest.mark.fake
+@pytest.mark.parametrize("server_type", ["redis", "valkey", "dragonfly", "kividb"])
+def test_supported_server_types(server_type: str):
+    r = fakeredis.FakeStrictRedis(server_type=server_type)
+    r.set("foo", "bar")
+    assert r.get("foo") == b"bar"
+
+
+@pytest.mark.fake
+def test_unsupported_server_type():
+    with pytest.raises(ValueError, match="Unsupported server type: mongo"):
+        fakeredis.FakeServer(server_type="mongo")
+
+
+@pytest.mark.fake
 class TestInitArgs:
     def test_singleton(self):
         shared_server = fakeredis.FakeServer()
@@ -65,9 +79,8 @@ class TestInitArgs:
         assert db.get("foo") == b"bar"
 
     def test_no_real_dns_lookup_on_connect(self):
-        # redis-py>=8.0 performs a real socket.getaddrinfo() call during the RESP3
-        # maintenance-notifications handshake. FakeRedis must not make any real
-        # network calls. See https://github.com/cunla/fakeredis-py/issues/513
+        # redis-py>=8.0 performs a real socket.getaddrinfo() call during the RESP3 maintenance-notifications handshake.
+        # FakeRedis must not make any real network calls. See https://github.com/cunla/fakeredis-py/issues/513
         def _no_dns(*args, **kwargs):
             raise AssertionError("FakeRedis attempted a real DNS lookup via socket.getaddrinfo")
 
@@ -164,8 +177,7 @@ class TestInitArgs:
         assert fake_conn.socket_keepalive_options == {}
 
     def test_repr(self):
-        # repr is human-readable, so we only test that it doesn't crash,
-        # and that it contains the db number.
+        # repr is human-readable, so we only test that it doesn't crash, and that it contains the db number.
         db = fakeredis.FakeStrictRedis.from_url("redis://localhost:6390/11")
         rep = repr(db)
         assert "db=11" in rep

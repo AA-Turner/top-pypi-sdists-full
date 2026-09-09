@@ -486,10 +486,10 @@ NEVER_ENCRYPT_PATHS: frozenset[str] = frozenset(
         # Thread TTL in run configurable - needs to stay plaintext for system to apply
         "run.kwargs.config.configurable.ttl",
         # Checkpoint metadata execution state - system-controlled, not user data
-        "checkpoint_metadata.source",
-        "checkpoint_metadata.step",
-        "checkpoint_metadata.parents",
-        "checkpoint_metadata.run_attempt",
-        "checkpoint_metadata.counters_since_delta_snapshot",
+        "checkpoint.metadata.source",
+        "checkpoint.metadata.step",
+        "checkpoint.metadata.parents",
+        "checkpoint.metadata.run_attempt",
+        "checkpoint.metadata.counters_since_delta_snapshot",
     }
 )

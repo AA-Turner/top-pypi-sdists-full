@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioslimproto
-Version: 3.1.9
+Version: 3.2.0
 Summary: Python module to talk to Logitech Squeezebox players directly (without Logitech server).
 Author-email: Marcel van der Veldt <marcelveldt@users.noreply.github.com>
 License: Apache-2.0

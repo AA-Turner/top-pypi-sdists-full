@@ -10,10 +10,33 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from agentic_devtools.cli.setup import commands
 from agentic_devtools.cli.setup.dependency_checker import DependencyStatus
 from agentic_devtools.cli.setup.platform_detection import DetectionResult
+from agentic_devtools.cli.setup.provider_configuration import (
+    PROVIDER_CONFIG_RELATIVE_PATH,
+    ProviderConfigurationPlan,
+)
 from agentic_devtools.skill_injector import InjectionSummary
+
+_PROVIDER_MODEL = "gemini-3.7-flash"
+
+
+@pytest.fixture(autouse=True)
+def isolate_copilot_runtime():
+    with patch.object(commands, "_populate_available_models"):
+        with patch.object(commands, "_query_copilot_models", return_value=["model-a"]):
+            with patch(
+                "agentic_devtools.cli.setup.autorun._autorun_setup_dev_tools",
+                return_value=False,
+            ):
+                with patch(
+                    "agentic_devtools.cli.setup.post_autorun_version_check.check_post_autorun_version",
+                    return_value=None,
+                ):
+                    yield
 
 
 def _make_statuses(git_found: bool = True) -> list:
@@ -38,6 +61,32 @@ def _seed_config(git_root: Path, platform: dict) -> None:
     github_dir = git_root / ".github"
     github_dir.mkdir(parents=True, exist_ok=True)
     (github_dir / "agdt-config.json").write_text(json.dumps({"platform": platform}), encoding="utf-8")
+
+
+def _ready_provider_plan(
+    git_root: Path | None,
+    *_args,
+    **_kwargs,
+) -> ProviderConfigurationPlan:
+    path = (git_root / PROVIDER_CONFIG_RELATIVE_PATH) if git_root is not None else PROVIDER_CONFIG_RELATIVE_PATH
+    return ProviderConfigurationPlan(
+        path=path,
+        status="preserved",
+        document=None,
+        rendered=None,
+        provider_id="copilot_pr_review",
+        provider_type="copilot",
+        model=_PROVIDER_MODEL,
+        model_source="existing",
+        mappings=("pr_review.default_provider", "pr_review.nodes.review_files"),
+        auth_status="ready",
+        credential_status="not_required",
+        source="existing",
+        reason="preserved_custom_config",
+        dry_run=False,
+        reconfigure=False,
+        template_version="1",
+    )
 
 
 class TestSetupIntegrationResolveAxes:
@@ -73,7 +122,15 @@ class TestSetupIntegrationResolveAxes:
                                                     "agentic_devtools.skill_injector.inject_skills_with_summary",
                                                     side_effect=_fake_inject,
                                                 ):
-                                                    commands.setup_cmd()
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                        side_effect=_ready_provider_plan,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                            return_value=False,
+                                                        ):
+                                                            commands.setup_cmd()
         return captured
 
     def test_detected_platform_filtering(self, capsys, tmp_path):

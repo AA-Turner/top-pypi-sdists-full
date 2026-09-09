@@ -7,10 +7,9 @@ from tinycss2.color5 import parse_color
 
 from ..logger import LOGGER
 from ..text.line_break import strut
-from ..urls import get_link_attribute, get_url_tuple
 from .functions import check_math
 from .properties import INITIAL_VALUES, ZERO_PIXELS, Dimension
-from .units import ANGLE_TO_RADIANS, LENGTH_UNITS, to_pixels
+from .units import LENGTH_UNITS, to_pixels
 
 # Value in pixels of font-size for <absolute-size> keywords: 12pt (16px) for
 # medium, and scaling factors given in CSS3 for others:
@@ -221,40 +220,6 @@ def register_computer(name):
     return decorator
 
 
-def compute_attr(style, values):
-    # TODO: use real token parsing instead of casting with Python types, and follow new
-    # syntax. See https://drafts.csswg.org/css-values-5/#attr-notation.
-    func_name, value = values
-    assert func_name == 'attr()'
-    attr_name, type_or_unit, fallback = value
-    try:
-        attr_value = style.element.get(attr_name, fallback)
-        if type_or_unit == 'string':
-            pass  # Keep the string
-        elif type_or_unit == 'url':
-            attr_value = get_url_tuple(attr_value, style.base_url)
-        elif type_or_unit == 'color':
-            attr_value = parse_color(attr_value.strip(), style['color_scheme'])
-        elif type_or_unit == 'integer':
-            attr_value = int(attr_value.strip())
-        elif type_or_unit == 'number':
-            attr_value = float(attr_value.strip())
-        elif type_or_unit == '%':
-            attr_value = Dimension(float(attr_value.strip()), '%')
-            type_or_unit = 'length'
-        elif type_or_unit in LENGTH_UNITS:
-            attr_value = Dimension(float(attr_value.strip()), type_or_unit)
-            type_or_unit = 'length'
-        elif type_or_unit in ANGLE_TO_RADIANS:
-            attr_value = Dimension(float(attr_value.strip()), type_or_unit)
-            type_or_unit = 'angle'
-        else:
-            return
-    except Exception:
-        return
-    return (type_or_unit, attr_value)
-
-
 @register_computer('background-image')
 def background_image(style, name, values):
     """Compute lenghts in gradient background-image."""
@@ -290,6 +255,15 @@ def image(style, name, image):
 @register_computer('text-decoration-color')
 def color(style, name, values):
     return parse_color(values, style['color_scheme'])
+
+
+@register_computer('box-shadow')
+def box_shadow(style, name, values):
+    return tuple((
+        length(style, name, x), length(style, name, y),
+        length(style, name, blur), length(style, name, spread),
+        parse_color(color, style['color_scheme']), inset,
+    ) for x, y, blur, spread, color, inset in values)
 
 
 @register_computer('background-position')
@@ -517,35 +491,13 @@ def gap(style, name, value):
 def _content_list(style, values):
     computed_values = []
     for value in values:
-        if value[0] in ('string', 'content', 'url', 'quote', 'leader()'):
-            computed_value = value
-        elif value[0] == 'attr()':
-            assert value[1][1] == 'string'
-            computed_value = compute_attr(style, value)
-        elif value[0] in (
-                'counter()', 'counters()', 'content()', 'element()',
-                'string()'):
-            # Other values need layout context, their computed value cannot be
-            # better than their specified value yet.
-            # See build.compute_content_list.
-            computed_value = value
-        elif value[0] in (
-                'target-counter()', 'target-counters()', 'target-text()'):
-            anchor_token = value[1][0]
-            if anchor_token[0] == 'attr()':
-                attr = compute_attr(style, anchor_token)
-                if attr is None:
-                    computed_value = None
-                else:
-                    computed_value = (value[0], (attr, *value[1][1:]))
-            else:
-                computed_value = value
-        if computed_value is None:
-            LOGGER.warning('Unable to compute %r value for content: %r' % (
-                style.element, ', '.join(str(item) for item in value)))
+        if value[0] in (
+                'string', 'content', 'url', 'quote', 'leader()',
+                'counter()', 'counters()', 'content()', 'element()', 'string()',
+                'attr()', 'target-counter()', 'target-counters()', 'target-text()'):
+            computed_values.append(value)
         else:
-            computed_values.append(computed_value)
-
+            LOGGER.warning('Unable to compute content: %s', value)
     return tuple(computed_values)
 
 
@@ -600,7 +552,7 @@ def compute_float(style, name, value):
     """Compute the ``float`` property."""
     # See https://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo.
     position = style.specified['position']
-    if position in ('absolute', 'fixed') or position[0] == 'running()':
+    if position in ('absolute', 'fixed') or position[0] in ('running()', 'note()'):
         return 'none'
     else:
         return value
@@ -726,47 +678,25 @@ def line_height(style, name, value):
     """Compute the ``line-height`` property."""
     if value == 'normal':
         return value
+    elif check_math(value):
+        return value
     elif not value.unit:
-        return ('NUMBER', value.value)
+        return value.value
     elif value.unit == '%':
         factor = value.value / 100
         font_size_value = style['font_size']
         pixels = factor * font_size_value
+        return Dimension(pixels, 'px')
     else:
-        pixels = length(style, name, value, pixels_only=True)
-    return ('PIXELS', pixels)
-
-
-@register_computer('anchor')
-def anchor(style, name, values):
-    """Compute the ``anchor`` property."""
-    if values != 'none':
-        _, key = values
-        anchor_name = style.element.get(key) or None
-        return anchor_name
-
-
-@register_computer('link')
-def link(style, name, values):
-    """Compute the ``link`` property."""
-    if values == 'none':
-        return
-    type_, value = values
-    if type_ == 'attr()':
-        return get_link_attribute(style.element, value, style.base_url)
-    return values
+        return length(style, name, value)
 
 
 @register_computer('lang')
 def lang(style, name, values):
     """Compute the ``lang`` property."""
-    if values == 'none':
-        return
-    name, key = values
-    if name == 'attr()':
-        return style.element.get(key) or None
-    elif name == 'string':
-        return key
+    name, value = values
+    if name == 'string':
+        return value
 
 
 @register_computer('tab-size')

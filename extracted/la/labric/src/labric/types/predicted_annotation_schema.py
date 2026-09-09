@@ -10,9 +10,9 @@ class PredictedAnnotationSchema(UniversalBaseModel):
     """
     A predicted mask shaped as an annotation payload, tied back to the
     input row's image file. Nothing is persisted by predict: to store it,
-    pass label/mask/width/height to POST /images/{file_id}/annotations --
-    with is_human_vetted=true when a human reviewed the prediction, omitted
-    (false) for automated saves.
+    pass it to POST /v1/images/{file_id}/annotations (the images annotate
+    tool), with is_human_vetted=true when a human reviewed the prediction
+    and omitted (false) for automated saves.
     """
 
     file_id: str

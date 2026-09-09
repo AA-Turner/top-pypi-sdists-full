@@ -1,5 +1,6 @@
 """
-Composable Click callback utilities for building flexible CLI applications.
+Composable Click callback utilities for building flexible CLI
+applications.
 """
 
 from collections.abc import Callable, Sequence
@@ -17,7 +18,8 @@ def sequence_validator(
     *,
     validator: Callable[[click.Context | None, click.Parameter | None, T], U],
 ) -> Callable[
-    [click.Context | None, click.Parameter | None, Sequence[T]], Sequence[U]
+    [click.Context | None, click.Parameter | None, Sequence[T] | None],
+    Sequence[U] | None,
 ]:
     """Wrap a single-value validator to apply it to a sequence of values.
 
@@ -35,15 +37,15 @@ def sequence_validator(
     def callback(
         ctx: click.Context | None,
         param: click.Parameter | None,
-        value: Sequence[T],
-    ) -> Sequence[U]:
-        """
-        Apply the validator to each element in the sequence.
-        """
-        return_values: tuple[U, ...] = ()
+        value: Sequence[T] | None,
+    ) -> Sequence[U] | None:
+        """Apply the validator to each element in the sequence."""
+        if value is None:
+            return None
+        return_values: list[U] = []
         for item in value:
             returned_value = validator(ctx, param, item)
-            return_values = (*return_values, returned_value)
+            return_values.append(returned_value)
         return return_values
 
     return callback
@@ -53,14 +55,18 @@ def sequence_validator(
 def deduplicate(
     ctx: click.Context | None,
     param: click.Parameter | None,
-    sequence: Sequence[T],
-) -> Sequence[T]:
+    sequence: Sequence[T] | None,
+) -> Sequence[T] | None:
     """
-    Return the sequence with duplicates removed while preserving order.
+    Return the sequence with duplicates removed while preserving
+    order.
     """
     # We "use" the parameters to silence unused-argument tooling.
     del ctx
     del param
+
+    if sequence is None:
+        return None
 
     return tuple(dict.fromkeys(sequence).keys())
 
@@ -70,7 +76,8 @@ def multi_callback(
     *,
     callbacks: Sequence[Callable[..., T]],
 ) -> Callable[[click.Context | None, click.Parameter | None, T], T]:
-    """Create a Click-compatible callback that applies multiple callbacks in
+    """Create a Click-compatible callback that applies multiple callbacks
+    in
     sequence.
 
     This function takes a sequence of Click callbacks and returns a new
@@ -90,9 +97,7 @@ def multi_callback(
         param: click.Parameter | None,
         value: T,
     ) -> T:
-        """
-        Apply each callback in sequence to the value.
-        """
+        """Apply each callback in sequence to the value."""
         result = value
         for cb in callbacks:
             result = cb(ctx, param, result)

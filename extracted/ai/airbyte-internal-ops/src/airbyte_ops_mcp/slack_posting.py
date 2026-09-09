@@ -613,6 +613,7 @@ def send_hitl_notification(
     approval_request_detail_url: str | None = None,
     approval_metadata: dict[str, str] | None = None,
     channel_override: str | None = None,
+    thread_ts: str | None = None,
     context_footer: str | None = None,
     slack_token: str | None = None,
     github_token: str | None = None,
@@ -643,6 +644,7 @@ def send_hitl_notification(
         approval_metadata: Key-value pairs embedded in approval button payloads.
         channel_override: Slack channel ID override. Defaults to env
             `SLACK_CHANNEL_HITL` or `"human-in-the-loop"`.
+        thread_ts: Optional parent thread timestamp for posting a reply.
         context_footer: Additional text appended to the footer.
         slack_token: Slack bot token. Resolved from `SLACK_BOT_TOKEN_HITL` /
             `SLACK_HYDRA_BOT_TOKEN` / `SLACK_BOT_TOKEN_AIRBYTE_TEAM` /
@@ -719,6 +721,7 @@ def send_hitl_notification(
     return _post_message(
         channel,
         fallback_text,
+        thread_ts=thread_ts,
         blocks=blocks,
         username=sender_name,
         token=token,

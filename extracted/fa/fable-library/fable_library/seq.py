@@ -14,7 +14,6 @@ from .array_ import fold_back as fold_back_1
 from .array_ import map as map_1
 from .array_ import map_fold as map_fold_1
 from .array_ import map_fold_back as map_fold_back_1
-from .array_ import of_seq as of_seq_1
 from .array_ import pairwise as pairwise_1
 from .array_ import permute as permute_1
 from .array_ import random_choice as random_choice_1
@@ -40,8 +39,7 @@ from .list import FSharpList
 from .list import is_empty as is_empty_1
 from .list import length as length_1
 from .list import of_array as of_array_1
-from .list import of_seq as of_seq_2
-from .list import to_array as to_array_1
+from .list import of_seq as of_seq_1
 from .option import Option, erase, some
 from .option import value as value_1
 from .protocols import IComparer_1, IDisposable, IEnumerable, IEnumerable_1, IEnumerator, IEqualityComparer_1
@@ -442,10 +440,10 @@ def of_array[T](arr: Array[T]) -> IEnumerable_1[T]:
 
 def to_array[T](xs: IEnumerable_1[T]) -> Array[T]:
     if isinstance(xs, FSharpList):
-        return to_array_1(xs)
+        return Array[Any](xs)
 
     else:
-        return of_seq_1(xs)
+        return Array[Any](xs)
 
 
 def of_list[T](xs: FSharpList[T]) -> IEnumerable_1[T]:
@@ -460,7 +458,7 @@ def to_list[T](xs: IEnumerable_1[T]) -> FSharpList[T]:
         return xs
 
     else:
-        return of_seq_2(xs)
+        return of_seq_1(xs)
 
 
 def generate[_A, _B](

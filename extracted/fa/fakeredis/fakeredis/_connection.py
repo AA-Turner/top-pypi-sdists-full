@@ -25,10 +25,9 @@ class FakeBaseConnection(FakeBaseConnectionMixin):
         self._selector: FakeSelector | None = FakeSelector(self._sock)
 
     def activate_maint_notifications_handling_if_enabled(self, *args: Any, **kwargs: Any) -> None:
-        # redis-py>=8.0 performs a real socket.getaddrinfo() DNS lookup here to determine the
-        # endpoint type for RESP3 maintenance notifications. A fake server never sends those
-        # notifications, so we skip the handshake entirely to avoid any real network calls.
-        # See https://github.com/cunla/fakeredis-py/issues/513
+        # redis-py>=8.0 performs a real socket.getaddrinfo() DNS lookup here to determine the endpoint type for RESP3
+        # maintenance notifications. A fake server never sends those notifications, so we skip the handshake entirely to
+        # avoid any real network calls. See https://github.com/cunla/fakeredis-py/issues/513
         return None
 
     def _connect(self) -> FakeSocket:
@@ -47,11 +46,9 @@ class FakeBaseConnection(FakeBaseConnectionMixin):
             return True
         if not self._sock:
             self.connect()
-        # We use check_can_read rather than can_read, because on redis-py<3.2,
-        # FakeSelector inherits from a stub BaseSelector which doesn't
-        # implement can_read. Normally can_read provides retries on EINTR,
-        # but that's not necessary for the implementation of
-        # FakeSelector.check_can_read.
+        # We use check_can_read rather than can_read, because on redis-py<3.2, FakeSelector inherits from a stub
+        # BaseSelector which doesn't implement can_read. Normally can_read provides retries on EINTR, but that's not
+        # necessary for the implementation of FakeSelector.check_can_read.
         return self._selector is not None and self._selector.check_can_read(timeout)
 
     def read_response(self, **kwargs: Any) -> Any:
@@ -106,7 +103,7 @@ class FakeRedisMixin:
         """
         :param server: The FakeServer instance to use for this connection.
         :param version: The Redis version to use, as a tuple (major, minor).
-        :param server_type: The type of server, e.g., "redis", "valkey".
+        :param server_type: The type of server, e.g., "redis", "valkey", "dragonfly", "kividb".
         :param lua_modules: A set of Lua modules to load.
         :param client_class: The Redis client class to use, e.g., redis.Redis or valkey.Valkey.
         """

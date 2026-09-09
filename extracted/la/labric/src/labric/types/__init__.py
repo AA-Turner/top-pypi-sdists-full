@@ -11,6 +11,7 @@ if typing.TYPE_CHECKING:
     from .agent_run_response import AgentRunResponse
     from .agent_run_usage import AgentRunUsage
     from .agent_tool_call import AgentToolCall
+    from .annotation_schema import AnnotationSchema
     from .batch_write_options import BatchWriteOptions
     from .batch_write_options_mode import BatchWriteOptionsMode
     from .batch_write_response import BatchWriteResponse
@@ -28,6 +29,7 @@ if typing.TYPE_CHECKING:
     from .queryable_column_schema import QueryableColumnSchema
     from .queryable_table_schema import QueryableTableSchema
     from .revert_result_schema import RevertResultSchema
+    from .save_annotation_schema import SaveAnnotationSchema
     from .start_job_execution_schema import StartJobExecutionSchema
     from .table_summary import TableSummary
     from .tools_ml_model_detail_schema import ToolsMlModelDetailSchema
@@ -39,6 +41,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AgentRunResponse": ".agent_run_response",
     "AgentRunUsage": ".agent_run_usage",
     "AgentToolCall": ".agent_tool_call",
+    "AnnotationSchema": ".annotation_schema",
     "BatchWriteOptions": ".batch_write_options",
     "BatchWriteOptionsMode": ".batch_write_options_mode",
     "BatchWriteResponse": ".batch_write_response",
@@ -56,6 +59,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "QueryableColumnSchema": ".queryable_column_schema",
     "QueryableTableSchema": ".queryable_table_schema",
     "RevertResultSchema": ".revert_result_schema",
+    "SaveAnnotationSchema": ".save_annotation_schema",
     "StartJobExecutionSchema": ".start_job_execution_schema",
     "TableSummary": ".table_summary",
     "ToolsMlModelDetailSchema": ".tools_ml_model_detail_schema",
@@ -91,6 +95,7 @@ __all__ = [
     "AgentRunResponse",
     "AgentRunUsage",
     "AgentToolCall",
+    "AnnotationSchema",
     "BatchWriteOptions",
     "BatchWriteOptionsMode",
     "BatchWriteResponse",
@@ -108,6 +113,7 @@ __all__ = [
     "QueryableColumnSchema",
     "QueryableTableSchema",
     "RevertResultSchema",
+    "SaveAnnotationSchema",
     "StartJobExecutionSchema",
     "TableSummary",
     "ToolsMlModelDetailSchema",

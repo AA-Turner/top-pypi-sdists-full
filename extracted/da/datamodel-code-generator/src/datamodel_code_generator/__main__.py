@@ -209,17 +209,6 @@ EXCLUDED_CONFIG_OPTIONS: frozenset[str] = frozenset({
     "watch_delay",
 })
 
-BOOLEAN_OPTIONAL_OPTIONS: frozenset[str] = frozenset({
-    "allow_population_by_field_name",
-    "collapse_root_models",
-    "snake_case_field",
-    "use_frozen_field",
-    "use_type_checking_imports",
-    "use_specialized_enum",
-    "use_standard_collections",
-    "use_standard_primitive_types",
-})
-
 ORIGINAL_FIELD_NAME_DELIMITER_ERROR = "`--original-field-name-delimiter` can not be used without `--snake-case-field`."
 SENSITIVE_COMMAND_OPTIONS: frozenset[str] = frozenset({"--http-headers", "--http-query-parameters"})
 REDACTED_COMMAND_ARGUMENT = "<redacted>"
@@ -1598,7 +1587,7 @@ def _plan_jobs_unchecked(args: Namespace) -> BatchPlan:
     return BatchPlan(tuple(plans), watch, watch_delay, pyproject_path)
 
 
-TomlValue: TypeAlias = str | bool | list["TomlValue"] | tuple["TomlValue", ...]
+TomlValue: TypeAlias = str | bool | int | float | list["TomlValue"] | tuple["TomlValue", ...]
 
 
 def _json_ready(value: Any) -> Any:
@@ -1631,6 +1620,8 @@ def _format_toml_value(value: TomlValue) -> str:
         return "true" if value else "false"
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, int | float):
+        return str(value)
     formatted_items = [_format_toml_value(item) for item in value]
     return f"[{', '.join(formatted_items)}]"
 
@@ -1884,6 +1875,21 @@ def _format_cli_value(value: str | list[str]) -> str:
     return f'"{value}"' if " " in value else value
 
 
+@lru_cache(maxsize=1)
+def _negative_boolean_options() -> dict[str, str]:
+    """Index parser-defined negative flags only when command generation needs them."""
+    from argparse import BooleanOptionalAction  # noqa: PLC0415
+
+    negative_options: dict[str, str] = {}
+    for action in arg_parser._actions:  # noqa: SLF001
+        if not isinstance(action, BooleanOptionalAction):
+            continue
+        for option in action.option_strings:
+            if option.startswith("--no-"):
+                negative_options[action.dest] = option
+    return negative_options
+
+
 def generate_cli_command(config: dict[str, TomlValue]) -> str:
     """Generate CLI command from pyproject.toml configuration."""
     parts: list[str] = ["datamodel-codegen"]
@@ -1897,8 +1903,8 @@ def generate_cli_command(config: dict[str, TomlValue]) -> str:
         if isinstance(value, bool):
             if value:
                 parts.append(f"--{cli_key}")
-            elif key in BOOLEAN_OPTIONAL_OPTIONS:
-                parts.append(f"--no-{cli_key}")
+            elif negative_option := _negative_boolean_options().get(key):
+                parts.append(negative_option)
         elif isinstance(value, list):
             parts.extend((f"--{cli_key}", _format_cli_value(cast("list[str]", value))))
         else:

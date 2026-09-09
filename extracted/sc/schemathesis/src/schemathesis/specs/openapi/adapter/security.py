@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 
 from schemathesis.config import ApiKeyAuthConfig, DynamicTokenAuthConfig, HttpBasicAuthConfig, HttpBearerAuthConfig
 from schemathesis.config._error import ConfigError
+from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.jsonschema.resolver import Resolver, resolve_reference
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation.meta import CoveragePhaseData, FuzzingPhaseData, StatefulPhaseData
+from schemathesis.specs.openapi.adapter.validators import ensure_object
 from schemathesis.specs.openapi.auths import (
     ApiKeyAuthProvider,
     DynamicTokenAuthProvider,
@@ -193,19 +195,20 @@ def extract_security_parameters_v2(
 ) -> Iterator[Mapping[str, Any]]:
     """Extract all required security parameters for this operation."""
     defined = extract_security_definitions_v2(schema, resolver)
-    required = get_security_requirements(schema, operation)
+    unconditional = get_unconditional_security_schemes(schema, operation)
 
-    for key in required:
+    for key in get_security_requirements(schema, operation):
         if key not in defined:
             continue
         definition = defined[key]
         ty = definition["type"]
+        required = key in unconditional
 
         if ty == "apiKey":
-            param = make_api_key_schema(definition, type="string")
+            param = make_api_key_schema(definition, required=required, type="string")
         elif ty == "basic":
             parameter_schema = make_auth_header_schema(definition)
-            param = make_auth_header(**parameter_schema)
+            param = make_auth_header(required=required, **parameter_schema)
         else:
             continue
 
@@ -221,19 +224,20 @@ def extract_security_parameters_v3(
 ) -> Iterator[Mapping[str, Any]]:
     """Extract all required security parameters for this operation."""
     defined = extract_security_definitions_v3(schema, resolver)
-    required = get_security_requirements(schema, operation)
+    unconditional = get_unconditional_security_schemes(schema, operation)
 
-    for key in required:
+    for key in get_security_requirements(schema, operation):
         if key not in defined:
             continue
         definition = defined[key]
         ty = definition["type"]
+        required = key in unconditional
 
         if ty == "apiKey":
-            param = make_api_key_schema(definition, schema={"type": "string"})
+            param = make_api_key_schema(definition, required=required, schema={"type": "string"})
         elif ty == "http":
             parameter_schema = make_auth_header_schema(definition)
-            param = make_auth_header(schema=parameter_schema)
+            param = make_auth_header(required=required, schema=parameter_schema)
         else:
             continue
 
@@ -248,23 +252,41 @@ def make_auth_header_schema(definition: dict[str, Any]) -> dict[str, str]:
     return {"type": "string", "format": f"_{schema}_auth"}
 
 
-def make_auth_header(**kwargs: Any) -> dict[str, Any]:
+def make_auth_header(*, required: bool, **kwargs: Any) -> dict[str, Any]:
     """Build Authorization header security parameter."""
-    return {"name": "Authorization", "in": "header", "required": True, **kwargs}
+    return {"name": "Authorization", "in": "header", "required": required, **kwargs}
 
 
-def make_api_key_schema(definition: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+def make_api_key_schema(definition: dict[str, Any], *, required: bool, **kwargs: Any) -> dict[str, Any]:
     """Build API key security parameter from security definition."""
-    return {"name": definition["name"], "required": True, "in": definition["in"], **kwargs}
+    return {"name": definition["name"], "required": required, "in": definition["in"], **kwargs}
+
+
+def _iter_security_requirements(
+    schema: Mapping[str, Any], operation: Mapping[str, Any]
+) -> Iterator[Mapping[str, list[str]]]:
+    for requirement in operation.get("security", schema.get("security", [])):
+        if isinstance(requirement, dict):
+            yield requirement
 
 
 def get_security_requirements(schema: Mapping[str, Any], operation: Mapping[str, Any]) -> list[str]:
-    requirements = operation.get("security", schema.get("security", []))
-    return [key for requirement in requirements if isinstance(requirement, dict) for key in requirement]
+    return [key for requirement in _iter_security_requirements(schema, operation) for key in requirement]
+
+
+def get_unconditional_security_schemes(schema: Mapping[str, Any], operation: Mapping[str, Any]) -> set[str]:
+    """Schemes every alternative demands. Alternatives are OR-ed, so the rest are individually optional."""
+    requirements = [set(requirement) for requirement in _iter_security_requirements(schema, operation)]
+    if not requirements:
+        return set()
+    return set.intersection(*requirements)
 
 
 def has_optional_auth(schema: Mapping[str, Any], operation: Mapping[str, Any]) -> bool:
-    return {} in operation.get("security", schema.get("security", []))
+    requirements = operation.get("security", schema.get("security", []))
+    if not isinstance(requirements, list):
+        raise InvalidSchema("`security` must be a list of security requirement objects")
+    return {} in requirements
 
 
 def effective_security_requirements(operation: APIOperation, raw_schema: Mapping[str, Any]) -> SecurityRequirements:
@@ -297,7 +319,9 @@ def extract_security_definitions_v2(schema: Mapping[str, Any], resolver: Resolve
 def extract_security_definitions_v3(schema: Mapping[str, Any], resolver: Resolver) -> Mapping[str, Any]:
     """In Open API 3 security definitions are located in ``components`` and may have references inside."""
     components = schema.get("components", {})
+    ensure_object(components, "`components`")
     security_schemes = components.get("securitySchemes", {})
+    ensure_object(security_schemes, "`components.securitySchemes`")
     if "$ref" in security_schemes:
         return resolve_reference(resolver, security_schemes["$ref"])[1]
     return {

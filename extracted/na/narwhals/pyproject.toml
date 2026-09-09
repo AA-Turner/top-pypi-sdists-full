@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "narwhals"
-version = "2.25.0"
+version = "2.26.0"
 dependencies = []
 requires-python = ">=3.10"
 license = "MIT"
@@ -83,8 +83,8 @@ tests = [
 ]
 sklearn = ["scikit-learn"]
 typing = [
-    "mypy>=2.1.0",
-    "pyrefly>=1.2.0",
+    "mypy",
+    "pyrefly",
     "pyright",
     "hypothesis>=6.0.0",
     "pytest>=9.0.3",

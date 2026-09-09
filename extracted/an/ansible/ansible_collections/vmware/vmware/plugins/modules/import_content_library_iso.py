@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2023, Ansible Cloud Team (@ansible-collections)
+# Copyright: (c) 2023, Ansible Eco Content Team (github.com/eco-ansible-content)
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -19,7 +19,7 @@ description:
       will be affected.
 
 author:
-    - Ansible Cloud Team (@ansible-collections)
+    - Mike Morency (@mikemorency)
 
 extends_documentation_fragment:
     - vmware.vmware.base_options
@@ -156,7 +156,6 @@ import os
 
 from urllib.parse import urlparse
 
-from ansible.module_utils.urls import open_url
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_native
 from ansible_collections.vmware.vmware.plugins.module_utils._module_rest_base import (
@@ -167,6 +166,7 @@ from ansible_collections.vmware.vmware.plugins.module_utils.argument_spec import
 )
 
 try:
+    import requests
     from com.vmware.content.library.item_client import UpdateSessionModel
     from com.vmware.content.library_client import ItemModel
     from com.vmware.content.library.item.updatesession_client import (
@@ -312,12 +312,11 @@ class VmwareRemoteIso(ModuleRestBase):
                     "Content-Length": str(os.path.getsize(f_path)),
                     "Content-Type": "text/ovf",
                 }
-                open_url(
-                    method="POST",
+                requests.post(
                     url=file_info.upload_endpoint.uri,
-                    data=local_file.read(),
+                    data=local_file,
                     headers=headers,
-                    validate_certs=self.params["validate_certs"],
+                    verify=self.params["validate_certs"],
                     timeout=self.params["timeout"],
                 )
 

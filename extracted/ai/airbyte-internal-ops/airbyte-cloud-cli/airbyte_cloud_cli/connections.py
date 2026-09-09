@@ -54,7 +54,7 @@ def _workspace(
 
 
 def _connection_info(connection: cloud_connections.CloudConnection):
-    return connection.get_info()
+    return connection._fetch_connection_info()
 
 
 @connections_app.command(name="list")
@@ -370,6 +370,6 @@ def sync(
         wait_timeout=wait_timeout,
     )
     if wait:
-        json_output(result.get_info())
+        json_output(result._fetch_latest_job_info())
     else:
         json_output({"job_id": result.job_id, "job_url": result.job_url})

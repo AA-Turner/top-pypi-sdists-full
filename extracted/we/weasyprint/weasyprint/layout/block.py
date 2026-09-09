@@ -260,6 +260,8 @@ def _out_of_flow_layout(context, box, index, child, new_children,
 
     # Float child layout.
     elif child.is_floated():
+        # Check for forced break-before on the float.
+        # https://drafts.csswg.org/css-break/#break-between
         new_child, out_of_flow_resume_at = float_layout(
             context, child, box, absolute_boxes, fixed_boxes, bottom_space,
             skip_stack=None)
@@ -278,11 +280,12 @@ def _out_of_flow_layout(context, box, index, child, new_children,
         else:
             # Child doesn’t fit and we can break, find where to break and stop
             # parent rendering.
-            last_in_flow_child = find_last_in_flow_child(new_children)
-            page_break = block_level_page_break(last_in_flow_child, child)
+            last_child = find_last_class_a_break_point_child(new_children)
+            page_break = block_level_page_break(last_child, child)
             resume_at = {index: None}
             out_of_flow_resume_at = None
             stop = True
+            remove_placeholders(context, [new_child], absolute_boxes, fixed_boxes)
             if new_children and avoid_page_break(page_break, context):
                 # Can’t break inside float, find an earlier page break.
                 result = find_earlier_page_break(
@@ -293,10 +296,8 @@ def _out_of_flow_layout(context, box, index, child, new_children,
                     new_child = None
 
     # Running element layout.
-    elif child.is_running():
-        running_name = child.style['position'][1]
-        page = context.current_page
-        context.running_elements[running_name][page].append(child)
+    elif child.is_running() or child.is_note():
+        context.add_running_element(child)
 
     return stop, resume_at, new_child, out_of_flow_resume_at
 
@@ -377,8 +378,10 @@ def _linebox_layout(context, box, index, child, new_children, page_is_empty,
             # report footnotes and see if we don’t overflow.
             could_break_before = can_break_now = True
             needed = box.style['widows'] - 1
-            for _ in lines_iterator:
+            for next_line, _ in lines_iterator:
                 needed -= 1
+                remove_placeholders(
+                    context, next_line.children, absolute_boxes, fixed_boxes)
                 # Don’t iterate over all lines as it can be long.
                 if needed == -1:
                     break
@@ -479,25 +482,10 @@ def _in_flow_layout(context, box, index, child, new_children, page_is_empty,
                     discard, next_page, max_lines):
     abort = stop = False
 
-    # Find possible page break between in-flow siblings.
-    last_in_flow_child = find_last_in_flow_child(new_children)
-    if last_in_flow_child is not None:
-        page_break = block_level_page_break(last_in_flow_child, child)
-        page_name = block_level_page_name(last_in_flow_child, child)
-        if page_name or force_page_break(page_break, context):
-            page_name = child.page_values()[0]
-            next_page = {'break': page_break, 'page': page_name}
-            resume_at = {index: None}
-            stop = True
-            return (
-                abort, stop, resume_at, position_y, adjoining_margins,
-                next_page, new_children, max_lines)
-    else:
-        page_break = 'auto'
-
     # Resolve percentages and collapsing top margins.
     if not box.is_table_wrapper:
         resolve_percentages(child, box)
+        last_in_flow_child = find_last_in_flow_child(new_children)
         if last_in_flow_child is None and box.top_margin_collapses():
             # TODO: add the adjoining descendants' margin top to
             # [child.margin_top].
@@ -609,6 +597,10 @@ def _in_flow_layout(context, box, index, child, new_children, page_is_empty,
 
     if new_child is None:
         # Nothing fits in the remaining space of this page: break.
+        page_break = 'auto'
+        last_child = find_last_class_a_break_point_child(new_children)
+        if last_child is not None:
+            page_break = block_level_page_break(last_child, child)
         if avoid_page_break(page_break, context):
             # TODO: fill the blank space at the bottom of the page.
             result = find_earlier_page_break(
@@ -732,15 +724,25 @@ def block_container_layout(context, box, bottom_space, skip_stack, page_is_empty
     for index, child in enumerate(box.children[skip:], start=(skip or 0)):
         child.position_x = position_x
         child.position_y = position_y  # doesn’t count adjoining_margins
+        abort = stop = False
         new_footnotes = []
 
-        if not child.is_in_normal_flow():
+        if child.is_in_normal_flow() or child.is_floated():
+            # Find possible page break between siblings.
+            last_child = find_last_class_a_break_point_child(new_children)
+            if last_child is not None:
+                page_break = block_level_page_break(last_child, child)
+                page_name = block_level_page_name(last_child, child)
+                if page_name or force_page_break(page_break, context):
+                    next_page = {'break': page_break, 'page': page_name}
+                    resume_at = {index: None}
+                    stop = True
+
+        if not stop and not child.is_in_normal_flow():
             # Layout out-of-flow child.
-            abort = False
-            stop, resume_at, new_child, out_of_flow_resume_at = (
-                _out_of_flow_layout(
-                    context, box, index, child, new_children, page_is_empty,
-                    absolute_boxes, fixed_boxes, adjoining_margins, bottom_space))
+            stop, resume_at, new_child, out_of_flow_resume_at = _out_of_flow_layout(
+                context, box, index, child, new_children, page_is_empty, absolute_boxes,
+                fixed_boxes, adjoining_margins, bottom_space)
             if out_of_flow_resume_at:
                 context.add_broken_out_of_flow(
                     new_child, child, box, out_of_flow_resume_at)
@@ -749,7 +751,7 @@ def block_container_layout(context, box, bottom_space, skip_stack, page_is_empty
                 if child.style['direction'] == 'rtl':
                     new_child.position_x += box.width + box.padding_right
 
-        elif isinstance(child, boxes.LineBox):
+        elif not stop and isinstance(child, boxes.LineBox):
             # Layout line child.
             (abort, stop, resume_at, position_y,
              new_footnotes, max_lines) = _linebox_layout(
@@ -761,7 +763,7 @@ def block_container_layout(context, box, bottom_space, skip_stack, page_is_empty
             adjoining_margins = []
             first_letter_style = first_line_style = None
 
-        else:
+        elif not stop:
             # Layout in-flow child.
             (abort, stop, resume_at, position_y, adjoining_margins,
              next_page, new_children, new_max_lines) = _in_flow_layout(
@@ -873,19 +875,8 @@ def block_container_layout(context, box, bottom_space, skip_stack, page_is_empty
     new_box.remove_decoration(
         start=not is_start, end=box_is_fragmented and not discard)
 
-    # TODO: See corner cases in
-    # https://www.w3.org/TR/CSS21/visudet.html#normal-block
-    # TODO: See float.float_layout
     if new_box.height == 'auto':
-        if context.excluded_shapes and new_box.style['overflow'] != 'visible':
-            max_float_position_y = max(
-                float_box.position_y + float_box.margin_height()
-                for float_box in context.excluded_shapes)
-            position_y = max(max_float_position_y, position_y)
-        if position_y == new_box.content_box_y() == inf:
-            new_box.height = 0
-        else:
-            new_box.height = position_y - new_box.content_box_y()
+        new_box.height = max(0, position_y - new_box.content_box_y())
 
     if new_box.style['position'] == 'relative':
         # New containing block, resolve the layout of the absolute descendants
@@ -935,6 +926,21 @@ def collapse_margin(adjoining_margins):
     return max(positives) + min(negatives)
 
 
+def _add_break_values(box, side):
+    block_parallel_box_types = (
+        boxes.BlockLevelBox, boxes.TableRowGroupBox, boxes.TableRowBox)
+    values = []
+    while isinstance(box, block_parallel_box_types) and (
+            box.is_in_normal_flow() or box.is_floated()):
+        values.append(box.style[f'break_{side}'])
+        if not box.children:
+            break
+        box = box.children[-1 if side == 'after' else 0]
+    if side == 'after':
+        values.reverse()
+    return values
+
+
 def block_level_page_break(sibling_before, sibling_after):
     """Get the correct page break value between siblings.
 
@@ -949,30 +955,12 @@ def block_level_page_break(sibling_before, sibling_after):
     * 'left' or 'right' take priority over 'always', 'avoid' or 'auto'
     * Among 'left' and 'right', later values in the tree take priority.
 
-    See https://drafts.csswg.org/css-page-3/#allowed-pg-brk
-
     """
-    values = []
     # https://drafts.csswg.org/css-break-3/#possible-breaks
-    block_parallel_box_types = (
-        boxes.BlockLevelBox, boxes.TableRowGroupBox, boxes.TableRowBox)
-
-    box = sibling_before
-    while isinstance(box, block_parallel_box_types):
-        values.append(box.style['break_after'])
-        if not box.children:
-            break
-        box = box.children[-1]
-    values.reverse()  # Have them in tree order
-
-    box = sibling_after
-    while isinstance(box, block_parallel_box_types):
-        values.append(box.style['break_before'])
-        if not box.children:
-            break
-        box = box.children[0]
-
     result = 'auto'
+    values = [
+        *_add_break_values(sibling_before, 'after'),
+        *_add_break_values(sibling_after, 'before')]
     for value in values:
         if value in ('left', 'right', 'recto', 'verso') or (value, result) in (
                 ('page', 'auto'),
@@ -1078,9 +1066,17 @@ def find_earlier_page_break(context, children, absolute_boxes, fixed_boxes):
 
 
 def find_last_in_flow_child(children):
-    """Find and return the last in-flow child of given ``children``."""
+    """Return the last in-flow child of given ``children``."""
     for child in reversed(children):
         if child.is_in_normal_flow():
+            return child
+
+
+def find_last_class_a_break_point_child(children):
+    """Return the last child of given ``children`` for Class-A break points."""
+    # See https://www.w3.org/TR/css-break-4/#btw-blocks.
+    for child in reversed(children):
+        if child.is_in_normal_flow() or child.is_floated():
             return child
 
 
@@ -1099,9 +1095,8 @@ def remove_placeholders(context, box_list, absolute_boxes, fixed_boxes):
 
     """
     for box in box_list:
-        if isinstance(box, boxes.ParentBox):
-            remove_placeholders(
-                context, box.children, absolute_boxes, fixed_boxes)
+        if box.children:
+            remove_placeholders(context, box.children, absolute_boxes, fixed_boxes)
         if box.style['position'] == 'absolute' and box in absolute_boxes:
             absolute_boxes.remove(box)
         elif box.style['position'] == 'fixed' and box in fixed_boxes:
@@ -1110,6 +1105,10 @@ def remove_placeholders(context, box_list, absolute_boxes, fixed_boxes):
             context.unlayout_footnote(box.footnote)
         if box in context.broken_out_of_flow:
             context.broken_out_of_flow.pop(box)
+        if box in context.excluded_shapes:
+            context.excluded_shapes.remove(box)
+        if box.note:
+            context.remove_running_element(box.note)
 
 
 def avoid_page_break(page_break, context):

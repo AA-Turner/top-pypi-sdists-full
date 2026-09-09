@@ -9,7 +9,7 @@
 
 data_exchange_services:
   - serviceName: "de-service-scale-001"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -23,7 +23,7 @@ data_exchange_services:
           tag: "s-scale-001-prefix2"
 
   - serviceName: "de-service-scale-002"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -37,7 +37,7 @@ data_exchange_services:
           tag: "s-scale-002-prefix2"
 
   - serviceName: "de-service-scale-003"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -51,7 +51,7 @@ data_exchange_services:
           tag: "s-scale-003-prefix2"
 
   - serviceName: "de-service-scale-004"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -65,7 +65,7 @@ data_exchange_services:
           tag: "s-scale-004-prefix2"
 
   - serviceName: "de-service-scale-005"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -79,7 +79,7 @@ data_exchange_services:
           tag: "s-scale-005-prefix2"
 
   - serviceName: "de-service-scale-006"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -93,7 +93,7 @@ data_exchange_services:
           tag: "s-scale-006-prefix2"
 
   - serviceName: "de-service-scale-007"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -107,7 +107,7 @@ data_exchange_services:
           tag: "s-scale-007-prefix2"
 
   - serviceName: "de-service-scale-008"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -121,7 +121,7 @@ data_exchange_services:
           tag: "s-scale-008-prefix2"
 
   - serviceName: "de-service-scale-009"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -135,7 +135,7 @@ data_exchange_services:
           tag: "s-scale-009-prefix2"
 
   - serviceName: "de-service-scale-010"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -149,7 +149,7 @@ data_exchange_services:
           tag: "s-scale-010-prefix2"
 
   - serviceName: "de-service-scale-011"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -163,7 +163,7 @@ data_exchange_services:
           tag: "s-scale-011-prefix2"
 
   - serviceName: "de-service-scale-012"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -177,7 +177,7 @@ data_exchange_services:
           tag: "s-scale-012-prefix2"
 
   - serviceName: "de-service-scale-013"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -191,7 +191,7 @@ data_exchange_services:
           tag: "s-scale-013-prefix2"
 
   - serviceName: "de-service-scale-014"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -205,7 +205,7 @@ data_exchange_services:
           tag: "s-scale-014-prefix2"
 
   - serviceName: "de-service-scale-015"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -219,7 +219,7 @@ data_exchange_services:
           tag: "s-scale-015-prefix2"
 
   - serviceName: "de-service-scale-016"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -233,7 +233,7 @@ data_exchange_services:
           tag: "s-scale-016-prefix2"
 
   - serviceName: "de-service-scale-017"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -247,7 +247,7 @@ data_exchange_services:
           tag: "s-scale-017-prefix2"
 
   - serviceName: "de-service-scale-018"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -261,7 +261,7 @@ data_exchange_services:
           tag: "s-scale-018-prefix2"
 
   - serviceName: "de-service-scale-019"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -275,7 +275,7 @@ data_exchange_services:
           tag: "s-scale-019-prefix2"
 
   - serviceName: "de-service-scale-020"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -289,7 +289,7 @@ data_exchange_services:
           tag: "s-scale-020-prefix2"
 
   - serviceName: "de-service-scale-021"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -303,7 +303,7 @@ data_exchange_services:
           tag: "s-scale-021-prefix2"
 
   - serviceName: "de-service-scale-022"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -317,7 +317,7 @@ data_exchange_services:
           tag: "s-scale-022-prefix2"
 
   - serviceName: "de-service-scale-023"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:
@@ -331,7 +331,7 @@ data_exchange_services:
           tag: "s-scale-023-prefix2"
 
   - serviceName: "de-service-scale-024"
-    type: "peering_service"
+    serviceType: "peering_service"
     policy:
       serviceLanSegment: "lan-segment-3"  # Will be resolved to ID
       sites:

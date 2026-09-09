@@ -46,6 +46,7 @@ class TestOrganizationModelResponse(unittest.TestCase):
                 metadata = { },
                 billing_email = '',
                 notifications_email = '',
+                notifications_email_delivery_status = { },
                 rate_limits = mixpeek.models.base_rate_limits.BaseRateLimits(
                     metadata = 1.0, 
                     data = 1.0, 

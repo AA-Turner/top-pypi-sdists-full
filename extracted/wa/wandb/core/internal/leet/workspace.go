@@ -32,6 +32,9 @@ type Workspace struct {
 	// drag owns in-progress pane-boundary resizing (mouse drag).
 	drag paneDragger
 
+	// lastDrawAt is when the charts were last redrawn while a run was loading.
+	lastDrawAt time.Time
+
 	// Configuration and key bindings.
 	config *ConfigManager
 	keyMap map[string]func(*Workspace, tea.KeyPressMsg) tea.Cmd
@@ -315,7 +318,7 @@ func (w *Workspace) View() tea.View {
 	runLabel, systemGrid, systemHint, mediaHint, logsHint := w.syncCurrentRunContext()
 
 	var cols []string
-	if w.runsAnimState.IsVisible() {
+	if layout.leftSidebarWidth > 0 {
 		cols = append(cols, w.renderRunsList())
 	}
 
@@ -352,13 +355,14 @@ func (w *Workspace) View() tea.View {
 		if len(sections) == 0 {
 			centralColumn = renderLogoArt(contentWidth, layout.totalContentAreaHeight)
 		} else {
-			centralColumn = joinWithSeparators(sections, contentWidth)
+			centralColumn = joinWithSeparators(sections, contentWidth,
+				highlightedStackSeparator(w.drag.cue(), layout, len(sections)))
 		}
 	}
 	centralColumn = placeMainColumn(contentWidth, layout.totalContentAreaHeight, centralColumn)
 	cols = append(cols, centralColumn)
 
-	if w.runOverviewSidebar.IsVisible() {
+	if layout.rightSidebarWidth > 0 {
 		cols = append(cols, w.renderRunOverview())
 	}
 
@@ -398,6 +402,7 @@ func (w *Workspace) Cleanup() {
 func (w *Workspace) IsFiltering() bool {
 	if w.metricsGrid.IsFilterMode() ||
 		w.runOverviewSidebar.IsFilterMode() ||
+		w.consoleLogsPane.IsFilterMode() ||
 		w.filter.IsActive() {
 		return true
 	}
@@ -503,14 +508,14 @@ func (w *Workspace) syncCurrentRunContext() (
 	}
 
 	if currentRunKey == "" {
-		w.consoleLogsPane.SetConsoleLogs(nil)
+		w.consoleLogsPane.SetConsoleLogs(nil, 0)
 		return runLabel, systemGrid, systemHint, mediaHint, logsHint
 	}
 
 	if cl := w.consoleLogs[currentRunKey]; cl != nil {
-		w.consoleLogsPane.SetConsoleLogs(cl.Items())
+		w.consoleLogsPane.SetConsoleLogs(cl.takeChanges())
 	} else {
-		w.consoleLogsPane.SetConsoleLogs(nil)
+		w.consoleLogsPane.SetConsoleLogs(nil, 0)
 	}
 
 	if _, selected := w.selectedRuns[currentRunKey]; !selected {
@@ -530,6 +535,16 @@ func (w *Workspace) syncCurrentRunContext() (
 func (w *Workspace) recalculateLayout() {
 	layout := w.computeViewports()
 	w.metricsGrid.UpdateDimensions(layout.mainContentAreaWidth, layout.height)
+	w.focusMgr.Resolve()
+}
+
+// attachFilters restores the filters remembered for the wandb directory and
+// keeps them saved. System metrics grids are created per run and pick up the
+// shared filter as their charts arrive.
+func (w *Workspace) attachFilters(df *dirFilters) {
+	df.bind(&df.Metrics, w.metricsGrid.filter, w.metricsGrid.ApplyFilter)
+	df.bind(&df.SystemMetrics, w.systemMetricsFilter, nil)
+	df.bind(&df.Runs, w.filter, w.applyRunFilter)
 }
 
 // computeViewports returns the computed layout dimensions.
@@ -537,7 +552,8 @@ func (w *Workspace) recalculateLayout() {
 // Separator lines between visible sections are subtracted from available height
 // to prevent the status bar from being pushed off screen.
 func (w *Workspace) computeViewports() Layout {
-	leftW, rightW := w.runsAnimState.Value(), w.runOverviewSidebar.Width()
+	leftW, rightW := fitSidebarWidths(
+		w.width, w.runsAnimState.Value(), w.runOverviewSidebar.Width())
 	contentW := max(w.width-leftW-rightW, 1)
 	totalH := max(w.height-StatusBarHeight, 0)
 
@@ -721,7 +737,8 @@ func (w *Workspace) buildWorkspaceFocusManager() *FocusManager {
 // visible even when empty, so focus survives the empty-list windows during
 // startup and no-match filters.
 func (w *Workspace) runsFocusAvailable() bool {
-	return w.runsAnimState.TargetVisible()
+	return w.runsAnimState.TargetVisible() &&
+		(w.width == 0 || w.computeViewports().leftSidebarWidth > 0)
 }
 
 func (w *Workspace) metricsGridFocusAvailable() bool {
@@ -746,7 +763,8 @@ func (w *Workspace) logsFocusAvailable() bool {
 
 func (w *Workspace) overviewFocusAvailable() bool {
 	firstSec, _ := w.runOverviewSidebar.focusableSectionBounds()
-	return w.runOverviewSidebar.animState.TargetVisible() && firstSec != -1
+	return w.runOverviewSidebar.animState.TargetVisible() &&
+		(w.width == 0 || w.computeViewports().rightSidebarWidth > 0) && firstSec != -1
 }
 
 // ---- Focus activate ----
@@ -1060,7 +1078,11 @@ func (w *Workspace) renderRunsList() string {
 		MaxHeight(totalH).
 		Render(content)
 
-	boxed := leftSidebarBorderStyle.
+	borderStyle := leftSidebarBorderStyle
+	if w.drag.cue().boundary == dragBoundaryLeftSidebar {
+		borderStyle = leftSidebarBorderHighlightStyle
+	}
+	boxed := borderStyle.
 		Height(totalH).
 		MaxHeight(totalH).
 		Render(styledContent)
@@ -1083,6 +1105,7 @@ func (w *Workspace) renderRunOverview() string {
 		w.runOverviewSidebar.deactivateAllSections()
 	}
 
+	w.runOverviewSidebar.SetDragCue(w.drag.cue())
 	contentH := max(w.height-StatusBarHeight, 0)
 	return w.runOverviewSidebar.View(contentH).Content
 }
@@ -1207,6 +1230,9 @@ func (w *Workspace) buildStatusText() string {
 	if w.runOverviewSidebar.IsFilterMode() {
 		return w.buildOverviewFilterStatus()
 	}
+	if w.consoleLogsPane.IsFilterMode() {
+		return w.buildConsoleFilterStatus()
+	}
 
 	// Grid layout prompt (rows/cols) for metrics/system grids.
 	if w.config != nil && w.config.IsAwaitingGridConfig() {
@@ -1238,6 +1264,18 @@ func (w *Workspace) buildSystemMetricsFilterStatus(grid *SystemMetricsGrid) stri
 		string(mediumShadeBlock),
 		grid.FilteredChartCount(),
 		grid.ChartCount(),
+	)
+}
+
+func (w *Workspace) buildConsoleFilterStatus() string {
+	shown, total := w.consoleLogsPane.FilterCounts()
+	return fmt.Sprintf(
+		"Console filter (%s): %s%s [%d/%d] (Enter to apply • Tab to toggle mode)",
+		w.consoleLogsPane.FilterMode().String(),
+		w.consoleLogsPane.FilterQuery(),
+		string(mediumShadeBlock),
+		shown,
+		total,
 	)
 }
 
@@ -1322,6 +1360,17 @@ func (w *Workspace) activeFilterStatus() []string {
 		))
 	}
 
+	if w.consoleLogsPane.IsVisible() && w.consoleLogsPane.IsFiltering() {
+		shown, total := w.consoleLogsPane.FilterCounts()
+		parts = append(parts, fmt.Sprintf(
+			"Console filter (%s): %q [%d/%d] (focus logs, / to change, ctrl+/ to clear)",
+			w.consoleLogsPane.FilterMode().String(),
+			w.consoleLogsPane.FilterQuery(),
+			shown,
+			total,
+		))
+	}
+
 	return parts
 }
 
@@ -1355,9 +1404,7 @@ func (w *Workspace) activeFocusStatus() []string {
 
 	switch w.focus.Type {
 	case FocusMainChart:
-		if scaleLabel := w.metricsGrid.focusedChartScaleLabel(); scaleLabel != "" {
-			parts = append(parts, scaleLabel)
-		}
+		parts[0] += w.metricsGrid.focusedChartLabels()
 	case FocusSystemChart:
 		if g := w.activeSystemMetricsGrid(); g != nil {
 			if detail := g.FocusedChartTitleDetail(); detail != "" {
@@ -1486,7 +1533,7 @@ func (w *Workspace) renderRunLines(contentWidth int) []string {
 		// Determine row style.
 		style := evenRunStyle
 		if idxOnPage%2 == 1 {
-			style = oddRunStyle
+			style = oddRunStyle()
 		}
 		if idxOnPage == selectedLine {
 			if w.runs.Active {

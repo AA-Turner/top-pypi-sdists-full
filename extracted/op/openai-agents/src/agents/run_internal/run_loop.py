@@ -102,6 +102,7 @@ from .agent_runner_helpers import (
     apply_resumed_conversation_settings,
     attach_usage_to_span,
     get_unsent_tool_call_ids_for_interrupted_state,
+    reject_unrecoverable_terminal_state,
     snapshot_usage,
     usage_delta,
     validate_output_guardrails_with_server_managed_conversation,
@@ -114,6 +115,7 @@ from .blocked_output import (
     _final_turn_items_for_persistence,
     _has_output_guardrails,
     _is_terminal_tool_output_response,
+    _resolve_output_guardrail_blocked_message,
     _retained_items_for_blocked_response,
     _sanitize_blocked_output_guardrail_results,
     _should_defer_interrupted_session_items,
@@ -176,6 +178,7 @@ from .session_persistence import (
     persist_session_items_for_guardrail_trip,
     prepare_input_with_session,
     reconcile_nested_history_owned_session_item_refs,
+    resume_pending_session_write,
     resumed_turn_items,
     rewind_session_items,
     save_result_to_session,
@@ -391,6 +394,7 @@ async def _save_resumed_stream_items(
     ):
         return
     streamed_result._current_turn_persisted_item_count = await save_resumed_turn_items(
+        run_state=run_state,
         session=session,
         items=items,
         persisted_count=streamed_result._current_turn_persisted_item_count,
@@ -530,13 +534,30 @@ async def _finalize_streamed_final_output(
             *streamed_result.output_guardrail_results[:output_guardrail_result_start],
             *sanitized_results,
         ]
+        blocked_message = _resolve_output_guardrail_blocked_message(
+            exc,
+            agent=agent,
+            run_config=run_config,
+            context_wrapper=context_wrapper,
+        )
+        if blocked_message != OUTPUT_GUARDRAIL_BLOCKED_TOOL_OUTPUT:
+            sanitized_results = _sanitize_blocked_output_guardrail_results(
+                sanitized_results,
+                exc,
+                blocked_message,
+            )
+            streamed_result.output_guardrail_results = [
+                *streamed_result.output_guardrail_results[:output_guardrail_result_start],
+                *sanitized_results,
+            ]
         retained_items = _retained_items_for_blocked_response(
             items,
             model_response,
             streamed_result._state,
             processed_response,
-            streamed_result,
-            owner_starts,
+            streamed_result=streamed_result,
+            owner_starts=owner_starts,
+            blocked_message=blocked_message,
         )
         if retained_items:
             try:
@@ -608,6 +629,10 @@ async def _finalize_streamed_final_output(
     # Saved as one ordered batch so the session mirrors the model response. Doing it in two
     # halves would both reorder the turn and, because the first save advances the turn's
     # persisted-item count, make the second one a no-op.
+    # The output, its guardrails, and its terminal hooks are all complete, so from here until
+    # the turn is persisted this run owns a result no resume can reproduce.
+    if streamed_result._state is not None:
+        streamed_result._state._terminal_unrecoverable = True
     if on_persisted_after_guardrails is None:
         await save_items(final_turn_items, response_id, store_setting)
     else:
@@ -620,6 +645,10 @@ async def _finalize_streamed_final_output(
             streamed_result.is_complete = True
             streamed_result._event_queue.put_nowait(QueueCompleteSentinel())
             return
+    # The append and any post-append maintenance both succeeded, so the turn is durable and the
+    # state is open again.
+    if streamed_result._state is not None:
+        streamed_result._state._terminal_unrecoverable = False
 
     streamed_result.final_output = output
     if on_persisted_after_guardrails is not None:
@@ -901,6 +930,13 @@ async def start_streaming(
         if run_state is not None:
             run_state._reasoning_item_id_policy = resolved_reasoning_item_id_policy
         streamed_result._reasoning_item_id_policy = resolved_reasoning_item_id_policy
+
+        if is_resumed_state and run_state is not None:
+            reject_unrecoverable_terminal_state(run_state)
+            await resume_pending_session_write(run_state, session, wrapper=context_wrapper)
+            streamed_result._current_turn_persisted_item_count = (
+                run_state._current_turn_persisted_item_count
+            )
 
         if (
             conversation_id is not None
@@ -1351,6 +1387,15 @@ async def start_streaming(
                         )
 
                     if isinstance(turn_result.next_step, NextStepInterruption):
+                        if run_state is not None:
+                            run_state._tool_input_guardrail_results = [
+                                *accepted_tool_input_guardrail_results,
+                                *turn_result.tool_input_guardrail_results,
+                            ]
+                            run_state._tool_output_guardrail_results = [
+                                *accepted_tool_output_guardrail_results,
+                                *turn_result.tool_output_guardrail_results,
+                            ]
                         await _finalize_streamed_interruption(
                             streamed_result=streamed_result,
                             save_items=_save_resumed_items,
@@ -1370,15 +1415,24 @@ async def start_streaming(
                         break
 
                     if isinstance(turn_result.next_step, NextStepHandoff):
+                        if run_state is not None:
+                            # `_accumulate_tool_guardrail_results` already folded this turn's
+                            # results in; publish them before the fallible append.
+                            run_state._tool_input_guardrail_results = list(
+                                accepted_tool_input_guardrail_results
+                            )
+                            run_state._tool_output_guardrail_results = list(
+                                accepted_tool_output_guardrail_results
+                            )
+                        current_agent = turn_result.next_step.new_agent
+                        if run_state is not None:
+                            run_state._current_agent = current_agent
+                        _publish_streamed_result_agent(streamed_result, current_agent)
                         await _save_resumed_items(
                             list(turn_session_items),
                             turn_result.model_response.response_id,
                             store_setting,
                         )
-                        current_agent = turn_result.next_step.new_agent
-                        if run_state is not None:
-                            run_state._current_agent = current_agent
-                        _publish_streamed_result_agent(streamed_result, current_agent)
                         if current_span is not None:
                             current_span.finish(reset_current=True)
                         current_span = None
@@ -1386,7 +1440,6 @@ async def start_streaming(
                         streamed_result._event_queue.put_nowait(
                             AgentUpdatedStreamEvent(new_agent=current_agent)
                         )
-                        run_state._current_step = NextStepRunAgain()
                         if await _wait_for_streamed_turn_events_and_stop_if_cancelled(
                             streamed_result
                         ):

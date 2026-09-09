@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2023, Ansible Cloud Team (@ansible-collections)
+# Copyright: (c) 2023, Ansible Eco Content Team (github.com/eco-ansible-content)
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -18,7 +18,7 @@ description:
       Gathers information about one or more clusters.
       You can search for clusters based on the cluster name, datacenter name, or a combination of the two.
 author:
-    - Ansible Cloud Team (@ansible-collections)
+    - Mike Morency (@mikemorency)
 
 options:
     cluster:
@@ -163,8 +163,10 @@ from ansible_collections.vmware.vmware.plugins.module_utils.argument_spec import
     rest_compatible_argument_spec
 )
 from ansible_collections.vmware.vmware.plugins.module_utils._module_rest_base import ModuleRestBase
-from ansible_collections.vmware.vmware.plugins.module_utils._facts import (
+from ansible_collections.vmware.vmware.plugins.module_utils.facts._cluster import (
     ClusterFacts,
+)
+from ansible_collections.vmware.vmware.plugins.module_utils.facts._converters import (
     vmware_obj_to_json
 )
 

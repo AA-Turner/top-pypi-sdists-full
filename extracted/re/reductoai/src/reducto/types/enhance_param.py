@@ -1,5 +1,3 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
 from __future__ import annotations
 
 from typing import Union, Iterable
@@ -15,6 +13,14 @@ Agentic: TypeAlias = Union[TableAgentic, FigureAgentic, TextAgentic]
 
 
 class EnhanceParam(TypedDict, total=False):
+    advanced_chart_agent: bool
+    """
+    If True, run advanced chart extraction on figures classified as charts, without
+    requiring a figure-scoped agentic entry. Returns full structured series data
+    (chart_data) plus a reconstruction image re-drawn from that data. Higher
+    latency. Defaults to False.
+    """
+
     agentic: Iterable[Agentic]
     """
     Agentic uses vision language models to enhance the accuracy of the output of

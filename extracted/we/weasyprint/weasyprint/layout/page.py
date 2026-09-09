@@ -4,7 +4,6 @@ import copy
 from collections import defaultdict, namedtuple
 from math import inf
 
-from ..css import AnonymousStyle
 from ..formatting_structure import boxes, build
 from ..logger import PROGRESS_LOGGER
 from .absolute import absolute_box_layout, absolute_layout
@@ -377,7 +376,7 @@ def make_margin_boxes(context, page, state):
         style = context.style_for(page.page_type, at_keyword)
         if style is None:
             # doesn't affect counters
-            style = AnonymousStyle(page.style)
+            style = page.style.anonymous_style
         _standardize_page_based_counters(style, at_keyword)
         box = boxes.MarginBox(at_keyword, style)
         # Empty boxes should not be generated, but they may be needed for
@@ -397,8 +396,8 @@ def make_margin_boxes(context, page, state):
                 box.style, box, quote_depth, counter_values,
                 context.get_image_from_uri, context.target_collector,
                 context.counter_style, context, page)
-            build.process_whitespace(box)
-            build.process_text_transform(box)
+            box.process_whitespace()
+            box.process_text_transform()
             box = build.create_anonymous_boxes(box)
         resolve_percentages(box, containing_block)
         if not box.is_generated:
@@ -506,8 +505,6 @@ def margin_box_content_layout(context, page, box):
         first_child = box.children[0]
         last_child = box.children[-1]
         top = first_child.position_y
-        # Not always exact because floating point errors
-        # assert top == box.content_box_y()
         bottom = last_child.position_y + last_child.margin_height()
         content_height = bottom - top
         offset = box.height - content_height
@@ -594,12 +591,12 @@ def make_page(context, root_box, page_type, resume_at, page_number,
         context.style_for.initial_page_sizes['box'] = device_size
         context.style_for.initial_page_sizes['area'] = (page.width, page.height)
 
-    root_box.position_x = page.content_box_x()
-    root_box.position_y = page.content_box_y()
-    context.page_bottom = root_box.position_y + page.height
+    context.page_bottom = page.content_box_y() + page.height
     initial_containing_block = page
 
     footnote_area_style = context.style_for(page_type, '@footnote')
+    if footnote_area_style is None:
+        footnote_area_style = style.anonymous_style
     footnote_area = boxes.FootnoteAreaBox(page, footnote_area_style)
     resolve_percentages(footnote_area, page)
     footnote_area.position_x = page.content_box_x()
@@ -625,6 +622,42 @@ def make_page(context, root_box, page_type, resume_at, page_number,
             context.report_footnote(reported_footnote)
             context.reported_footnotes = reported_footnotes[i:]
             break
+
+    page_is_empty = True
+    adjoining_margins = []
+    positioned_boxes = []  # Mixed absolute and fixed
+    note_area_style = context.style_for(page_type, '@note-area')
+    if note_area_style is None:
+        note_area_style = style.anonymous_style
+    note_area = build.blockify(build.make_box('@note-area', note_area_style, (), None))
+    note_area.position_x = page.content_box_x()
+    note_area.position_y = page.content_box_y()
+    quote_depth, counter_values, _, _ = page_state
+    if note_area.style['content'] != 'normal':
+        note_area.children = build.content_to_boxes(
+            note_area.style, note_area, quote_depth, counter_values,
+            context.get_image_from_uri, context.target_collector,
+            context.counter_style, context, page)
+        note_area = build.create_anonymous_boxes(note_area)
+
+    root_box.position_x = page.content_box_x()
+    root_box.position_y = page.content_box_y()
+    if note_area.is_in_normal_flow():
+        note_area, _, _, _, _, _ = block_level_layout(
+            context, note_area, 0, None, initial_containing_block,
+            page_is_empty, positioned_boxes, positioned_boxes, adjoining_margins)
+        if note_area.children:
+            root_box.position_y = note_area.position_y + note_area.margin_height()
+    elif note_area.is_floated():
+        note_area, _ = float_layout(
+            context, note_area, initial_containing_block, positioned_boxes,
+            positioned_boxes, 0, None)
+        if note_area.children:
+            context._excluded_shapes[root_box] = note_area
+    else:
+        note_area, _ = absolute_box_layout(
+            context, note_area, page, positioned_boxes, bottom_space=0,
+            skip_stack=None)
 
     # Display out-of-flow boxes broken on the previous page.
     # TODO: we shouldn’t separate broken in-flow and out-of-flow layout.
@@ -665,6 +698,15 @@ def make_page(context, root_box, page_type, resume_at, page_number,
     # Display in-flow content.
     initial_root_box = root_box
     initial_resume_at = resume_at
+    previous_running_elements = {
+        name: running_elements.get(page_number)
+        for name, running_elements in context.running_elements.items()}
+    for running_elements in context.running_elements.values():
+        running_elements.pop(page_number, None)
+    notes = (
+        element for elements in previous_running_elements.values()
+        for element in (elements or ()) if element.is_note())
+    context.rendered_notes.extend(notes)
     root_box, resume_at, next_page, _, _, _ = block_level_layout(
         context, root_box, 0, resume_at, initial_containing_block,
         page_is_empty, positioned_boxes, positioned_boxes, adjoining_margins)
@@ -685,6 +727,15 @@ def make_page(context, root_box, page_type, resume_at, page_number,
             True, positioned_boxes, positioned_boxes, adjoining_margins)
         resume_at = initial_resume_at
     root_box.children = out_of_flow_boxes + root_box.children
+    running_elements = {
+        name: running_elements.get(page_number)
+        for name, running_elements in context.running_elements.items()}
+    if previous_running_elements != running_elements:
+        for name, previous_runnings in previous_running_elements.items():
+            if runnings := running_elements[name]:
+                if previous_runnings is None or len(previous_runnings) > len(runnings):
+                    remake_state = context.page_maker[page_number - 1][-1]
+                    remake_state['content_changed'] = True
 
     footnote_area = build.create_anonymous_boxes(footnote_area.deepcopy())
     footnote_area = block_level_layout(
@@ -703,7 +754,7 @@ def make_page(context, root_box, page_type, resume_at, page_number,
 
     context.finish_block_formatting_context()
 
-    page.children = [root_box, footnote_area]
+    page.children = [root_box, footnote_area, note_area]
 
     # Update page counter values
     _standardize_page_based_counters(style, None)
@@ -869,7 +920,7 @@ def _update_page_groups(page_groups, resume_at, next_page, root_box, blank):
     # Find the box that has the named page. It is a first in-flow child of the
     # element corresponding to resume_at.
 
-    # Find element corrensponding to resume_at.
+    # Find element corresponding to resume_at.
     current_resume_at = page_group_resume_at = copy.deepcopy(resume_at) or {0: None}
     current_element = root_box
     while True:
@@ -943,7 +994,6 @@ def remake_page(index, context, root_box, html):
     set_page_type_computed_styles(page_type, html, context.style_for)
 
     context.forced_break = (next_page['break'] != 'any' or next_page['page'])
-    context.margin_clearance = False
 
     # make_page wants a page_number of index + 1
     page_number = index + 1
@@ -995,6 +1045,7 @@ def make_all_pages(context, root_box, html, pages):
     """
     i = 0
     reported_footnotes = None
+    context.rendered_notes = []
     while True:
         remake_state = context.page_maker[i][-1]
         if (len(pages) == 0 or

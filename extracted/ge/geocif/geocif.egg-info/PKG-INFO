@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.993
+Version: 0.4.1002
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -261,6 +261,13 @@ min_region_frac = 1.0      ; a stage must cover the FULL region pool to be drawn
 use_nass_reference = True  ; USDA finals + monthly in-season track
 nass_offline = False       ; True = cached NASS extract only, never call the API
 ```
+
+Set `[ML] make_cone_plots = True` to render the cones automatically at the end
+of a `yield_outlook` run, into `<analysis>/cone` beside `<analysis>/outlook`,
+using the DB that run just wrote. It is **off by default**: the cones are a
+publication product rather than part of forecasting, and the NASS reference
+calls an external API a compute node may not reach. A failure there is logged
+and never discards a completed run. Otherwise render them standalone:
 
 ```python
 from geocif.viz import cone

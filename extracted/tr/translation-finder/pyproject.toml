@@ -4,6 +4,29 @@ requires = [
   "setuptools>=78.0.2"
 ]
 
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+  {include-group = "test"},
+  {include-group = "types"}
+]
+lint = [
+  {include-group = "pre-commit"}
+]
+pre-commit = [
+  "prek==0.5.2"
+]
+test = [
+  "hypothesis==6.167.1",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "pytest-github-actions-annotate-failures==0.4.2"
+]
+types = [
+  "ty==0.0.79",
+  "mypy==2.3.1"
+]
+
 [project]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -37,29 +60,11 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "translation-finder"
 requires-python = ">=3.11"
-version = "3.4.0"
+version = "3.4.1"
 
 [[project.authors]]
 email = "michal@weblate.org"
 name = "Michal Čihař"
-
-[project.optional-dependencies]
-dev = [
-  "translation-finder[lint,test,types]"
-]
-lint = [
-  "prek==0.4.11"
-]
-test = [
-  "hypothesis==6.165.0",
-  "pytest==9.1.1",
-  "pytest-cov==7.1.0",
-  "pytest-github-actions-annotate-failures==0.4.2"
-]
-types = [
-  "ty==0.0.65",
-  "mypy==2.3.0"
-]
 
 [project.readme]
 content-type = "text/x-rst"
@@ -98,7 +103,7 @@ ignore = [
 
 [tool.check-wheel-contents]
 ignore = [
-  "W002"  # Duplicate test files
+  "W002" # Duplicate test files
 ]
 
 [tool.coverage.paths]
@@ -137,20 +142,20 @@ extend-safe-fixes = [
   "FLY",
   "SIM",
   "ANN",
-  "FA102",
+  "future-required-type-annotation",
   "UP"
 ]
 future-annotations = true
 ignore = [
-  "COM",  # CONFIG: No trailing commas
-  "PT",  # CONFIG: Not using pytest
-  "D107",  # CONFIG: skipping __init__ docs for now
-  "D203",  # CONFIG: incompatible with D211
-  "D212",  # CONFIG: incompatible with D213
-  'ISC001',  # CONFIG: formatter
-  "ARG002",  # TODO: Unused method argument (mostly for API compatibility)
-  "DOC",  # CONFIG: Using type annotations instead
-  "E501"  # WONTFIX: we accept long strings (rest is formatted by black)
+  "COM", # CONFIG: No trailing commas
+  "PT", # CONFIG: Not using pytest
+  "undocumented-public-init", # CONFIG: skipping __init__ docs for now
+  "incorrect-blank-line-before-class", # CONFIG: incompatible with D211
+  "multi-line-summary-first-line", # CONFIG: incompatible with D213
+  'single-line-implicit-string-concatenation', # CONFIG: formatter
+  "unused-method-argument", # TODO: Unused method argument (mostly for API compatibility)
+  "DOC", # CONFIG: Using type annotations instead
+  "line-too-long" # WONTFIX: we accept long strings (rest is formatted by black)
 ]
 preview = true
 select = ["ALL"]
@@ -164,7 +169,7 @@ notice-rgx = "(?i)Copyright\\s+©\\s+"
 max-complexity = 16
 
 [tool.ruff.lint.per-file-ignores]
-"translation_finder/test_*.py" = ["D101", "D102"]
+"translation_finder/test_*.py" = ["undocumented-public-class", "undocumented-public-method"]
 
 [tool.rumdl]
 disable = [

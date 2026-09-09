@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from typing import Iterable
 
 import httpx
@@ -18,9 +19,44 @@ from coord.comments import (
     format_refused_premise,
 )
 from coord.config import Config
-from coord.models import EPIC_DECOMPOSE_TYPE, Proposal, Repo, coordinator_owned_docs
+from coord.models import EPIC_DECOMPOSE_TYPE, Machine, Proposal, Repo, coordinator_owned_docs
 
 AGENT_PORT = 7433
+
+# #3214: format-converter#6 — a UAT fix-up `coord fix --force` dispatch
+# timed out identically twice, 19 minutes apart, against a machine that
+# `coord.dispatch.select_fix_machine`'s own LIVE reachability probe (a
+# separate, ~3s `/status` GET — see `coord.network.fetch_status`) had
+# already confirmed was up. The agent's own `POST /assign` handler
+# (`coord/agent_app.py`) runs `server.assign()` INLINE on its event loop and
+# does real blocking `git worktree add` work there (documented in that
+# handler's own #3145 audit note) — ordinary git/process latency, not the
+# 600s-class `build_command` a worker session can take, but routinely more
+# than a few seconds on a loaded host or a large repo. The bare `timeout=15`
+# a POST to `/assign` used to carry was tuned for a fast confirm-and-202
+# response, not for the endpoint it actually calls, so a machine that was
+# genuinely reachable and genuinely working still surfaced as a bare
+# "dispatch failed: timed out" indistinct from an unreachable one.
+#
+# This is not unique to `coord fix` — every one of this repo's `POST
+# /assign` call sites (`dispatch()` below, plus `auto_loop.py`,
+# `conflict_fix.py`, `gate_b.py`, `review.py` x2, `smoke.py`, `reconcile.py`,
+# `test_author.py`, and `test_chat.py`) hits the identical blocking handler,
+# so all of them share this constant rather than each carrying its own
+# hand-tuned `timeout=15` (#2096: one question, one answer). Exported (no
+# leading underscore) so those modules can import it instead of re-deriving
+# their own value.
+#
+# Raised well past ordinary worktree-setup latency — this bounds ACTUAL
+# unreachability, not a slow-but-working `/assign`. The `coord fix` callers
+# already screen out unreachability with a live pre-probe before ever
+# reaching this timeout; plain `coord assign`/`coord approve` dispatches
+# (`coord/commands/dispatch.py`, `coord/commands/plan_followup.py`,
+# `coord/milestone_dispatch.py`) do not, so a genuinely dead machine now
+# takes up to 60s to fail there instead of 15s — a real but accepted latency
+# trade-off against a worker that legitimately just needs more time to set
+# up a worktree.
+ASSIGN_POST_TIMEOUT_SECS = 60.0
 
 _log = logging.getLogger(__name__)
 
@@ -755,8 +791,12 @@ def dispatch(
     # acceptance driver configured (the oracle-loop proxy — #944 never landed
     # a milestone-level flag, so "driver configured for this repo" is the
     # signal, mirroring the tests/acceptance/ auto-seal above) AND this issue
-    # already has an authored slice (oracle_loop_contract_block returns ""
-    # otherwise, e.g. before Gate A/#931 has run for it).
+    # already has an authored slice, OR (#3212) is exempted from one —
+    # oracle_loop_contract_block covers both and returns "" only when neither
+    # applies (e.g. before Gate A/#931 has run for it at all). An exemption
+    # waives the automated gate, not the design contract the milestone's
+    # mocks define, so the worker still needs the pointer — see
+    # oracle_loop_contract_block's docstring for the exempted-issue variant.
     briefing_text = proposal.briefing
     if proposal.type == "work" and proposal.issue_number:
         from pathlib import Path  # noqa: PLC0415
@@ -933,7 +973,7 @@ def dispatch(
     ):
         payload["provider"] = effective_provider_name
 
-    resp = httpx.post(url, json=payload, timeout=15)
+    resp = httpx.post(url, json=payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
     if (
         resp.status_code == 400
         and "provider" in payload
@@ -983,7 +1023,7 @@ def dispatch(
 
         definition = config.providers.definitions[effective_provider_name]
         retry_payload = dict(payload, provider_def=provider_def_to_wire(definition))
-        resp = httpx.post(url, json=retry_payload, timeout=15)
+        resp = httpx.post(url, json=retry_payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
 
     if resp.status_code == 400 and "cost_ceiling_usd" in payload:
         # #2131: the agent lane lags the CLI/daemon lane (a `coord/agent.py`
@@ -1000,7 +1040,7 @@ def dispatch(
         degraded_payload = {
             k: v for k, v in payload.items() if k != "cost_ceiling_usd"
         }
-        retried = httpx.post(url, json=degraded_payload, timeout=15)
+        retried = httpx.post(url, json=degraded_payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
         if retried.status_code != 400:
             _log.warning(
                 "agent %s rejected cost_ceiling_usd (#2131) — dispatched "
@@ -1050,6 +1090,133 @@ def dispatch_with_retry(
         except ValueError:
             raise
     raise last_exc  # unreachable, but satisfies type checker
+
+
+@dataclass
+class FixMachineSelection:
+    """Outcome of picking a machine for a same-branch fix dispatch (#3208).
+
+    Same-branch fix dispatch (``coord fix``) used to aim unconditionally at
+    the ORIGINAL worker's machine and, when that machine was merely asleep
+    or powered off, surface nothing but a bare ``dispatch failed: timed
+    out`` — no machine name, no hint that reachability was even the
+    problem, no way to redirect. This is the ONE place that answers "which
+    machine should a same-branch fix run on" for both doors onto ``coord
+    fix`` — the failed-test/CI/acceptance/UAT door
+    (``coord.commands.plan_followup._dispatch_followup``) and the
+    request-changes-review door (``coord.auto_loop._dispatch_fix``) — so
+    the two can never again drift into disagreeing answers for the same
+    question (#2096, "one question, one answer").
+
+    ``machine`` is the chosen target, or ``None`` if nothing capable is
+    reachable right now. ``tried`` lists every candidate actually
+    considered, in the order tried, paired with why it was skipped
+    (unreachable — with the classified network reason — not capable, or
+    paused) so a refusal can name names instead of leaving the operator to
+    guess which piece of infrastructure is at fault.
+    """
+
+    machine: Machine | None
+    tried: list[tuple[str, str]]
+
+
+def select_fix_machine(
+    *,
+    original_machine_name: str,
+    repo_name: str,
+    machines: list[Machine],
+    override_machine_name: str | None = None,
+    status_fetcher=None,
+) -> FixMachineSelection:
+    """Pick a machine for a same-branch fix dispatch (#3208).
+
+    Prefers *original_machine_name* — the branch is already checked out
+    there — but skips it, and falls through to any other machine configured
+    for *repo_name* (in ``machines`` order), the moment it fails a LIVE
+    reachability probe, not just a config-capability check. Before this, an
+    original machine that was merely asleep/offline stalled the whole
+    dispatch instead of routing around it, even though the branch lives on
+    the remote and a fresh worktree can be built anywhere (#3208).
+
+    *override_machine_name* — from ``coord fix --machine`` — restricts the
+    candidate list to exactly that machine: the caller is asserting where
+    to send it, so no further fallback is attempted. An unreachable or
+    incapable override still comes back through ``.tried``, named, rather
+    than silently falling through to somewhere the caller didn't ask for.
+
+    *status_fetcher* defaults to :func:`coord.network.fetch_status` — the
+    same liveness probe ``coord status`` already uses — and is injectable
+    so tests never make a real network call.
+    """
+    from coord.machine_pause import follow_on_paused_set
+    from coord.network import fetch_status as _fetch_status
+
+    fetch = status_fetcher or _fetch_status
+    # #2240: the same follow-on cordon `_dispatch_fix` has always used — a
+    # fix leg is the tail of already-running work, not new work, so an
+    # explicit release pause (not a routing-only `coord pause`) must not
+    # filter its host out.
+    paused = follow_on_paused_set(machines)
+
+    def _capable(m: Machine) -> bool:
+        return m.can_work_on(repo_name) and m.repo_path(repo_name) is not None
+
+    tried: list[tuple[str, str]] = []
+
+    if override_machine_name is not None:
+        m = next((mm for mm in machines if mm.name == override_machine_name), None)
+        if m is None:
+            tried.append((override_machine_name, "not configured in coordinator.yml"))
+            return FixMachineSelection(None, tried)
+        candidates = [m]
+    else:
+        original = next(
+            (m for m in machines if m.name == original_machine_name), None
+        )
+        if original is None:
+            tried.append((original_machine_name, "not configured in coordinator.yml"))
+        candidates = ([original] if original is not None else []) + [
+            m for m in machines if m.name != original_machine_name
+        ]
+
+    for m in candidates:
+        if m.name in paused:
+            tried.append((m.name, "paused via `coord pause`"))
+            continue
+        if not _capable(m):
+            tried.append((m.name, f"cannot work on repo {repo_name!r}"))
+            continue
+        result = fetch(m)
+        if result.ok:
+            return FixMachineSelection(m, tried)
+        tried.append((m.name, result.error or "unreachable"))
+
+    return FixMachineSelection(None, tried)
+
+
+def describe_fix_machine_failure(
+    original_machine_name: str,
+    selection: FixMachineSelection,
+    *,
+    override_machine_name: str | None = None,
+) -> str:
+    """Render :class:`FixMachineSelection`'s ``tried`` list into one
+    actionable line (#3208) — names every machine actually considered and
+    why, instead of a bare ``dispatch failed: timed out``.
+    """
+    if not selection.tried:
+        return (
+            "no machine is configured to work on this repo (original "
+            f"worker machine was {original_machine_name!r})"
+        )
+    detail = "; ".join(f"{name} ({why})" for name, why in selection.tried)
+    if override_machine_name is not None:
+        return f"--machine {override_machine_name!r} refused: {detail}"
+    return (
+        f"original machine {original_machine_name!r} and every capable "
+        f"fallback are unusable right now: {detail}. Redirect with `coord "
+        "fix ... --machine <name>` once `coord status` shows one up."
+    )
 
 
 def compute_do_not_touch(

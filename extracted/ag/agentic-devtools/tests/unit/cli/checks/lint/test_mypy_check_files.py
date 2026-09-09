@@ -18,8 +18,9 @@ class TestMypyCheckFiles:
         assert passed is True
         assert output == ""
 
+    @patch(f"{MODULE}._existing_files", side_effect=lambda f, **_: f)
     @patch(f"{MODULE}.subprocess.run")
-    def test_success(self, mock_run):
+    def test_success(self, mock_run, _exist):
         mock_run.return_value = CompletedProcess(
             args=[], returncode=0, stdout="Success: no issues found in 3 source files\n", stderr=""
         )
@@ -27,8 +28,9 @@ class TestMypyCheckFiles:
         assert passed is True
         assert "Success" in output
 
+    @patch(f"{MODULE}._existing_files", side_effect=lambda f, **_: f)
     @patch(f"{MODULE}.subprocess.run")
-    def test_failure(self, mock_run):
+    def test_failure(self, mock_run, _exist):
         mock_run.return_value = CompletedProcess(
             args=[], returncode=1, stdout="a.py:10: error: Incompatible types\n", stderr=""
         )
@@ -36,15 +38,17 @@ class TestMypyCheckFiles:
         assert passed is False
         assert "error" in output
 
+    @patch(f"{MODULE}._existing_files", side_effect=lambda f, **_: f)
     @patch(f"{MODULE}.subprocess.run")
-    def test_passes_ignore_missing_imports(self, mock_run):
+    def test_passes_ignore_missing_imports(self, mock_run, _exist):
         mock_run.return_value = CompletedProcess(args=[], returncode=0, stdout="", stderr="")
         mypy_check_files(["a.py"])
         args = mock_run.call_args[0][0]
         assert "--ignore-missing-imports" in args
 
+    @patch(f"{MODULE}._existing_files", side_effect=lambda f, **_: f)
     @patch(f"{MODULE}.subprocess.run")
-    def test_passes_follow_imports_silent(self, mock_run):
+    def test_passes_follow_imports_silent(self, mock_run, _exist):
         mock_run.return_value = CompletedProcess(args=[], returncode=0, stdout="", stderr="")
         mypy_check_files(["a.py"])
         args = mock_run.call_args[0][0]

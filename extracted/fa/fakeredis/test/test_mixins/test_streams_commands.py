@@ -258,7 +258,7 @@ def test_xread_blocking_no_count(r: ClientType):
     assert m1[0][1] == {b"value": b"1234"}
 
 
-def test_xread(r: ClientType):
+def test_xread(r: ClientType, real_server_details):
     stream = "stream"
     m1 = r.xadd(stream, {"foo": "bar"})
     m2 = r.xadd(stream, {"bing": "baz"})
@@ -286,7 +286,7 @@ def test_xread(r: ClientType):
     )
 
     # xread starting at the last message returns an empty list
-    assert r.xread(streams={stream: m2}) == resp_conversion(r, {}, [])
+    testtools.assert_empty_stream_read(r, real_server_details.server_type, "XREAD", "STREAMS", stream, m2)
 
 
 def test_xread_count(r: ClientType):
@@ -373,13 +373,14 @@ def test_xgroup_create_connection7(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7", max_redis_ver="8.2")
-def test_xgroup_setid_redis7(r: ClientType):
+def test_xgroup_setid_redis7(r: ClientType, real_server_details):
     stream, group = "stream", "group"
     message_id = r.xadd(stream, {"foo": "bar"})
 
     r.xgroup_create(stream, group, 0)
     # advance the last_delivered_id to the message_id
     r.xgroup_setid(stream, group, message_id, entries_read=2)
+    # Dragonfly uses -1 as its "lag unknown" sentinel and reports it as nil.
     expected = [
         {
             "name": group.encode(),
@@ -387,7 +388,7 @@ def test_xgroup_setid_redis7(r: ClientType):
             "pending": 0,
             "last-delivered-id": message_id,
             "entries-read": 2,
-            "lag": -1,
+            "lag": None if real_server_details.server_type == "dragonfly" else -1,
         }
     ]
     assert r.xinfo_groups(stream) == expected
@@ -449,7 +450,7 @@ def test_xinfo_consumers(r: ClientType):
     assert info == expected
 
 
-def test_xreadgroup(r: ClientType):
+def test_xreadgroup(r: ClientType, real_server_details):
     stream, group, consumer = "stream", "group", "consumer1"
     with pytest.raises(Exception) as ctx:
         r.xreadgroup(group, consumer, streams={stream: ">"})
@@ -485,12 +486,13 @@ def test_xreadgroup(r: ClientType):
 
     r.xgroup_destroy(stream, group)
 
-    # create the group using $ as the last id meaning subsequent reads
-    # will only find messages added after this
+    # create the group using $ as the last id meaning subsequent reads will only find messages added after this
     r.xgroup_create(stream, group, "$")
 
     # xread starting after the last message returns an empty message list
-    assert r.xreadgroup(group, consumer, streams={stream: ">"}) == resp_conversion(r, {}, [])
+    testtools.assert_empty_stream_read(
+        r, real_server_details.server_type, "XREADGROUP", "GROUP", group, consumer, "STREAMS", stream, ">"
+    )
 
     # xreadgroup with noack does not have any items in the PEL
     r.xgroup_destroy(stream, group)
@@ -521,7 +523,23 @@ def test_xreadgroup(r: ClientType):
     # TODO groups keep ids of deleted messages
     # expected = [[stream.encode(), [(m1, {}), (m2, {})]]]
     # assert r.xreadgroup(group, consumer, streams={stream: "0"}) == expected
-    r.xreadgroup(group, consumer, streams={stream: ">"}, count=10, block=500)
+    # A blocking read that finds nothing: on dragonfly under RESP3 the empty-array reply
+    # is not something redis-py can parse, so issue it raw there.
+    testtools.assert_empty_stream_read(
+        r,
+        real_server_details.server_type,
+        "XREADGROUP",
+        "GROUP",
+        group,
+        consumer,
+        "COUNT",
+        10,
+        "BLOCK",
+        500,
+        "STREAMS",
+        stream,
+        ">",
+    )
 
 
 def test_xinfo_stream(r: ClientType):
@@ -581,7 +599,7 @@ def test_xack(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
-def test_xinfo_stream_redis7(r: ClientType):
+def test_xinfo_stream_redis7(r: ClientType, real_server_details):
     stream = "stream"
     m1 = r.xadd(stream, {"foo": "bar"})
     m2 = r.xadd(stream, {"foo": "bar"})
@@ -596,12 +614,17 @@ def test_xinfo_stream_redis7(r: ClientType):
     assert "last-generated-id" in info
 
     r.xtrim(stream, 0)
-    # Info about empty stream
-    info = r.xinfo_stream(stream)
+    # Info about empty stream. Dragonfly answers the missing entries with a null array where redis sends nil, which
+    # redis-py's parser cannot read, so bypass it.
+    empty_entry = testtools.null_array_reply(r, real_server_details.server_type)
+    if real_server_details.server_type == "dragonfly":
+        info = testtools.xinfo_stream_raw(r, stream)
+    else:
+        info = r.xinfo_stream(stream)
 
     assert info["length"] == 0
-    assert info["first-entry"] is None
-    assert info["last-entry"] is None
+    assert info["first-entry"] == empty_entry
+    assert info["last-entry"] == empty_entry
     assert info["max-deleted-entry-id"] == b"0-0"
     assert info["entries-added"] == 2
     assert info["recorded-first-entry-id"] == b"0-0"
@@ -632,10 +655,12 @@ def test_xinfo_groups_missing_stream(r: ClientType):
     assert not r.exists(stream)
 
 
-def test_xpending_missing_stream_or_group(r: ClientType):
+def test_xpending_missing_stream_or_group(r: ClientType, real_server_details):
     stream, group = "stream", "group"
+    # Dragonfly looks the key up before the group, so a missing stream is "no such key".
+    missing_stream_error = "no such key" if real_server_details.server_type == "dragonfly" else "NOGROUP"
 
-    with pytest.raises((redis.ResponseError, valkey.ResponseError), match="NOGROUP"):
+    with pytest.raises((redis.ResponseError, valkey.ResponseError), match=missing_stream_error):
         r.xpending(stream, group)
 
     assert not r.exists(stream)
@@ -768,8 +793,7 @@ def test_xautoclaim_redis7(r: ClientType):
     message = get_stream_message(r, stream, message_id1)
     r.xgroup_create(stream, group, 0)
 
-    # trying to claim a message that isn't already pending doesn't
-    # do anything
+    # trying to claim a message that isn't already pending doesn't do anything
     assert r.xautoclaim(stream, group, consumer2, min_idle_time=0) == [b"0-0", [], []]
 
     # read the group as consumer1 to initially claim the messages
@@ -779,13 +803,57 @@ def test_xautoclaim_redis7(r: ClientType):
     response = r.xautoclaim(stream, group, consumer2, min_idle_time=0, count=1)
     assert response[1] == [message]
 
-    # reclaim the messages as consumer1, but use the justid argument
-    # which only returns message ids
+    # reclaim the messages as consumer1, but use the justid argument which only returns message ids
     assert r.xautoclaim(stream, group, consumer1, min_idle_time=0, start_id=0, justid=True) == [
         message_id1,
         message_id2,
     ]
     assert r.xautoclaim(stream, group, consumer1, min_idle_time=0, start_id=message_id2, justid=True) == [message_id2]
+
+
+@testtools.run_test_if_redispy_ver("gte", "4.4")
+def test_xautoclaim_cursor_is_zero_when_scan_completes(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    add_items(r, stream, 3)
+    r.xreadgroup(group, "consumer1", streams={stream: ">"})
+
+    assert r.xautoclaim(stream, group, "consumer2", min_idle_time=0)[0] == b"0-0"
+
+    # Nothing idle enough to claim still means the scan reached the end of the PEL.
+    assert r.xautoclaim(stream, group, "consumer3", min_idle_time=999999, count=1)[0] == b"0-0"
+
+
+@testtools.run_test_if_redispy_ver("gte", "4.4")
+def test_xautoclaim_cursor_resumes_after_the_returned_window(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    ids = add_items(r, stream, 3)
+    r.xreadgroup(group, "consumer1", streams={stream: ">"})
+
+    # COUNT stopped the scan early, so the cursor is the next entry to scan, not the last claimed.
+    cursor, entries = r.xautoclaim(stream, group, "consumer2", min_idle_time=0, count=1)[:2]
+    assert get_ids(entries) == [ids[0]]
+    assert cursor == ids[1]
+
+
+@testtools.run_test_if_redispy_ver("gte", "4.4")
+def test_xautoclaim_pagination_terminates(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    ids = add_items(r, stream, 5)
+    r.xreadgroup(group, "consumer1", streams={stream: ">"})
+
+    cursor, claimed, rounds = b"0-0", [], 0
+    while rounds < 10:
+        cursor, entries = r.xautoclaim(stream, group, "consumer2", min_idle_time=0, start_id=cursor, count=2)[:2]
+        claimed.extend(get_ids(entries))
+        rounds += 1
+        if cursor == b"0-0":
+            break
+
+    assert cursor == b"0-0"
+    assert claimed == ids
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
@@ -805,8 +873,7 @@ def test_xclaim_trimmed_redis7(r: ClientType):
     # add a 3rd and trim the stream down to 2 items
     r.xadd(stream, {"item": 3}, maxlen=2, approximate=False)
 
-    # xclaim them from consumer2
-    # the item that is still in the stream should be returned
+    # xclaim them from consumer2 the item that is still in the stream should be returned
     item = r.xclaim(stream, group, "consumer2", 0, [sid1, sid2])
     assert len(item) == 1
     assert item[0][0] == sid2
@@ -819,8 +886,7 @@ def test_xclaim(r: ClientType):
     message = get_stream_message(r, stream, message_id)
     r.xgroup_create(stream, group, 0)
 
-    # trying to claim a message that isn't already pending doesn't
-    # do anything
+    # trying to claim a message that isn't already pending doesn't do anything
     assert r.xclaim(stream, group, consumer2, min_idle_time=0, message_ids=(message_id,)) == []
 
     # read the group as consumer1 to initially claim the messages
@@ -829,14 +895,95 @@ def test_xclaim(r: ClientType):
     # claim the message as consumer2
     assert r.xclaim(stream, group, consumer2, min_idle_time=0, message_ids=(message_id,)) == [message]
 
-    # reclaim the message as consumer1, but use the justid argument
-    # which only returns message ids
+    # reclaim the message as consumer1, but use the justid argument which only returns message ids
     assert r.xclaim(stream, group, consumer1, min_idle_time=0, message_ids=(message_id,), justid=True) == [message_id]
 
 
-def test_xread_blocking(create_connection):
-    # thread with xread block 0 should hang
-    # putting data in the stream should unblock it
+def _times_delivered(r: ClientType, stream: str, group: str) -> int:
+    return r.xpending_range(stream, group, min="-", max="+", count=10)[0]["times_delivered"]
+
+
+def _deliver_one(r: ClientType, stream: str, group: str, consumer: str = "consumer1") -> bytes:
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    message_id = r.xadd(stream, {"john": "wick"})
+    r.xreadgroup(group, consumer, streams={stream: ">"})
+    return message_id
+
+
+def test_xclaim_justid_does_not_increment_delivery_count(r: ClientType):
+    stream, group = "stream", "group"
+    message_id = _deliver_one(r, stream, group)
+    assert _times_delivered(r, stream, group) == 1
+
+    assert r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=(message_id,), justid=True) == [message_id]
+    assert _times_delivered(r, stream, group) == 1
+
+    # Control: without JUSTID the same claim does advance the counter.
+    r.xclaim(stream, group, "consumer1", min_idle_time=0, message_ids=(message_id,))
+    assert _times_delivered(r, stream, group) == 2
+
+
+def test_xautoclaim_justid_does_not_increment_delivery_count(r: ClientType):
+    stream, group = "stream", "group"
+    _deliver_one(r, stream, group)
+    assert _times_delivered(r, stream, group) == 1
+
+    r.xautoclaim(stream, group, "consumer2", min_idle_time=0, justid=True)
+    assert _times_delivered(r, stream, group) == 1
+
+    # Control: without JUSTID the same claim does advance the counter.
+    r.xautoclaim(stream, group, "consumer1", min_idle_time=0)
+    assert _times_delivered(r, stream, group) == 2
+
+
+def test_xclaim_retrycount_sets_delivery_count(r: ClientType):
+    stream, group = "stream", "group"
+    message_id = _deliver_one(r, stream, group)
+
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=(message_id,), retrycount=42)
+    assert _times_delivered(r, stream, group) == 42
+
+    # 0 is a value, not "no RETRYCOUNT given".
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=(message_id,), retrycount=0)
+    assert _times_delivered(r, stream, group) == 0
+
+    # RETRYCOUNT wins over JUSTID.
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=(message_id,), retrycount=7, justid=True)
+    assert _times_delivered(r, stream, group) == 7
+
+    # A negative RETRYCOUNT means "not given" and falls through to the auto-increment.
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=(message_id,), retrycount=-1)
+    assert _times_delivered(r, stream, group) == 8
+
+
+def test_xclaim_force_delivery_count(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    message_id = r.xadd(stream, {"john": "wick"})  # never delivered, so not in the PEL
+
+    # FORCE creates the entry with a delivery count of 1, then applies the usual rule.
+    r.xclaim(stream, group, "consumer1", min_idle_time=0, message_ids=(message_id,), force=True)
+    assert _times_delivered(r, stream, group) == 2
+
+    r.xack(stream, group, message_id)
+    r.xclaim(stream, group, "consumer1", min_idle_time=0, message_ids=(message_id,), force=True, justid=True)
+    assert _times_delivered(r, stream, group) == 1
+
+    r.xack(stream, group, message_id)
+    r.xclaim(stream, group, "consumer1", min_idle_time=0, message_ids=(message_id,), force=True, retrycount=7)
+    assert _times_delivered(r, stream, group) == 7
+
+
+def test_xclaim_min_idle_time_not_met_leaves_delivery_count(r: ClientType):
+    stream, group = "stream", "group"
+    message_id = _deliver_one(r, stream, group)
+
+    assert r.xclaim(stream, group, "consumer2", min_idle_time=999999, message_ids=(message_id,)) == []
+    assert _times_delivered(r, stream, group) == 1
+
+
+def test_xread_blocking(create_connection, real_server_details):
+    # thread with xread block 0 should hang putting data in the stream should unblock it
     event = threading.Event()
     event.clear()
 
@@ -850,11 +997,17 @@ def test_xread_blocking(create_connection):
     t = threading.Thread(target=thread_func)
     t.start()
     r1 = create_connection(db=1)
+    # Dragonfly answers a blocking XREAD woken by a new entry with the RESP2-style array, which redis-py's RESP3 parser
+    # cannot consume, so the reply is read unparsed there.
+    resp2_shape = testtools.disable_xread_parsing(r1, real_server_details.server_type)
     event.set()
     result = r1.xread({"stream": "$"}, block=0, count=1)
     event.clear()
     t.join()
-    if get_protocol_version(r1) == 2:
+    if resp2_shape:  # read unparsed, so the entry's fields come back as a flat array
+        assert result[0][0] == b"stream"
+        assert result[0][1][0][1] == [b"x", b"1"]
+    elif get_protocol_version(r1) == 2:
         assert result[0][0] == b"stream"
         assert result[0][1][0][1] == {b"x": b"1"}
     else:
@@ -903,7 +1056,7 @@ def test_xreadgroup_read_2(r: ClientType):
     assert len(messages) == len(streams)
 
 
-def test_xreadgroup_pel_read(r: ClientType):
+def test_xreadgroup_pel_read(r: ClientType, real_server_details):
     stream, group, consumer = "stream", "group", "consumer1"
     c1 = {b"foo": b"bar"}
     c2 = {b"bing": b"baz"}
@@ -924,7 +1077,9 @@ def test_xreadgroup_pel_read(r: ClientType):
     assert r.xreadgroup(group, consumer, streams={stream: m1}) == resp_conversion(r, expected_resp3, expected_resp2)
 
     # PEL read does not advance last_delivered_id
-    assert r.xreadgroup(group, consumer, streams={stream: ">"}) == resp_conversion(r, {}, [])
+    testtools.assert_empty_stream_read(
+        r, real_server_details.server_type, "XREADGROUP", "GROUP", group, consumer, "STREAMS", stream, ">"
+    )
 
     # other consumer has empty PEL
     tmp = r.xreadgroup(group, "consumer2", streams={stream: "0"})
@@ -1055,3 +1210,130 @@ def test_xinfo_groups_pending(r: ClientType):
     r.xreadgroup(group_name, consumer_name, {stream_name: ">"}, count=1)
     assert r.xpending(stream_name, group_name)["pending"] == 1
     assert r.xinfo_groups(stream_name)[0]["pending"] == 1
+
+
+def test_xgroup_delconsumer_removes_the_consumers_pending_entries(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    add_items(r, stream, 2)
+    r.xreadgroup(group, "consumer1", streams={stream: ">"})
+
+    assert r.xgroup_delconsumer(stream, group, "consumer1") == 2
+    assert r.xpending_range(stream, group, min="-", max="+", count=10) == []
+    assert r.xpending(stream, group)["pending"] == 0
+    assert r.xinfo_groups(stream)[0]["pending"] == 0
+
+
+def test_xgroup_delconsumer_ignores_entries_the_consumer_no_longer_owns(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    ids = add_items(r, stream, 2)
+    r.xreadgroup(group, "consumer1", streams={stream: ">"})
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=ids)
+
+    assert r.xgroup_delconsumer(stream, group, "consumer1") == 0
+    pending = r.xpending_range(stream, group, min="-", max="+", count=10)
+    assert [entry["message_id"] for entry in pending] == ids
+    assert r.xpending(stream, group)["pending"] == 2
+
+
+def test_xgroup_delconsumer_unknown_consumer(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    add_items(r, stream, 1)
+    r.xreadgroup(group, "consumer1", streams={stream: ">"})
+
+    assert r.xgroup_delconsumer(stream, group, "never-existed") == 0
+    assert r.xpending(stream, group)["pending"] == 1
+
+
+def test_xack_after_xgroup_delconsumer(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    message_id = add_items(r, stream, 1)[0]
+    r.xreadgroup(group, "consumer1", streams={stream: ">"})
+    r.xgroup_delconsumer(stream, group, "consumer1")
+
+    # The entry is gone with its consumer, so acking it is a no-op rather than an error.
+    assert r.xack(stream, group, message_id) == 0
+
+
+def _consumer_pending(r: ClientType, stream: str, group: str) -> dict:
+    return {consumer["name"]: consumer["pending"] for consumer in r.xinfo_consumers(stream, group)}
+
+
+def _deliver(r: ClientType, stream: str, group: str, n: int, consumer: str = "consumer1") -> list:
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    ids = add_items(r, stream, n)
+    r.xreadgroup(group, consumer, streams={stream: ">"})
+    return ids
+
+
+def test_xclaim_moves_the_pending_count_to_the_new_consumer(r: ClientType):
+    stream, group = "stream", "group"
+    ids = _deliver(r, stream, group, 1)
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 1}
+
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=ids)
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 0, b"consumer2": 1}
+
+
+def test_xautoclaim_moves_the_pending_count_to_the_new_consumer(r: ClientType):
+    stream, group = "stream", "group"
+    _deliver(r, stream, group, 3)
+
+    r.xautoclaim(stream, group, "consumer2", min_idle_time=0, count=2)
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 1, b"consumer2": 2}
+
+
+def test_xclaim_by_the_current_owner_does_not_double_count(r: ClientType):
+    stream, group = "stream", "group"
+    ids = _deliver(r, stream, group, 1)
+
+    r.xclaim(stream, group, "consumer1", min_idle_time=0, message_ids=ids)
+    r.xclaim(stream, group, "consumer1", min_idle_time=0, message_ids=ids)
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 1}
+
+
+def test_xack_after_a_claim_does_not_drive_pending_negative(r: ClientType):
+    stream, group = "stream", "group"
+    ids = _deliver(r, stream, group, 3)
+
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=ids[:2])
+    r.xack(stream, group, ids[0])
+    r.xack(stream, group, ids[1])
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 1, b"consumer2": 0}
+    assert r.xpending(stream, group)["pending"] == 1
+
+
+def test_xclaim_force_credits_the_claiming_consumer(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    message_id = add_items(r, stream, 1)[0]  # never delivered, so not in the PEL
+
+    r.xclaim(stream, group, "consumer1", min_idle_time=0, message_ids=[message_id], force=True)
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 1}
+    assert r.xpending(stream, group)["pending"] == 1
+
+
+@pytest.mark.supported_server_versions(min_redis_ver="7")
+def test_xclaim_of_an_entry_deleted_from_the_stream_releases_the_owner(r: ClientType):
+    # Redis 7.0 made XCLAIM drop a PEL entry whose stream record is gone; 6.2 keeps it and hands it to the claimer
+    # instead.
+    stream, group = "stream", "group"
+    ids = _deliver(r, stream, group, 2)
+    r.xdel(stream, ids[0])
+
+    r.xclaim(stream, group, "consumer2", min_idle_time=0, message_ids=[ids[0]])
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 1, b"consumer2": 0}
+    assert r.xpending(stream, group)["pending"] == 1
+
+
+def test_xreadgroup_noack_leaves_the_pending_count_at_zero(r: ClientType):
+    stream, group = "stream", "group"
+    r.xgroup_create(stream, group, id="0", mkstream=True)
+    add_items(r, stream, 2)
+
+    r.xreadgroup(group, "consumer1", streams={stream: ">"}, noack=True)
+    assert _consumer_pending(r, stream, group) == {b"consumer1": 0}
+    assert r.xpending(stream, group)["pending"] == 0

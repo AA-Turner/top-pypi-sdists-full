@@ -11,7 +11,7 @@ from schemathesis.core import Body, NotSet, media_types
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, RawQueryString, split_delimited_query
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.timing import Instant
-from schemathesis.core.transforms import merge_at
+from schemathesis.core.transforms import merge_at, to_wire_string
 from schemathesis.core.transport import Response
 from schemathesis.generation.case import Case
 from schemathesis.generation.overrides import Override
@@ -135,7 +135,7 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
 
         requests_kwargs = REQUESTS_TRANSPORT.serialize_case(
             case,
-            base_url=normalize_base_url(case.operation.base_url),
+            base_url=normalize_base_url(case.operation.base_url, host=wsgi.HOST),
             headers=headers,
             params=params,
             cookies=cookies,
@@ -177,6 +177,7 @@ def _capture_server_exception(application: object) -> Generator[_CapturedServerE
     captured = _CapturedServerException()
     try:
         from flask import Flask, got_request_exception
+        from werkzeug.exceptions import HTTPException
     except ImportError:
         yield captured
         return
@@ -186,6 +187,9 @@ def _capture_server_exception(application: object) -> Generator[_CapturedServerE
         return
 
     def _on_exception(sender: Flask, exception: BaseException, **_: object) -> None:
+        # Some extensions emit this signal for HTTP errors they already turned into a response
+        if isinstance(exception, HTTPException):
+            return
         captured.exception = exception
 
     got_request_exception.connect(_on_exception, application)
@@ -276,7 +280,7 @@ def urlencoded_serializer(ctx: SerializationContext, value: Body) -> dict[str, A
 def text_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
     if isinstance(value, bytes):
         return {"data": value}
-    return {"data": str(value)}
+    return {"data": to_wire_string(value)}
 
 
 @WSGI_TRANSPORT.serializer("application/octet-stream")

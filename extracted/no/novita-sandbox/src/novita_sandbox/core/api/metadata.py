@@ -14,4 +14,6 @@ default_headers = {
     "publisher": "Novita",
     "sdk_runtime": "python",
     "system": platform.system(),
+    "X-Novita-SDK-Name": "sdk_py",
+    "X-Novita-SDK-Version": package_version,
 }

@@ -122,6 +122,20 @@ class TestUploadWorkflowGraphs:
         )
         assert body["error"] is None
 
+    async def test_attributes_summary_usage_to_the_feature(self) -> None:
+        client = _make_client()
+        ref = _make_ref()
+        summarise = AsyncMock(return_value=SummaryResult(status="ready", summaries={}))
+
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH),
+            patch(_SUMMARISE_PATH, summarise),
+            _MOCK_SUMMARY_CONFIG,
+        ):
+            await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
+
+        assert summarise.call_args.kwargs["attribute_usage"] is True
+
     async def test_posts_control_and_data_flow_views(self) -> None:
         client = _make_client()
         ref = _make_ref()

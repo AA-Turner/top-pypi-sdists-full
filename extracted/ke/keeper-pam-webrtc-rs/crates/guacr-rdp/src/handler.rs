@@ -504,6 +504,30 @@ impl EventBasedHandler for RdpHandler {
 // RDP Settings - Parameter parsing and validation
 // ============================================================================
 
+const DEFAULT_KEYBOARD_LAYOUT: u32 = 0x0000_0409;
+
+fn keyboard_layout_id(server_layout: Option<&str>) -> u32 {
+    match server_layout.map(str::trim) {
+        Some("en-gb-qwerty") => 0x0000_0809,
+        Some("de-de-qwertz") => 0x0000_0407,
+        Some("de-ch-qwertz") => 0x0000_0807,
+        Some("fr-fr-azerty") => 0x0000_040c,
+        Some("fr-ch-qwertz") => 0x0000_100c,
+        Some("fr-be-azerty") => 0x0000_080c,
+        Some("es-es-qwerty") => 0x0000_040a,
+        Some("es-latam-qwerty") => 0x0000_080a,
+        Some("it-it-qwerty") => 0x0000_0410,
+        Some("pt-br-qwerty") => 0x0001_0416,
+        Some("da-dk-qwerty") => 0x0000_0406,
+        Some("sv-se-qwerty") => 0x0000_041d,
+        Some("hu-hu-qwertz") => 0x0000_040e,
+        Some("ja-jp-qwerty") => 0x0000_0411,
+        Some("tr-tr-qwerty") => 0x0000_041f,
+        Some("en-us-qwerty" | "failsafe") | None => DEFAULT_KEYBOARD_LAYOUT,
+        Some(_) => DEFAULT_KEYBOARD_LAYOUT,
+    }
+}
+
 /// RDP connection settings
 #[derive(Debug, Clone)]
 pub struct RdpSettings {
@@ -514,6 +538,7 @@ pub struct RdpSettings {
     pub width: u32,
     pub height: u32,
     pub dpi: u32,
+    pub keyboard_layout: u32,
     pub security_mode: String,
     pub clipboard_buffer_size: usize,
     pub disable_copy: bool,
@@ -526,7 +551,10 @@ pub struct RdpSettings {
     /// Server type hint for compatibility (windows, xrdp, auto)
     pub server_type: Option<String>,
     pub ignore_cert: bool,
-    pub cert_fingerprint: Option<String>,
+    /// List of acceptable server certificate fingerprints (SHA-256, any matches)
+    pub cert_fingerprints: Vec<String>,
+    /// Trust-on-first-use: accept first cert and pin it
+    pub cert_tofu: bool,
     /// Recording configuration
     pub recording_config: RecordingConfig,
     /// Drive redirection settings
@@ -617,6 +645,12 @@ impl RdpSettings {
             .get("security")
             .cloned()
             .unwrap_or_else(|| defaults.security_mode.clone());
+        let keyboard_layout = keyboard_layout_id(
+            params
+                .get("server-layout")
+                .or_else(|| params.get("serverLayout"))
+                .map(String::as_str),
+        );
 
         let clipboard_buffer_size = params
             .get("clipboard-buffer-size")
@@ -653,7 +687,23 @@ impl RdpSettings {
             .get("ignore-cert")
             .map(|s| s == "true")
             .unwrap_or(false);
-        let cert_fingerprint = params.get("cert-fingerprint").cloned();
+
+        // Parse cert-fingerprints (comma-separated list of SHA-256 hashes)
+        let cert_fingerprints: Vec<String> = params
+            .get("cert-fingerprints")
+            .map(|s| {
+                s.split(',')
+                    .map(|fp| fp.trim().to_string())
+                    .filter(|fp| !fp.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Parse cert-tofu (trust-on-first-use)
+        let cert_tofu = params
+            .get("cert-tofu")
+            .map(|s| s == "true")
+            .unwrap_or(false);
 
         let enable_drive = params
             .get("enable-drive")
@@ -702,6 +752,7 @@ impl RdpSettings {
             width,
             height,
             dpi,
+            keyboard_layout,
             security_mode,
             clipboard_buffer_size,
             disable_copy,
@@ -711,7 +762,8 @@ impl RdpSettings {
             domain,
             server_type,
             ignore_cert,
-            cert_fingerprint,
+            cert_fingerprints,
+            cert_tofu,
             recording_config,
             enable_drive,
             drive_path,
@@ -1212,13 +1264,16 @@ impl IronRdpSession {
         let mut handshake_cliprdr_data: Option<Arc<parking_lot::Mutex<PendingClipboardData>>> =
             None;
         let mut handshake_audio_chunks: Option<Arc<ArrayQueue<AudioChunk>>> = None;
+
+        let cert_fingerprints = settings_ref.cert_fingerprints.clone();
         let (connection_result, framed) = match self
             .perform_rdp_handshake(
                 stream,
                 config,
                 hostname.to_string(),
                 settings_ref.ignore_cert,
-                settings_ref.cert_fingerprint.clone(),
+                cert_fingerprints,
+                settings_ref.cert_tofu,
                 drive_args,
                 &mut handshake_clearcodec_frames,
                 &mut handshake_cliprdr_rx,
@@ -1367,7 +1422,7 @@ impl IronRdpSession {
             enable_standard_rdp_security: false,
             keyboard_type: KeyboardType::IBM_ENHANCED,
             keyboard_subtype: 0,
-            keyboard_layout: 0,
+            keyboard_layout: settings.keyboard_layout,
             keyboard_functional_keys_count: 12,
             connection_type: ConnectionType::Lan,
             ime_file_name: String::new(),
@@ -1417,7 +1472,8 @@ impl IronRdpSession {
         config: connector::Config,
         server_name: String,
         ignore_cert: bool,
-        cert_fingerprint: Option<String>,
+        cert_fingerprints: Vec<String>,
+        cert_tofu: bool,
         _drive_settings: Option<(&str, &str, bool, bool)>,
         clearcodec_frames_out: &mut Option<Arc<ArrayQueue<crate::egfx_handler::ClearCodecFrame>>>,
         cliprdr_rx_out: &mut Option<
@@ -1549,7 +1605,8 @@ impl IronRdpSession {
                 initial_stream,
                 &server_name,
                 ignore_cert,
-                cert_fingerprint.as_deref(),
+                cert_fingerprints,
+                cert_tofu,
             )
             .await
             .map_err(|e| format!("TLS upgrade failed: {}", e))?;
@@ -1582,7 +1639,8 @@ impl IronRdpSession {
         stream: TcpStream,
         server_name: &str,
         ignore_cert: bool,
-        cert_fingerprint: Option<&str>,
+        cert_fingerprints: Vec<String>,
+        cert_tofu: bool,
     ) -> Result<(TokioTlsStream, Vec<u8>), String> {
         use tokio_rustls::rustls;
 
@@ -1630,18 +1688,33 @@ impl IronRdpSession {
         let server_public_key = extract_tls_server_public_key(cert.as_ref())
             .map_err(|e| format!("Failed to extract server public key: {}", e))?;
 
-        // Certificate pinning: if a fingerprint is configured, verify it.
-        if let Some(expected_fp) = cert_fingerprint {
-            if !cert_fingerprint_matches(cert.as_ref(), expected_fp) {
+        // Certificate pinning: verify against provided fingerprints or TOFU.
+        let actual_fp = cert_fingerprint_hex(cert.as_ref());
+
+        if !cert_fingerprints.is_empty() {
+            // Strict: must match one of the provided fingerprints
+            if !cert_fingerprints
+                .iter()
+                .any(|fp| cert_fingerprint_matches(cert.as_ref(), fp))
+            {
+                let fp_list = cert_fingerprints.join(", ");
                 return Err(format!(
                     "RDP server certificate fingerprint mismatch — \
-                     expected {expected_fp} but got a different certificate. \
-                     This may indicate a MITM attack."
+                     expected one of [{}] but got {}. \
+                     This may indicate a MITM attack.",
+                    fp_list, actual_fp
                 ));
             }
             debug!(
-                "[conn={}] RDP: Certificate fingerprint verified",
-                self.conn_id
+                "[conn={}] RDP: Certificate fingerprint verified (matched one of {} pins)",
+                self.conn_id,
+                cert_fingerprints.len()
+            );
+        } else if cert_tofu {
+            // Trust-on-first-use: accept the cert and log it (in production, save to persistent store)
+            info!(
+                "[conn={}] RDP: TOFU — accepting server certificate, fingerprint: {}",
+                self.conn_id, actual_fp
             );
         }
 
@@ -3061,10 +3134,16 @@ pub(crate) fn encode_jpeg(
 /// The expected fingerprint can be a lowercase hex string (64 chars) or
 /// a colon-separated hex string (e.g. "aa:bb:cc:…").
 /// Returns true if the actual SHA256 of `cert_der` matches `expected`.
-pub(crate) fn cert_fingerprint_matches(cert_der: &[u8], expected: &str) -> bool {
+/// Compute certificate SHA-256 fingerprint in hex format
+pub(crate) fn cert_fingerprint_hex(cert_der: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     let actual = Sha256::digest(cert_der);
-    let actual_hex = format!("{:x}", actual);
+    format!("{:x}", actual)
+}
+
+/// Check if a certificate matches the expected fingerprint (case/colon-insensitive)
+pub(crate) fn cert_fingerprint_matches(cert_der: &[u8], expected: &str) -> bool {
+    let actual_hex = cert_fingerprint_hex(cert_der);
     // Normalize expected: strip colons and lowercase
     let expected_clean: String = expected
         .to_ascii_lowercase()

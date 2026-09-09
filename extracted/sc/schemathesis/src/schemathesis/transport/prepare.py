@@ -102,18 +102,26 @@ def prepare_body(case: Case) -> Body:
 
 
 @lru_cache(maxsize=128)
-def normalize_base_url(base_url: str | None) -> str | None:
+def normalize_base_url(base_url: str | None, host: str = "localhost") -> str | None:
     """Normalize base URL by ensuring proper hostname for local URLs.
 
-    If URL has no hostname (typical for WSGI apps), adds "localhost" as default hostname.
+    If URL has no hostname (typical for in-process apps), adds `host` as default hostname.
     """
     if base_url is None:
         return None
     parts = urlsplit(base_url)
     if not parts.hostname:
         path = cast(str, parts.path or "")
-        return urlunsplit(("http", "localhost", path or "", "", ""))
+        return urlunsplit(("http", host, path or "", "", ""))
     return base_url
+
+
+def _client_host(app: object) -> str:
+    """`Host` that requests to `app` carry."""
+    from schemathesis.python import asgi, wsgi
+    from schemathesis.transport import is_asgi_app
+
+    return asgi.HOST if is_asgi_app(app) else wsgi.HOST
 
 
 _PATH_PLACEHOLDER = re.compile(r"\{([^{}]+)\}")
@@ -152,7 +160,8 @@ def prepare_request(case: Case, headers: Mapping[str, Any] | None, *, config: Sa
 
     from schemathesis.transport.requests import REQUESTS_TRANSPORT
 
-    base_url = normalize_base_url(case.operation.base_url)
+    # The host the case was (or would be) sent to, so a rendered command reproduces the request that ran.
+    base_url = normalize_base_url(case.operation.base_url, host=_client_host(case.operation.app))
     kwargs = REQUESTS_TRANSPORT.serialize_case(case, base_url=base_url, headers=headers)
     if config.enabled:
         kwargs["url"] = sanitize_url(kwargs["url"], config=config)

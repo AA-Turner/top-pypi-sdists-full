@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote
 
 import jsonschema_rs
+from typing_extensions import assert_never
 
 from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET, NotSet
@@ -26,7 +27,7 @@ from schemathesis.core.jsonschema import (
 )
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, BundleCache
 from schemathesis.core.jsonschema.resolver import Resolver
-from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, get_type
+from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, as_object_schema, get_type
 from schemathesis.core.media_types import FORM_MEDIA_TYPES
 from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation, SkippedParameter
 from schemathesis.core.transforms import deepclone
@@ -39,7 +40,8 @@ from schemathesis.resources import ExtraDataSource, SemanticDraw
 from schemathesis.schemas import APIOperation, ParameterSet
 from schemathesis.specs.openapi.adapter.protocol import ParameterAdapter
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
-from schemathesis.specs.openapi.converter import to_json_schema
+from schemathesis.specs.openapi.adapter.validators import ensure_object
+from schemathesis.specs.openapi.converter import permit_forbidden_properties, to_json_schema
 from schemathesis.specs.openapi.formats import HEADER_FORMAT, STRING_FORMATS
 from schemathesis.specs.openapi.headers import KNOWN_HEADER_FORMATS
 from schemathesis.transport.serialization import Binary, quote_all
@@ -898,6 +900,7 @@ class OpenApiComponent(ABC):
         "_optimized_schema",
         "_unoptimized_schema",
         "_raw_schema",
+        "_permissive_schema",
         "_validation_schema",
         "_examples",
         "_mutation_targets",
@@ -907,6 +910,7 @@ class OpenApiComponent(ABC):
         self._optimized_schema: JsonSchema | NotSet = NOT_SET
         self._unoptimized_schema: JsonSchema | NotSet = NOT_SET
         self._raw_schema: JsonSchema | NotSet = NOT_SET
+        self._permissive_schema: JsonSchema | NotSet = NOT_SET
         self._validation_schema: JsonSchema | NotSet = NOT_SET
         self._examples: list | NotSet = NOT_SET
         self._mutation_targets: tuple | NotSet = NOT_SET
@@ -926,6 +930,19 @@ class OpenApiComponent(ABC):
             self._unoptimized_schema = self._build_schema(optimize=False)
         assert not isinstance(self._unoptimized_schema, NotSet)
         return self._unoptimized_schema
+
+    @property
+    def permissive_schema(self) -> JsonSchema:
+        """`optimized_schema` with properties nothing can satisfy accepting any value.
+
+        Returns `optimized_schema` itself when no property was forbidden.
+        """
+        if self._permissive_schema is NOT_SET:
+            schema = self.optimized_schema
+            permissive = deepclone(schema) if isinstance(schema, dict) else schema
+            self._permissive_schema = permissive if permit_forbidden_properties(permissive) else schema
+        assert not isinstance(self._permissive_schema, NotSet)
+        return self._permissive_schema
 
     @property
     def raw_schema(self) -> JsonSchema:
@@ -1123,30 +1140,62 @@ class OpenApiParameter(OpenApiComponent):
         # (`EnumType.__call__` → `Enum.__new__`) is the slow path here.
         return _IN_TO_LOCATION.get(self.definition.get("in"), ParameterLocation.UNKNOWN)
 
-    def _build_schema(self, *, optimize: bool) -> JsonSchema:
-        schema = super()._build_schema(optimize=optimize)
+    @property
+    def wire_bounds(self) -> dict[str, int]:
+        """Lower bounds that serialization implies but the document does not declare.
+
+        Generation honors them so an empty value never leaves the parameter off the wire; whatever
+        judges a value against the API contract must not, because the document admits that value.
+        """
+        allow_empty_value = self.definition.get("allowEmptyValue")
+        if not self.is_required and allow_empty_value is not False:
+            return {}
+        # Derived from the contract, so every schema built off this parameter reads the same bounds.
+        schema = self.validation_schema
+        if not isinstance(schema, dict):
+            return {}
+        bounds: dict[str, int] = {}
         # A required parameter with an empty array value serializes to nothing (form/simple styles
         # drop empty arrays), leaving the parameter absent from the request and violating `required`.
         if (
             self.is_required
-            and isinstance(schema, dict)
             and schema.get("type") == "array"
             and schema.get("minItems", 0) < 1
             and schema.get("maxItems", 1) >= 1
         ):
-            schema = {**schema, "minItems": 1}
+            bounds["minItems"] = 1
         # An explicit `allowEmptyValue: false` forbids sending the parameter with an empty value.
         # The default is not applied — it would strip empty strings from every query parameter,
         # and most schemas that omit the keyword do accept them.
         if (
-            self.definition.get("allowEmptyValue") is False
+            allow_empty_value is False
             and self.location is ParameterLocation.QUERY
-            and isinstance(schema, dict)
             and schema.get("type") == "string"
             and schema.get("minLength", 0) < 1
             and schema.get("maxLength", 1) >= 1
         ):
-            schema = {**schema, "minLength": 1}
+            bounds["minLength"] = 1
+        return bounds
+
+    def without_wire_bounds(self, schema: JsonSchemaObject) -> JsonSchemaObject:
+        """Put back what the document declares wherever a serialization-implied bound replaced it."""
+        declared = self.validation_schema
+        result = dict(schema)
+        for keyword, bound in self.wire_bounds.items():
+            if result.get(keyword) != bound:
+                continue
+            value = declared.get(keyword) if isinstance(declared, dict) else None
+            if value is None:
+                result.pop(keyword, None)
+            else:
+                result[keyword] = value
+        return result
+
+    def _build_schema(self, *, optimize: bool) -> JsonSchema:
+        schema = super()._build_schema(optimize=optimize)
+        bounds = self.wire_bounds
+        if bounds and isinstance(schema, dict):
+            schema = {**schema, **bounds}
         return schema
 
     def _get_raw_schema(self) -> JsonSchema:
@@ -1181,6 +1230,7 @@ class OpenApiBody(OpenApiComponent):
         "_optimized_schema",
         "_unoptimized_schema",
         "_raw_schema",
+        "_permissive_schema",
         "_validation_schema",
         "_examples",
         "_mutation_targets",
@@ -1711,14 +1761,14 @@ OPENAPI_20_DEFAULT_BODY_MEDIA_TYPE = "application/json"
 OPENAPI_20_DEFAULT_FORM_MEDIA_TYPE = "multipart/form-data"
 
 
-def _validated_parameters(definition: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
-    """Return the operation's `parameters` list, validating its shape."""
-    parameters = definition.get("parameters", [])
-    if not isinstance(parameters, list):
-        raise InvalidSchema("'parameters' must be a list of parameter objects")
+def _validated_parameters(parameters: object, label: str) -> Sequence[Mapping[str, Any]]:
+    """Return a `parameters` list, validating its shape."""
+    # Shared path item parameters arrive as a tuple.
+    if not isinstance(parameters, (list, tuple)):
+        raise InvalidSchema(f"{label} must be a list of parameter objects")
     for index, parameter in enumerate(parameters):
         if not isinstance(parameter, dict):
-            raise InvalidSchema(f"'parameters[{index}]' must be a parameter object")
+            raise InvalidSchema(f"{label}[{index}] must be a parameter object")
     return parameters
 
 
@@ -1732,6 +1782,7 @@ def iter_parameters_v2(
     bundle_cache: BundleCache,
     skipped: list[SkippedParameter],
 ) -> Iterator[OperationParameter]:
+    ensure_object(definition, "Operation definition")
     media_types = definition.get("consumes", default_media_types)
     # Wildcard `*/*` is valid Swagger but no real client sends it as Content-Type. Drop it when concrete
     # entries exist; otherwise fall through to the JSON default so downstream dispatch can route bodies.
@@ -1745,7 +1796,8 @@ def iter_parameters_v2(
     # the default because it is broader since it allows us to upload files.
     form_data_media_types = media_types or (OPENAPI_20_DEFAULT_FORM_MEDIA_TYPE,)
 
-    operation_parameters = _validated_parameters(definition)
+    operation_parameters = _validated_parameters(definition.get("parameters", []), "'parameters'")
+    shared_parameters = _validated_parameters(shared_parameters, "Path item 'parameters'")
 
     form_parameters = []
     form_name_to_uri = {}
@@ -1769,8 +1821,9 @@ def iter_parameters_v2(
             resource_name = None
             for param in chain(operation_parameters, shared_parameters):
                 _, param = maybe_resolve_with_resolver(param, resolver)
-                if param.get("in") == ParameterLocation.BODY and "$ref" in param["schema"]:
-                    resource_name = resource_name_from_ref(param["schema"]["$ref"])
+                schema = param.get("schema")
+                if param.get("in") == ParameterLocation.BODY and isinstance(schema, dict) and "$ref" in schema:
+                    resource_name = resource_name_from_ref(schema["$ref"])
             for media_type in body_media_types:
                 yield OpenApiBody.from_definition(
                     definition=parameter,
@@ -1809,12 +1862,14 @@ def iter_parameters_v3(
 ) -> Iterator[OperationParameter]:
     # Open API 3.0 has the `requestBody` keyword, which may contain multiple different payload variants.
     # TODO: Typing
+    ensure_object(definition, "Operation definition")
     operation = definition
 
     seen_querystring = False
     seen_query = False
 
-    operation_parameters = _validated_parameters(definition)
+    operation_parameters = _validated_parameters(definition.get("parameters", []), "'parameters'")
+    shared_parameters = _validated_parameters(shared_parameters, "Path item 'parameters'")
 
     for parameter in chain(operation_parameters, shared_parameters):
         bundled_parameter = _bundle_parameter(parameter, resolver, bundler, bundle_cache, skipped)
@@ -1841,12 +1896,15 @@ def iter_parameters_v3(
 
     request_body_or_ref = operation.get("requestBody")
     if request_body_or_ref is not None:
+        ensure_object(request_body_or_ref, "`requestBody`")
         body_resolver, request_body_or_ref = maybe_resolve_with_resolver(request_body_or_ref, resolver)
         # It could be an object inside `requestBodies`, which could be a reference itself
         body_resolver, request_body = maybe_resolve_with_resolver(request_body_or_ref, body_resolver)
 
         required = request_body.get("required", False)
+        ensure_object(request_body["content"], "`requestBody.content`")
         for media_type, content in request_body["content"].items():
+            ensure_object(content, f"Media type `{media_type}`")
             resource_name = None
             schema = content.get("schema")
             name_to_uri = {}
@@ -1972,6 +2030,25 @@ class OpenApiParameterSet(ParameterSet):
             tuple[frozenset[str], GenerationMode, int | None, int | None, int | None], st.SearchStrategy
         ] = {}
         self._strict_validator: jsonschema_rs.Validator | NotSet = NOT_SET
+
+    def add(self, parameter: OpenApiParameter) -> None:
+        # An operation's own parameter is seen first and overrides a path item declaring the same name.
+        if self.location == ParameterLocation.HEADER:
+            lowered = parameter.name.lower()
+            for index, existing in enumerate(self.items):
+                if existing.name.lower() != lowered:
+                    continue
+                # Two spellings are one HTTP header, so a required duplicate promotes the one that won.
+                if existing.name != parameter.name and parameter.is_required and not existing.is_required:
+                    self.items[index] = OpenApiParameter.from_definition(
+                        definition={**existing.definition, "required": True},
+                        name_to_uri=existing.name_to_uri,
+                        adapter=existing.adapter,
+                    )
+                return
+        elif parameter.name in self:
+            return
+        self.items.append(parameter)
 
     def get_strict_validator(self) -> jsonschema_rs.Validator:
         if isinstance(self._strict_validator, NotSet):
@@ -2112,11 +2189,8 @@ class OpenApiParameterSet(ParameterSet):
                 )
                 usage_tracker = extra_data_source.usage_tracker
 
-        # `JsonSchema` can be boolean (`True` / `False`), normalize to an object schema for downstream usage.
-        if isinstance(schema, bool):
-            schema = {} if schema else {"not": {}}
-        assert isinstance(schema, dict)
-        schema_obj: JsonSchemaObject = schema
+        # A schema written as `true` / `false` needs the object spelling for downstream usage.
+        schema_obj: JsonSchemaObject = as_object_schema(schema)
 
         strategy_factory = GENERATOR_MODE_TO_STRATEGY_FACTORY[generation_mode]
 
@@ -2267,79 +2341,87 @@ class OpenApiParameterSet(ParameterSet):
             # `True` / `False` / `None` improves chances of them passing validation in apps
             # that expect boolean / null types
             # and not aware of Python-specific representation of those types
-            if self.location == ParameterLocation.PATH:
-                if is_negative:
-                    strategy = strategy.map(
-                        lambda x: GeneratedValue(
-                            _quote_all_safe(jsonify_python_specific_types(x.value)),
-                            x.meta,
-                            x.pool_draws,
-                            x.semantic_draws,
-                            x.dictionary_draws,
-                            x.constants_draws,
-                        )
-                    )
-                    # Keep strict anti-misrouting defaults for negative generation.
-                    # Explicit %2F allowances apply only to positive data.
-                    strategy = strategy.filter(lambda x: is_valid_path(x.value))
-                else:
-                    # Dictionary / semantic overlays can wrap the value in `GeneratedValue`
-                    # under positive mode; route both helpers through the unwrap-rewrap
-                    # adapters so substituted path values still serialize correctly.
-                    from schemathesis.specs.openapi.negative import (
-                        wrap_filter_hook_for_generated_value,
-                        wrap_map_hook_for_generated_value,
-                    )
-
-                    strategy = strategy.map(
-                        wrap_map_hook_for_generated_value(_quote_all_safe, prune_constants=False)
-                    ).map(wrap_map_hook_for_generated_value(jsonify_python_specific_types, prune_constants=False))
-                    strategy = strategy.filter(
-                        wrap_filter_hook_for_generated_value(
-                            lambda x, allow=explicit_intent_path_names: is_valid_path(x, allow_encoded_slash_for=allow)
-                        )
-                    )
-            elif self.location == ParameterLocation.QUERY:
-                query_filter = is_valid_query
-                if is_negative:
-                    strategy = strategy.filter(lambda x: query_filter(x.value))
-                else:
-                    from schemathesis.specs.openapi.negative import (
-                        wrap_filter_hook_for_generated_value,
-                        wrap_map_hook_for_generated_value,
-                    )
-
-                    strategy = strategy.filter(wrap_filter_hook_for_generated_value(query_filter))
-                if is_negative:
-                    strategy = strategy.map(
-                        lambda x: GeneratedValue(
-                            jsonify_python_specific_types(x.value),
-                            x.meta,
-                            x.pool_draws,
-                            x.semantic_draws,
-                            x.dictionary_draws,
-                            x.constants_draws,
-                        )
-                    )
-                else:
-                    optional = frozenset(schema_obj.get("properties") or ()) - frozenset(
-                        schema_obj.get("required") or ()
-                    )
-                    strategy = strategy.map(
-                        wrap_map_hook_for_generated_value(
-                            partial(jsonify_query_parameters, optional=optional), prune_constants=False
-                        )
-                    )
-            else:
-                header_filter = is_valid_header
-                # Headers with special format do not need filtration
-                if not (self.location.is_in_header and _can_skip_header_filter(schema)):
+            match self.location:
+                case ParameterLocation.PATH:
                     if is_negative:
-                        strategy = strategy.filter(lambda x: header_filter(x.value))
+                        strategy = strategy.map(
+                            lambda x: GeneratedValue(
+                                _quote_all_safe(jsonify_python_specific_types(x.value)),
+                                x.meta,
+                                x.pool_draws,
+                                x.semantic_draws,
+                                x.dictionary_draws,
+                                x.constants_draws,
+                            )
+                        )
+                        # Keep strict anti-misrouting defaults for negative generation.
+                        # Explicit %2F allowances apply only to positive data.
+                        strategy = strategy.filter(lambda x: is_valid_path(x.value))
                     else:
-                        from schemathesis.specs.openapi.negative import wrap_filter_hook_for_generated_value
+                        # Dictionary / semantic overlays can wrap the value in `GeneratedValue`
+                        # under positive mode; route both helpers through the unwrap-rewrap
+                        # adapters so substituted path values still serialize correctly.
+                        from schemathesis.specs.openapi.negative import (
+                            wrap_filter_hook_for_generated_value,
+                            wrap_map_hook_for_generated_value,
+                        )
 
-                        strategy = strategy.filter(wrap_filter_hook_for_generated_value(header_filter))
+                        strategy = strategy.map(
+                            wrap_map_hook_for_generated_value(_quote_all_safe, prune_constants=False)
+                        ).map(wrap_map_hook_for_generated_value(jsonify_python_specific_types, prune_constants=False))
+                        strategy = strategy.filter(
+                            wrap_filter_hook_for_generated_value(
+                                lambda x, allow=explicit_intent_path_names: is_valid_path(
+                                    x, allow_encoded_slash_for=allow
+                                )
+                            )
+                        )
+                case ParameterLocation.QUERY:
+                    query_filter = is_valid_query
+                    if is_negative:
+                        strategy = strategy.filter(lambda x: query_filter(x.value))
+                    else:
+                        from schemathesis.specs.openapi.negative import (
+                            wrap_filter_hook_for_generated_value,
+                            wrap_map_hook_for_generated_value,
+                        )
+
+                        strategy = strategy.filter(wrap_filter_hook_for_generated_value(query_filter))
+                    if is_negative:
+                        strategy = strategy.map(
+                            lambda x: GeneratedValue(
+                                jsonify_python_specific_types(x.value),
+                                x.meta,
+                                x.pool_draws,
+                                x.semantic_draws,
+                                x.dictionary_draws,
+                                x.constants_draws,
+                            )
+                        )
+                    else:
+                        optional = frozenset(schema_obj.get("properties") or ()) - frozenset(
+                            schema_obj.get("required") or ()
+                        )
+                        strategy = strategy.map(
+                            wrap_map_hook_for_generated_value(
+                                partial(jsonify_query_parameters, optional=optional), prune_constants=False
+                            )
+                        )
+                case ParameterLocation.HEADER | ParameterLocation.COOKIE:
+                    header_filter = is_valid_header
+                    # Headers with special format do not need filtration
+                    if not (self.location.is_in_header and _can_skip_header_filter(schema_obj)):
+                        if is_negative:
+                            strategy = strategy.filter(lambda x: header_filter(x.value))
+                        else:
+                            from schemathesis.specs.openapi.negative import wrap_filter_hook_for_generated_value
+
+                            strategy = strategy.filter(wrap_filter_hook_for_generated_value(header_filter))
+                case ParameterLocation.BODY | ParameterLocation.UNKNOWN:
+                    # Parameter sets are only built for path, query, header and cookie.
+                    pass
+                case _:
+                    assert_never(self.location)
 
         # Apply hybrid approach when captured variants are available
         if captured_variants and usage_tracker is not None:

@@ -14,8 +14,11 @@ from botocore.session import EVENT_ALIASES as EVENT_ALIASES
 from botocore.session import Session as BotocoreSession
 from types_aiobotocore_accessanalyzer.client import AccessAnalyzerClient
 from types_aiobotocore_account.client import AccountClient
+from types_aiobotocore_account_access.client import AccountAccessClient
 from types_aiobotocore_acm.client import ACMClient
 from types_aiobotocore_acm_pca.client import ACMPCAClient
+from types_aiobotocore_agent_registry.client import AgentRegistryClient
+from types_aiobotocore_agent_registry_control.client import AgentRegistryControlClient
 from types_aiobotocore_aiops.client import AIOpsClient
 from types_aiobotocore_amp.client import PrometheusServiceClient
 from types_aiobotocore_amplify.client import AmplifyClient
@@ -334,6 +337,7 @@ from types_aiobotocore_pinpoint_sms_voice_v2.client import PinpointSMSVoiceV2Cli
 from types_aiobotocore_pipes.client import EventBridgePipesClient
 from types_aiobotocore_polly.client import PollyClient
 from types_aiobotocore_pricing.client import PricingClient
+from types_aiobotocore_pricing_plan_manager.client import PricingPlanManagerClient
 from types_aiobotocore_proton.client import ProtonClient
 from types_aiobotocore_qapps.client import QAppsClient
 from types_aiobotocore_qbusiness.client import QBusinessClient
@@ -545,6 +549,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["account-access"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[AccountAccessClient]:
+        """
+        Create client for AccountAccess service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["acm"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -578,6 +601,44 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[ACMPCAClient]:
         """
         Create client for ACMPCA service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["agent-registry"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[AgentRegistryClient]:
+        """
+        Create client for AgentRegistry service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["agent-registry-control"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[AgentRegistryControlClient]:
+        """
+        Create client for AgentRegistryControl service.
         """
 
     @overload  # type: ignore[override]
@@ -6354,6 +6415,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[PricingClient]:
         """
         Create client for Pricing service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["pricing-plan-manager"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[PricingPlanManagerClient]:
+        """
+        Create client for PricingPlanManager service.
         """
 
     @overload  # type: ignore[override]

@@ -26,15 +26,8 @@ from typing import Optional
 
 from ... import debug
 
-try:
-    import zendriver as nodriver
-    from zendriver import cdp
-
-    has_nodriver = True
-except ImportError:
-    has_nodriver = False
-
 from ...requests import get_nodriver
+from ...requests.cdp_browser import cdp
 
 
 # z.ai Aliyun Captcha config (from window.AliyunCaptchaConfig on the page)
@@ -337,4 +330,4 @@ def invalidate_captcha_token() -> None:
 
 def is_available() -> bool:
     """Whether the captcha solver can run (requires zendriver)."""
-    return has_nodriver
+    return True

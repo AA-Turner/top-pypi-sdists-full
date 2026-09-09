@@ -18,7 +18,7 @@ from urllib.parse import urljoin, uses_relative
 import pytest
 from PIL import Image
 
-from weasyprint import CSS, HTML, __main__, default_url_fetcher
+from weasyprint import CSS, HTML, __main__
 from weasyprint.pdf.anchors import resolve_links
 
 from .draw import parse_pixels
@@ -248,6 +248,19 @@ def test_css_parsing():
     _test_resource(CSS, 'latin1-test.css', check_css, encoding='latin1')
 
 
+@assert_no_logs
+def test_css_base_url_as_path():
+    """Regression test for #2764.
+
+    ``CSS()`` must accept a ``pathlib.Path`` ``base_url`` like ``HTML()``
+    does, instead of raising ``TypeError`` in ``url_is_absolute()``.
+    """
+    with chdir(Path(__file__).parent):
+        path = Path('resources') / 'utf8-test.css'
+        # Must not raise.
+        CSS(string=path.read_text('utf-8'), base_url=path)
+
+
 def check_png_pattern(assert_pixels_equal, png_bytes, x2=False, blank=False,
                       rotated=False):
     if blank:
@@ -371,9 +384,11 @@ def test_python_render(assert_pixels_equal, tmp_path):
 
 @assert_no_logs
 def test_unknown_options():
+    # Regression test for #2731.
     with capture_logs() as logs:
         pdf_bytes = FakeHTML(string='test').write_pdf(zoom=2, unknown=True)
     assert len(logs) == 1
+    assert logs[0].startswith('ERROR')
     assert 'unknown' in logs[0]
     assert pdf_bytes
 
@@ -744,35 +759,12 @@ def test_redirect_loop():
             _run(f'{root_url}/redirect-loop -')
 
 
-@pytest.mark.parametrize(('html', 'fields'), [
-    ('<input>', ['/Tx', '/V ()']),
-    ('<input value="">', ['/Tx', '/V ()']),
-    ('<input type="checkbox">', ['/Btn']),
-    ('<input type="radio">',
-     ['/Btn', '/V /Off', '/AS /Off', '/Ff 49152']),
-    ('<input checked type="radio" name="foo" value="value">',
-     ['/Btn', '/T (foo)', '/V /0', '/AS /0']),
-    ('<form><input type="radio" name="foo" value="v0"></form>'
-     '<form><input checked type="radio" name="foo" value="v1"></form>',
-     ['/Btn', '/AS /0', '/V /0', '/AS /Off', '/V /Off']),
-    ('<textarea></textarea>', ['/Tx', '/V ()']),
-    ('<select><option value="a">A</option></select>', ['/Ch', '/Opt']),
-    ('<select>'
-     '<option value="a">A</option>'
-     '<option value="b" selected>B</option>'
-     '</select>', ['/Ch', '/Opt', '/V (b)']),
-    ('<select multiple>'
-     '<option value="a">A</option>'
-     '<option value="b" selected>B</option>'
-     '<option value="c" selected>C</option>'
-     '</select>', ['/Ch', '/Opt', '[(b) (c)]']),
-])
-def test_pdf_inputs(html, fields):
-    stdout = _run('--pdf-forms --uncompressed-pdf - -', html.encode())
+def test_pdf_forms():
+    stdout = _run('--pdf-forms --uncompressed-pdf - -', b'<input>')
     assert b'AcroForm' in stdout
-    for field in fields:
-        assert field.encode() in stdout
-    stdout = _run('--uncompressed-pdf - -', html.encode())
+    assert b'/Tx' in stdout
+    assert b'/V ()' in stdout
+    stdout = _run('--uncompressed-pdf - -', b'<input>')
     assert b'AcroForm' not in stdout
 
 
@@ -1133,8 +1125,7 @@ def test_links_3():
     assert_links(
         '''
             <body style="width: 200px">
-            <div style="display: block; margin: 10px 5px;
-                        -weasy-link: url(../lipsum/é_%E9)">
+            <a href="../lipsum/é_%E9" style="display: block; margin: 10px 5px">
         ''', [[('external', 'https://weasyprint.org/foo/lipsum/%C3%A9_%E9',
                 (5, 10, 195, 10))]],
         [{}], [([('external', 'https://weasyprint.org/foo/lipsum/%C3%A9_%E9',
@@ -1152,19 +1143,6 @@ def test_links_4():
         ''', [[('external', '../lipsum', (5, 10, 195, 10))]], [{}],
         [([('external', '../lipsum', (5, 10, 195, 10))], [])],
         base_url=None)
-
-
-@assert_no_logs
-def test_links_5():
-    # Relative URI reference without a base URI: not supported for -weasy-link
-    assert_links(
-        '''
-            <body style="width: 200px">
-            <div style="-weasy-link: url(../lipsum);
-                        display: block; margin: 10px 5px">
-        ''', [[]], [{}], [([], [])], base_url=None, warnings=[
-            'WARNING: Ignored `-weasy-link: url(../lipsum)` at 1:1, '
-            'Relative URI reference without a base URI'])
 
 
 @assert_no_logs
@@ -1191,8 +1169,7 @@ def test_links_7():
     assert_links(
         '''
             <body style="width: 200px">
-            <div style="-weasy-link: url(#lipsum);
-                        margin: 10px 5px" id="lipsum">
+            <a href="#lipsum" style="display: block; margin: 10px 5px" id="lipsum">
         ''',
         [[('internal', 'lipsum', (5, 10, 195, 10))]],
         [{'lipsum': (5, 10, 195, 10)}],
@@ -1275,71 +1252,6 @@ def test_links_12():
 uses_relative.append('weasyprint-custom')
 
 
-@pytest.mark.filterwarnings('ignore')
-@assert_no_logs
-def test_deprecated_url_fetcher(assert_pixels_equal):
-    path = resource_path('pattern.png')
-    pattern_png = path.read_bytes()
-
-    def fetcher(url):
-        if url == 'weasyprint-custom:foo/%C3%A9_%e9_pattern':
-            return {'string': pattern_png, 'mime_type': 'image/png'}
-        elif url == 'weasyprint-custom:foo/bar.css':
-            return {
-                'string': 'body { background: url(é_%e9_pattern)',
-                'mime_type': 'text/css'}
-        elif url == 'weasyprint-custom:foo/bar.no':
-            return {
-                'string': 'body { background: red }',
-                'mime_type': 'text/no'}
-        else:
-            return default_url_fetcher(url)
-
-    base_url = str(resource_path('dummy.html'))
-    css = CSS(string='''
-        @page { size: 8px; margin: 2px }
-        body { margin: 0; font-size: 0 }
-    ''', base_url=base_url)
-
-    def test(html, blank=False):
-        html = FakeHTML(string=html, url_fetcher=fetcher, base_url=base_url)
-        check_png_pattern(
-            assert_pixels_equal, html.write_png(stylesheets=[css]),
-            blank=blank)
-
-    test('<body><img src="pattern.png">')  # Test a "normal" URL
-    test(f'<body><img src="{path.as_uri()}">')
-    test(f'<body><img src="{path.as_uri()}?ignored">')
-    test('<body><img src="weasyprint-custom:foo/é_%e9_pattern">')
-    test('<body style="background: url(weasyprint-custom:foo/é_%e9_pattern)">')
-    test('<body><li style="list-style: inside '
-         'url(weasyprint-custom:foo/é_%e9_pattern)">')
-    test('<link rel=stylesheet href="weasyprint-custom:foo/bar.css"><body>')
-    test('<style>@import "weasyprint-custom:foo/bar.css";</style><body>')
-    test('<style>@import url(weasyprint-custom:foo/bar.css);</style><body>')
-    test('<style>@import url("weasyprint-custom:foo/bar.css");</style><body>')
-
-    with capture_logs() as logs:
-        test('<body><img src="custom:foo/bar">', blank=True)
-    assert len(logs) == 1
-    assert logs[0].startswith(
-        "ERROR: Failed to load image at 'custom:foo/bar'")
-
-    with capture_logs() as logs:
-        test(
-            '<link rel=stylesheet href="weasyprint-custom:foo/bar.css">'
-            '<link rel=stylesheet href="weasyprint-custom:foo/bar.no"><body>')
-    assert len(logs) == 1
-    assert logs[0].startswith('ERROR: Unsupported stylesheet type text/no')
-
-    def fetcher_2(url):
-        assert url == 'weasyprint-custom:%C3%A9_%e9.css'
-        return {'string': '', 'mime_type': 'text/css'}
-    FakeHTML(
-        string='<link rel=stylesheet href="weasyprint-custom:é_%e9.css"><body',
-        url_fetcher=fetcher_2).render()
-
-
 class Fetcher(URLFetcher):
     def fetch(self, url, headers=None):
         if url.startswith('fatal:'):
@@ -1392,6 +1304,45 @@ def test_url_fetcher_default(assert_pixels_equal):
     css = CSS(string='@page{size:8px;margin:2px} body{font-size:0}', base_url=base_url)
     html = FakeHTML(string=html, url_fetcher=URLFetcher(), base_url=base_url)
     check_png_pattern(assert_pixels_equal, html.write_png(stylesheets=[css]))
+
+
+@assert_no_logs
+@pytest.mark.parametrize(('image_name', 'mime'), [
+    ('blue.jpg', 'image/jpeg'),
+    ('pattern.png', 'image/png'),
+])
+def test_url_fetcher_body_replaces_missing_file(image_name, mime):
+    """A URLFetcher returning body bytes for a file.
+
+    URLs whose path doesn’t exist on disk must use the response bytes, not try to read
+    from the missing file.
+
+    """
+    image_bytes = resource_path(image_name).read_bytes()
+
+    class ReplacingFetcher(URLFetcher):
+        def fetch(self, url, headers=None):
+            if 'missing' in url:
+                return URLFetcherResponse(url, image_bytes, {'Content-Type': mime})
+            return super().fetch(url, headers)
+
+    base_url = resource_path('dummy.html')
+    html = f'<body><img src="missing/replaced{Path(image_name).suffix}">'
+    FakeHTML(string=html, url_fetcher=ReplacingFetcher(), base_url=base_url).write_pdf()
+
+
+@assert_no_logs
+def test_url_fetcher_bad_xmp_metadata(assert_pixels_equal):
+    html = FakeHTML(string='abc', url_fetcher=Fetcher())
+    with pytest.raises(FatalURLFetchingError, match='Forbidden URL'):
+        html.write_pdf(xmp_metadata=['file://forbidden.css'])
+
+
+@assert_no_logs
+def test_url_fetcher_bad_css(assert_pixels_equal):
+    html = FakeHTML(string='abc', url_fetcher=Fetcher())
+    with pytest.raises(FatalURLFetchingError, match='Forbidden URL'):
+        html.render(stylesheets=['file://forbidden.css'])
 
 
 @assert_no_logs
@@ -1578,3 +1529,35 @@ def test_page_copy_relative():
     duplicated_pages = document.copy([*document.pages, *document.pages])
     pngs = duplicated_pages.write_png(split_images=True)
     assert pngs[0] == pngs[1]
+
+
+@assert_no_logs
+def test_unknown_render_option():
+    # Regression test for #2731.
+    with capture_logs() as logs:
+        FakeHTML(string='<body>').render(bogus_option=True)
+    assert len(logs) == 1
+    assert logs[0].startswith('ERROR')
+    assert 'bogus_option' in logs[0]
+
+
+@assert_no_logs
+def test_unknown_options_options_wrapper():
+    # Regression test for #2731: passing options={...} as a kwarg (the
+    # reporter's case) silently dropped the requested PDF variant.
+    with capture_logs() as logs:
+        FakeHTML(string='<body>').write_pdf(options={'pdf_variant': 'pdf/a-2b'})
+    assert len(logs) == 1
+    assert logs[0].startswith('ERROR')
+    assert 'options' in logs[0]
+
+
+@assert_no_logs
+def test_unknown_document_write_pdf_option():
+    # Regression test for #2731.
+    document = FakeHTML(string='<body>').render()
+    with capture_logs() as logs:
+        document.write_pdf(bogus_option=True)
+    assert len(logs) == 1
+    assert logs[0].startswith('ERROR')
+    assert 'bogus_option' in logs[0]

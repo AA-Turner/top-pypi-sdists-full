@@ -29,18 +29,17 @@ else:
 
 try:
     from time import tzset
-
-    HAVE_TZSET = True
 except ImportError:  # pragma: no cover
-    # Windows
-    HAVE_TZSET = False
+    HAVE_TZSET = False  # Windows
+else:
+    HAVE_TZSET = True
 
 try:
     from dateutil.parser import parse as parse_datetime
-
-    HAVE_DATEUTIL = True
 except ImportError:  # pragma: no cover
     HAVE_DATEUTIL = False
+else:
+    HAVE_DATEUTIL = True
 
 try:
     import pytest
@@ -259,9 +258,15 @@ class Traveller:
         tick: bool | None = None,
     ) -> None:
         self._stop()
-        self._destination_timestamp_ns, self._destination_tzname = (
-            extract_timestamp_tzname(destination)
-        )
+        try:
+            self._destination_timestamp_ns, self._destination_tzname = (
+                extract_timestamp_tzname(destination)
+            )
+        except BaseException:
+            # Keep travelling to the current destination, including its
+            # timezone, rather than leaving the timezone unmocked.
+            self._start()
+            raise
         self._requested = False
         self._start()
         if tick is not None:
@@ -394,7 +399,9 @@ class travel:
                 self.__enter__()
                 try:
                     orig_setUpClass(cls)
-                except Exception:
+                except BaseException:
+                    # Stop travlling for any BaseException, not just Exception,
+                    # because pytest.skip() works by raising a BaseException
                     self.__exit__(*sys.exc_info())
                     raise
 
@@ -406,8 +413,10 @@ class travel:
 
             @functools.wraps(orig_tearDownClass)
             def tearDownClass(cls: type[TestCase]) -> None:
-                orig_tearDownClass(cls)
-                self.__exit__(None, None, None)
+                try:
+                    orig_tearDownClass(cls)
+                finally:
+                    self.__exit__(*sys.exc_info())
 
             wrapped.tearDownClass = classmethod(  # type: ignore[assignment]
                 tearDownClass
@@ -434,6 +443,43 @@ class travel:
 
 # pytest plugin
 
+
+class TimeMachineFixture:
+    traveller: travel | None
+    traveller_obj: Traveller | None
+
+    def __init__(self) -> None:
+        self.traveller = None
+        self.traveller_obj = None
+
+    def move_to(
+        self,
+        destination: DestinationType,
+        tick: bool | None = None,
+    ) -> None:
+        if self.traveller is None:
+            if tick is None:
+                tick = True
+            traveller = travel(destination, tick=tick)
+            self.traveller_obj = traveller.start()
+            self.traveller = traveller
+        else:
+            assert self.traveller_obj is not None
+            self.traveller_obj.move_to(destination, tick=tick)
+
+    def shift(self, delta: dt.timedelta | int | float) -> None:
+        if self.traveller is None:
+            raise RuntimeError(
+                "Initialize time_machine with move_to() before using shift()."
+            )
+        assert self.traveller_obj is not None
+        self.traveller_obj.shift(delta=delta)
+
+    def stop(self) -> None:
+        if self.traveller is not None:
+            self.traveller.stop()
+
+
 if HAVE_PYTEST:  # pragma: no branch
 
     def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -451,40 +497,6 @@ if HAVE_PYTEST:  # pragma: no branch
         config.addinivalue_line(
             "markers", "time_machine(...): set the time with time-machine"
         )
-
-    class TimeMachineFixture:
-        traveller: travel | None
-        traveller_obj: Traveller | None
-
-        def __init__(self) -> None:
-            self.traveller = None
-            self.traveller_obj = None
-
-        def move_to(
-            self,
-            destination: DestinationType,
-            tick: bool | None = None,
-        ) -> None:
-            if self.traveller is None:
-                if tick is None:
-                    tick = True
-                self.traveller = travel(destination, tick=tick)
-                self.traveller_obj = self.traveller.start()
-            else:
-                assert self.traveller_obj is not None
-                self.traveller_obj.move_to(destination, tick=tick)
-
-        def shift(self, delta: dt.timedelta | int | float) -> None:
-            if self.traveller is None:
-                raise RuntimeError(
-                    "Initialize time_machine with move_to() before using shift()."
-                )
-            assert self.traveller_obj is not None
-            self.traveller_obj.shift(delta=delta)
-
-        def stop(self) -> None:
-            if self.traveller is not None:
-                self.traveller.stop()
 
     @pytest.fixture(name="time_machine")
     def time_machine_fixture(

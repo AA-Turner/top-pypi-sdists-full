@@ -475,7 +475,7 @@ class OTelMetricsReporter:
                 resource = Resource.create(
                     {
                         "service.name": SERVICE_NAME,
-                        "host.id": os.getenv("HOSTNAME", ""),
+                        "k8s.pod.name": os.getenv("HOSTNAME", ""),
                         "api_version": os.getenv("LANGSMITH_LANGGRAPH_API_VERSION")
                         or __version__,
                         "project_id": os.getenv("LANGSMITH_HOST_PROJECT_ID", ""),

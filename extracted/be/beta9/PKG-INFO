@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beta9
-Version: 0.1.265
+Version: 0.1.266
 Author-email: "beam.cloud" <support@beam.cloud>
 Requires-Python: <4.0,>=3.8
 Requires-Dist: typeguard<3.0.0,>=2.13.3; python_version < "3.9"
@@ -12,7 +12,7 @@ Requires-Dist: asgiref<4.0.0,>=3.8.1
 Requires-Dist: cloudpickle<4.0.0,>=3.0.0
 Requires-Dist: rich<15.0.0,>=13.9.4
 Requires-Dist: click<9.0.0,>=8.1.7
-Requires-Dist: protobuf<7.0.0,>=4.25.1
+Requires-Dist: protobuf<7.0.0,>=5.29.6
 Requires-Dist: fastapi<1.0.0,>=0.115.11
 Requires-Dist: uvicorn<1.0.0,>=0.29.0
 Requires-Dist: watchdog<5.0.0,>=4.0.0

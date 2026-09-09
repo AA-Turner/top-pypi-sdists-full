@@ -10,6 +10,7 @@ PrincipalType = Union[
     Literal[
         "api_key",
         "service_account",
+        "user",
     ],
     UnrecognizedStr,
 ]

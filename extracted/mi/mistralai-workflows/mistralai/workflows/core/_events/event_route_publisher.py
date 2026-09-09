@@ -11,6 +11,7 @@ import httpx
 
 from mistralai.workflows.core._events.event_encoder import maybe_encode_event
 from mistralai.workflows.core.config.config import EventsApiVersion
+from mistralai.workflows.core.metrics import EventRouteFallbackReason, record_event_route_v1_fallback
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 
 if TYPE_CHECKING:
@@ -28,6 +29,10 @@ from mistralai.workflows.worker_client.httpclient import AsyncHttpClient
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 
+class _EventRouteUnavailableError(WorkflowsException):
+    """The API exposes no v2 event route, so the caller should use v1 instead."""
+
+
 def _build_event_route_exception(
     exc: httpx.HTTPError,
     message: str,
@@ -42,16 +47,27 @@ def _build_event_route_exception(
         return translated
 
     try:
-        body = exc.response.json()
+        parsed = exc.response.json()
     except ValueError:
-        return translated
+        parsed = None
+    body = parsed if isinstance(parsed, dict) else None
+    body_code = body.get("code") if body is not None else None
 
-    if not isinstance(body, dict):
+    # The v2 routes tag their own 404s with a code, so an untagged one means the route is absent.
+    if exc.response.status_code == HTTPStatus.NOT_FOUND and body_code is None:
+        return _EventRouteUnavailableError(
+            message="API does not expose the v2 event route",
+            code=translated.code,
+            status=translated.status,
+            type=translated.type,
+        )
+
+    if body is None:
         return translated
 
     return WorkflowsException(
         message=body.get("detail") or translated.message,
-        code=body.get("code") or translated.code,
+        code=body_code or translated.code,
         status=translated.status,
         type=translated.type,
     )
@@ -64,7 +80,7 @@ class EventRoutePublisher:
     def __init__(
         self,
         worker_client: PrivateWorkerClient,
-        events_api_version: str = "v1",
+        events_api_version: EventsApiVersion,
         event_encoder: EventPayloadEncoder | None = None,
     ) -> None:
         self._events_api_version = events_api_version
@@ -75,6 +91,12 @@ class EventRoutePublisher:
         self._server_url = worker_client.sdk_configuration.server_url.rstrip("/")
         self._event_route_token_cache: OrderedDict[tuple[str, str], tuple[str, float]] = OrderedDict()
         self._event_encoder = event_encoder
+
+    def _fall_back_to_v1(self, reason: EventRouteFallbackReason) -> bool:
+        # v2-only raises upstream rather than using v1, so that is not a fallback worth counting.
+        if self._events_api_version != EventsApiVersion.V2_ONLY:
+            record_event_route_v1_fallback(reason)
+        return False
 
     async def try_publish_via_v2(
         self,
@@ -113,11 +135,16 @@ class EventRoutePublisher:
 
         try:
             await self._publish_events_v2(events, execution_token)
+        except _EventRouteUnavailableError:
+            return self._fall_back_to_v1(EventRouteFallbackReason.ROUTE_UNAVAILABLE)
         except WorkflowsException as exc:
+            # The route exists but its token service is off (Abraxas or Albe), so v2 cannot work here.
+            if exc.status == HTTPStatus.SERVICE_UNAVAILABLE:
+                return self._fall_back_to_v1(EventRouteFallbackReason.TOKEN_SERVICE_UNAVAILABLE)
             # An API without run-identity minting rejects a token-less request with 422;
             # fall back to v1 for those (handler/reset) paths instead of dropping the event.
             if execution_token is None and exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
-                return False
+                return self._fall_back_to_v1(EventRouteFallbackReason.TOKEN_REQUIRED)
             raise
         return True
 

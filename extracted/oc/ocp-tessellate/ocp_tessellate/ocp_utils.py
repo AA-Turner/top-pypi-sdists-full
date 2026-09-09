@@ -96,18 +96,28 @@ from OCP.TopoDS import (
     TopoDS_Vertex,
     TopoDS_Wire,
 )
-from OCP.TopTools import (
-    TopTools_IndexedDataMapOfShapeListOfShape,
-    TopTools_IndexedMapOfShape,
-)
+
+if OCP.__version__.startswith("7"):
+    from OCP.TopTools import (
+        TopTools_IndexedDataMapOfShapeListOfShape,
+        TopTools_IndexedMapOfShape,
+    )
+else:
+    from OCP.collections import (
+        IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopTools_ShapeMapHasher as TopTools_IndexedDataMapOfShapeListOfShape,
+        IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as TopTools_IndexedMapOfShape,
+    )
+
 from numpy.typing import ArrayLike
 
 from .types import (
     Build123dBuilder,
     Build123dLineBuilder,
     Build123dPartBuilder,
+    Build123dSheetBuilder,
     Build123dSketchBuilder,
     Build123dVector,
+    Build123dGroupBy,
     Build123dLocationList,
     Build123dShape,
     Build123dShapeList,
@@ -290,6 +300,10 @@ def is_build123d_part(obj) -> TypeGuard[Build123dPartBuilder]:
     return is_build123d(obj) and obj._obj_name == "part"
 
 
+def is_build123d_sheet(obj) -> TypeGuard[Build123dSheetBuilder]:
+    return is_build123d(obj) and obj._obj_name == "sheet"
+
+
 def is_build123d_sketch(obj) -> TypeGuard[Build123dSketchBuilder]:
     return is_build123d(obj) and obj._obj_name == "sketch"
 
@@ -329,6 +343,14 @@ def is_build123d_shapelist(obj) -> TypeIs[Build123dShapeList]:
         and hasattr(obj, "first")
         and hasattr(obj, "last")
         and hasattr(obj, "filter_by")
+    )
+
+
+def is_build123d_groupby(obj) -> TypeIs[Build123dGroupBy]:
+    return (
+        isinstance(obj, Iterable)
+        and hasattr(obj, "groups")
+        and hasattr(obj, "group_for")
     )
 
 
@@ -978,7 +1000,9 @@ def _call_if_callable(value: object) -> object:
 
 
 @overload
-def get_location(obj: object, as_none: Literal[True] = ...) -> TopLoc_Location | None: ...
+def get_location(
+    obj: object, as_none: Literal[True] = ...
+) -> TopLoc_Location | None: ...
 @overload
 def get_location(obj: object, as_none: Literal[False]) -> TopLoc_Location: ...
 def get_location(obj: object, as_none: bool = True) -> TopLoc_Location | None:
@@ -1194,7 +1218,9 @@ def make_key(
 def get_size(obj: object) -> int:
     size = sys.getsizeof(obj)
     if isinstance(obj, dict):
-        size += sum([get_size(v) + (len(k) if isinstance(k, str) else 0) for k, v in obj.items()])
+        size += sum([
+            get_size(v) + (len(k) if isinstance(k, str) else 0) for k, v in obj.items()
+        ])
     elif isinstance(obj, (tuple, list)):
         size += sum([get_size(i) for i in obj])
     return size
@@ -1239,7 +1265,20 @@ class BoundingBox(object):
         else:
             BRepBndLib.Add_s(obj, bbox)
         if not bbox.IsVoid():
-            values = bbox.Get()
+            if OCP.__version__.startswith("7"):
+                values = bbox.Get()
+            else:
+                # On OCP 8 Bnd_Box.Get() resolves to the overload returning the
+                # Bnd_Box::Limits struct, which is not bound and always raises, so read
+                # the six bounds individually.
+                values = (
+                    bbox.GetXMin(),
+                    bbox.GetYMin(),
+                    bbox.GetZMin(),
+                    bbox.GetXMax(),
+                    bbox.GetYMax(),
+                    bbox.GetZMax(),
+                )
             return (values[0], values[3], values[1], values[4], values[2], values[5])
         else:
             c = self._center_of_mass(obj)

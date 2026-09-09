@@ -34,6 +34,10 @@ from novita_sandbox.core.sandbox_async.git import Git
 from novita_sandbox.core.sandbox_async.sandbox_api import SandboxApi, SandboxInfo
 from novita_sandbox.core.sandbox_async.paginator import AsyncSnapshotPaginator
 from novita_sandbox.core.volume.volume_async import AsyncVolume
+from novita_sandbox.core.template_async.main import AsyncTemplate
+from novita_sandbox.core.template.logger import default_build_logger
+from novita_sandbox.core.oci import normalize_oci_image, oci_fingerprint, oci_slug
+from novita_sandbox.core.exceptions import RegistryAuthenticationException
 from novita_sandbox.core.api.client.models import SandboxVolumeMount as SandboxVolumeMountAPI
 
 logger = logging.getLogger(__name__)
@@ -226,6 +230,8 @@ class AsyncSandbox(SandboxApi):
     async def create(
         cls,
         template: Optional[str] = None,
+        image: Optional[str] = None,
+        build: Optional[Dict[str, object]] = None,
         timeout: Optional[int] = None,
         metadata: Optional[Dict[str, str]] = None,
         envs: Optional[Dict[str, str]] = None,
@@ -263,6 +269,38 @@ class AsyncSandbox(SandboxApi):
 
         Use this method instead of using the constructor to create a new sandbox.
         """
+        if image is not None:
+            if template is not None:
+                raise ValueError("template and image cannot both be specified")
+            normalized = normalize_oci_image(image)
+            build_opts = dict(build or {})
+            registry = build_opts.pop("registry", None)
+            if registry is not None and (bool(registry.get("username")) != bool(registry.get("password"))):
+                raise RegistryAuthenticationException("registry username and password must be provided together")
+            on_build_logs = build_opts.pop("on_build_logs", None)
+            if on_build_logs is None and build_opts.pop("build_logs", True):
+                on_build_logs = default_build_logger()
+            digest = oci_fingerprint(normalized, build_opts)
+            slug = oci_slug(normalized)
+            name = f"novita-oci-{slug[:32]}-{digest}"
+            if await AsyncTemplate.exists(name, **opts):
+                template = name
+                image = None
+            else:
+                builder = AsyncTemplate().from_image(normalized, **(registry or {}))
+                if build_opts.get("cmd") and build_opts.get("ready_cmd"):
+                    builder.set_start_cmd(build_opts["cmd"], build_opts["ready_cmd"])
+                elif build_opts.get("ready_cmd"):
+                    builder.set_ready_cmd(build_opts["ready_cmd"])
+                if build_opts.get("patch_cmd"):
+                    builder.set_patch_cmd(build_opts["patch_cmd"])
+                for key in ("cmd", "ready_cmd", "patch_cmd"):
+                    build_opts.pop(key, None)
+                if "no_cache" in build_opts:
+                    build_opts["skip_cache"] = build_opts.pop("no_cache")
+                info = await AsyncTemplate.build(builder, name, on_build_logs=on_build_logs, **build_opts, **opts)
+                template = info.template_id
+
         _raise_if_legacy_mcp(mcp, opts)
 
         if not template and mcp is not None:
@@ -321,6 +359,9 @@ class AsyncSandbox(SandboxApi):
     async def connect(
         self,
         timeout: Optional[int] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> Self:
         """
@@ -331,6 +372,9 @@ class AsyncSandbox(SandboxApi):
 
         :param timeout: Timeout for the sandbox in **seconds**
             For running sandboxes, the timeout will update only if the new timeout is longer than the existing one.
+        :param secure: Whether system communication should be secured with an access token
+        :param network: Deprecated. Use allow_public_traffic instead
+        :param allow_public_traffic: Whether sandbox URLs are publicly accessible without a traffic access token
         :return: A running sandbox instance
 
         @example
@@ -349,6 +393,9 @@ class AsyncSandbox(SandboxApi):
     async def connect(
         sandbox_id: str,
         timeout: Optional[int] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> "AsyncSandbox":
         """
@@ -360,6 +407,8 @@ class AsyncSandbox(SandboxApi):
         :param sandbox_id: Sandbox ID
         :param timeout: Timeout for the sandbox in **seconds**
             For running sandboxes, the timeout will update only if the new timeout is longer than the existing one.
+        :param secure: Whether system communication should be secured with an access token
+        :param network: Sandbox network configuration
         :return: A running sandbox instance
 
         @example
@@ -377,6 +426,9 @@ class AsyncSandbox(SandboxApi):
     async def connect(
         self,
         timeout: Optional[int] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> Self:
         """
@@ -387,6 +439,8 @@ class AsyncSandbox(SandboxApi):
 
         :param timeout: Timeout for the sandbox in **seconds**
             For running sandboxes, the timeout will update only if the new timeout is longer than the existing one.
+        :param secure: Whether system communication should be secured with an access token
+        :param network: Sandbox network configuration
         :return: A running sandbox instance
 
         @example
@@ -398,11 +452,15 @@ class AsyncSandbox(SandboxApi):
         same_sandbox = await sandbox.connect()
         ```
         """
-        await SandboxApi._cls_connect(
+        sandbox = await SandboxApi._cls_connect(
             sandbox_id=self.sandbox_id,
             timeout=timeout,
+            secure=secure,
+            network=network,
+            allow_public_traffic=allow_public_traffic,
             **self.connection_config.get_api_params(**opts),
         )
+        self._set_traffic_access_token(sandbox.traffic_access_token)
 
         return self
 
@@ -838,7 +896,10 @@ class AsyncSandbox(SandboxApi):
     async def reset(
         self,
         resume: Optional[bool] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
         timeout: Optional[int] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> bool:
         """
@@ -851,7 +912,10 @@ class AsyncSandbox(SandboxApi):
     async def reset(
         sandbox_id: str,
         resume: Optional[bool] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
         timeout: Optional[int] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> bool:
         """
@@ -863,15 +927,24 @@ class AsyncSandbox(SandboxApi):
     async def reset(
         self,
         resume: Optional[bool] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
         timeout: Optional[int] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> bool:
-        return await SandboxApi._cls_reset(
+        success, traffic_access_token = await SandboxApi._cls_reset_with_token(
             sandbox_id=self.sandbox_id,
             resume=resume,
+            secure=secure,
+            network=network,
+            allow_public_traffic=allow_public_traffic,
             timeout=timeout,
             **self.connection_config.get_api_params(**opts),
         )
+        if traffic_access_token is not None:
+            self._set_traffic_access_token(traffic_access_token)
+        return success
 
     async def hotplug_memory(
         self,
@@ -1231,11 +1304,17 @@ class AsyncSandbox(SandboxApi):
         cls,
         sandbox_id: str,
         timeout: Optional[int] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> Self:
         sandbox = await SandboxApi._cls_connect(
             sandbox_id=sandbox_id,
             timeout=timeout,
+            secure=secure,
+            network=network,
+            allow_public_traffic=allow_public_traffic,
             **opts,
         )
 

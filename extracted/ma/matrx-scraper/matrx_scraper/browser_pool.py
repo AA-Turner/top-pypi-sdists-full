@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.screenshot_dimensions import png_dimensions
 from matrx_scraper.user_agents import normalize_user_agent
 
@@ -472,7 +473,7 @@ class PlaywrightBrowserPool:
         try:
             context_kwargs: dict = {}
             if proxy:
-                context_kwargs["proxy"] = {"server": proxy}
+                context_kwargs["proxy"] = playwright_proxy(proxy)
             if user_agent:
                 # A browser UA is a CONTEXT option, not a header — setting it
                 # via extra_http_headers would leave navigator.userAgent (and
@@ -484,7 +485,31 @@ class PlaywrightBrowserPool:
             page = await context.new_page()
 
             try:
+                deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
                 resp = await page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+                if await page.title() == "Client Challenge":
+                    # Let the provider's normal JavaScript finish. DOMContentLoaded
+                    # is the challenge document, not the requested page. Never click,
+                    # spoof browser identity, or extend the caller's render budget.
+                    remaining_ms = int((deadline - asyncio.get_running_loop().time()) * 1000)
+                    if remaining_ms <= 0:
+                        raise TimeoutError("provider challenge exhausted browser render budget")
+                    # Selector polling uses Playwright's utility world; unlike
+                    # wait_for_function it does not eval a caller expression in
+                    # the provider document (Mozilla forbids unsafe-eval).
+                    # Native XPath reads head text, which Playwright text selectors
+                    # exclude. Detachment covers same-document title replacement.
+                    await page.wait_for_selector(
+                        'xpath=//title[normalize-space(.)="Client Challenge"]',
+                        state="detached",
+                        timeout=remaining_ms,
+                    )
+                    remaining_ms = int((deadline - asyncio.get_running_loop().time()) * 1000)
+                    if remaining_ms <= 0:
+                        raise TimeoutError("provider challenge exhausted browser render budget")
+                    await page.wait_for_load_state("domcontentloaded", timeout=remaining_ms)
+                    if await page.title() == "Client Challenge":
+                        raise TimeoutError("provider challenge remains after browser readiness")
                 content = await page.content()
                 title = await page.title()
                 response_url = page.url
@@ -547,7 +572,7 @@ class PlaywrightBrowserPool:
             ]
             context_kwargs: dict = profile.context_kwargs(user_agent)
             if proxy:
-                context_kwargs["proxy"] = {"server": proxy}
+                context_kwargs["proxy"] = playwright_proxy(proxy)
 
             context = await browser.new_context(**context_kwargs)
             page = await context.new_page()
@@ -705,7 +730,7 @@ class PlaywrightBrowserPool:
             try:
                 context_kwargs = profile.context_kwargs(user_agent)
                 if proxy:
-                    context_kwargs["proxy"] = {"server": proxy}
+                    context_kwargs["proxy"] = playwright_proxy(proxy)
                 context = await browser.new_context(**context_kwargs)
                 page = await context.new_page()
                 try:
@@ -802,7 +827,7 @@ class PlaywrightBrowserPool:
                     # the bot identifiable without breaking the device identity.
                     context_kwargs["user_agent"] = f"{profile.user_agent} {user_agent_suffix}"
                 if proxy:
-                    context_kwargs["proxy"] = {"server": proxy}
+                    context_kwargs["proxy"] = playwright_proxy(proxy)
                 context = await browser.new_context(**context_kwargs)
                 try:
                     page = await context.new_page()

@@ -157,17 +157,18 @@ class NetworksSwitchStacks(object):
             if isinstance(items, dict):
                 if 'response' in items:
                     items = items.get('response')
-            result = get_dict_result(items, 'switchStackId', id)
+            result = items
         except Exception as e:
             print("Error: ", e)
             result = None
         return result
 
     def exists(self):
+        prev_obj = None
         id_exists = False
         name_exists = False
-        prev_obj = None
-        o_id = self.new_object.get("id")
+        o_id = self.new_object.get(
+            "networkId") or self.new_object.get("network_id")
         o_id = o_id or self.new_object.get(
             "switch_stack_id") or self.new_object.get("switchStackId")
         name = self.new_object.get("name")

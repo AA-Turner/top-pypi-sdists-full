@@ -13,6 +13,7 @@ from collections.abc import AsyncGenerator, Callable, Iterable, ValuesView
 from typing import Any, Literal, TypeVar, cast
 
 import boto3
+from botocore import UNSIGNED
 from botocore.config import Config as BotocoreConfig
 from botocore.exceptions import ClientError
 from pydantic import BaseModel
@@ -34,7 +35,7 @@ from ..types.streaming import CitationsDelta, StreamEvent
 from ..types.tools import ToolChoice, ToolSpec
 from ._defaults import resolve_config_metadata
 from ._strict_schema import ensure_strict_json_schema
-from ._validation import validate_config_keys
+from ._validation import _warn_on_deprecated_cache_tools, validate_config_keys
 from .model import BaseModelConfig, CacheConfig, CacheToolsConfig, Model
 
 logger = logging.getLogger(__name__)
@@ -161,9 +162,10 @@ class BedrockModel(Model):
             additional_response_field_paths: Additional response field paths to extract
             cache_prompt: Cache point type for the system prompt (deprecated, use cache_config)
             cache_config: Configuration for prompt caching. Use CacheConfig(strategy="auto") for automatic caching.
-            cache_tools: Cache point type for tools. Pass a string (e.g. "default") to cache the tools with
-                no explicit TTL, or a CacheToolsConfig instance to set both type and TTL (e.g. "1h"). Inherits
-                cache_config.ttl if specified, otherwise it takes the Bedrock default.
+            cache_tools: Cache point type for tools (deprecated, use CacheConfig(tools_ttl=...)). Pass a string
+                (e.g. "default") to cache the tools with no explicit TTL, or a CacheToolsConfig instance to set
+                both type and TTL (e.g. "1h"). Inherits cache_config.ttl if specified, otherwise it takes the
+                Bedrock default. Superseded by an explicitly set cache_config.tools_ttl.
             guardrail_id: ID of the guardrail to apply
             guardrail_trace: Guardrail trace mode. Defaults to enabled.
             guardrail_version: Version of the guardrail to apply
@@ -233,6 +235,7 @@ class BedrockModel(Model):
         boto_client_config: BotocoreConfig | None = None,
         region_name: str | None = None,
         endpoint_url: str | None = None,
+        api_key: str | None = None,
         **model_config: Unpack[BedrockConfig],
     ):
         """Initialize provider instance.
@@ -243,6 +246,8 @@ class BedrockModel(Model):
             region_name: AWS region to use for the Bedrock service.
                 Defaults to the AWS_REGION environment variable if set, or "us-west-2" if not set.
             endpoint_url: Custom endpoint URL for VPC endpoints (PrivateLink)
+            api_key: Amazon Bedrock API key for bearer token authentication.
+                When provided, requests use the API key instead of SigV4 signing.
             **model_config: Configuration options for the Bedrock model.
         """
         if region_name and boto_session:
@@ -269,9 +274,18 @@ class BedrockModel(Model):
             else:
                 new_user_agent = "strands-agents"
 
-            client_config = boto_client_config.merge(BotocoreConfig(user_agent_extra=new_user_agent))
+            client_config = boto_client_config.merge(
+                BotocoreConfig(
+                    user_agent_extra=new_user_agent,
+                    **({"signature_version": UNSIGNED} if api_key else {}),
+                )
+            )
         else:
-            client_config = BotocoreConfig(user_agent_extra="strands-agents", read_timeout=DEFAULT_READ_TIMEOUT)
+            client_config = BotocoreConfig(
+                user_agent_extra="strands-agents",
+                read_timeout=DEFAULT_READ_TIMEOUT,
+                **({"signature_version": UNSIGNED} if api_key else {}),
+            )
 
         self.client = session.client(
             service_name="bedrock-runtime",
@@ -279,6 +293,13 @@ class BedrockModel(Model):
             endpoint_url=endpoint_url,
             region_name=resolved_region,
         )
+
+        if api_key:
+
+            def set_bearer_auth(request: Any, **_: Any) -> None:
+                request.headers["Authorization"] = f"Bearer {api_key}"
+
+            self.client.meta.events.register("before-send.bedrock-runtime.*", set_bearer_auth)
 
         logger.debug("region=<%s> | bedrock client created", self.client.meta.region_name)
 
@@ -308,6 +329,8 @@ class BedrockModel(Model):
             **model_config: Configuration overrides.
         """
         validate_config_keys(model_config, self.BedrockConfig)
+        # __init__ delegates here, so the caller sits at stacklevel 4 on the constructor path.
+        _warn_on_deprecated_cache_tools(model_config, stacklevel=4)
         self.config.update(model_config)
 
     @override
@@ -537,15 +560,45 @@ class BedrockModel(Model):
         return not any("cachePoint" in block for block in system_blocks)
 
     def _build_tools_cache_point(self) -> list[dict[str, Any]]:
-        """Build the cache point block appended to ``toolConfig.tools`` if ``cache_tools`` is configured.
+        """Build the cache point block appended to ``toolConfig.tools`` when tool caching is configured.
 
-        A ``cache_tools`` that carries no TTL of its own inherits ``cache_config.ttl``
+        An explicitly set ``cache_config.tools_ttl`` drives the point, mirroring ``system_prompt_ttl`` - a TTL
+        string sets the tools section's own duration, True derives it from ``cache_config.ttl``, and False
+        disables it; a section that carries no TTL of its own inherits ``cache_config.ttl``. When ``tools_ttl``
+        is left unset (None), the deprecated model-level ``cache_tools`` drives the point instead so existing
+        configurations keep working unchanged.
 
         Returns:
-            A single-element list containing the cache point block, or an empty list if no cache_tools is set.
+            A single-element list containing the cache point block, or an empty list when tool caching is off.
+        """
+        cache_config = self.config.get("cache_config")
+        if cache_config is None or cache_config.tools_ttl is None:
+            return self._build_deprecated_cache_tools_point(cache_config)
+
+        tools_ttl = cache_config.tools_ttl
+        if tools_ttl is False or self._cache_strategy != "anthropic":
+            return []
+
+        ttl = tools_ttl if isinstance(tools_ttl, str) else cache_config.ttl
+        cache_point: dict[str, Any] = {"type": "default"}
+        if ttl:
+            cache_point["ttl"] = ttl
+
+        return [{"cachePoint": cache_point}]
+
+    def _build_deprecated_cache_tools_point(self, cache_config: CacheConfig | None) -> list[dict[str, Any]]:
+        """Build the tools cache point from the deprecated model-level ``cache_tools`` option.
+
+        Reached only when ``cache_config.tools_ttl`` is unset; an explicit ``tools_ttl`` supersedes this path.
+
+        Returns:
+            A single-element list containing the cache point block, or an empty list when ``cache_tools`` is off.
         """
         cache_tools = self.config.get("cache_tools")
         if not cache_tools:
+            return []
+
+        if cache_config is not None and self._cache_strategy != "anthropic":
             return []
 
         if isinstance(cache_tools, CacheToolsConfig):
@@ -553,10 +606,8 @@ class BedrockModel(Model):
         else:
             cache_type, ttl = cache_tools, None
 
-        if not ttl:
-            cache_config = self.config.get("cache_config")
-            if cache_config and cache_config.ttl and self._cache_strategy == "anthropic":
-                ttl = cache_config.ttl
+        if not ttl and cache_config and cache_config.ttl and self._cache_strategy == "anthropic":
+            ttl = cache_config.ttl
 
         cache_point: dict[str, Any] = {"type": cache_type}
         if ttl:
@@ -1553,21 +1604,29 @@ class BedrockModel(Model):
                     }
                 }
             elif "reasoningContent" in content:
-                # Then yield the reasoning content as a delta
-                yield {
-                    "contentBlockDelta": {
-                        "delta": {"reasoningContent": {"text": content["reasoningContent"]["reasoningText"]["text"]}}
-                    }
-                }
-
-                if "signature" in content["reasoningContent"]["reasoningText"]:
-                    yield {
-                        "contentBlockDelta": {
-                            "delta": {
-                                "reasoningContent": {
-                                    "signature": content["reasoningContent"]["reasoningText"]["signature"]
+                reasoning = content["reasoningContent"]
+                if "reasoningText" in reasoning:
+                    reasoning_text = reasoning["reasoningText"]
+                    if "text" in reasoning_text:
+                        yield {
+                            "contentBlockDelta": {
+                                "delta": {"reasoningContent": {"text": reasoning_text["text"]}}
+                            }
+                        }
+                    if reasoning_text.get("signature"):
+                        yield {
+                            "contentBlockDelta": {
+                                "delta": {
+                                    "reasoningContent": {
+                                        "signature": reasoning_text["signature"]
+                                    }
                                 }
                             }
+                        }
+                if "redactedContent" in reasoning:
+                    yield {
+                        "contentBlockDelta": {
+                            "delta": {"reasoningContent": {"redactedContent": reasoning["redactedContent"]}}
                         }
                     }
             elif "citationsContent" in content:

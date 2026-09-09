@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyschlage
-Version: 2026.8.0
+Version: 2026.9.0
 Summary: Python API for interacting with Schlage WiFi locks.
 Author-email: David Knowles <dknowles2@gmail.com>
 License: Apache-2.0

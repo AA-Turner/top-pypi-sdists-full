@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # avoid import cycles / heavy imports at module load
+    from coord.acceptance import ManifestData
     from coord.config import Config
     from coord.models import Assignment, Board, Machine
 
@@ -125,6 +126,88 @@ class DiagnoseResult:
             f"reset_performed={str(self.reset_performed).lower()} "
             f"actions={len(self.actions_taken)}"
         )
+
+
+# ── #3202: Gate-A exempt-exposure surfacing ─────────────────────────────────
+
+
+def gate_a_exempt_exposure_lines(
+    milestone_number: int,
+    manifest: "ManifestData",
+    contract_text: str | None,
+) -> list[str]:
+    """Surfacing (#3202) of a milestone already carrying a Gate-A contract
+    AND exempting one or more issues from the acceptance-slice gate — the
+    state that let the format-converter ms-1 incident ship a
+    contract-violating UI through Review, CI and unit tests, caught only by
+    a human at the UAT gate.
+
+    For a caller that has ALREADY fetched *manifest*/*contract_text* by some
+    other means and just wants the lines to print (a future ``coord
+    doctor`` per-milestone pass, once one exists — no fleet-wide milestone
+    iteration exists to hang it off of today, so nothing calls this yet).
+    ``coord gates`` (:func:`coord.gates.build_gate_report`) and the
+    reviewer's briefing (``coord.review.build_review_briefing``) instead go
+    through :func:`coord.acceptance.fetch_gate_a_exempt_warning`, which owns
+    the manifest/contract FETCH those two need and isn't a fit for this
+    function's "data already in hand" shape — but both paths bottom out in
+    the exact same :func:`coord.acceptance.gate_a_exempt_exposure` /
+    :func:`coord.acceptance.gate_a_exempt_warning` pair, so the wording can
+    never drift between them.
+
+    Returns ``[]`` when there's nothing to report (no manifest exemptions).
+    Delegates the actual detection AND the wording to
+    :func:`coord.acceptance.gate_a_exempt_exposure` /
+    :func:`coord.acceptance.gate_a_exempt_warning` rather than re-deriving
+    either here.
+    """
+    from coord.acceptance import gate_a_exempt_exposure, gate_a_exempt_warning  # noqa: PLC0415
+
+    exposure = gate_a_exempt_exposure(milestone_number, manifest, contract_text)
+    if exposure is None:
+        return []
+    return [gate_a_exempt_warning(exposure)]
+
+
+# ── #3212: exempt-dependency surfacing ──────────────────────────────────────
+
+
+def exempt_dependency_lines(
+    manifest: "ManifestData",
+    repo_github: str,
+    *,
+    issue_is_closed=None,
+    artifact_root: "Path | None" = None,
+) -> list[str]:
+    """Surfacing (#3212) of every ``exempt:`` entry in *manifest* whose
+    justification names another issue as covering it (``covered_by:``, or a
+    plain entry's inline ``# ... #M`` comment) and that promise is unmet —
+    sibling to :func:`gate_a_exempt_exposure_lines` above, same "caller
+    already has the manifest in hand" shape (a future ``coord doctor``
+    per-milestone pass; ``coord gates``/the reviewer's briefing instead go
+    through :func:`coord.acceptance.fetch_exempt_dependency_warnings`, which
+    owns the fetch this function doesn't need).
+
+    Returns ``[]`` when *manifest* declares no dependencies at all. Delegates
+    detection AND wording to :func:`coord.acceptance.verify_exempt_dependency`
+    / :func:`coord.acceptance.unmet_exempt_dependency_warnings` rather than
+    re-deriving either here — the same "never a second copy" discipline
+    :func:`gate_a_exempt_exposure_lines` already documents for its own pair.
+    """
+    from coord.acceptance import (  # noqa: PLC0415
+        unmet_exempt_dependency_warnings,
+        verify_exempt_dependency,
+    )
+
+    if not manifest.exempt_deps:
+        return []
+    statuses = [
+        verify_exempt_dependency(
+            dep, repo_github, issue_is_closed=issue_is_closed, artifact_root=artifact_root,
+        )
+        for dep in manifest.exempt_deps.values()
+    ]
+    return unmet_exempt_dependency_warnings(statuses)
 
 
 # ── stage / assignment resolution ───────────────────────────────────────────
@@ -667,7 +750,56 @@ def diagnose_stage(
 def _recover_review(
     board, config, latest, state, res: DiagnoseResult, *, dry_run: bool
 ) -> None:
-    from coord.state import load_assignment_review_findings  # noqa: PLC0415
+    from coord.state import has_review_claim, load_assignment_review_findings  # noqa: PLC0415
+
+    # #3206: a review row that has no live session left (status is already
+    # terminal — the `running`/`pending` + machine-unconfigured phantom case
+    # above already returned before reaching here, and #1180's "resolve the
+    # reviewed id" comment on `_do_reset` explains why `review_of_assignment_
+    # id` is the FK to check) but whose work assignment's `review_claims` row
+    # is STILL held is permanently wedged: every future `dispatch_review` for
+    # that work assignment loses `claim_review_dispatch` forever and denies
+    # with the misleading #3113 "lost the atomic dispatch-claim race" reason
+    # — even though nothing is racing. `latest.status not in ("running",
+    # "pending")` is a positive disproof that anything is still in flight to
+    # release it itself, so this is checked FIRST, before any of the
+    # per-shape branches below: none of the "healthy"/"recovered" outcomes
+    # they report are actually dispatchable while the claim is held (this is
+    # exactly the coord-tui#49 repro — a SIGKILLed review that reached
+    # `status=failed` and then reported "review stage looks healthy").
+    # #3206 fix-review note: there is a narrow, real false-positive window
+    # here on a legitimate re-review. `dispatch_review` (review.py) takes
+    # `claim_review_dispatch` BEFORE it ever inserts the new review's
+    # `assignments` row. If this function runs in that gap, `latest` above
+    # still resolves to the *previous* terminal review row, `has_review_claim`
+    # is now True (it's the new, in-flight dispatch's claim, not a leak), and
+    # this would misreport a leaked claim — with `--reset` then releasing a
+    # claim a live dispatch still needs. No known way to distinguish the two
+    # cases from this read alone (both look like "terminal review row +
+    # live claim"); flagged here rather than fixed, since fixing it would
+    # need `dispatch_review` to expose in-flight state this function can
+    # check first.
+    work_assignment_id = (
+        latest.review_of_assignment_id
+        if latest.type == "review" and latest.review_of_assignment_id
+        else latest.assignment_id
+    )
+    if (
+        latest.status not in ("running", "pending")
+        and work_assignment_id
+        and has_review_claim(work_assignment_id)
+    ):
+        res.findings.append(
+            f"review stage is terminal (status={latest.status!r}) but its "
+            f"review-dispatch claim for work assignment {work_assignment_id} "
+            "is still held (leaked review_claims row, #3206) — every future "
+            "dispatch_review for this work assignment will deny with the "
+            "misleading #3113 'lost the atomic dispatch-claim race' reason "
+            "until it is released. Re-run with --reset to release it."
+        )
+        res.recovered = False
+        res.needs_reset = True
+        return
 
     has_findings = False
     if latest.assignment_id:
@@ -1366,7 +1498,43 @@ def _reset_review_stage(
         repo_name, issue_number, types=("review",),
         review_of_assignment_id=assignment_id,
     )
-    res.actions_taken.append(f"deleted {deleted} review row(s) → stage grey")
+    # #3206: VERIFY the delete actually persisted before reporting it as an
+    # action taken — `delete_assignments_for_issue`'s own `cur.rowcount`
+    # only proves the DELETE statement was issued and committed on ITS
+    # connection; it is not proof the row is gone from the canonical board
+    # (the coord-tui#49 `--reset` run reported "deleted 1 review row(s)"
+    # while `f00d5e20670c` was still present, unchanged, on the daemon's
+    # board immediately afterward). A re-read against the same predicate,
+    # taken AFTER the write, is the observation #2096 requires before a
+    # success line is trustworthy — the claim-release and review_state
+    # writes below already get exactly this scrutiny implicitly, since
+    # their own callers read the board fresh next; the delete's rowcount
+    # was the one unverified "success" in this function.
+    #
+    # Scope note: this re-read uses the same `get_connection()` singleton,
+    # in the same process, immediately after `conn.commit()` — within a
+    # single connection it cannot observe a delete that "didn't stick" the
+    # way the original coord-tui#49 evidence looked (the daemon's board
+    # still showing the row afterward implies a *different* connection/
+    # process saw stale state, not this one). What this DOES still catch:
+    # a genuine concurrent insert/delete race from another connection or
+    # process, and any future predicate mismatch between the delete and
+    # this re-read. It is narrower than "verify the delete actually
+    # persisted" sounds, but it's a real gate, not a tautology — see
+    # `tests/test_diagnose.py`'s coverage that mocks
+    # `delete_assignments_for_issue`'s rowcount to exercise the failure path.
+    still_present = state.count_review_rows_for_reset(
+        repo_name, issue_number, review_of_assignment_id=assignment_id
+    )
+    if still_present:
+        res.actions_taken.append(
+            f"delete requested for {deleted} review row(s), but "
+            f"{still_present} still present on re-read — the row delete did "
+            "NOT persist (#3206); stage grey/re-reviewable status below "
+            "does not depend on this delete having landed"
+        )
+    else:
+        res.actions_taken.append(f"deleted {deleted} review row(s) → stage grey")
     # #3113: the raw DELETE above never goes through
     # ``coord.issue_store._update_local_state`` — the ONLY other seam that
     # releases a ``review_claims`` row (on a review assignment's own

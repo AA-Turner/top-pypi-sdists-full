@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """VASP calculator interface."""
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from phonopy.file_IO import (
     write_force_constants_to_hdf5,
 )
 from phonopy.physical_units import get_physical_units
+from phonopy.qha.electron_states import ElectronicStates
 from phonopy.structure.atomic_data import get_atomic_data
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.structure.cells import group_by_key
@@ -366,6 +368,30 @@ def _vaspout_energy_sigma0(f) -> float:
     raise RuntimeError('vaspout.h5 does not contain "energy(sigma->0)".')
 
 
+def _check_vaspout_finished(filename: str | os.PathLike, ion_dynamics) -> None:
+    """Raise when the last ionic step of a vaspout.h5 was never written.
+
+    VASP allocates the ion_dynamics arrays for an ionic step and fills them
+    when the step ends, so a run stopped before that leaves every group in
+    place and every number zero. The file opens and reads like any other, and
+    the zeros would go on as an energy and as forces.
+
+    What is tested is that nothing was written, not that a value is small:
+    the step's energies and forces hold no nonzero number at all. A finished
+    calculation writes a total energy of order 100 eV or more and forces that
+    are not all zero, so no tolerance enters and no real result is refused.
+
+    """
+    energies = ion_dynamics["energies"][-1]
+    forces = ion_dynamics["forces"][-1]
+    if not energies.any() and not forces.any():
+        raise RuntimeError(
+            f"{filename} holds no result: nothing was written to the "
+            "energies or the forces of its last ionic step, which is the "
+            "state VASP leaves when it is stopped before the step ends."
+        )
+
+
 def _read_vaspout_forces(
     filename: str | os.PathLike,
 ) -> tuple[NDArray[np.double], NDArray[np.double], float]:
@@ -378,6 +404,7 @@ def _read_vaspout_forces(
     h5py = _load_h5py()
     with h5py.File(filename, "r") as f:
         g = f["intermediate/ion_dynamics"]
+        _check_vaspout_finished(filename, g)
         forces = np.array(g["forces"][-1], dtype="double", order="C")
         points = np.array(g["position_ions"][-1], dtype="double", order="C")
         energy = _vaspout_energy_sigma0(f)
@@ -397,6 +424,7 @@ def read_vaspout_calculation(
     h5py = _load_h5py()
     with h5py.File(filename, "r") as f:
         g = f["intermediate/ion_dynamics"]
+        _check_vaspout_finished(filename, g)
         scale = float(g["scale"][()])
         lattice = np.array(g["lattice_vectors"][-1], dtype="double")
         positions = np.array(g["position_ions"][-1], dtype="double")
@@ -409,6 +437,189 @@ def read_vaspout_calculation(
         else:
             stress = None
     return cell, energy, forces, stress
+
+
+def _is_noncollinear_vaspout(f) -> bool:
+    """Return whether an open vaspout.h5 holds a non-collinear calculation.
+
+    Only non-collinear needs detecting: the spin axis of the eigenvalues tells
+    the two collinear cases apart on its own, and is ambiguous only here, where
+    it has length 1 as for a non-spin-polarized run while each spinor state
+    holds one electron.
+
+    NCDIJ, the number of spin components of the density, is the primary
+    indicator: 1 non-spin-polarized, 2 collinear spin-polarized, 4
+    non-collinear. VASP resolves it from the input, so it reports what the run
+    actually did rather than what was asked for.
+
+    input/incar is the fallback for files written without a DOS group. It
+    echoes only the tags the INCAR set, not the values VASP resolved, so both
+    LNONCOLLINEAR and LSORBIT must be inspected: setting LSORBIT alone, the
+    usual way to ask for spin-orbit coupling, turns on non-collinear internally
+    while leaving LNONCOLLINEAR absent from the echo. Reaching non-collinear
+    requires setting at least one of the two, so their union covers every case.
+
+    """
+    ncdij = f.get("results/electron_dos/ncdij")
+    if ncdij is not None:
+        return int(ncdij[()]) == 4
+
+    incar = f.get("input/incar", {})
+    return any(
+        tag in incar and bool(incar[tag][()]) for tag in ("LNONCOLLINEAR", "LSORBIT")
+    )
+
+
+def _vaspout_magnetic_moments(f, natom: int) -> NDArray[np.double] | None:
+    """Return the collinear MAGMOM of an open vaspout.h5, or None without one.
+
+    The moments the INCAR started from rather than the converged ones: they
+    are what VASP reduced its k-points with, and the tetrahedron method has to
+    reproduce that reduction to pair the eigenvalues with the grid.
+
+    input/incar echoes only the tags the INCAR set. Without MAGMOM every atom
+    starts at the same moment, which leaves the symmetry the one of the cell
+    alone, so None is the answer there too. Three components per atom is a
+    non-collinear calculation, which is not treated here.
+
+    """
+    incar = f.get("input/incar")
+    if incar is None:
+        return None
+    for tag in ("MAGMOM", "magmom"):
+        if tag not in incar:
+            continue
+        try:
+            magmom = np.atleast_1d(np.array(incar[tag][()], dtype="double"))
+        except (TypeError, ValueError):
+            return None
+        return magmom if len(magmom) == natom else None
+    return None
+
+
+def _mesh_from_vaspout_kpoints(group) -> NDArray[np.int64] | None:
+    """Return the mesh an input/kpoints group describes, or None if it has none.
+
+    Two forms are written, observed on VASP 6.6.0 (velph-generated):
+    nkp{x,y,z} for a mesh given as divisions, basis_vectors for one given as
+    generating vectors. The latter is what a centred lattice gets and is a
+    generalized regular grid in the primitive basis.
+
+    **Whether the mesh can be mapped is not decided here.** It is tempting to
+    read that off ``mode``, but 'm' covers Monkhorst-Pack meshes that are
+    Gamma-centred anyway whenever the divisions are odd, and rejecting them
+    would send a mappable grid to the k-point sum. get_ir_kpoint_map settles
+    it instead, by checking that the k-points land on integer grid addresses
+    and that their weights match the grid's -- which a half-shifted mesh
+    cannot do.
+
+    """
+    number_kpoints = group.get("number_kpoints")
+    if number_kpoints is not None and int(number_kpoints[()]) != 0:
+        # An explicit list of k-points rather than a generated mesh.
+        return None
+
+    if "basis_vectors" in group:
+        generating = np.array(group["basis_vectors"][:], dtype="double")
+        mesh = np.linalg.inv(generating.T)
+        # basis_vectors is printed with few digits, so the inverse is only
+        # integral to the precision it carries. It has to round to integers:
+        # anything else is not a grid generating matrix.
+        if np.abs(mesh - np.rint(mesh)).max() > 1e-5:
+            return None
+        return np.rint(mesh).astype("int64")
+    if all(f"nkp{axis}" in group for axis in "xyz"):
+        return np.array([int(group[f"nkp{axis}"][()]) for axis in "xyz"], dtype="int64")
+    return None
+
+
+def electronic_states_from_vaspout(
+    filename: str | os.PathLike,
+    kpoints_opt: bool | None = None,
+) -> ElectronicStates:
+    """Build ElectronicStates from a VASP vaspout.h5 (numerically exact).
+
+    Reads the eigenvalues, symmetry k-point weights, and electron count of the
+    static single point. vaspout.h5 avoids the digit truncation of vasprun.xml.
+
+    A non-collinear calculation is detected so that its spinor eigenvalues are
+    not mistaken for the doubly occupied states of a non-spin-polarized
+    calculation; see _is_noncollinear_vaspout. (vasprun.xml needs no such care:
+    its <parameters> block always reports the resolved LNONCOLLINEAR.)
+
+    A KPOINTS_OPT run carries a second, usually denser mesh in full, and by
+    default it is the one read, matching what phonopy-vasp-efe already does on
+    the vasprun.xml path so that the two readers agree on the same
+    calculation.
+
+    Everything belonging to a mesh is taken from that mesh, the Fermi energy
+    included. The electron count and the collinearity belong to the
+    calculation, and VASP writes them only on the SCF side.
+
+    The k-points, mesh and cell needed by the tetrahedron method are attached
+    when the file describes a Gamma-centred regular grid. Otherwise they are
+    left out and only the k-point sum is available; see
+    _mesh_from_vaspout_kpoints.
+
+    The cell of a collinear spin-polarized run carries the MAGMOM the INCAR
+    set, so that the symmetry behind the grid is the one VASP reduced its
+    k-points with; see _vaspout_magnetic_moments.
+
+    Parameters
+    ----------
+    filename : str or os.PathLike
+        Path of the vaspout.h5.
+    kpoints_opt : bool, optional
+        Which mesh to read. True demands the KPOINTS_OPT one, False the SCF
+        one, and None (default) takes KPOINTS_OPT when the file has it.
+
+    """
+    h5py = _load_h5py()
+    with h5py.File(filename, "r") as f:
+        has_opt = "results/electron_eigenvalues_kpoints_opt" in f
+        if kpoints_opt is None:
+            use_opt = has_opt
+        elif kpoints_opt and not has_opt:
+            raise ValueError(f"{filename} carries no KPOINTS_OPT mesh.")
+        else:
+            use_opt = kpoints_opt
+
+        suffix = "_kpoints_opt" if use_opt else ""
+        g = f[f"results/electron_eigenvalues{suffix}"]
+        efermi = f.get(f"results/electron_dos{suffix}/efermi")
+        kpoints_group = f.get("input/kpoints_opt" if use_opt else "input/kpoints")
+        mesh = (
+            None if kpoints_group is None else _mesh_from_vaspout_kpoints(kpoints_group)
+        )
+        cell = None
+        if mesh is not None:
+            poscar = f["input/poscar"]
+            cell = _vaspout_atoms(
+                f,
+                np.array(poscar["lattice_vectors"][:], dtype="double"),
+                np.array(poscar["position_ions"][:], dtype="double"),
+                float(poscar["scale"][()]),
+            )
+            # Only a collinear spin-polarized run reduces its k-points with
+            # the moments; the spin axis of the eigenvalues is what says so.
+            if g["eigenvalues"].shape[0] == 2:
+                magmoms = _vaspout_magnetic_moments(f, len(cell))
+                if magmoms is not None:
+                    cell.magnetic_moments = magmoms
+
+        return ElectronicStates(
+            eigenvalues=g["eigenvalues"][:],  # (spin, kpoints, bands)
+            weights=g["kpoints_symmetry_weight"][:],
+            # Not on the KPOINTS_OPT side: a property of the calculation.
+            n_electrons=float(f["results/electron_eigenvalues/nelectrons"][()]),
+            spin_degeneracy=1 if _is_noncollinear_vaspout(f) else None,
+            fermi_energy=None if efermi is None else float(efermi[()]),
+            kpoints=None
+            if mesh is None
+            else np.array(g["kpoint_coords"][:], dtype="double"),
+            mesh=mesh,
+            cell=cell,
+        )
 
 
 def get_born_vaspout(
@@ -1187,6 +1398,7 @@ class VasprunxmlExpat:
         self._is_efermi = False
         self._is_divisions = False
         self._is_NELECT = False
+        self._is_LNONCOLLINEAR = False
         self._is_version = False
         self._is_NGXYZ = [False, False, False]
         self._is_NGXYZF = [False, False, False]
@@ -1255,6 +1467,7 @@ class VasprunxmlExpat:
         self._efermi: float | None = None
         self._symbols: list[str] | None = None
         self._NELECT: float | None = None
+        self._LNONCOLLINEAR: bool | None = None
         self._version: str | None = None
 
         self._p = xml.parsers.expat.ParserCreate()
@@ -1547,6 +1760,27 @@ class VasprunxmlExpat:
         """Return number of electrons, NELECT."""
         return self._NELECT
 
+    @property
+    def is_noncollinear(self) -> bool | None:
+        """Return whether the calculation is non-collinear, LNONCOLLINEAR.
+
+        None when the tag was not found in the file.
+
+        """
+        return self._LNONCOLLINEAR
+
+    @property
+    def spin_degeneracy(self) -> int | None:
+        """Return the number of electrons one eigenvalue holds.
+
+        1 for a non-collinear calculation, whose eigenvalues are spinor
+        states, and None otherwise, which leaves the choice to the spin axis
+        of the eigenvalues. Feeds the parameter of the same name of
+        ElectronicStates and ElectronFreeEnergy.
+
+        """
+        return 1 if self._LNONCOLLINEAR else None
+
     def _inside(self, name: str) -> bool:
         """Return whether an ancestor (or the current element) is ``name``."""
         return any(n == name for n, _ in self._stack)
@@ -1657,6 +1891,9 @@ class VasprunxmlExpat:
                 if attrs["name"] == "NELECT":
                     self._is_i = True
                     self._is_NELECT = True
+                if attrs["name"] == "LNONCOLLINEAR":
+                    self._is_i = True
+                    self._is_LNONCOLLINEAR = True
                 if not self._is_structure and attrs["name"] == "volume":
                     self._is_i = True
                     self._is_volume = True
@@ -1933,6 +2170,12 @@ class VasprunxmlExpat:
             if self._is_NELECT:
                 self._NELECT = self._to_float(self._cbuf.strip())
                 self._is_NELECT = False
+            if self._is_LNONCOLLINEAR:
+                # <incar> echoes the tag only when the user set it, while
+                # <parameters> always carries the value VASP actually used.
+                # <parameters> comes later, so the last value read wins.
+                self._LNONCOLLINEAR = self._cbuf.strip() == "T"
+                self._is_LNONCOLLINEAR = False
             if self._is_version:
                 self._version = self._cbuf.strip()
                 self._is_version = False

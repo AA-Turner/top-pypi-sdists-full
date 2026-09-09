@@ -91,9 +91,20 @@ def _forbid_unknown_arguments() -> None:
 
 
 @mcp.tool()
-def list_rules() -> list[dict]:
-    """List the available linter rules (id, title, tier, scope, severity)."""
-    return [r.as_dict() for r in sorted(RULES, key=lambda x: (x.tier, x.id))]
+def list_rules(select: list[str] | None = None, ignore: list[str] | None = None) -> list[dict]:
+    """List the available linter rules (id, title, tier, scope, severity).
+
+    select – answer about these rules alone (a rule id, a group, or a tier letter A/B/C/D);
+    ignore – leave these out. Without either one the whole registry is listed.
+
+    A rule that judges by a NUMBER also carries `params`: for each one the `name`, the
+    `value` in force here, the `default` it ships with, the `env` variable that overrides it
+    and a one-line `doc`. Ask for the rule by id when that is what you need - the threshold
+    used to be found by rewriting the code around a guess and re-running the linter.
+    """
+    chosen, excluded = _as_set(select), _as_set(ignore)
+    listed = active_rules(chosen, excluded) if chosen or excluded else list(RULES)
+    return [r.as_dict() for r in sorted(listed, key=lambda x: (x.tier, x.id))]
 
 
 @mcp.tool()
@@ -136,6 +147,10 @@ def _through_baseline(
         "baselined": suppressed,
         "baseline_unused": unused,
         "baseline_stale": len(stale),
+        # NAMED, not just counted, exactly as the CLI json names them: a summary saying
+        # "baseline_stale: 9" and nothing else left the reader to take the file apart with
+        # a script of their own, sorting the entries by the prose of their `reason`.
+        "baseline_stale_entries": stale,
     }
     not_checked = baseline_data.not_checked_entries(data, rules, roots)
     if not_checked:
@@ -213,6 +228,8 @@ def lint_paths(
     Returns {diagnostics: [...], summary: {...}}; when a baseline applied, the summary also
     carries `baseline` (the file), `baselined` (findings it suppressed), `baseline_unused`
     and `baseline_stale`, so "clean" here means the same as it does in a terminal and in CI.
+    The stale entries are also NAMED, in `baseline_stale_entries`: {path, rule, message,
+    count, reason} each - `baseline_prune` removes exactly these.
     Entries this server could not judge - their rule is not in its set (an older plugin, a
     narrower selection) or their file is not among the requested paths - are counted apart
     as `baseline_not_checked` (split into `_rules` and `_paths`) and are NOT called stale.
@@ -239,6 +256,65 @@ def lint_paths(
     payload["summary"].update(extra)
     payload["summary"]["root"] = str(base)
     return payload
+
+
+@mcp.tool()
+@_documents_root
+def baseline_prune(
+    paths: list[str],
+    select: list[str] | None = None,
+    ignore: list[str] | None = None,
+    enable: list[str] | None = None,
+    baseline: str | None = None,
+    dry_run: bool = False,
+    root: str | None = None,
+) -> dict:
+    """Remove the baseline entries this run no longer needs (the CLI `--prune-baseline`).
+
+    An entry is stale when its finding is gone - the code was fixed, the rule changed, the
+    file moved. Removing it is a DELIBERATE act, never a by-product of a check: this tool
+    is the only place where an ordinary lint call cannot touch the file.
+
+    paths / select / ignore / enable / baseline - as in `lint_paths`; the rule set and the
+    requested paths decide what may be judged at all. Entries of a rule this server does not
+    carry, and of files outside the requested paths, are NOT stale and are left alone -
+    pruning after a narrow run would drop the record of a debt nobody looked at.
+    dry_run - report what would go and leave the file untouched.
+
+    Returns {baseline, stale, removed: [{path, rule, message, count, reason}], written,
+    not_checked}. `reason` is the sentence a human wrote about the exclusion - it is
+    reported back before it disappears; the file's own order and format survive the rewrite
+    (it is committed, and a reordered rewrite is an unreadable diff).
+    """
+    base = _base(root)
+    asked = [str(_under(base, p)) for p in paths]
+    named = _under(base, baseline)
+    files, requested = discover_with_context(asked)
+    chosen = (_as_set(select), _as_set(ignore), _as_set(enable))
+    diags = _filter_requested(
+        run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2]), requested,
+    )
+    counted = requested if requested is not None else files
+    found = Path(named) if named else baseline_data.discover(counted)
+    if found is None:
+        return {"error": i18n.t("cli.baseline-none-to-extend"), "root": str(base)}
+    data = baseline_data.load(found)
+    rules = {r.id for r in active_rules(*chosen)}
+    roots = baseline_data.roots_of([Path(p) for p in asked], found.parent)
+    _kept, _suppressed, _unused, stale = baseline_data.apply(
+        diags, data, found.parent, rules, roots,
+    )
+    written = bool(stale) and not dry_run
+    if written:
+        baseline_data.save(found, baseline_data.without_entries(data, stale))
+    return {
+        "baseline": str(found),
+        "stale": len(stale),
+        "removed": stale,
+        "written": written,
+        "not_checked": len(baseline_data.not_checked_entries(data, rules, roots)),
+        "root": str(base),
+    }
 
 
 @mcp.tool()
@@ -652,7 +728,10 @@ def meta_new_object(
     base – for an InterfaceComponent, what the component inherits: "Form" (the default, with
     the form-template wrapper), "Group", "StandardCard", "CustomComponent", a generic like
     "ListForm<Undefined>" - a group is the most common base in a real project, and the default
-    scaffold used to be rewritten by hand for it.
+    scaffold used to be rewritten by hand for it. Either spelling is accepted and the yaml
+    gets the one the project writes its types in (a Russian project gets `Тип: Группа`);
+    pass the brackets as they are - escaped ones (`&lt;`) are undone, anything else that is
+    not a type expression is refused rather than written into the file.
     """
     root_dir = _base(root)
     return _meta(
@@ -785,6 +864,33 @@ def meta_add_localization(yaml_path: str, language: str, root: str | None = None
 
 @mcp.tool()
 @_documents_root
+def meta_set_localization(yaml_path: str, name: str, values: dict[str, str],
+                          section: str = "", root: str | None = None) -> dict:
+    """Write ONE localized string into every language at once - the element and its translations.
+
+    meta_add_localization adds a LANGUAGE; a row had nothing, so a caption was typed into the
+    element and again into its English twin, and the two files drifted apart with nothing but
+    a pair of eyes to compare them.
+
+    yaml_path – the LocalizedStrings element (the translations sit under Localization/<Code>);
+    name      – the key of the string, one word;
+    values    – {language: text}. A language is named any way it reasonably holds it -
+                Russian/English in either project spelling, or the folder code Ru/En. The
+                default language's text goes into the ELEMENT (that is where the platform
+                keeps it), every other one into its own translation file. A language named
+                here without a translation file is refused, naming meta_add_localization;
+                an existing language the call says nothing about still gets the row, with
+                the default text and a note, so no translation is left a key short.
+    section   – Rows or Templates, in either spelling; left out, the key keeps the section
+                it already lives in and a new one goes to Rows.
+    """
+    base = _base(root)
+    return _meta(base, scaffold.op_set_localization, _under(base, yaml_path), name,
+                 dict(values or {}), section=section)
+
+
+@mcp.tool()
+@_documents_root
 def meta_localization_info(yaml_path: str, root: str | None = None) -> dict:
     """The localization picture of a LocalizedStrings element: the declared languages, the
     default one, the translations already present and the candidate languages a translation
@@ -863,6 +969,13 @@ def meta_add_form(
     (same form file), so passing both is an error. card_min_width – grid column width
     (default 400, 250 with a photo); card_placeholder – image expression used when the photo
     is empty, e.g. "Ресурс{Аккаунт.svg}.Ссылка".
+
+    Captions go through the project's dictionary: when the subsystem folder holds ONE
+    LocalizedStrings element and the project declares two localization languages, the form's
+    caption and every column caption are written as `$Dictionary.Name` and the keys the
+    references need are added to that dictionary (and echoed into the translations it already
+    has) in the same operation – a reference to a key nobody declares fails the apply. Without
+    such a dictionary the captions stay literals, as before.
 
     Existing form files are skipped unless overwrite=true.
     """
@@ -1272,8 +1385,10 @@ def meta_set_component_property(
 
     value - a scalar or a binding ("=Объект.Поле", "$Строки.Ключ"): quoted automatically
     when yaml requires it. value_yaml - a composite value as a ready yaml fragment, e.g.
-    "Тип: АбсолютныйЦвет\\nЗначение: RGB(F4F6F7)" (single-line flow fragments are written
-    inline). Passing NEITHER removes the key (a composite value goes with its whole
+    "Тип: АбсолютныйЦвет\\nЗначение: RGB(F4F6F7)"; it becomes a nested block, a fragment of
+    ONE entry included ("Тип: НастройкиРедактированияПереключателя" - some composites have
+    no properties of their own), while a flow collection on one line ("[Товар]") is written
+    inline after the key. Passing NEITHER removes the key (a composite value goes with its whole
     block). Slot keys (Содержимое etc.) are rejected - children are edited with the
     component tools. A new property lands right after Тип.
     """
@@ -1401,6 +1516,9 @@ def translate_gaps(
     compact – each row is only {key, kind, count}: the shape of a translator's worklist.
     A full page of hundreds of gaps does not fit an answer - places and suggestions are
     the bulk - while the keys alone do; ask for one full row by `filter` when needed.
+    A page that does not carry everything says so: `truncated` is true, `remaining` counts
+    what is left and `hint` names the ways to it. A dictionary built from a page taken for
+    the whole answer is short exactly by what the page dropped.
     Every full row carries the count, up to a few places to look at, and `suggestion` - the
     platform's own spelling where it has one. A suggestion is a HINT, not an answer: a name
     the project declared may need a different word; a literal never carries one, because
@@ -1423,8 +1541,8 @@ def translate_gaps(
         gap for gap in entries_module.gaps_of_project(project, dictionary)
         if (kind in ("any", gap.kind)) and (not needle or needle in gap.key.casefold())
     ]
-    page = rows[offset:offset + limit] if limit else rows[offset:]
-    out = {"total": len(rows), "dictionary": str(translate_cli.dictionary_path_for(project))}
+    page, paging = entries_module.page_of(rows, limit, offset, gaps=True)
+    out = {**paging, "dictionary": str(translate_cli.dictionary_path_for(project))}
     if compact:
         out["gaps"] = [{"key": gap.key, "kind": gap.kind, "count": gap.count} for gap in page]
         return out
@@ -1450,6 +1568,8 @@ def translate_entries(
     filter – a substring of the key OR of the value (look up a root before inventing a word);
     kind   – 'token', 'phrase', 'literal' or 'any'.
     Every row names the file and line it lives on, so an entry can be corrected in place.
+    A page that does not carry everything says so: `truncated`, `remaining` and a `hint`
+    naming the next `offset`.
     """
     from xbsl.translation import cli as translate_cli
     from xbsl.translation import entries as entries_module
@@ -1467,9 +1587,71 @@ def translate_entries(
         if (kind in ("any", entry.kind))
         and (not needle or needle in entry.key.casefold() or needle in entry.value.casefold())
     ]
-    page = rows[offset:offset + limit] if limit else rows[offset:]
-    return {"total": len(rows), "dictionary": str(path),
+    page, paging = entries_module.page_of(rows, limit, offset)
+    return {**paging, "dictionary": str(path),
             "entries": [entry.as_dict() for entry in page]}
+
+
+@mcp.tool()
+def translate_unused(
+    root: str,
+    kind: str = "any",
+    filter: str = "",
+    limit: int = 50,
+    offset: int = 0,
+    prune: bool = False,
+) -> dict:
+    """The opposite of translate_gaps: what the DICTIONARY still says and the project has not.
+
+    Deleting a component leaves its names and its comment lines in the dictionary for good,
+    and nothing else reports them: the strict pass judges what is NOT covered, and
+    translate_entries shows where a pair is declared, not whether anything uses it. Finding
+    them took a throwaway script over the dictionary keys, twice, and both runs were wrong -
+    a substring reading called a stale comment line live (the old line is contained in the
+    new one whole), and keys written in single quotes were never looked at.
+
+    root   – the project directory (a root without a dictionary next to or above it is
+             refused with the places looked at);
+    kind   – 'token' (names), 'phrase' (comment lines), 'literal' or 'any';
+    filter – a substring of the key OR of the value: the way to ask about the names of one
+             component that has just been deleted rather than about the whole history;
+    limit/offset – the page (limit 0 means all); a cut page says so in `truncated`;
+    prune  – REMOVE the listed entries from the dictionary files. Off by default and named
+             separately from the listing on purpose: this is the one direction where a
+             mistaken reading destroys a translation. It removes exactly the page it
+             answers with, so `kind`, `filter` and the page apply to the removal too.
+
+    The reading is textual, and the direction of its error is the point: a name that also
+    occurs in prose may be counted as used, which merely leaves an entry in place, but a LIVE
+    entry is never called an orphan. Comment lines are read through the translator's own
+    payload reading, so the two sides spell a phrase alike; a qualified key (`<Owner>.<Name>`)
+    is judged by both halves, since the sources spell them apart.
+    """
+    from xbsl.translation import cli as translate_cli
+    from xbsl.translation import entries as entries_module
+
+    refusal = entries_module.kind_refusal(kind)
+    if refusal:
+        return {"error": refusal}
+    project, dictionary, error = translate_cli.load_for_tools(root)
+    if error:
+        return {"error": error}
+    path = translate_cli.dictionary_path_for(project)
+    needle = (filter or "").casefold()
+    rows = [
+        entry for entry in entries_module.unused_entries(project, path, dictionary)
+        if (kind in ("any", entry.kind))
+        and (not needle or needle in entry.key.casefold() or needle in entry.value.casefold())
+    ]
+    page, paging = entries_module.page_of(rows, limit, offset)
+    out = {**paging, "dictionary": str(path),
+           "unused": [entry.as_dict() for entry in page]}
+    if prune and page:
+        removed = entries_module.write_entries(
+            path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
+        )
+        out["removed"] = removed["removed"]
+    return out
 
 
 @mcp.tool()

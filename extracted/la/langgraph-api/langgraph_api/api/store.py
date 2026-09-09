@@ -4,6 +4,7 @@ from langgraph_sdk.auth import Auth
 from starlette.responses import Response
 from starlette.routing import BaseRoute
 
+from langgraph_api import config
 from langgraph_api.auth.custom import handle_event as _handle_event
 from langgraph_api.encryption.middleware import (
     decrypt_response,
@@ -54,7 +55,12 @@ async def handle_event(
 async def put_item(request: ApiRequest):
     """Store or update an item."""
     payload = await request.json(StorePutRequest)
-    payload = await encrypt_request(payload, "store", STORE_ENCRYPTION_FIELDS)
+    payload = await encrypt_request(
+        payload,
+        "store",
+        STORE_ENCRYPTION_FIELDS,
+        plaintext_for_core=config.USE_GRPC_STORE,
+    )
     namespace = tuple(payload["namespace"]) if payload.get("namespace") else ()
     if err := _validate_namespace(namespace):
         return err

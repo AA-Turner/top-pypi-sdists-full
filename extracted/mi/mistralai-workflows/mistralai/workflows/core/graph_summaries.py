@@ -21,6 +21,7 @@ import structlog
 from mistralai.client import Mistral
 from mistralai.client.errors import MistralError
 from mistralai.client.models import AssistantMessage, ChatCompletionRequestMessage, SystemMessage, UserMessage
+from mistralai.client.types import UNSET, OptionalNullable
 from mistralai.client.utils import BackoffStrategy, RetryConfig
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
@@ -137,6 +138,12 @@ def _system_prompt(tag: str) -> str:
 _MAX_VALIDATION_RETRIES = 3
 _LLM_TIMEOUT_S = 60
 _DEFAULT_MODEL = "mistral-medium-latest"
+
+# Attributes these completions to the graph summariser rather than to user workflow code.
+# Sits alongside the call_source/call_type pair the platform reserves, in the "other metadata"
+# slot products use for their own dimensions. Only the worker opts in, so the tag counts
+# production usage alone and dev tooling never inflates it.
+_REQUEST_METADATA = {"feature": "graph_summary"}
 
 # Transient API failures (HTTP 429 rate limits and 5xx) are retried inside the Mistral
 # SDK with exponential backoff that honours any ``Retry-After`` header. Supplying a
@@ -392,12 +399,17 @@ def _pick_tag(source_bytes: bytes | None) -> str:
     return candidate
 
 
-def _build_user_message(wire: AtlasWireFormat) -> tuple[str, str, dict[str, str]]:
+def _build_user_message(
+    wire: AtlasWireFormat,
+    extra_nodes: list[FlatNode] | None = None,
+) -> tuple[str, str, dict[str, str]]:
     """Build the user message and return (message, tag_name, id_map).
 
     *id_map* maps synthetic prompt IDs (``node_0``, …) back to real node IDs.
+    *extra_nodes* are summarised alongside the wire's own nodes; they carry
+    source ranges into the same buffer (data-flow transforms).
     """
-    nodes = wire.nodes
+    nodes = [*wire.nodes, *(extra_nodes or [])]
     source_bytes = _concatenate_source_bytes(wire)
     ordered = _bottom_up_order(nodes)
     filtered = [n for n in ordered if n.type not in _SKIP_TYPES]
@@ -429,7 +441,9 @@ def _build_user_message(wire: AtlasWireFormat) -> tuple[str, str, dict[str, str]
     id_map: dict[str, str] = {}  # synthetic → real
     used_activity_names: set[str] = set()
     total = sum(len(p) for p in parts)
-    _TYPE_LABELS = {CONDITIONAL_TYPE: "cond", "unknown": "ellipsis"}
+    # A transform is one statement split out of an ellipsis, so it wants the
+    # same "describe the step's role" guidance the prompt gives inline code.
+    _TYPE_LABELS = {CONDITIONAL_TYPE: "cond", "unknown": "ellipsis", "transform": "ellipsis"}
     for n in filtered:
         syn_id = f"node_{len(id_map)}"
         type_attr = _TYPE_LABELS.get(n.type, n.type)
@@ -508,13 +522,17 @@ async def summarise_workflow(
     *,
     client: Mistral | None = None,
     model: str | None = None,
+    attribute_usage: bool = False,
+    extra_nodes: list[FlatNode] | None = None,
 ) -> SummaryResult:
     """Call the Mistral API to generate summaries for non-skipped nodes.
 
     When *client* is provided the SDK config checks are skipped and the given
     client is used directly — useful for CLI tooling that does not run the full
     SDK config system.  When *model* is provided it overrides the configured
-    model name.
+    model name.  Set *attribute_usage* to bill these completions to the graph
+    summary feature; the worker enables it, dev tooling leaves it off so local
+    runs and offline evals stay out of the feature's usage figures.
 
     Returns a SummaryResult with status ``"disabled"`` when no API key is configured,
     or ``"ready"`` with the (possibly empty) summaries dict on success.
@@ -533,7 +551,7 @@ async def summarise_workflow(
         resolved_client = cached_client
         resolved_model = model if model is not None else config.worker.graph.graph_summarise_model
 
-    user_msg, tag, id_map = _build_user_message(wire)
+    user_msg, tag, id_map = _build_user_message(wire, extra_nodes)
     if not user_msg:
         return SummaryResult(status="ready", summaries={})
 
@@ -543,8 +561,12 @@ async def summarise_workflow(
         model=resolved_model,
     )
 
-    node_by_id = {n.id: n for n in wire.nodes}
+    node_by_id = {n.id: n for n in (*wire.nodes, *(extra_nodes or []))}
     real_to_syn = {real: syn for syn, real in id_map.items()}
+
+    # UNSET rather than None: metadata is a nullable field, so None would serialise as an
+    # explicit null in the request body instead of omitting the field.
+    request_metadata: OptionalNullable[dict[str, str]] = _REQUEST_METADATA if attribute_usage else UNSET
 
     sys_prompt = _system_prompt(tag)
     base_msgs: list[ChatCompletionRequestMessage] = [
@@ -567,6 +589,7 @@ async def summarise_workflow(
                     temperature=0.1,
                     response_format={"type": "json_object"},
                     messages=base_msgs + extra_msgs,
+                    metadata=request_metadata,
                     retries=_RETRY_CONFIG,
                 ),
                 # Covers SDK's internal retry/backoff budget so we don't cancel legitimate 429/5xx retries

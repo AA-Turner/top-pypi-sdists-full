@@ -39,7 +39,7 @@ def test_api(case):
     result.assert_outcomes(failed=1)
     assert "ZeroDivisionError: division by zero" in result.stdout.str()
     assert "Reproduce with" in result.stdout.str()
-    assert "curl -X GET http://localhost/fail" in result.stdout.str()
+    assert "curl -X GET http://testserver/fail" in result.stdout.str()
 
 
 @pytest.mark.hypothesis_nested
@@ -163,6 +163,32 @@ def test_base_url(ctx):
         assert response.status_code == 200
 
     test()
+
+
+def test_schema_and_generated_requests_share_one_host():
+    # A `Host`-validating app must not have to allow one host for loading and another for the run.
+    app = FastAPI()
+    seen = []
+
+    @app.middleware("http")
+    async def record_host(request, call_next):
+        seen.append(request.headers["host"])
+        return await call_next(request)
+
+    @app.get("/ping")
+    async def ping():
+        return {"ok": True}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+
+    @given(case=schema["/ping"]["GET"].as_strategy())
+    @settings(max_examples=1, deadline=None, phases=[Phase.generate])
+    def test(case):
+        assert case.call().status_code == 200
+
+    test()
+
+    assert seen == ["testserver", "testserver"]
 
 
 def with_lifespan(data: dict):
@@ -435,5 +461,24 @@ def test_caller_supplied_session_is_used():
     @settings(max_examples=1, deadline=None, phases=[Phase.generate])
     def test(case):
         assert case.call(session=client).json() == {"header": "from-session"}
+
+    test()
+
+
+def test_curl_command_names_the_host_the_request_used():
+    # A reproduction naming a host the run never used cannot reproduce a `Host`-validating rejection.
+    app = FastAPI()
+
+    @app.get("/ping")
+    async def ping():
+        return {"ok": True}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+
+    @given(case=schema["/ping"]["GET"].as_strategy())
+    @settings(max_examples=1, deadline=None, phases=[Phase.generate])
+    def test(case):
+        response = case.call()
+        assert case.as_curl_command() == f"curl -X GET {response.request.url}"
 
     test()

@@ -490,7 +490,7 @@ pub(crate) async fn pip_compile(
         let entries = client
             .fetch_all(index_locations.flat_indexes().map(Index::url))
             .await?;
-        FlatIndex::from_entries(entries, tags.as_deref(), &hasher, &build_options)
+        FlatIndex::from_entries(entries)
     };
 
     // Determine whether to enable build isolation.
@@ -756,13 +756,20 @@ pub(crate) async fn pip_compile(
             };
 
             // Convert the resolution to a `pylock.toml` file.
-            let export = PylockToml::from_resolution(
+            let mut export = PylockToml::from_resolution(
                 &resolution,
                 &no_emit_packages,
                 install_path,
                 tags.as_deref(),
                 &build_options,
             )?;
+
+            // Registries don't always provide hashes, but `packages.*.hashes` is a required
+            // key in PEP 751, so we have to download and hash files with missing hashes.
+            export
+                .generate_missing_hashes(&client, concurrency.downloads, install_path)
+                .await?;
+
             write!(writer, "{}", export.to_toml()?)?;
         }
     }

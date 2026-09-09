@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Intermediate dataset for the anisotropic QHA workflow.
 
 A single self-contained HDF5 file gathers the per-grid-point inputs the
@@ -10,6 +11,12 @@ The displacement dataset is stored in its native phonopy form -- type-1 (one
 displaced atom per supercell, the ``phonopy -d`` default) or type-2
 (dense/random) -- so the FC solver is chosen from the dataset type, never
 guessed from the data.
+
+A grid point may also carry no displacement dataset at all. Such a file is
+built from the static grid alone and holds the cells, U and the electronic
+states; the vibrational free energy is then computed outside and passed to
+run_anisotropic_qha through phonon_free_energies, which is how methods with
+temperature-dependent force constants (SSCHA, TDEP) enter the workflow.
 
 """
 
@@ -28,7 +35,7 @@ from phonopy.harmonic.displacement import (
     Type1DisplacementDataset,
     Type2DisplacementDataset,
 )
-from phonopy.qha.electron import ElectronicStates
+from phonopy.qha.electron_states import ElectronicStates
 from phonopy.structure.atoms import PhonopyAtoms
 
 if TYPE_CHECKING:
@@ -51,14 +58,20 @@ class AnisoQHAGridPoint:
         Supercell matrix, shape (3, 3), dtype int64.
     primitive_matrix : ndarray
         Primitive matrix, shape (3, 3), dtype double.
-    dataset : DisplacementDataset
+    dataset : DisplacementDataset, optional
         Phonopy displacement-force dataset with forces embedded, in either the
-        type-1 or type-2 format (see :attr:`phonopy.Phonopy.dataset`).
+        type-1 or type-2 format (see :attr:`phonopy.Phonopy.dataset`). None
+        when the grid point carries no phonon calculation, which is the case
+        when the free energies are computed outside and handed to
+        run_anisotropic_qha through phonon_free_energies.
     internal_energy : float
         Static internal energy U of the unit cell (eV).
     electronic_states : ElectronicStates, optional
         Electronic states of the static single point, for F_el. None when the
-        electronic free energy is not used.
+        electronic free energy is not used. Its ``kpoints`` and ``mesh`` are
+        stored when both are present, which is what lets a reader integrate
+        F_el by the linear tetrahedron rather than by the k-point sum; its
+        ``cell`` is not, being this grid point's own, and is restored on read.
 
     """
 
@@ -66,13 +79,15 @@ class AnisoQHAGridPoint:
     cell: PhonopyAtoms
     supercell_matrix: NDArray[np.int64]
     primitive_matrix: NDArray[np.double]
-    dataset: DisplacementDataset
+    dataset: DisplacementDataset | None
     internal_energy: float
     electronic_states: ElectronicStates | None = None
 
     @property
     def n_displacements(self) -> int:
-        """Return the number of displaced supercells."""
+        """Return the number of displaced supercells, 0 without a dataset."""
+        if self.dataset is None:
+            return 0
         if "first_atoms" in self.dataset:
             return len(cast(Type1DisplacementDataset, self.dataset)["first_atoms"])
         return len(cast(Type2DisplacementDataset, self.dataset)["displacements"])
@@ -86,8 +101,21 @@ class AnisoQHAGridPoint:
         (dense/random) dataset the given ``fc_calculator`` (symfc by default)
         is used. The origin of the forces (DFT or MLP) does not matter here.
 
+        Raises
+        ------
+        ValueError
+            When the grid point carries no displacement dataset.
+
         """
         from phonopy import Phonopy
+
+        if self.dataset is None:
+            raise ValueError(
+                f"Grid point {self.index} carries no displacement dataset, so "
+                "force constants cannot be produced. Such a dataset is built "
+                "from the static grid alone, for use with the "
+                "phonon_free_energies argument of run_anisotropic_qha."
+            )
 
         phonon = Phonopy(
             self.cell,
@@ -122,6 +150,12 @@ class AnisoQHADataset:
         Crystal system of the reference cell.
     tie_description : str
         Human-readable tie relation of the free DOF (e.g. "b = a"), or "".
+    grid_shape : tuple of int, optional
+        Number of sampled values along each free DOF, when the grid points
+        form a tensor grid stored in row-major order. None when the sampling
+        was not a tensor grid, or when the shape was not recorded. Only
+        analyses that need the grid structure, such as the main-diagonal
+        volume path, read it.
     phonopy_version : str, optional
         Phonopy version that wrote the dataset.
 
@@ -133,6 +167,7 @@ class AnisoQHADataset:
     free_dof: tuple[str, ...] = ()
     crystal_system: str = ""
     tie_description: str = ""
+    grid_shape: tuple[int, ...] | None = None
     phonopy_version: str | None = None
 
 
@@ -169,6 +204,8 @@ def write_aniso_qha_dataset(
         w.attrs["free_dof"] = " ".join(dataset.free_dof)
         w.attrs["crystal_system"] = dataset.crystal_system
         w.attrs["tie_description"] = dataset.tie_description
+        if dataset.grid_shape is not None:
+            w.attrs["grid_shape"] = np.array(dataset.grid_shape, dtype="int64")
         w.attrs["n_grid_points"] = len(dataset.grid_points)
         grid = w.create_group("grid")
         for point in dataset.grid_points:
@@ -187,6 +224,12 @@ def _write_grid_point(grid: h5py.Group, point: AnisoQHAGridPoint) -> None:
     )
     g.create_dataset("numbers", data=np.array(cell.numbers, dtype="int64"))
     g.create_dataset("masses", data=np.array(cell.masses, dtype="double"))
+    if cell.magnetic_moments is not None:
+        # The symmetry behind the tetrahedron grid is searched on this cell,
+        # so a collinear magnetic calculation has to keep its moments here.
+        g.create_dataset(
+            "magnetic_moments", data=np.array(cell.magnetic_moments, dtype="double")
+        )
     g.create_dataset(
         "lattice_lengths", data=np.linalg.norm(np.array(cell.cell), axis=1)
     )
@@ -196,7 +239,8 @@ def _write_grid_point(grid: h5py.Group, point: AnisoQHAGridPoint) -> None:
     g.create_dataset(
         "primitive_matrix", data=np.array(point.primitive_matrix, dtype="double")
     )
-    _write_dataset(g, point.dataset)
+    if point.dataset is not None:
+        _write_dataset(g, point.dataset)
     if point.electronic_states is not None:
         _write_electronic_states(g, point.electronic_states)
 
@@ -258,6 +302,23 @@ def _write_electronic_states(
     )
     eg.create_dataset("weights", data=electronic_states.weights)
     eg.create_dataset("n_electrons", data=float(electronic_states.n_electrons))
+    if electronic_states.spin_degeneracy is not None:
+        eg.create_dataset(
+            "spin_degeneracy", data=int(electronic_states.spin_degeneracy)
+        )
+    if electronic_states.fermi_energy is not None:
+        eg.create_dataset("fermi_energy", data=float(electronic_states.fermi_energy))
+    # The k points and the mesh they sit on are what the tetrahedron method
+    # needs; without them a reader of this file can only sum over k points.
+    # ElectronicStates.cell is not written: it is the cell of the grid point
+    # this subgroup belongs to, and _read_grid_point supplies it on read.
+    if electronic_states.kpoints is not None and electronic_states.mesh is not None:
+        eg.create_dataset(
+            "kpoints",
+            data=np.array(electronic_states.kpoints, dtype="double"),
+            compression="gzip",
+        )
+        eg.create_dataset("mesh", data=np.array(electronic_states.mesh, dtype="int64"))
 
 
 def read_aniso_qha_dataset(
@@ -289,6 +350,8 @@ def read_aniso_qha_dataset(
         free_dof = tuple(free_dof_attr.split())
         crystal_system = str(f.attrs.get("crystal_system", ""))
         tie_description = str(f.attrs.get("tie_description", ""))
+        shape_attr = f.attrs.get("grid_shape")
+        grid_shape = None if shape_attr is None else tuple(int(n) for n in shape_attr)
         version = f.attrs.get("phonopy_version")
         phonopy_version = None if version is None else str(version)
         grid = f["grid"]
@@ -303,6 +366,7 @@ def read_aniso_qha_dataset(
         free_dof=free_dof,
         crystal_system=crystal_system,
         tie_description=tie_description,
+        grid_shape=grid_shape,
         phonopy_version=phonopy_version,
     )
 
@@ -314,9 +378,12 @@ def _read_grid_point(g: h5py.Group) -> AnisoQHAGridPoint:
         cell=g["lattice"][:],
         scaled_positions=g["scaled_positions"][:],
         masses=g["masses"][:],
+        magnetic_moments=(
+            g["magnetic_moments"][:] if "magnetic_moments" in g else None
+        ),
     )
     electronic_states = (
-        _read_electronic_states(g["electronic_states"])
+        _read_electronic_states(g["electronic_states"], cell)
         if "electronic_states" in g
         else None
     )
@@ -325,7 +392,7 @@ def _read_grid_point(g: h5py.Group) -> AnisoQHAGridPoint:
         cell=cell,
         supercell_matrix=np.array(g["supercell_matrix"][:], dtype="int64"),
         primitive_matrix=np.array(g["primitive_matrix"][:], dtype="double"),
-        dataset=_read_dataset(g),
+        dataset=_read_dataset(g) if "displacement_type" in g.attrs else None,
         internal_energy=float(g.attrs["internal_energy"]),
         electronic_states=electronic_states,
     )
@@ -352,10 +419,33 @@ def _read_dataset(g: h5py.Group) -> DisplacementDataset:
     }
 
 
-def _read_electronic_states(eg: h5py.Group) -> ElectronicStates:
-    """Read electronic states from an "electronic_states" subgroup."""
+def _read_electronic_states(
+    eg: h5py.Group, cell: PhonopyAtoms | None = None
+) -> ElectronicStates:
+    """Read electronic states from an "electronic_states" subgroup.
+
+    `kpoints`, `mesh` and `cell` are what the tetrahedron method needs and
+    ElectronicStates takes them together or not at all, so the cell of the
+    grid point is passed in and attached only when the file carries the other
+    two. A file written before they were stored reads back as a k-point sum,
+    which is what it was.
+
+    `volume` is set from the same cell whether or not the grid is there. It is
+    what says which cell these states describe, and the analysis needs that to
+    put F_el on the primitive-cell normalization of the phonon free energy.
+
+    """
+    has_grid = "kpoints" in eg and "mesh" in eg
     return ElectronicStates(
         eigenvalues=eg["eigenvalues"][:],
         weights=eg["weights"][:],
         n_electrons=float(eg["n_electrons"][()]),
+        volume=None if cell is None else float(cell.volume),
+        spin_degeneracy=(
+            int(eg["spin_degeneracy"][()]) if "spin_degeneracy" in eg else None
+        ),
+        fermi_energy=(float(eg["fermi_energy"][()]) if "fermi_energy" in eg else None),
+        kpoints=eg["kpoints"][:] if has_grid else None,
+        mesh=eg["mesh"][:] if has_grid else None,
+        cell=cell if has_grid else None,
     )

@@ -41,7 +41,7 @@ from typing import Any
 
 import pytest
 
-from .harness import BridgeUnavailable, frontend_root
+from .harness import BridgeUnavailable, bridge_env, frontend_root
 
 # ---------------------------------------------------------------------------
 # §4 — THE DECLARED ASYMMETRY
@@ -162,6 +162,12 @@ def _run_frontend(documents: dict[str, str], chunk: int) -> dict[str, list[dict[
                     str(staged), "--in", str(job), "--out", str(out),
                 ],
                 cwd=root, capture_output=True, text=True, timeout=300,
+                # Same identity the block-splitter bridge needs: importing the
+                # frontend's parsers reaches a module-load Supabase client, and
+                # `@ai-matrx/data/next` rightly refuses to build one without an
+                # identity. Inert placeholders, never dialled — see
+                # `harness.BRIDGE_PLACEHOLDER_IDENTITY` for the full story.
+                env=bridge_env(),
             )
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             raise BridgeUnavailable(f"could not execute the TS bridge: {exc}") from exc

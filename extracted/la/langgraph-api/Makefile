@@ -1,7 +1,7 @@
-.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start start-js-server build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios test-auth-read-only-assistant
+.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios test-auth-read-only-assistant
 
 # Environment variables
-LANGSERVE_GRAPHS_ALL = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "assistant_id_runtime": "./tests/graphs/assistant_id_runtime.py:graph", "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "agent_parallel_interrupt": "./tests/graphs/agent_parallel_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph", "remote_subgraph_parent": "./tests/graphs/remote_subgraph_parent.py:graph", "simple_remote": "./tests/graphs/simple_remote.py:graph", "nested_subgraphs": "./tests/graphs/nested_subgraphs.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "max_concurrency_graph": "./tests/graphs/max_concurrency_graph.py:graph", "unserializable_subgraph": "./tests/graphs/unserializable_subgraph.py:graph", "agent_interrupt_text": "./tests/graphs/agent_interrupt_text.py:graph", "agent_echo_stream": "./tests/graphs/agent_echo_stream.py:graph", "agent_tool_stream": "./tests/graphs/agent_tool_stream.py:graph", "runtime_graph": "./tests/graphs/runtime_graph.py:graph", "tool_call_chunk_stream": "./tests/graphs/tool_call_chunk_stream.py:graph", "ui_tool_call_stream": "./tests/graphs/ui_tool_call_stream.py:graph", "agent_metrics_stream": "./tests/graphs/agent_metrics_stream.py:graph", "agent_multimodal_stream": "./tests/graphs/agent_multimodal_stream.py:graph", "agent_bedtime_story": "./tests/graphs/agent_bedtime_story.py:graph", "delta_channel": "./tests/graphs/delta_channel.py:graph", "delta_channel_freq": "./tests/graphs/delta_channel_freq.py:graph", "delta_channel_files": "./tests/graphs/delta_channel_files.py:graph", "delta_channel_files_freq": "./tests/graphs/delta_channel_files_freq.py:graph", "delta_channel_legacy": "./tests/graphs/delta_channel_migration.py:graph_legacy", "delta_channel_delta": "./tests/graphs/delta_channel_migration.py:graph_delta", "delta_channel_delta_filter": "./tests/graphs/delta_channel_migration.py:graph_delta_filter", "delta_channel_messages_freq": "./tests/graphs/delta_channel_messages.py:graph_freq", "delta_channel_messages": "./tests/graphs/delta_channel_messages.py:graph", "delta_channel_messages_legacy": "./tests/graphs/delta_channel_messages.py:graph_legacy", "delta_channel_messages_remove": "./tests/graphs/delta_channel_messages.py:graph_remove", "delta_channel_messages_update": "./tests/graphs/delta_channel_messages.py:graph_update", "delta_channel_messages_delta": "./tests/graphs/delta_channel_messages.py:graph_delta", "store_e2e_async": "./tests/graphs/store_e2e.py:graph_async", "store_e2e_sync": "./tests/graphs/store_e2e.py:graph_sync"}'
+LANGSERVE_GRAPHS_ALL = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "assistant_id_runtime": "./tests/graphs/assistant_id_runtime.py:graph", "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "benchmark_delta": "./tests/graphs/benchmark.py:graph_delta", "benchmark_delta_freq": "./tests/graphs/benchmark.py:graph_delta_freq", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "agent_parallel_interrupt": "./tests/graphs/agent_parallel_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph", "remote_subgraph_parent": "./tests/graphs/remote_subgraph_parent.py:graph", "simple_remote": "./tests/graphs/simple_remote.py:graph", "nested_subgraphs": "./tests/graphs/nested_subgraphs.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "max_concurrency_graph": "./tests/graphs/max_concurrency_graph.py:graph", "unserializable_subgraph": "./tests/graphs/unserializable_subgraph.py:graph", "agent_interrupt_text": "./tests/graphs/agent_interrupt_text.py:graph", "agent_echo_stream": "./tests/graphs/agent_echo_stream.py:graph", "agent_tool_stream": "./tests/graphs/agent_tool_stream.py:graph", "runtime_graph": "./tests/graphs/runtime_graph.py:graph", "tool_call_chunk_stream": "./tests/graphs/tool_call_chunk_stream.py:graph", "ui_tool_call_stream": "./tests/graphs/ui_tool_call_stream.py:graph", "agent_metrics_stream": "./tests/graphs/agent_metrics_stream.py:graph", "agent_multimodal_stream": "./tests/graphs/agent_multimodal_stream.py:graph", "agent_bedtime_story": "./tests/graphs/agent_bedtime_story.py:graph", "delta_channel": "./tests/graphs/delta_channel.py:graph", "delta_channel_freq": "./tests/graphs/delta_channel_freq.py:graph", "delta_channel_files": "./tests/graphs/delta_channel_files.py:graph", "delta_channel_files_freq": "./tests/graphs/delta_channel_files_freq.py:graph", "delta_channel_legacy": "./tests/graphs/delta_channel_migration.py:graph_legacy", "delta_channel_delta": "./tests/graphs/delta_channel_migration.py:graph_delta", "delta_channel_delta_filter": "./tests/graphs/delta_channel_migration.py:graph_delta_filter", "delta_channel_messages_freq": "./tests/graphs/delta_channel_messages.py:graph_freq", "delta_channel_messages": "./tests/graphs/delta_channel_messages.py:graph", "delta_channel_messages_legacy": "./tests/graphs/delta_channel_messages.py:graph_legacy", "delta_channel_messages_remove": "./tests/graphs/delta_channel_messages.py:graph_remove", "delta_channel_messages_update": "./tests/graphs/delta_channel_messages.py:graph_update", "delta_channel_messages_delta": "./tests/graphs/delta_channel_messages.py:graph_delta", "store_e2e_async": "./tests/graphs/store_e2e.py:graph_async", "store_e2e_sync": "./tests/graphs/store_e2e.py:graph_sync"}'
 LANGSERVE_GRAPHS_AUTH = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "assistant_id_runtime": "./tests/graphs/assistant_id_runtime.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_parallel_interrupt": "./tests/graphs/agent_parallel_interrupt.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "runtime_graph": "./tests/graphs/runtime_graph.py:graph"}'
 
 # Go server management
@@ -48,6 +48,7 @@ BG_JOB_TIMEOUT_SECS ?= 86400
 BG_JOB_ISOLATED_LOOPS ?= false
 CRON_SCHEDULER_SLEEP_TIME ?= 0
 RELOAD_ARGS ?= --reload --reload-dir langgraph_api --reload-dir ../runtime_inmem
+LANGGRAPH_AUTH_LANGSMITH ?= {"path": "tests/graphs/jwt_auth.py:auth", "allow_langsmith_api_keys": true}
 
 ifdef CI
 RELOAD_ARGS :=
@@ -166,6 +167,14 @@ test-auth-fastapi-jwt--after-custom-middleware--custom-route-auth:
 test-auth-watch:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:auth"}' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run ptw . -- -x -vv --ff --capture=no $(AUTH_TEST)
 
+test-auth-langsmith-api-keys:
+	LANGGRAPH_RUNTIME_EDITION=inmem \
+	LANGGRAPH_AUTH='$(LANGGRAPH_AUTH_LANGSMITH)' \
+	REDIS_URI=_FAKE \
+	DATABASE_URI=:memory: \
+	MIGRATIONS_PATH=__inmem__ \
+	uv run pytest -v tests/integration_tests/test_langsmith_parallel_auth.py
+
 # dev commands
 LANGGRAPH_DISABLE_FILE_PERSISTENCE ?= true
 LANGSMITH_TRACING ?= false
@@ -223,6 +232,8 @@ start-encrypt:
 		--no-access-log
 
 
+LANGGRAPH_AUTH ?= {"path": "tests/graphs/jwt_auth.py:auth"}
+
 start-auth-jwt:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' \
 	LANGGRAPH_AES_KEY='$(LANGGRAPH_AES_KEY)' \
@@ -230,7 +241,7 @@ start-auth-jwt:
 	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_AUTH) \
 	LANGGRAPH_STORE='$(STORE_CONFIG)' \
 	LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' \
-	LANGGRAPH_AUTH='{"path": "tests/graphs/jwt_auth.py:auth"}' \
+	LANGGRAPH_AUTH='$(LANGGRAPH_AUTH)' \
 	LANGSMITH_LANGGRAPH_API_VARIANT=test \
 	REDIS_URI=fake \
 	DATABASE_URI=:memory: \
@@ -257,6 +268,13 @@ start-auth-fastapi-jwt:
 		--port 9123 \
 		$(RELOAD_ARGS) \
 		--no-access-log
+
+start-auth-langsmith-api-keys:
+	LANGGRAPH_AUTH_TYPE=langsmith \
+	LANGSMITH_AUTH_ENDPOINT=http://localhost:9124 \
+	LANGSMITH_TENANT_ID=8a1f2c4e-5b6d-4f70-9a3b-2c1d0e4f5a6b \
+	$(MAKE) start-auth-jwt \
+		LANGGRAPH_AUTH='$(LANGGRAPH_AUTH_LANGSMITH)'
 
 define RUN_FASTAPI_JWT_MW_ORDERING
 	LANGGRAPH_RUNTIME_EDITION=inmem \
@@ -291,22 +309,6 @@ start-auth-fastapi-jwt--before-custom-middleware--custom-route-auth:
 start-auth-fastapi-jwt--after-custom-middleware--custom-route-auth:
 	$(call RUN_FASTAPI_JWT_MW_ORDERING,middleware_first,true)
 
-
-start-js-server:
-	@echo "Building and starting Go gRPC server..."
-	$(MAKE) build-go-server
-	$(MAKE) start-go-server
-	@trap '$(MAKE) -C $(CURDIR) stop-go-server' INT TERM EXIT; \
-	echo "Installing JS server dependencies..."; \
-	cd ../public-api-server-js && yarn install; \
-	echo "Building JS server..."; \
-	cd ../public-api-server-js && yarn run build; \
-	echo "Starting JS server on port 9123..."; \
-	cd ../public-api-server-js && \
-	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_ALL) \
-	LANGGRAPH_CONFIG='{"agent": {"configurable": {"model_name": "openai"}}}' \
-	FF_USE_JS_API=true \
-	PORT=9123 yarn start
 
 VERSION_KIND ?= patch
 

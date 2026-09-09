@@ -516,6 +516,21 @@ def test_rewrite_write_only(schema, expected):
             },
             id="non_dict_allOf_branch_is_skipped",
         ),
+        pytest.param(
+            {
+                "allOf": [
+                    {"type": "object", "properties": {"legacy": False}},
+                ],
+                "required": ["legacy"],
+            },
+            False,
+            {
+                "allOf": [
+                    {"type": "object", "properties": {"legacy": False}},
+                ],
+            },
+            id="boolean_false_property",
+        ),
     ],
 )
 def test_forbidden_in_allof_branch_strips_outer_required(schema, is_response_schema, expected):
@@ -669,15 +684,56 @@ def test_discriminator_property_pinned(schema, expected):
         [None],
     ],
 )
-def test_nullable_type_array_enum_accepts_null(value):
-    # `type: [string, "null"]` with an `enum` accepts null, matching `nullable: true`.
+def test_nullable_type_array_enum_accepts_null_in_responses(value):
+    # A documented null is accepted when validating a response, matching `nullable: true`.
     converted = to_json_schema(
         {"type": "array", "items": {"type": ["string", "null"], "enum": ["N", "E", "S", "W"]}},
         nullable_keyword="nullable",
+        is_response_schema=True,
     )
     validator = make_validator_for(converted)
     assert validator.is_valid(value)
     assert not validator.is_valid(["unknown"])
+
+
+def test_nullable_type_array_enum_keeps_enum_for_requests():
+    assert to_json_schema({"type": ["string", "null"], "enum": ["N", "E"]}, nullable_keyword="nullable") == {
+        "type": ["string", "null"],
+        "enum": ["N", "E"],
+    }
+
+
+@pytest.mark.parametrize("nullable_keyword", ["nullable", "x-nullable"], ids=["openapi-3.0", "swagger-2.0"])
+def test_nullable_keyword_enum_keeps_enum_for_requests(nullable_keyword):
+    assert to_json_schema(
+        {"type": "string", "enum": ["N", "E"], nullable_keyword: True}, nullable_keyword=nullable_keyword
+    ) == {"type": "string", "enum": ["N", "E"]}
+
+
+@pytest.mark.parametrize("nullable_keyword", ["nullable", "x-nullable"], ids=["openapi-3.0", "swagger-2.0"])
+def test_nullable_keyword_enum_accepts_null_in_responses(nullable_keyword):
+    # A documented null is accepted when validating a response, matching `nullable: true`.
+    validator = make_validator_for(
+        to_json_schema(
+            {"type": "string", "enum": ["N", "E"], nullable_keyword: True},
+            nullable_keyword=nullable_keyword,
+            is_response_schema=True,
+        )
+    )
+    assert validator.is_valid(None)
+    assert not validator.is_valid("unknown")
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [{"type": "string"}, {"type": "string", "enum": ["N", None]}],
+    ids=["no-enum", "enum-with-null"],
+)
+@pytest.mark.parametrize("nullable_keyword", ["nullable", "x-nullable"], ids=["openapi-3.0", "swagger-2.0"])
+def test_nullable_keyword_without_conflicting_enum_admits_null(schema, nullable_keyword):
+    assert to_json_schema({**schema, nullable_keyword: True}, nullable_keyword=nullable_keyword) == {
+        "anyOf": [schema, {"type": "null"}]
+    }
 
 
 def test_non_nullable_type_enum_still_rejects_null():

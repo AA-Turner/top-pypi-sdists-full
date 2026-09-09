@@ -30,16 +30,28 @@ from torch.distributions import (
 
 def _divide_no_nan(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     """
-    Auxiliary funtion to handle divide by 0
+    Auxiliary function to handle divide by 0.
+
+    Guards the denominator only: entries where `b == 0` yield 0, while a
+    non-finite numerator is propagated. Sanitizing the quotient instead would
+    turn a diverged model's `inf`/`nan` loss into 0, silently making it the
+    best-scoring model.
     """
-    div = a / b
-    return torch.nan_to_num(div, nan=0.0, posinf=0.0, neginf=0.0)
+    zero_denom = b == 0
+    b_safe = torch.where(zero_denom, torch.ones_like(b), b)
+    return torch.where(zero_denom, torch.zeros_like(a * b_safe), a / b_safe)
 
 
 def _weighted_mean(losses, weights):
     """
     Compute weighted mean of losses per datapoint.
+
+    Masks entries with zero weight so that `nan * 0` and `inf * 0` become 0
+    instead of contaminating the reduction. Non-finite losses at *weighted*
+    entries are propagated on purpose, so a diverged model does not report a
+    finite loss.
     """
+    losses = torch.where(weights != 0, losses, torch.zeros_like(losses))
     return _divide_no_nan(torch.sum(losses * weights), torch.sum(weights))
 
 
@@ -371,7 +383,7 @@ class SMAPE(BasePointLoss):
     absolute values for the prediction and observed value at a
     given time, then averages these devations over the length
     of the series. This allows the SMAPE to have bounds between
-    0% and 200% which is desireble compared to normal MAPE that
+    0% and 200% which is desirable compared to normal MAPE that
     may be undetermined when the target is zero.
 
     ```math
@@ -886,7 +898,8 @@ def weighted_average(
     """Computes the weighted average of a given tensor across a given dim.
 
     Masks values associated with weight zero, meaning instead of `nan * 0 = nan`
-    you will get `0 * 0 = 0`.
+    you will get `0 * 0 = 0`. A total weight of zero averages to zero, and a
+    non-finite value at a weighted entry is propagated rather than hidden.
 
     Args:
         x (torch.Tensor): Input tensor, of which the average must be computed.
@@ -898,12 +911,9 @@ def weighted_average(
     """
     if weights is not None:
         weighted_tensor = torch.where(weights != 0, x * weights, torch.zeros_like(x))
-        sum_weights = torch.clamp(
-            weights.sum(dim=dim) if dim else weights.sum(), min=1.0
-        )
-        return (
-            weighted_tensor.sum(dim=dim) if dim else weighted_tensor.sum()
-        ) / sum_weights
+        if dim is not None:
+            return _divide_no_nan(weighted_tensor.sum(dim=dim), weights.sum(dim=dim))
+        return _divide_no_nan(weighted_tensor.sum(), weights.sum())
     else:
         return x.mean(dim=dim)
 
@@ -1034,7 +1044,7 @@ class Tweedie(Distribution):
     The Tweedie distribution is a compound probability, special case of exponential
     dispersion models EDMs defined by its mean-variance relationship.
     The distribution particularly useful to model sparse series as the probability has
-    possitive mass at zero but otherwise is continuous.
+    positive mass at zero but otherwise is continuous.
 
     ```math
     Y \sim \mathrm{ED}(\mu,\sigma^{2}) \qquad
@@ -2847,7 +2857,7 @@ class HuberLoss(BasePointLoss):
 
     The Huber loss, employed in robust regression, is a loss function that
     exhibits reduced sensitivity to outliers in data when compared to the
-    squared error loss. This function is also refered as SmoothL1.
+    squared error loss. This function is also referred to as SmoothL1.
 
     The Huber loss function is quadratic for small errors and linear for large
     errors, with equal values and slopes of the different sections at the two
@@ -3302,7 +3312,7 @@ class Accuracy(BasePointLoss):
     r"""Accuracy
 
     Computes the accuracy between categorical `y` and `y_hat`.
-    This evaluation metric is only meant for evalution, as it
+    This evaluation metric is only meant for evaluation, as it
     is not differentiable.
 
     ```math

@@ -19,13 +19,18 @@ from .services import (
     AnswerResponse,
     AnswerStreamResponse,
     FetchResponse,
+    Fields,
     SearchResponse,
 )
 from .services.agent_service import AgentService, AsyncAgentService
 from .services.answer_service import AnswerService, AsyncAnswerService
 from .services.fetch_service import AsyncFetchService, FetchService
 from .services.monitor_service import AsyncMonitorService, MonitorService
-from .services.search_service import AsyncSearchService, SearchService
+from .services.search_service import (
+    AsyncSearchService,
+    SearchService,
+    SearchTierName,
+)
 
 
 class Seltz:
@@ -96,6 +101,8 @@ class Seltz:
         exclude_domains: Union[List[str], Omit] = OMIT,
         from_date: Union[str, Omit] = OMIT,
         to_date: Union[str, Omit] = OMIT,
+        tier: Union[SearchTierName, Omit] = OMIT,
+        fields: Union[Fields, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search.
 
@@ -127,6 +134,25 @@ class Seltz:
                 Only include results published on or before this date (ISO 8601, e.g. "2026-04-29").
                 Omitted from the request when not provided.
 
+            tier (str, optional):
+                Which search tier serves the request, "base" or "pro". This
+                never changes which corpus is searched -- that is `scope`, and
+                the two are orthogonal.
+                Omitted from the request when not provided, which defaults to
+                "pro", the higher-precision tier; name the "base" tier to opt
+                out of its reranking.
+                The name is forwarded as given and is not checked here: the
+                service owns the set of tiers, so the SDK needs no update when
+                they change.
+
+            fields (Fields, optional):
+                Which members of each result document to populate.
+                `Fields(snippets=True)` returns passages and no content: a
+                member you do not set is off, so pass
+                `Fields(content=True, snippets=True)` to get both.
+                Omitted from the request when not provided, which returns
+                content only.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -136,12 +162,15 @@ class Seltz:
 
         Returns:
             SearchResponse: The response containing the search results.
-            Search results have URL and content fields provided as empty strings when not available.
+            Only the members `fields` asked for are populated; `url` and
+            `published_date` always are.
 
         Examples:
             response = seltz.search("best ai search engines", max_results=10)
             response = seltz.search("latest news", from_date="2025-01-01")
             response = seltz.search("tech news", include_domains=["techcrunch.com"])
+            response = seltz.search("ai news", tier="base")
+            response = seltz.search("ai news", fields=Fields(snippets=True))
         """
 
         return self._search.search(
@@ -152,6 +181,8 @@ class Seltz:
             exclude_domains=exclude_domains,
             from_date=from_date,
             to_date=to_date,
+            tier=tier,
+            fields=fields,
         )
 
     def answer(
@@ -437,6 +468,8 @@ class AsyncSeltz:
         exclude_domains: Union[List[str], Omit] = OMIT,
         from_date: Union[str, Omit] = OMIT,
         to_date: Union[str, Omit] = OMIT,
+        tier: Union[SearchTierName, Omit] = OMIT,
+        fields: Union[Fields, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search.
 
@@ -468,6 +501,25 @@ class AsyncSeltz:
                 Only include results published on or before this date (ISO 8601, e.g. "2026-04-29").
                 Omitted from the request when not provided.
 
+            tier (str, optional):
+                Which search tier serves the request, "base" or "pro". This
+                never changes which corpus is searched -- that is `scope`, and
+                the two are orthogonal.
+                Omitted from the request when not provided, which defaults to
+                "pro", the higher-precision tier; name the "base" tier to opt
+                out of its reranking.
+                The name is forwarded as given and is not checked here: the
+                service owns the set of tiers, so the SDK needs no update when
+                they change.
+
+            fields (Fields, optional):
+                Which members of each result document to populate.
+                `Fields(snippets=True)` returns passages and no content: a
+                member you do not set is off, so pass
+                `Fields(content=True, snippets=True)` to get both.
+                Omitted from the request when not provided, which returns
+                content only.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -477,12 +529,15 @@ class AsyncSeltz:
 
         Returns:
             SearchResponse: The response containing the search results.
-            Search results have URL and content fields provided as empty strings when not available.
+            Only the members `fields` asked for are populated; `url` and
+            `published_date` always are.
 
         Examples:
             response = await seltz.search("best ai search engines", max_results=10)
             response = await seltz.search("latest news", from_date="2025-01-01")
             response = await seltz.search("tech news", include_domains=["techcrunch.com"])
+            response = await seltz.search("ai news", tier="base")
+            response = await seltz.search("ai news", fields=Fields(snippets=True))
         """
 
         return await self._search.search(
@@ -493,6 +548,8 @@ class AsyncSeltz:
             exclude_domains=exclude_domains,
             from_date=from_date,
             to_date=to_date,
+            tier=tier,
+            fields=fields,
         )
 
     async def answer(

@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import re
 import subprocess
+import threading
+import time
 
 import pytest
 
-from boost_cli.core import config, gitutil, paths, registry, util
+from boost_cli.core import config, gitutil, lockfile, paths, registry, util
 from boost_cli.errors import BoostError
 
 
@@ -78,15 +80,18 @@ class TestParseSpec:
     def test_existing_local_dir(self, tmp_path):
         d = tmp_path / "my-tap"
         d.mkdir()
+        (d / ".git").mkdir()
         assert registry.parse_spec(str(d)) == ("my-tap", str(d.resolve()))
 
     def test_local_dir_trailing_slash(self, tmp_path):
         d = tmp_path / "my-tap"
         d.mkdir()
+        (d / ".git").mkdir()
         assert registry.parse_spec(str(d) + "/") == ("my-tap", str(d.resolve()))
 
     def test_tilde_expansion_uses_sandbox_home(self, sandbox):
         (sandbox / "hometap").mkdir()
+        (sandbox / "hometap" / ".git").mkdir()
         name, url = registry.parse_spec("~/hometap")
         assert name == "hometap"
         assert url == str((sandbox / "hometap").resolve())
@@ -97,6 +102,29 @@ class TestParseSpec:
             registry.parse_spec(bad)
         assert ei.value.message == "cannot parse tap spec %r" % bad
         assert ei.value.hint == "use owner/repo, a git URL, or a local directory"
+
+    def test_path_shaped_missing_dir_raises_no_such_directory(self, tmp_path):
+        missing = tmp_path / "nope"
+        with pytest.raises(BoostError) as ei:
+            registry.parse_spec(str(missing))
+        assert ei.value.message == "no such directory: %s" % missing
+        assert "existing local git repository" in ei.value.hint
+
+    def test_relative_path_shaped_missing_dir_raises(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(BoostError) as ei:
+            registry.parse_spec("./nope")
+        assert ei.value.message == "no such directory: nope"
+
+    def test_existing_dir_without_git_raises(self, tmp_path):
+        d = tmp_path / "plain-skill-dir"
+        d.mkdir()
+        (d / "SKILL.md").write_text("---\nname: x\n---\nbody\n", encoding="utf-8")
+        with pytest.raises(BoostError) as ei:
+            registry.parse_spec(str(d))
+        assert ei.value.message == "%s is not a git repository" % d
+        assert "git init" in ei.value.hint
+        assert "boost import %s" % d in ei.value.hint
 
 
 class TestParseSpecs:
@@ -291,6 +319,29 @@ class TestAddRemove:
         assert ei.value.message == "tap fixture-tap is already configured"
         assert ei.value.hint == "`boost update fixture-tap` to refresh it"
 
+    def test_add_at_rejects_a_short_sha_before_cloning(
+            self, sandbox, fixture_tap_src, monkeypatch):
+        """An abbreviated --at used to cost one full clone before
+        `checkout_commit` ever ran its own `_is_sha` check; validating it
+        first turns a wasted network round trip into an immediate error."""
+
+        def boom(url, dest):
+            raise AssertionError("must not clone before validating --at")
+
+        monkeypatch.setattr(gitutil, "clone_shallow", boom)
+        with pytest.raises(BoostError) as ei:
+            registry.add(str(fixture_tap_src), at="deadbeef")
+        assert ei.value.message == "'deadbeef' is not a full commit SHA"
+
+    def test_add_at_with_a_full_sha_still_clones(
+            self, sandbox, fixture_tap_src, monkeypatch):
+        """The validation must not reject a legitimate 40-char pin."""
+        calls = []
+        monkeypatch.setattr(gitutil, "checkout_commit",
+                            lambda repo, sha: calls.append(sha))
+        registry.add(str(fixture_tap_src), at="a" * 40)
+        assert calls == ["a" * 40]
+
     def test_remove_deletes_clone_cache_and_config(self, sandbox, fixture_tap_src):
         tap = registry.add(str(fixture_tap_src))
         tap.cache_file.write_text("{}", encoding="utf-8")
@@ -316,6 +367,37 @@ class TestAddRemove:
     def test_remove_unknown_raises(self, sandbox):
         with pytest.raises(BoostError):
             registry.remove("nope")
+
+
+class TestDependents:
+    def test_no_dependents_is_empty(self, sandbox):
+        assert registry.dependents("some/tap") == []
+
+    def test_finds_skill_from_the_named_tap(self, sandbox):
+        lockfile.set_skill("brainstorming", {"tap": "fixture-tap"})
+        assert registry.dependents("fixture-tap") == [
+            ("skill", "brainstorming")]
+
+    def test_ignores_a_different_tap(self, sandbox):
+        lockfile.set_skill("brainstorming", {"tap": "other-tap"})
+        assert registry.dependents("fixture-tap") == []
+
+    def test_spans_all_three_lock_sections(self, sandbox):
+        # A rule or workflow materialized from a tap is as much a dependent
+        # as a skill — `boost untap`'s warning must not drop two of three.
+        lockfile.set_skill("brainstorming", {"tap": "fixture-tap"})
+        lockfile.set_rule("house-style", {"tap": "fixture-tap"})
+        lockfile.set_workflow("deploy", {"tap": "fixture-tap"})
+        assert registry.dependents("fixture-tap") == [
+            ("skill", "brainstorming"),
+            ("rule", "house-style"),
+            ("workflow", "deploy")]
+
+    def test_sorted_by_name_within_a_kind(self, sandbox):
+        lockfile.set_skill("zeta", {"tap": "fixture-tap"})
+        lockfile.set_skill("alpha", {"tap": "fixture-tap"})
+        assert registry.dependents("fixture-tap") == [
+            ("skill", "alpha"), ("skill", "zeta")]
 
 
 class TestUpdate:
@@ -372,6 +454,125 @@ class TestUpdate:
         util.rmtree(origin)
         with pytest.raises(BoostError):
             registry.update("solo")
+
+
+class TestUpdatePinClearing:
+    """`--force` moving a pinned tap must say so in the summary, on every
+    branch that can clear a pin: the missing-clone reclone, and the ordinary
+    pull. The message is the whole fix — the pin itself was already dropped.
+    """
+
+    def test_pulled_tap_notes_pin_cleared(self, sandbox, tmp_path):
+        origin = _make_repo(tmp_path / "pullme")
+        first = gitutil.head_commit(origin)
+        tap = registry.add(str(origin), at=first)
+        (origin / "b.txt").write_text("two\n", encoding="utf-8")
+        _git("add", "-A", cwd=origin)
+        _git("commit", "-qm", "add b", cwd=origin)
+        summary = registry.update(force=True)[0][tap.name]
+        assert summary.endswith(" (pin cleared)")
+        assert re.match(r"^[0-9a-f]{7} → [0-9a-f]{7} \(pin cleared\)$", summary)
+        assert registry.get(tap.name).pin == ""
+
+    def test_pulled_tap_without_force_is_skipped_pin_kept(
+            self, sandbox, tmp_path):
+        origin = _make_repo(tmp_path / "pullme")
+        first = gitutil.head_commit(origin)
+        tap = registry.add(str(origin), at=first)
+        summary = registry.update()[0][tap.name]
+        assert summary == "pinned at %s (skipped)" % first[:7]
+        assert registry.get(tap.name).pin == first
+
+    def test_missing_clone_of_a_pinned_tap_notes_pin_cleared(
+            self, sandbox, tmp_path):
+        origin = _make_repo(tmp_path / "pullme")
+        first = gitutil.head_commit(origin)
+        tap = registry.add(str(origin), at=first)
+        util.rmtree(tap.path)   # the clone is gone; the pin is still recorded
+        summary = registry.update(force=True)[0][tap.name]
+        assert summary == "cloned (pin cleared)"
+        assert registry.get(tap.name).pin == ""
+
+    def test_missing_clone_of_a_pinned_tap_honors_the_pin_without_force(
+            self, sandbox, tmp_path):
+        origin = _make_repo(tmp_path / "pullme")
+        first = gitutil.head_commit(origin)
+        tap = registry.add(str(origin), at=first)
+        util.rmtree(tap.path)
+        summary = registry.update()[0][tap.name]
+        assert summary == "cloned at %s" % first[:7]
+        assert registry.get(tap.name).pin == first
+
+    def test_unpinned_tap_summary_carries_no_pin_note(self, sandbox, tmp_path):
+        origin = _make_repo(tmp_path / "pullme")
+        registry.add(str(origin))
+        (origin / "b.txt").write_text("two\n", encoding="utf-8")
+        _git("add", "-A", cwd=origin)
+        _git("commit", "-qm", "add b", cwd=origin)
+        summary = registry.update(force=True)[0]["pullme"]
+        assert "pin cleared" not in summary
+
+
+class TestUpdateConcurrency:
+    """update() pulls concurrently (mirroring add_many's clone pool), but pin
+    clearing must stay single-writer — the same race add_many avoids for
+    `config.save` on `add` (see test_registry_parallel.py), here for `unpin`.
+    """
+
+    @pytest.fixture()
+    def fake_pull(self, monkeypatch):
+        state = {"live": 0, "peak": 0}
+        lock = threading.Lock()
+
+        def pull(path):
+            with lock:
+                state["live"] += 1
+                state["peak"] = max(state["peak"], state["live"])
+            time.sleep(0.05)
+            with lock:
+                state["live"] -= 1
+            return "aaaaaaa → bbbbbbb"
+
+        monkeypatch.setattr(gitutil, "pull", pull)
+        return state
+
+    def _seed_pinned_taps(self, n):
+        cfg = config.load()
+        cfg["taps"] = [{"name": "tap%d" % i, "url": "u%d" % i,
+                        "curated": False, "pin": "a" * 40}
+                       for i in range(n)]
+        config.save(cfg)
+        for i in range(n):
+            registry.Tap(name="tap%d" % i, url="u%d" % i).path.mkdir(
+                parents=True)
+
+    def test_pulls_overlap(self, sandbox, fake_pull):
+        self._seed_pinned_taps(4)
+        results, failures = registry.update(force=True)
+        assert not failures
+        assert fake_pull["peak"] > 1, \
+            "four independent pulls never overlapped — not actually parallel"
+        assert all(s.endswith("(pin cleared)") for s in results.values())
+
+    def test_pin_clearing_is_a_single_config_write(self, sandbox, fake_pull,
+                                                    monkeypatch):
+        self._seed_pinned_taps(4)
+        writes = []
+        real_save = config.save
+        monkeypatch.setattr(
+            config, "save", lambda cfg: (writes.append(1), real_save(cfg))[1])
+        registry.update(force=True)
+        # Four taps unpinned, one write — a write per tap would race the same
+        # way concurrent `registry.add` calls lose taps (add_many's fix).
+        assert writes == [1]
+        assert all(t.pin == "" for t in registry.list_taps())
+
+    def test_results_keep_target_order(self, sandbox, fake_pull):
+        self._seed_pinned_taps(4)
+        results, _failures = registry.update(force=True)
+        # Completion order is whatever the thread pool decides; output order
+        # is not allowed to be (same guarantee add_many's own test pins).
+        assert list(results.keys()) == ["tap0", "tap1", "tap2", "tap3"]
 
 
 class TestGitErrorLine:

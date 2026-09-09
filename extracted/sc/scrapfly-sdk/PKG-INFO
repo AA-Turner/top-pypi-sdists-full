@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapfly-sdk
-Version: 0.11.1
+Version: 0.12.0
 Summary: Scrapfly SDK for Scrapfly
 Home-page: https://github.com/scrapfly/python-sdk
 Author: Scrapfly
@@ -64,6 +64,8 @@ Requires-Dist: msgpack; extra == "speedups"
 Requires-Dist: zstandard; python_version < "3.14" and extra == "speedups"
 Provides-Extra: webhook-server
 Requires-Dist: flask; extra == "webhook-server"
+Requires-Dist: brotlipy; extra == "webhook-server"
+Requires-Dist: msgpack; extra == "webhook-server"
 Provides-Extra: concurrency
 Provides-Extra: browser
 Requires-Dist: playwright>=1.40.0; extra == "browser"
@@ -71,27 +73,27 @@ Provides-Extra: browser-use
 Requires-Dist: playwright>=1.40.0; extra == "browser-use"
 Requires-Dist: browser-use; extra == "browser-use"
 Provides-Extra: all
-Requires-Dist: playwright>=1.40.0; extra == "all"
-Requires-Dist: wheel; extra == "all"
-Requires-Dist: setuptools; extra == "all"
-Requires-Dist: flask; extra == "all"
-Requires-Dist: zstandard; python_version < "3.14" and extra == "all"
-Requires-Dist: soupsieve; extra == "all"
-Requires-Dist: scrapy>=2.4.0; extra == "all"
-Requires-Dist: msgpack; extra == "all"
-Requires-Dist: browser-use; extra == "all"
 Requires-Dist: bumpversion; extra == "all"
-Requires-Dist: beautifulsoup4; extra == "all"
 Requires-Dist: lxml; extra == "all"
-Requires-Dist: pip; extra == "all"
-Requires-Dist: twine; extra == "all"
+Requires-Dist: playwright>=1.40.0; extra == "all"
 Requires-Dist: colorama; extra == "all"
+Requires-Dist: soupsieve; extra == "all"
+Requires-Dist: browser-use; extra == "all"
 Requires-Dist: brotlipy; extra == "all"
-Requires-Dist: extruct; extra == "all"
-Requires-Dist: isort; extra == "all"
-Requires-Dist: pdoc3; extra == "all"
-Requires-Dist: readme_renderer; extra == "all"
 Requires-Dist: sentry-sdk; extra == "all"
+Requires-Dist: pip; extra == "all"
+Requires-Dist: isort; extra == "all"
+Requires-Dist: readme_renderer; extra == "all"
+Requires-Dist: setuptools; extra == "all"
+Requires-Dist: extruct; extra == "all"
+Requires-Dist: twine; extra == "all"
+Requires-Dist: scrapy>=2.4.0; extra == "all"
+Requires-Dist: zstandard; python_version < "3.14" and extra == "all"
+Requires-Dist: pdoc3; extra == "all"
+Requires-Dist: wheel; extra == "all"
+Requires-Dist: msgpack; extra == "all"
+Requires-Dist: beautifulsoup4; extra == "all"
+Requires-Dist: flask; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -115,10 +117,13 @@ Dynamic: summary
 
 You can also install extra dependencies
 
-* `pip install "scrapfly-sdk[seepdup]"` for performance improvement
-* `pip install "scrapfly-sdk[concurrency]"` for concurrency out of the box (asyncio / thread)
+* `pip install "scrapfly-sdk[speedups]"` for brotli compression and msgpack serialization
+* `pip install "scrapfly-sdk[parser]"` for the built-in HTML parser (lxml, beautifulsoup4, extruct)
 * `pip install "scrapfly-sdk[scrapy]"` for scrapy integration
-* `pip install "scrapfly-sdk[webhook-server]"` for have a native webhook server using flask
+* `pip install "scrapfly-sdk[browser]"` for the playwright based cloud browser helpers
+* `pip install "scrapfly-sdk[browser-use]"` for browser-use agent integration
+* `pip install "scrapfly-sdk[webhook-server]"` for a native webhook server using flask
+* `pip install "scrapfly-sdk[concurrency]"` kept for compatibility, concurrency needs no extra dependency
 * `pip install "scrapfly-sdk[all]"` Everything!
 
 For use of built-in HTML parser (via `ScrapeApiResponse.selector` property) additional requirement of either [parsel](https://pypi.org/project/parsel/) or [scrapy](https://pypi.org/project/Scrapy/) is required.
@@ -130,6 +135,54 @@ This SDK cover the following Scrapfly API endpoints:
 * [Web Scraping API](https://scrapfly.io/docs/onboarding#web-scraping-api)
 * [Extraction API](https://scrapfly.io/docs/onboarding#extraction-api)
 * [Screenshot API](https://scrapfly.io/docs/onboarding#screenshot-api)
+
+## Unblocker
+
+`unblocker` turns on the anti-bot bypass. It defeats blocking and antibot solutions such as
+Cloudflare, DataDome, PerimeterX or Akamai.
+
+```python
+from scrapfly import ScrapeConfig, ScrapflyClient
+
+scrapfly = ScrapflyClient(key='__API_KEY__')
+
+api_response = scrapfly.scrape(ScrapeConfig(
+    url='https://amazon.com',
+    unblocker=True
+))
+```
+
+It is available on the crawler too:
+
+```python
+from scrapfly import CrawlerConfig
+
+config = CrawlerConfig(url='https://amazon.com', unblocker=True)
+```
+
+### `asp` is the deprecated alias
+
+`unblocker` was previously named `asp`. `asp` keeps working, indefinitely. Existing code needs no
+change:
+
+```python
+ScrapeConfig(url='https://amazon.com', asp=True)      # still supported
+config.unblocker = True                               # same underlying setting as config.asp
+```
+
+When both names are supplied, an explicitly supplied `asp` wins; `unblocker` applies only when
+`asp` was not given. `False` on either name turns the feature off. `None` counts as *not*
+supplied — the same reading the API takes of a JSON `null` — so forwarding an optional through
+(`ScrapeConfig(**{**opts, 'asp': opts.get('asp')})`) cannot silently veto an explicit
+`unblocker=True`.
+
+One thing deliberately keeps the old name: the `asp` key of the API request itself. The error
+class also keeps it, because the API status it carries is still `ERR::ASP::*` — but
+`ScrapflyUnblockerError` is an alias for the same class, so either name works in `except`:
+
+```python
+from scrapfly import ScrapflyUnblockerError  # the same class as ScrapflyAspError
+```
 
 ## Integrations  
 
@@ -195,7 +248,7 @@ scrapfly_reader = ScrapflyReader(
 )
 
 scrapfly_scrape_config = {
-    "asp": True,  # Bypass scraping blocking and antibot solutions, like Cloudflare
+    "unblocker": True,  # Bypass scraping blocking and antibot solutions, like Cloudflare (formerly "asp")
     "render_js": True,  # Enable JavaScript rendering with a cloud headless browser
     "proxy_pool": "public_residential_pool",  # Select a proxy pool (datacenter or residnetial)
     "country": "us",  # Select a proxy location
@@ -274,7 +327,7 @@ To use the full Scrapfly features with LangChain, pass a ScrapeConfig object to 
 from langchain_community.document_loaders import ScrapflyLoader
 
 scrapfly_scrape_config = {
-    "asp": True,  # Bypass scraping blocking and antibot solutions, like Cloudflare
+    "unblocker": True,  # Bypass scraping blocking and antibot solutions, like Cloudflare (formerly "asp")
     "render_js": True,  # Enable JavaScript rendering with a cloud headless browser
     "proxy_pool": "public_residential_pool",  # Select a proxy pool (datacenter or residnetial)
     "country": "us",  # Select a proxy location

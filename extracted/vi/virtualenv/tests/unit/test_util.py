@@ -6,17 +6,19 @@ import sys
 import traceback
 import zipfile
 from stat import S_IEXEC, S_IREAD, S_IRGRP, S_IRWXU, S_IWUSR
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
 from virtualenv.app_data import _cache_dir_with_migration, _default_app_data_dir
+from virtualenv.info import fs_supports_symlink
 from virtualenv.util import zipapp
 from virtualenv.util.lock import ReentrantFileLock
-from virtualenv.util.path import safe_delete
+from virtualenv.util.path import copy, safe_delete, symlink
 from virtualenv.util.subprocess import run_cmd
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 
@@ -33,7 +35,7 @@ def test_safe_delete_removes_read_only_files(tmp_path: Path) -> None:
     nested.mkdir(parents=True)
     # the wheel image marks its files read-only via set_tree, which on Windows blocks os.unlink
     marked = nested / "wheel.py"
-    marked.write_text("cached")
+    marked.write_text("cached", encoding="utf-8")
     marked.chmod(S_IREAD)
 
     safe_delete(target)
@@ -50,9 +52,9 @@ def test_safe_delete_surfaces_undeletable_entries(tmp_path: Path) -> None:
     target = tmp_path / "target"
     target.mkdir()
     busy = target / "busy.txt"
-    busy.write_text("x")
+    busy.write_text("x", encoding="utf-8")
 
-    with busy.open(), pytest.raises(OSError, match="busy"):
+    with busy.open(encoding="utf-8"), pytest.raises(OSError, match="busy"):
         safe_delete(target)
 
 
@@ -61,7 +63,7 @@ def test_safe_delete_raises_the_original_error_not_a_retry_failure(tmp_path: Pat
     target = tmp_path / "target"
     blocked = target / "sub"
     blocked.mkdir(parents=True)
-    (blocked / "wheel.py").write_text("cached")
+    (blocked / "wheel.py").write_text("cached", encoding="utf-8")
     blocked.chmod(0o000)  # rmtree reports this one through os.open, which takes more than a path
 
     try:
@@ -76,7 +78,7 @@ def test_safe_delete_keeps_the_other_mode_bits_when_clearing_read_only(tmp_path:
     target = tmp_path / "target"
     target.mkdir()
     blocked = target / "wheel.py"
-    blocked.write_text("cached")
+    blocked.write_text("cached", encoding="utf-8")
     blocked.chmod(S_IREAD | S_IRGRP)
     target.chmod(S_IREAD | S_IEXEC)  # the unlink fails, so the mode the handler left behind stays observable
 
@@ -86,6 +88,31 @@ def test_safe_delete_keeps_the_other_mode_bits_when_clearing_read_only(tmp_path:
         assert blocked.stat().st_mode & 0o777 == S_IREAD | S_IRGRP | S_IWUSR
     finally:
         target.chmod(S_IRWXU)
+
+
+@pytest.mark.skipif(not fs_supports_symlink(), reason="symlink is not supported")
+@pytest.mark.parametrize("operation", [pytest.param(copy, id="copy"), pytest.param(symlink, id="symlink")])
+@pytest.mark.parametrize("directory", [pytest.param(False, id="file"), pytest.param(True, id="directory")])
+@pytest.mark.parametrize("loop", [pytest.param(False, id="missing-target"), pytest.param(True, id="self-loop")])
+def test_replace_dangling_symlink(
+    tmp_path: Path, operation: Callable[[Path, Path], None], directory: bool, loop: bool
+) -> None:
+    source: Final[Path] = tmp_path / "source"
+    if directory:
+        source.mkdir()
+    (source / "file.txt" if directory else source).write_text("new", encoding="utf-8")
+    destination: Final[Path] = tmp_path / "destination"
+    outside: Final[Path] = tmp_path / "outside"
+    destination.symlink_to(destination if loop else outside, target_is_directory=directory)
+
+    operation(source, destination)
+
+    assert (
+        destination.is_symlink(),
+        (destination / "file.txt" if directory else destination).read_text(encoding="utf-8"),
+        destination.resolve(),
+        outside.exists(),
+    ) == (operation is symlink, "new", source.resolve() if operation is symlink else destination, False)
 
 
 def test_reentrant_file_lock_is_thread_safe(tmp_path) -> None:
@@ -125,7 +152,7 @@ class TestCacheDirMigration:
         old_dir = str(tmp_path / "old-data")
         new_dir = str(tmp_path / "new-cache")
         os.makedirs(old_dir)
-        (tmp_path / "old-data" / "test.txt").write_text("hello")
+        (tmp_path / "old-data" / "test.txt").write_text("hello", encoding="utf-8")
 
         monkeypatch.setattr("virtualenv.app_data.user_cache_dir", lambda **_kw: new_dir)
         monkeypatch.setattr("virtualenv.app_data.user_data_dir", lambda **_kw: old_dir)
@@ -134,7 +161,7 @@ class TestCacheDirMigration:
         assert result == new_dir
         assert os.path.isdir(new_dir)
         assert not os.path.isdir(old_dir)
-        assert (tmp_path / "new-cache" / "test.txt").read_text() == "hello"
+        assert (tmp_path / "new-cache" / "test.txt").read_text(encoding="utf-8") == "hello"
 
     def test_no_migration_when_old_missing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         old_dir = str(tmp_path / "old-data")
@@ -152,7 +179,7 @@ class TestCacheDirMigration:
         new_dir = str(tmp_path / "new-cache")
         os.makedirs(old_dir)
         os.makedirs(new_dir)
-        (tmp_path / "old-data" / "old.txt").write_text("old")
+        (tmp_path / "old-data" / "old.txt").write_text("old", encoding="utf-8")
 
         monkeypatch.setattr("virtualenv.app_data.user_cache_dir", lambda **_kw: new_dir)
         monkeypatch.setattr("virtualenv.app_data.user_data_dir", lambda **_kw: old_dir)
@@ -199,7 +226,7 @@ class TestCacheDirMigration:
         wheel_img = tmp_path / "old-data" / "wheel" / "3.12" / "image" / "pip"
         wheel_img.mkdir(parents=True)
         (wheel_img / "pip.dist-info").mkdir()
-        (wheel_img / "pip.dist-info" / "METADATA").write_text("Name: pip")
+        (wheel_img / "pip.dist-info" / "METADATA").write_text("Name: pip", encoding="utf-8")
 
         venv_dir = tmp_path / "my-venv" / "lib" / "site-packages"
         venv_dir.mkdir(parents=True)

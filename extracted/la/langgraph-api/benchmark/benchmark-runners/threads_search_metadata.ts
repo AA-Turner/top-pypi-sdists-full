@@ -12,6 +12,18 @@ interface ThreadsSearchMetadataData {
   found: Array<{ thread_id: string; metadata?: { scenario?: string; tag?: string } }>;
 }
 
+/**
+ * Delete the threads each iteration creates, or leave them to accumulate.
+ *
+ * Off by default: letting the table grow is how this benchmark shows whether
+ * search degrades as thread count rises, and it is the realistic case since
+ * deployments do not delete threads per request.
+ *
+ * The capacity staircase turns it on, because there the table grows *while*
+ * load is ramping, so a slower step cannot be attributed to load or to size.
+ */
+const DELETE_THREADS = __ENV.DELETE_THREADS === '1';
+
 export class ThreadsSearchMetadata extends BenchmarkRunner {
   static run(
     baseUrl: string,
@@ -23,33 +35,44 @@ export class ThreadsSearchMetadata extends BenchmarkRunner {
     const responses: Record<string, import('./types.js').HttpResponse> = {};
 
     const threadIds: string[] = [];
-    for (let i = 0; i < 2; i++) {
-      const createRes = http.post(`${baseUrl}/threads`, '{}', requestParams);
-      addResponse(responses, `create_thread_${i}`, createRes);
-      if (createRes.status !== 200) {
-        return failResult(`create_thread_${i}`, responses) as BenchmarkResult<ThreadsSearchMetadataData>;
+    try {
+      for (let i = 0; i < 2; i++) {
+        const createRes = http.post(`${baseUrl}/threads`, '{}', requestParams);
+        addResponse(responses, `create_thread_${i}`, createRes);
+        if (createRes.status !== 200) {
+          return failResult(`create_thread_${i}`, responses) as BenchmarkResult<ThreadsSearchMetadataData>;
+        }
+        threadIds.push((createRes.json() as { thread_id: string }).thread_id);
       }
-      threadIds.push((createRes.json() as { thread_id: string }).thread_id);
-    }
 
-    for (let i = 0; i < 2; i++) {
-      const patchPayload = JSON.stringify({ metadata: { ...searchMetadata, index: i } });
-      const patchRes = http.patch(`${baseUrl}/threads/${threadIds[i]}`, patchPayload, requestParams);
-      addResponse(responses, `patch_thread_${i}`, patchRes);
-      if (patchRes.status !== 200) {
-        return failResult(`patch_thread_${i}`, responses) as BenchmarkResult<ThreadsSearchMetadataData>;
+      for (let i = 0; i < 2; i++) {
+        const patchPayload = JSON.stringify({ metadata: { ...searchMetadata, index: i } });
+        const patchRes = http.patch(`${baseUrl}/threads/${threadIds[i]}`, patchPayload, requestParams);
+        addResponse(responses, `patch_thread_${i}`, patchRes);
+        if (patchRes.status !== 200) {
+          return failResult(`patch_thread_${i}`, responses) as BenchmarkResult<ThreadsSearchMetadataData>;
+        }
+      }
+
+      const searchPayload = JSON.stringify({ metadata: searchMetadata, limit: 10 });
+      const searchRes = http.post(`${baseUrl}/threads/search`, searchPayload, requestParams);
+      addResponse(responses, 'search', searchRes);
+      if (searchRes.status !== 200) {
+        return failResult(undefined, responses) as BenchmarkResult<ThreadsSearchMetadataData>;
+      }
+      const found = searchRes.json() as ThreadsSearchMetadataData['found'];
+
+      return okResult(responses, { threadIds, searchMetadata, found });
+    } finally {
+      // Best effort: a failed delete leaks one thread, which the inter-cell
+      // reset and the deployment's thread TTL both clean up behind us. Failing
+      // the iteration over cleanup would misreport the workload under test.
+      if (DELETE_THREADS) {
+        for (const threadId of threadIds) {
+          http.del(`${baseUrl}/threads/${threadId}`, null, requestParams);
+        }
       }
     }
-
-    const searchPayload = JSON.stringify({ metadata: searchMetadata, limit: 10 });
-    const searchRes = http.post(`${baseUrl}/threads/search`, searchPayload, requestParams);
-    addResponse(responses, 'search', searchRes);
-    if (searchRes.status !== 200) {
-      return failResult(undefined, responses) as BenchmarkResult<ThreadsSearchMetadataData>;
-    }
-    const found = searchRes.json() as ThreadsSearchMetadataData['found'];
-
-    return okResult(responses, { threadIds, searchMetadata, found });
   }
 
   static validate(

@@ -8,7 +8,10 @@ T = TypeVar("T", bound="GetDbtRunGraphResponse200AssetsItemDbtColumns")
 
 @_attrs_define
 class GetDbtRunGraphResponse200AssetsItemDbtColumns:
-    """Declared column metadata (name -> description). NOT column lineage — `manifest.json` carries none."""
+    """Declared column metadata (name -> description) — what `manifest.json` carries, which is only the columns an author
+    wrote down. Omitted when the caller cannot read the script.
+
+    """
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

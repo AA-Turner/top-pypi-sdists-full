@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Any
 from urllib.parse import urlparse
 
 import structlog
@@ -17,11 +18,11 @@ logger = structlog.get_logger(__name__)
 
 
 class WorkerRuntimeConfig(WorkerInfo):
-    def apply(self) -> dict[str, bool]:
+    def apply(self) -> dict[str, Any]:
         """Apply the resolved configuration, returning the feature values that won."""
         # The connection settings are adopted field by field rather than through
-        # `RemotelyOverridable`: the server names them differently, they are not booleans, and the
-        # scheduler URL needs normalizing. New boolean flags belong on the annotation path instead.
+        # `RemotelyOverridable`: the server names them differently and the scheduler URL needs
+        # normalizing. New flags belong on the annotation path instead.
         adopt_remote_default(config.temporal, "namespace", self.namespace)
         adopt_remote_default(config.temporal, "server_url", normalize_temporal_url(self.scheduler_url))
         adopt_remote_default(config.temporal, "tls", self.tls)

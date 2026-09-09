@@ -180,13 +180,13 @@ class TestStartWorktreeSetupBackground:
         stored_keys = [call[0][0] for call in mock_set_value.call_args_list]
         assert "worktree_setup.auto_execute_command" not in stored_keys
         self._mock_delete_value.assert_any_call("worktree_setup.auto_execute_command")
-        # Timeout is always persisted (even the default 60s) to prevent stale leaks
-        mock_set_value.assert_any_call("worktree_setup.auto_execute_timeout", "60")
+        # Timeout is always persisted (even the default 1800s) to prevent stale leaks
+        mock_set_value.assert_any_call("worktree_setup.auto_execute_timeout", "1800")
 
     @patch("agentic_devtools.state.set_value")
     @patch("agentic_devtools.background_tasks.run_function_in_background")
-    def test_stores_timeout_when_default_60(self, mock_run_background, mock_set_value):
-        """Test that auto_execute_timeout=60 is always persisted to prevent stale leaks."""
+    def test_stores_timeout_when_default_1800(self, mock_run_background, mock_set_value):
+        """Test that auto_execute_timeout=1800 is always persisted to prevent stale leaks."""
         mock_task = MagicMock()
         mock_task.id = "task-default-timeout"
         mock_run_background.return_value = mock_task
@@ -195,10 +195,10 @@ class TestStartWorktreeSetupBackground:
             issue_key="PROJECT-1234",
             workflow_name="work-on-jira-issue",
             auto_execute_command=["cmd"],
-            auto_execute_timeout=60,
+            auto_execute_timeout=1800,
         )
 
-        mock_set_value.assert_any_call("worktree_setup.auto_execute_timeout", "60")
+        mock_set_value.assert_any_call("worktree_setup.auto_execute_timeout", "1800")
 
     @patch("agentic_devtools.state.set_value")
     @patch("agentic_devtools.background_tasks.run_function_in_background")
@@ -231,6 +231,24 @@ class TestStartWorktreeSetupBackground:
         )
 
         mock_set_value.assert_any_call("worktree_setup.interactive", "true")
+
+    @patch("agentic_devtools.state.set_value")
+    @patch("agentic_devtools.background_tasks.run_function_in_background")
+    def test_headless_overrides_terminal_when_persisting_state(self, mock_run_background, mock_set_value):
+        """Headless mode persists terminal=false even when terminal=True was requested."""
+        mock_task = MagicMock()
+        mock_task.id = "task-headless-terminal"
+        mock_run_background.return_value = mock_task
+
+        start_worktree_setup_background(
+            issue_key="PROJECT-1234",
+            workflow_name="pull-request-review",
+            terminal=True,
+            headless=True,
+        )
+
+        mock_set_value.assert_any_call("worktree_setup.headless", "true")
+        mock_set_value.assert_any_call("worktree_setup.terminal", "false")
 
     @patch("agentic_devtools.state.get_value")
     @patch("agentic_devtools.state.set_value")
@@ -310,13 +328,13 @@ class TestStartWorktreeSetupBackground:
 
         mock_set_value.assert_any_call("worktree_setup.model", "gpt-4o")
 
-    def test_auto_execute_timeout_default_is_60(self):
-        """Verify the default value of auto_execute_timeout is 60 via signature inspection."""
+    def test_auto_execute_timeout_default_is_1800(self):
+        """Verify the default value of auto_execute_timeout is 1800 via signature inspection."""
         import inspect
 
         sig = inspect.signature(start_worktree_setup_background)
         default = sig.parameters["auto_execute_timeout"].default
-        assert default == 60
+        assert default == 1800
 
     @patch("agentic_devtools.state.set_value")
     @patch("agentic_devtools.background_tasks.run_function_in_background")

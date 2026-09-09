@@ -12,6 +12,8 @@ of this — no duplication, no host-only Playwright pool somewhere upstairs.
 
 from __future__ import annotations
 
+from matrx_scraper.utils.proxy import playwright_proxy
+
 import asyncio
 import atexit
 import logging
@@ -114,7 +116,7 @@ class BrowserSessionManager:
         if viewport:
             context_kwargs["viewport"] = viewport
         if proxy:
-            context_kwargs["proxy"] = {"server": proxy}
+            context_kwargs["proxy"] = playwright_proxy(proxy)
         context = await browser.new_context(**context_kwargs)
         # Installed on the CONTEXT before any page exists, so it covers every
         # request this session ever makes — including the ones a legitimately

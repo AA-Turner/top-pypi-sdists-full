@@ -6,7 +6,7 @@ includes custom generation implementations and numerical stability improvements.
 """
 
 import warnings
-from typing import Any, List, Tuple, Union, Optional
+from typing import Any, List, Tuple
 from pathlib import Path
 
 import torch
@@ -79,8 +79,9 @@ class DecoderTransformer(nn.Module):
         model_name: str,
         config: Any,
         from_pretrained: bool = False,
-        cache_dir: Optional[Union[str, Path]] = None,
+        cache_dir: str | Path | None = None,
         use_causal_lm: bool = True,
+        local_files_only: bool = False,
     ) -> None:
         """Initializes the decoder transformer.
 
@@ -92,6 +93,7 @@ class DecoderTransformer(nn.Module):
             from_pretrained: If True, loads pretrained weights. If False, initializes
                 from config only. Defaults to False.
             cache_dir: Optional directory for caching downloaded models. Defaults to None.
+            local_files_only: Only load local or cached files.
             use_causal_lm: Use ``AutoModelForCausalLM`` and return vocabulary logits.
                 When False, use ``AutoModel`` and return backbone hidden states.
 
@@ -103,7 +105,9 @@ class DecoderTransformer(nn.Module):
         if decoder_config is None:
             decoder_config = getattr(config, "labels_decoder_config", None)
         if decoder_config is None:
-            decoder_config = AutoConfig.from_pretrained(model_name, cache_dir=cache_dir)
+            decoder_config = AutoConfig.from_pretrained(
+                model_name, cache_dir=cache_dir, local_files_only=local_files_only
+            )
 
         # Decoder backbones are constructed separately from encoder backbones,
         # so explicitly propagate GLiNER's top-level attention override.
@@ -124,6 +128,7 @@ class DecoderTransformer(nn.Module):
         if from_pretrained:
             model_kwargs = {
                 "cache_dir": cache_dir,
+                "local_files_only": local_files_only,
                 "trust_remote_code": True,
             }
             if attn_implementation is not None:
@@ -136,6 +141,8 @@ class DecoderTransformer(nn.Module):
             # Keep the resolved Hugging Face config attached to GLiNER so later
             # token resizing is serialized into gliner_config.json.
             config.decoder_config = self.model.config
+        else:
+            config.labels_decoder_config = self.model.config
 
         adapter_config_file = Path(model_name) / "adapter_config.json"
 
@@ -146,13 +153,13 @@ class DecoderTransformer(nn.Module):
                     stacklevel=2,
                 )
             else:
-                adapter_config = LoraConfig.from_pretrained(model_name)
+                adapter_config = LoraConfig.from_pretrained(model_name, local_files_only=local_files_only)
                 self.model = get_peft_model(self.model, adapter_config)
 
         self.config = config
         self.use_causal_lm = use_causal_lm
 
-    def forward(self, *args: Any, **kwargs: Any) -> Tuple[torch.Tensor, Optional[Any]]:
+    def forward(self, *args: Any, **kwargs: Any) -> Tuple[torch.Tensor, Any | None]:
         """Forward pass through the decoder model.
 
         Args:
@@ -187,8 +194,9 @@ class Decoder(nn.Module):
         self,
         config: Any,
         from_pretrained: bool = False,
-        cache_dir: Optional[Union[str, Path]] = None,
+        cache_dir: str | Path | None = None,
         use_causal_lm: bool = True,
+        local_files_only: bool = False,
     ) -> None:
         """Initializes the decoder.
 
@@ -199,6 +207,7 @@ class Decoder(nn.Module):
             from_pretrained: If True, loads pretrained weights for the decoder.
                 Defaults to False.
             cache_dir: Optional directory for caching downloaded models. Defaults to None.
+            local_files_only: Only load local or cached files.
             use_causal_lm: Use a causal language-model head when True, or return
                 backbone hidden states through ``AutoModel`` when False.
         """
@@ -211,6 +220,7 @@ class Decoder(nn.Module):
             from_pretrained,
             cache_dir=cache_dir,
             use_causal_lm=use_causal_lm,
+            local_files_only=local_files_only,
         )
 
         self.decoder_hidden_size = self.decoder_layer.model.config.hidden_size
@@ -233,13 +243,13 @@ class Decoder(nn.Module):
     def generate_from_embeds_custom(
         self,
         inputs_embeds: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
         max_new_tokens: int = 32,
-        eos_token_id: Optional[int] = None,
-        pad_token_id: Optional[int] = None,
+        eos_token_id: int | None = None,
+        pad_token_id: int | None = None,
         temperature: float = 1.0,
         do_sample: bool = False,
-        labels_trie: Optional[LabelsTrie] = None,
+        labels_trie: LabelsTrie | None = None,
         **kwargs: Any,
     ) -> torch.LongTensor:
         """Custom generation implementation from embeddings with optional trie constraints.
@@ -352,14 +362,14 @@ class Decoder(nn.Module):
     def generate_from_embeds(
         self,
         inputs_embeds: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
         max_new_tokens: int = 32,
-        eos_token_id: Optional[int] = None,
-        pad_token_id: Optional[int] = None,
+        eos_token_id: int | None = None,
+        pad_token_id: int | None = None,
         temperature: float = 1.0,
         do_sample: bool = False,
         num_return_sequences: int = 1,
-        labels_trie: Optional[LabelsTrie] = None,
+        labels_trie: LabelsTrie | None = None,
         **kwargs: Any,
     ) -> torch.LongTensor:
         """Generation from embeddings using Hugging Face's generate API.
@@ -474,7 +484,7 @@ class Decoder(nn.Module):
         else:
             return self.decoder_layer.model.generate(*args, **kwargs)
 
-    def forward(self, *args: Any, **kwargs: Any) -> Tuple[torch.Tensor, Optional[Any]]:
+    def forward(self, *args: Any, **kwargs: Any) -> Tuple[torch.Tensor, Any | None]:
         """Forward pass through the decoder.
 
         Computes logits for the input sequence without generation.

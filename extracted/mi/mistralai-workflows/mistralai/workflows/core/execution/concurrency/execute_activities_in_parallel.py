@@ -3,6 +3,7 @@ from types import NoneType
 from typing import Any, Awaitable, Callable, Dict, List, TypeVar, cast, get_origin, overload
 
 import structlog
+import temporalio.workflow
 from pydantic import TypeAdapter
 from temporalio.exceptions import ApplicationError
 
@@ -12,7 +13,11 @@ from mistralai.workflows.core.definition.validation._validator import (
     extract_origin_type,
     get_function_signature_type_hints,
 )
-from mistralai.workflows.core.execution.concurrency._concurrency_workflow import ParallelExecutionWorkflow
+from mistralai.workflows.core.definition.workflow_definition import is_workflow_on_behalf_of
+from mistralai.workflows.core.execution.concurrency._concurrency_workflow import (
+    OnBehalfOfParallelExecutionWorkflow,
+    ParallelExecutionWorkflow,
+)
 from mistralai.workflows.core.execution.concurrency.run_in_batches import run_in_batches
 from mistralai.workflows.core.execution.concurrency.types import (
     DEFAULT_MAX_CONCURRENT_EXECUTIONS_PER_WORKER,
@@ -31,6 +36,14 @@ U = TypeVar("U")
 
 
 logger = structlog.get_logger(__name__)
+
+
+def _parallel_execution_workflow() -> type[ParallelExecutionWorkflow] | type[OnBehalfOfParallelExecutionWorkflow]:
+    # Keyed on the workflow type, not the context: the context's on_behalf_of is overwritten
+    # with the caller's value, which would make the fan-out depend on who started us.
+    if temporalio.workflow.in_workflow() and is_workflow_on_behalf_of(temporalio.workflow.info().workflow_type):
+        return OnBehalfOfParallelExecutionWorkflow
+    return ParallelExecutionWorkflow
 
 
 def _resolve_class(t: Any) -> type | None:
@@ -316,6 +329,7 @@ async def execute_activities_in_parallel(
     is_single_param = len(user_params_dict) == 1 and not has_kwargs
 
     result: WorkflowResults
+    parallel_execution_workflow = _parallel_execution_workflow()
 
     # List Executor
     if items is not None:
@@ -329,7 +343,7 @@ async def execute_activities_in_parallel(
         )
 
         result = await workflow.execute_workflow(
-            ParallelExecutionWorkflow,
+            parallel_execution_workflow,
             WorkflowParams(
                 params=ListExecutorParams(
                     activity_name=activity.__name__,
@@ -405,7 +419,7 @@ async def execute_activities_in_parallel(
                 )
 
         result = await workflow.execute_workflow(
-            ParallelExecutionWorkflow,
+            parallel_execution_workflow,
             WorkflowParams(
                 params=ChainExecutorParams(
                     activity_name=activity.__name__,
@@ -474,7 +488,7 @@ async def execute_activities_in_parallel(
         dict_default_params = default_params.model_dump()
 
         results = await run_in_batches(
-            fct=lambda params: workflow.execute_workflow(ParallelExecutionWorkflow, params),
+            fct=lambda params: workflow.execute_workflow(parallel_execution_workflow, params),
             get_params_for_batch=lambda idx, batch_size: WorkflowParams(
                 # construct without validation to avoid temporal timeout
                 params=OffsetPaginationExecutorParams.model_construct(

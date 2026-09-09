@@ -1,38 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Phonopy command line argument parser."""
-
-# Copyright (C) 2016 Atsushi Togo
-# All rights reserved.
-#
-# This file is part of phonopy.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in
-#   the documentation and/or other materials provided with the
-#   distribution.
-#
-# * Neither the name of the phonopy project nor the names of its
-#   contributors may be used to endorse or promote products derived
-#   from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import annotations
 
@@ -42,6 +9,7 @@ import os
 import sys
 from typing import Sequence
 
+from phonopy.file_IO import is_file_phonopy_yaml
 from phonopy.interface.calculator import (
     add_arguments_of_calculators,
     calculator_info,
@@ -105,6 +73,13 @@ def show_deprecated_option_warnings(deprecated: list[str]) -> None:
 
 def _add_shared_options(parser: argparse.ArgumentParser) -> None:
     """Add options accepted by both phonopy-init and phonopy."""
+    _add_common_options(parser)
+    _add_displacement_options(parser)
+    _add_logging_options(parser)
+
+
+def _add_cell_options(parser: argparse.ArgumentParser) -> None:
+    """Add options that shape how the input cell is read."""
     parser.add_argument(
         "--pa",
         "--primitive-axis",
@@ -120,13 +95,6 @@ def _add_shared_options(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         help="Symmetry tolerance to search",
-    )
-    parser.add_argument(
-        "--nosym",
-        dest="is_nosym",
-        action="store_true",
-        default=None,
-        help="Symmetry is not imposed.",
     )
     parser.add_argument(
         "--magmom",
@@ -161,6 +129,18 @@ def _add_shared_options(parser: argparse.ArgumentParser) -> None:
             "separate species-resolved atoms instead of merging them into "
             "mixed-species sites."
         ),
+    )
+
+
+def _add_common_options(parser: argparse.ArgumentParser) -> None:
+    """Add options accepted by every command flavor."""
+    _add_cell_options(parser)
+    parser.add_argument(
+        "--nosym",
+        dest="is_nosym",
+        action="store_true",
+        default=None,
+        help="Symmetry is not imposed.",
     )
     parser.add_argument(
         "--mass",
@@ -225,6 +205,18 @@ def _add_shared_options(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Save parameters that can run phonopy in phonopy_params.yaml.",
     )
+
+
+def _add_displacement_options(parser: argparse.ArgumentParser) -> None:
+    """Add options that shape displacement generation."""
+    parser.add_argument(
+        "-d",
+        "--displacement",
+        dest="is_displacement",
+        action="store_true",
+        default=None,
+        help="Create supercells with displacements",
+    )
     parser.add_argument(
         "--rd",
         "--random-displacements",
@@ -239,6 +231,53 @@ def _add_shared_options(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Random seed by a 32 bit unsigned integer",
     )
+    parser.add_argument(
+        "--amplitude",
+        "--amin",
+        dest="displacement_distance",
+        type=float,
+        default=None,
+        help=(
+            "Distance of displacements and also minimum distance of displacements "
+            "in random displacements"
+        ),
+    )
+    parser.add_argument(
+        "--amax",
+        dest="displacement_distance_max",
+        type=float,
+        default=None,
+        help="Maximum distance of displacements in random displacements",
+    )
+    parser.add_argument(
+        "--amax-per-atom",
+        dest="displacement_distance_per_atom",
+        action="store_true",
+        default=None,
+        help=(
+            "With --amax, draw the random displacement distance per atom "
+            "instead of per supercell, uniformly over [--amin, --amax), so "
+            "every supercell spans the whole amplitude range"
+        ),
+    )
+    parser.add_argument(
+        "--rd-auto-factor",
+        dest="rd_number_estimation_factor",
+        type=float,
+        default=None,
+        help="Factor to estimate number of supercells with random displacements",
+    )
+    parser.add_argument(
+        "--pm",
+        dest="is_plusminus_displacements",
+        action="store_true",
+        default=None,
+        help="Set plus minus displacements",
+    )
+
+
+def _add_logging_options(parser: argparse.ArgumentParser) -> None:
+    """Add options that control the amount of output."""
     parser.add_argument(
         "-q",
         "--quiet",
@@ -283,21 +322,6 @@ def _add_init_options(parser: argparse.ArgumentParser) -> None:
         help="Same behavior as DIM tag",
     )
     parser.add_argument(
-        "-d",
-        "--displacement",
-        dest="is_displacement",
-        action="store_true",
-        default=None,
-        help="Create supercells with displacements",
-    )
-    parser.add_argument(
-        "--rd-auto-factor",
-        dest="rd_number_estimation_factor",
-        type=float,
-        default=None,
-        help="Factor to estimate number of supercells with random displacements",
-    )
-    parser.add_argument(
         "-f",
         "--force-sets",
         nargs="+",
@@ -335,31 +359,6 @@ def _add_init_options(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=None,
         help="Check crystal symmetry",
-    )
-    parser.add_argument(
-        "--amplitude",
-        "--amin",
-        dest="displacement_distance",
-        type=float,
-        default=None,
-        help=(
-            "Distance of displacements and also minimum distance of displacements "
-            "in random displacements"
-        ),
-    )
-    parser.add_argument(
-        "--amax",
-        dest="displacement_distance_max",
-        type=float,
-        default=None,
-        help="Maximum distance of displacements in random displacements",
-    )
-    parser.add_argument(
-        "--pm",
-        dest="is_plusminus_displacements",
-        action="store_true",
-        default=None,
-        help="Set plus minus displacements",
     )
     parser.add_argument(
         "--nodiag",
@@ -1026,7 +1025,6 @@ def _reject_init_options(parser: argparse.ArgumentParser) -> None:
     specs: list[tuple[tuple[str, ...], int | str]] = [
         (("-c", "--cell"), 1),
         (("--dim",), "+"),
-        (("-d", "--displacement"), 0),
         (("-f", "--force-sets"), "+"),
         (("--fz", "--force-sets-zero"), "+"),
         (("--fc", "--force-constants"), 1),
@@ -1067,6 +1065,157 @@ def get_init_parser() -> tuple[argparse.ArgumentParser, list[str]]:
         ),
     )
     return parser, deprecated
+
+
+def get_collect_parser() -> tuple[argparse.ArgumentParser, list[str]]:
+    """Return argument parser for the phonopy-collect command.
+
+    This command is experimental. It offers the FORCE_SETS creation of
+    phonopy-init under a name that says when it runs, and takes the
+    calculator output files as positional arguments. phonopy-init keeps
+    accepting -f, --fz and --fc unchanged.
+
+    There is no -f: the files are the positional arguments. --fz takes only
+    the supercell without displacement, so that the displaced ones sit where
+    they always sit.
+
+    --fc is not offered. It reads the force constants of a vasprun.xml
+    directly, so it is VASP-only and looks at no displacement dataset, which
+    leaves nothing of this command's shape to share.
+
+    The calculator selection flags (--qe, --vasp, ...) are not offered: the
+    calculator is recorded in phonopy_disp.yaml and read from there. The
+    pre-v2 disp.yaml, which carries no calculator, is therefore read as VASP;
+    use phonopy-init for it.
+
+    A displacement dataset other than phonopy_disp.yaml is named by placing
+    it first among the arguments, the way the phonopy command takes a
+    phonopy.yaml-like file. There is no option for it.
+
+    """
+    deprecated = fix_deprecated_option_names(sys.argv)
+    parser = argparse.ArgumentParser(
+        description=(
+            "phonopy-collect: collect calculator results into a FORCE_SETS or "
+            "FORCE_CONSTANTS file."
+        ),
+        allow_abbrev=False,
+        formatter_class=_SortedHelpFormatter,
+    )
+    _add_common_options(parser)
+    _add_logging_options(parser)
+    parser.add_argument(
+        "--fz",
+        "--force-sets-zero",
+        metavar="FILE",
+        dest="perfect_filename",
+        default=None,
+        help=(
+            "Subtract the residual forces of the supercell without "
+            "displacement, whose calculator output file this is"
+        ),
+    )
+    _reject_removed_options(parser)
+    parser.add_argument(
+        "force_filenames",
+        nargs="*",
+        metavar="FILE",
+        help=(
+            "Calculator output files to collect into FORCE_SETS, i.e. the "
+            "argument of -f. A phonopy.yaml-like file placed first names the "
+            "displacement dataset; otherwise phonopy_disp.yaml is read."
+        ),
+    )
+    return parser, deprecated
+
+
+def resolve_collect_args(
+    args: argparse.Namespace, parser: argparse.ArgumentParser
+) -> None:
+    """Split phonopy-collect positional arguments by what the files are.
+
+    A phonopy.yaml-like file placed first names the displacement dataset and
+    is passed on as ``filename``, which is where the settings layer looks for
+    it. Only the first file is examined, because reading a whole vasprun.xml
+    to find out that it is not YAML is not worth its cost.
+
+    What is left are the calculator output files of the displaced supercells.
+    With --fz they follow the supercell without displacement, in the one list
+    the settings layer takes.
+
+    """
+    filenames = list(getattr(args, "force_filenames", None) or [])
+    args.filename = []
+    args.create_force_sets = None
+    args.create_force_sets_zero = None
+    if (
+        filenames
+        and os.path.isfile(filenames[0])
+        and is_file_phonopy_yaml(filenames[0])
+    ):
+        args.filename = [filenames.pop(0)]
+    if args.perfect_filename is None:
+        args.create_force_sets = filenames or None
+    elif filenames:
+        args.create_force_sets_zero = [args.perfect_filename] + filenames
+    else:
+        parser.error(
+            "--fz names the supercell without displacement; the displaced "
+            "ones are still needed as arguments."
+        )
+
+
+def get_symmetry_parser() -> tuple[argparse.ArgumentParser, list[str]]:
+    """Return argument parser for the phonopy-symmetry command.
+
+    This command is experimental. It offers the --symmetry operation of
+    phonopy-init, which generates nothing and only reads a cell, prints its
+    symmetry and exits. phonopy-init keeps accepting --symmetry unchanged.
+
+    The cell is a positional argument and there is no -c. Of the options
+    that phonopy-init offers alongside --symmetry, only those the operation
+    actually reads are here: --nosym and --mass never reach it.
+
+    --dim is not offered either, though it does reach the operation: it
+    replaces the symmetry display with a phonopy_supercell.yaml, which is
+    generation rather than inspection and suppresses what this command is
+    named after. Use phonopy-init --symmetry --dim for it.
+
+    """
+    deprecated = fix_deprecated_option_names(sys.argv)
+    parser = argparse.ArgumentParser(
+        description=("phonopy-symmetry: show the crystal symmetry of a unit cell."),
+        allow_abbrev=False,
+        formatter_class=_SortedHelpFormatter,
+    )
+    _add_cell_options(parser)
+    _add_logging_options(parser)
+    add_arguments_of_calculators(parser, calculator_info)
+    _reject_removed_options(parser)
+    parser.add_argument(
+        "unitcell_filename",
+        nargs="?",
+        metavar="FILE",
+        default=None,
+        help=("Unit cell file. Defaults to the calculator's own default file name."),
+    )
+    return parser, deprecated
+
+
+def resolve_symmetry_args(args: argparse.Namespace) -> None:
+    """Map phonopy-symmetry onto the settings the operation is driven by.
+
+    ``cell_filename`` is where the settings layer looks for the input cell,
+    and ``filename`` is set empty because phonopy-symmetry reads no
+    configuration file. ``is_check_symmetry`` is what the whole command
+    means; setting it also injects the dummy ``dim`` that lets a cell be
+    read without a supercell matrix, and silences the log around the yaml
+    output.
+
+    """
+    args.cell_filename = args.unitcell_filename
+    args.filename = []
+    args.is_check_symmetry = True
 
 
 def get_run_parser() -> tuple[argparse.ArgumentParser, list[str]]:

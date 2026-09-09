@@ -6,8 +6,10 @@ import logging
 import os
 import shutil
 import stat
+from abc import ABC, abstractmethod
 from importlib import import_module
 
+from fusesoc.library import Library
 from fusesoc.utils import Launcher
 
 logger = logging.getLogger(__name__)
@@ -17,13 +19,17 @@ def get_provider(name):
     return getattr(import_module(f"fusesoc.provider.{name}"), name.capitalize())
 
 
-class Provider:
+class Provider(ABC):
     def __init__(self, config, core_root, files_root):
         self.config = config
         self.core_root = core_root
         self.files_root = files_root
         self.cachable = config.get("cachable", "") is not False
         self.patches = config.get("patches", [])
+
+    @abstractmethod
+    def _checkout(self, local_dir):
+        pass
 
     def clean_cache(self):
         def _make_tree_writable(topdir):
@@ -83,3 +89,33 @@ class Provider:
             return "empty"
         else:
             return "downloaded"
+
+    @staticmethod
+    def init_library(library: Library) -> None:
+        """Initialize FuseSoC library.
+
+        .. note::
+
+           Method required by the FuseSoC library manager.
+
+        Args:
+            library: The FuseSoC library object.
+        """
+        raise NotImplementedError(
+            "The 'init_library' static method required by the FuseSoC library manager is not implemented by this provider"
+        )
+
+    @staticmethod
+    def update_library(library: Library) -> None:
+        """Update FuseSoC library.
+
+        .. note::
+
+           Method required by the FuseSoC library manager.
+
+        Args:
+            library: The FuseSoC library object.
+        """
+        raise NotImplementedError(
+            "The 'update_library' static method required by the FuseSoC library manager is not implemented by this provider"
+        )

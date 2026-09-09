@@ -3,13 +3,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeGuard, overload
 
-from schemathesis.core.jsonschema import DRAFT_03_DIALECT
+from schemathesis.core.jsonschema import DRAFT_03_DIALECT, is_unsatisfiable
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, REFERENCE_TO_BUNDLE_PREFIX
 from schemathesis.core.jsonschema.types import JsonSchema, get_type
 from schemathesis.core.transforms import deepclone
 from schemathesis.specs.openapi.patterns import (
+    enforced_pattern,
     is_valid_jsonschema_rs_regex,
-    normalize_regex,
     pattern_length_bounds,
     update_quantifier,
 )
@@ -116,14 +116,17 @@ def _to_json_schema(
 
     if schema.get(nullable_keyword):
         del schema[nullable_keyword]
-        bundled = schema.pop(BUNDLE_STORAGE_KEY, None)
-        schema = {"anyOf": [schema, {"type": "null"}]}
-        if bundled:
-            schema[BUNDLE_STORAGE_KEY] = bundled
+        enum = schema.get("enum")
+        # An `enum` that omits null forbids null, so requests keep it as written; responses stay lenient.
+        if is_response_schema or not isinstance(enum, list) or None in enum:
+            bundled = schema.pop(BUNDLE_STORAGE_KEY, None)
+            schema = {"anyOf": [schema, {"type": "null"}]}
+            if bundled:
+                schema[BUNDLE_STORAGE_KEY] = bundled
     schema_type = schema.get("type")
-    # A nullable type with an `enum` accepts null, matching `nullable: true`; otherwise a
-    # documented null value is rejected for being absent from the enum.
-    if isinstance(schema_type, list) and "null" in schema_type:
+    # An `enum` that omits null makes null invalid even when `type` lists it. Responses tolerate the
+    # mismatch as a likely incomplete `enum`; requests keep the enum as written so generation never sends null.
+    if is_response_schema and isinstance(schema_type, list) and "null" in schema_type:
         enum = schema.get("enum")
         if isinstance(enum, list) and None not in enum:
             enum.append(None)
@@ -137,14 +140,13 @@ def _to_json_schema(
     # Handle unsupported regex patterns - try translation first, remove if that fails
     pattern = schema.get("pattern")
     if pattern is not None:
-        translated = normalize_regex(pattern)
-        if translated is not None:
-            schema["pattern"] = translated
         # One the validator compiles is kept even where Python cannot read it - the API enforces it,
         # so dropping it would draw values the API turns down.
-        current = schema.get("pattern")
-        if not isinstance(current, str) or not is_valid_jsonschema_rs_regex(current):
+        enforced = enforced_pattern(pattern)
+        if enforced is None:
             del schema["pattern"]
+        else:
+            schema["pattern"] = enforced
     if update_quantifiers:
         update_pattern_in_schema(schema)
     # Sometimes `required` is incorrectly has a boolean value
@@ -258,7 +260,7 @@ def _forbidden_in_allof_branches(schema: dict[str, Any]) -> set[str]:
         if not isinstance(branch, dict):
             continue
         for name, subschema in (branch.get("properties") or {}).items():
-            if subschema == {"not": {}}:
+            if is_unsatisfiable(subschema):
                 forbidden.add(name)
         forbidden.update(_forbidden_in_allof_branches(branch))
     return forbidden
@@ -559,6 +561,27 @@ def rewrite_properties(schema: dict[str, Any], predicate: Callable[[dict[str, An
         schema.pop("required", None)
     if not schema.get("properties"):
         schema.pop("properties", None)
+
+
+def permit_forbidden_properties(schema: object) -> bool:
+    """Let properties nothing can satisfy accept any value again.
+
+    Mutates `schema` in place; returns whether anything changed.
+    """
+    changed = False
+    if isinstance(schema, dict):
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            for name, subschema in properties.items():
+                if is_unsatisfiable(subschema):
+                    properties[name] = {}
+                    changed = True
+        for value in schema.values():
+            changed |= permit_forbidden_properties(value)
+    elif isinstance(schema, list):
+        for value in schema:
+            changed |= permit_forbidden_properties(value)
+    return changed
 
 
 def is_write_only(schema: object) -> TypeGuard[dict[str, Any]]:

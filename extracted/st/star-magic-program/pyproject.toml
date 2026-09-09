@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.420.0"
-description = "Star-Magic UQFF calculator v0.420.0: THE CODE-TRUTH SHIP - Batches 21-25 (40 rulings): the PAPER_1182 Millennium set canonized with closure equations INDEPENDENTLY VERIFIED (five EXACT; Riemann canon = the true 10,000th zeta zero; BSD = the true Cremona 37a1 value); resonance tables superseded by the operational code chain on three witnesses; the Ubi namespace closes as one law with four faces; H0 = 70 everywhere; registry crosses 7,000 rows. 2,255 papers, gate 6,069/0, acceptance 89/89."
+version = "0.428.0"
+description = "Star-Magic UQFF calculator v0.428.0: THE VELOCITY TIER SHIP - the Vp tier CANONIZED on Daniel's ruling (PAPER_2262): seventeen sonic landmarks composed live from the locked lattice, ELEVEN exact on midpoint anchors with the softness DISCLOSED; dolomite = (A_5+SO_5)/SO_5 - the H_0 integer surfacing in a laboratory acoustic anchor; unit-free dolomite/halite cross-ratio = 20/13 EXACT. Simulator v1.90.0. 2,258 papers, gate 6,085/0, acceptance 109/109."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -105,6 +105,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "RULINGS_QUEUE.md",
     "SESSION_LOG.md",
     "SHIP_MESSAGE.txt",
+    "TESTER_GUIDE.md",
     "UNIFIED_REGISTRY.csv",
     "UNIFIED_REGISTRY_ANCHORS.csv",
     "UNIFIED_REGISTRY_CORPUS_CITATIONS.csv",
@@ -380,6 +381,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "uqff_downhole_simulator/uqff_forward_model.py",
     "uqff_downhole_simulator/uqff_gamma.py",
     "uqff_downhole_simulator/uqff_gauge_specs.py",
+    "uqff_downhole_simulator/uqff_gravity_reference.py",
     "uqff_downhole_simulator/uqff_inverse_engine.py",
     "uqff_downhole_simulator/uqff_modbus.py",
     "uqff_downhole_simulator/uqff_operator_app.py",
@@ -388,10 +390,12 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "uqff_downhole_simulator/uqff_project.py",
     "uqff_downhole_simulator/uqff_quartz_hpht_extension.py",
     "uqff_downhole_simulator/uqff_reconciler.py",
+    "uqff_downhole_simulator/uqff_rock_inventory.py",
     "uqff_downhole_simulator/uqff_segy.py",
     "uqff_downhole_simulator/uqff_service_life.py",
     "uqff_downhole_simulator/uqff_strata_join.py",
     "uqff_downhole_simulator/uqff_structural_ladder.py",
+    "uqff_downhole_simulator/uqff_survey_cmd.py",
     "uqff_downhole_simulator/uqff_survey_view.py",
     "uqff_downhole_simulator/uqff_telemetry.py",
     "uqff_downhole_simulator/uqff_tool_library.py",
@@ -2017,6 +2021,9 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_2258_THE_UQFF_SUBSURFACE_SURVEYING_TOOL_PARTS_1_3_EARTH_MODEL_SENSING_KERNELS_INVERSE_ENGINE_FIRST_SCORED_STRATA_PREDICTION_REFUTATION_AS_DESIGNED_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2259_RUNG12_CONJUGATE_PAIR_BRIDGE_SIGMA_REF_LAMBDA_VAC_SW_TIMES_UG1_LAYER_EQUALS_1_KG_M2_EXACT_PRESSURE_TO_ACCELERATION_MEDIATION_UQFF_LANDMARK.md",
     "whitepapers/PAPER_225_Early_Universe_Relativistic_UV_UQFF.md",
+    "whitepapers/PAPER_2260_TRIPLE_DERIVATION_SESSION_SSQ_CUBED_OMEGA_RATIO_IKEDA_BOSE_ANCHOR_HOLMLID_TRIPLE_CONVERGENCE_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2261_K4_GEOLOGICAL_LANDMARK_FAMILY_ROCK_DENSITY_INVENTORY_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2262_VP_DISCRIMINATOR_TIER_PRIMITIVE_CANONIZATION_UQFF_LANDMARK.md",
     "whitepapers/PAPER_226_MagnetarSGR0501_11Term_MUGE_UQFF.md",
     "whitepapers/PAPER_227_Tapestry_LMC_Stellar_Wind_UQFF.md",
     "whitepapers/PAPER_228_Westerlund2_OB_StellarWind_MUGE.md",

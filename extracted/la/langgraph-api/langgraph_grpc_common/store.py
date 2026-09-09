@@ -7,7 +7,8 @@ import threading
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import grpc.aio
-from langgraph.store.base import IndexConfig, Op, PutOp, Result, SearchOp
+import orjson
+from langgraph.store.base import BaseStore, IndexConfig, Op, PutOp, Result, SearchOp
 from langgraph.store.base.batch import AsyncBatchedBaseStore
 
 from langgraph_grpc_common.conversion.store import (
@@ -21,7 +22,7 @@ from langgraph_grpc_common.proto import store_pb2
 from langgraph_grpc_common.proto.store_pb2_grpc import StoreStub
 
 if TYPE_CHECKING:
-    from collections.abc import Coroutine, Iterable
+    from collections.abc import Callable, Coroutine, Iterable, Mapping
 
 T = TypeVar("T")
 
@@ -36,17 +37,23 @@ class GrpcStore(AsyncBatchedBaseStore):
 
     supports_ttl = True
 
+    # Writes must retain their caller's request-scoped encryption context;
+    # AsyncBatchedBaseStore.aput dispatches from a long-lived background task.
+    aput = BaseStore.aput
+
     def __init__(
         self,
         address: str,
         *,
         index: IndexConfig | None = None,
         ttl: dict[str, Any] | None = None,
+        encryption_context_provider: Callable[[], Mapping[str, Any]] | None = None,
     ) -> None:
         super().__init__()
         self.ttl_config = ttl
         self._embeddings, self._index_config = normalize_index_config(index)
         self._address = address
+        self._encryption_context_provider = encryption_context_provider
         self._channel_lock = threading.Lock()
         self._channel: grpc.aio.Channel | None = None
         self._stub: StoreStub | None = None
@@ -92,7 +99,17 @@ class GrpcStore(AsyncBatchedBaseStore):
             else:
                 proto_ops.append(op_to_proto(op))
 
-        request = store_pb2.BatchRequest(ops=proto_ops)
+        encryption_context = (
+            self._encryption_context_provider()
+            if self._encryption_context_provider is not None
+            else {}
+        )
+        request = store_pb2.BatchRequest(
+            ops=proto_ops,
+            encryption_context_json={
+                key: orjson.dumps(value) for key, value in encryption_context.items()
+            },
+        )
         stub = self._get_stub()
         response = await stub.Batch(request)
         if len(response.results) != len(op_list):

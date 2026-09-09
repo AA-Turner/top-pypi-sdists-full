@@ -1,5 +1,6 @@
 import os
 import shlex
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -19,8 +20,10 @@ from ..clients.gateway import (
     DeployStubRequest,
     DeployStubResponse,
     GatewayServiceStub,
+    ListTasksRequest,
     StopContainerRequest,
     StopContainerResponse,
+    StringList,
 )
 from ..clients.pod import (
     CreatePodRequest,
@@ -30,7 +33,15 @@ from ..clients.pod import (
 from ..config import ConfigContext, get_settings
 from ..runner.common import USER_CODE_DIR
 from ..sync import FileSyncer
-from ..type import DurableDisk, GpuType, GpuTypeAlias, LLMConfig, Pool, ServingConfig
+from ..type import (
+    DurableDisk,
+    GpuType,
+    GpuTypeAlias,
+    LLMConfig,
+    Pool,
+    ServingConfig,
+    TaskStatus,
+)
 from ..utils import get_init_args_kwargs
 from .base import BaseAbstraction
 
@@ -67,6 +78,43 @@ class PodInstance(BaseAbstraction):
             StopContainerRequest(container_id=self.container_id)
         )
         return res.ok
+
+    def status(self) -> TaskStatus:
+        """Return the current status of this Pod run's task."""
+
+        if not self.task_id:
+            raise RuntimeError("Pod instance does not have a task ID")
+        response = self.gateway_stub.list_tasks(
+            ListTasksRequest(
+                filters={"id": StringList(values=[self.task_id])},
+                limit=1,
+            )
+        )
+        if not response.ok:
+            raise RuntimeError(response.err_msg or "Failed to retrieve Pod task status")
+        if not response.tasks:
+            raise RuntimeError(f"Pod task not found: {self.task_id}")
+        return TaskStatus(response.tasks[0].status.upper())
+
+    def wait(self, timeout: float = 120, poll_interval: float = 1) -> TaskStatus:
+        """Wait for this Pod run to reach a terminal task status."""
+
+        if timeout <= 0:
+            raise ValueError("timeout must be greater than zero")
+        if poll_interval <= 0:
+            raise ValueError("poll_interval must be greater than zero")
+
+        deadline = time.monotonic() + timeout
+        while True:
+            status = self.status()
+            if status.is_complete():
+                return status
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Pod task {self.task_id} did not complete within {timeout:g} seconds"
+                )
+            time.sleep(min(poll_interval, remaining))
 
 
 class Pod(RunnerAbstraction, DeployableMixin):
@@ -259,16 +307,17 @@ class Pod(RunnerAbstraction, DeployableMixin):
 
         url = ""
         if create_response.ok:
-            terminal.done(f"Container created ===> {create_response.container_id}")
-
-            if self.keep_warm_seconds < 0:
-                terminal.header("This container has no timeout, it will run until it completes.")
-            elif self.keep_warm_seconds == 0:
-                terminal.header("This container will stop as soon as it is idle.")
-            else:
-                terminal.header(
-                    f"This container will timeout after {self.keep_warm_seconds} seconds."
-                )
+            terminal.resource(
+                f"{self.name or 'Container'} · submitted",
+                {
+                    "Container": create_response.container_id,
+                    "Timeout": f"{self.keep_warm_seconds}s"
+                    if self.keep_warm_seconds > 0
+                    else "No timeout"
+                    if self.keep_warm_seconds < 0
+                    else "Stop when idle",
+                },
+            )
 
             url_res = self.print_invocation_snippet()
             url = url_res.url
@@ -373,6 +422,8 @@ class Pod(RunnerAbstraction, DeployableMixin):
 
         return {
             "deployment_id": deploy_response.deployment_id,
+            "stub_id": self.stub_id,
+            "status": "accepted" if deploy_response.ok else "failed",
             "deployment_name": self.name,
             "invoke_url": invoke_url,
             "version": deploy_response.version,
@@ -450,7 +501,7 @@ app = Pod(
         machine_id: Optional[str] = None,
     ):
         self.authorized = True
-        super().shell(
+        return super().shell(
             url_type=url_type,
             sync_dir=sync_dir,
             container_id=container_id,

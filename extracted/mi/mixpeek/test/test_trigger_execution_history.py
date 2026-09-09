@@ -39,7 +39,7 @@ class TestTriggerExecutionHistory(unittest.TestCase):
                 task_id = '',
                 triggered_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 status = '',
-                execution_time_ms = 56,
+                execution_time_ms = 1.337,
                 error = ''
             )
         else:

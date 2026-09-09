@@ -270,7 +270,8 @@ class _ASGIAdapter(requests.adapters.HTTPAdapter):
             headers = [(b"host", header_host.encode())]
         else:
             headers = [(b"host", f"{header_host}:{port}".encode())]
-        headers += [(key.lower().encode(), value.encode()) for key, value in request.headers.items()]
+        # Headers travel over the wire as latin-1, so the app gets the same octets a real server would give it.
+        headers += [(key.lower().encode("latin-1"), value.encode("latin-1")) for key, value in request.headers.items()]
 
         scope: Scope = {
             "type": "http",
@@ -329,7 +330,10 @@ class _ASGIAdapter(requests.adapters.HTTPAdapter):
                 raw_kwargs["version"] = 11
                 raw_kwargs["status"] = message["status"]
                 raw_kwargs["reason"] = _reason_phrase(message["status"])
-                raw_kwargs["headers"] = [(key.decode(), value.decode()) for key, value in message.get("headers", [])]
+                # Headers travel over the wire as latin-1, so the caller reads the same text a real server returns.
+                raw_kwargs["headers"] = [
+                    (key.decode("latin-1"), value.decode("latin-1")) for key, value in message.get("headers", [])
+                ]
                 raw_kwargs["preload_content"] = False
                 raw_kwargs["original_response"] = _OriginalResponse(raw_kwargs["headers"])
                 response_started = True

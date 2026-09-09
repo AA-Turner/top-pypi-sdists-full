@@ -501,6 +501,7 @@ __all__ = (
     "NatGatewayDeletedWaiterName",
     "NatGatewayStateType",
     "NestedVirtualizationSpecificationType",
+    "NetworkCardInterfaceTypeType",
     "NetworkInterfaceAttributeType",
     "NetworkInterfaceAvailableWaiterName",
     "NetworkInterfaceCreationTypeType",
@@ -3205,6 +3206,7 @@ NatGatewayAvailableWaiterName = Literal["nat_gateway_available"]
 NatGatewayDeletedWaiterName = Literal["nat_gateway_deleted"]
 NatGatewayStateType = Literal["available", "deleted", "deleting", "failed", "pending"]
 NestedVirtualizationSpecificationType = Literal["disabled", "enabled"]
+NetworkCardInterfaceTypeType = Literal["efa", "efa-only", "interface", "secondary"]
 NetworkInterfaceAttributeType = Literal[
     "associatePublicIpAddress", "attachment", "description", "groupSet", "sourceDestCheck"
 ]

@@ -103,6 +103,7 @@ lint.select = [
   "C4",     # flake8-comprehensions
   "D",      # pydocstyle
   "E",      # Error detected by Pycodestyle
+  "EM",     # Error messages
   "F",      # Errors detected by Pyflakes
   "I",      # isort
   "RUF100", # Report unused noqa directives
@@ -132,7 +133,7 @@ lint.per-file-ignores."tests/*" = [ "D" ]
 lint.pydocstyle.convention = "google"
 
 [tool.mypy]
-mypy_path = [ "$MYPY_CONFIG_FILE_DIR/stubs", "$MYPY_CONFIG_FILE_DIR/src" ]
+mypy_path = [ "$MYPY_CONFIG_FILE_DIR/stubs", "$MYPY_CONFIG_FILE_DIR/src", "$MYPY_CONFIG_FILE_DIR/tests/_pkgs" ]
 explicit_package_bases = true
 strict = true
 

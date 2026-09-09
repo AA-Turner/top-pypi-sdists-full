@@ -8,6 +8,7 @@ tuple as the source of truth for phase names — no AST scraping required.
 from __future__ import annotations
 
 AUTORUN_SETUP_PHASE = "autorun_setup"
+PROVIDER_CONFIGURATION_PHASE = "provider_configuration"
 
 PHASES: tuple[str, ...] = (
     "version_check",
@@ -15,6 +16,7 @@ PHASES: tuple[str, ...] = (
     "cli_installation",
     "dependency_check",
     "environment_persistence",
+    PROVIDER_CONFIGURATION_PHASE,
     "file_modifications",
     AUTORUN_SETUP_PHASE,
 )

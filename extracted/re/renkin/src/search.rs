@@ -2,7 +2,9 @@ use std::collections::BinaryHeap;
 use std::sync::{Arc, OnceLock};
 
 use anyhow::{Result, bail};
-use chematic::chem::{molecular_weight, sa_score};
+use chematic::chem::{molecular_weight, sa_score, standardize};
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 use serde::Serialize;
 use smallvec::{SmallVec, smallvec};
@@ -12,7 +14,8 @@ use crate::chem_env::{
     mol_from_smiles, to_canonical,
 };
 use crate::evidence::{EvidenceScope, MetadataSource, StepEvidence, TemplateMetadataEntry};
-use crate::score::{step_cost, template_bonus};
+use crate::retro_generator::{RetroGenerationContext, RetroGenerator};
+use crate::score::{step_cost_iter, template_bonus};
 use crate::spectator_bond::SpectatorBondPolicy;
 use crate::synthesizability::{ElementAccountingStatus, compute_element_accounting};
 
@@ -24,6 +27,7 @@ pub const MAX_SEARCH_DEPTH: u32 = 64;
 pub const MAX_ROUTES: usize = 10_000;
 pub const MAX_BEAM_WIDTH: usize = 1_000_000;
 pub const MAX_CANDIDATE_TRACE: usize = 1_000_000;
+pub const MAX_DIRECT_GENERATOR_PROPOSALS: usize = 1_000;
 
 fn validate_search_budget(target_smiles: &str, config: &SearchConfig) -> Result<()> {
     if target_smiles.len() > MAX_TARGET_SMILES_BYTES {
@@ -898,6 +902,87 @@ pub(crate) fn elem_mask_from_smiles(smiles: &str) -> u64 {
     mask
 }
 
+/// Build an element-presence mask and exact per-element counts directly from
+/// an already parsed molecule. Search expansions retain the molecule alongside
+/// its canonical SMILES, so callers in that hot path should not reparse or
+/// rescan the string to prefilter templates.
+pub(crate) struct MoleculeInventory {
+    pub(crate) element_mask: u64,
+    pub(crate) element_counts: [u16; 64],
+    pub(crate) aromatic_element_counts: [u16; 64],
+    pub(crate) aliphatic_element_counts: [u16; 64],
+    pub(crate) bond_counts: SmallVec<[(u16, u16); 24]>,
+    pub(crate) typed_bond_counts: SmallVec<[(u16, u16); 24]>,
+    pub(crate) atom_count: usize,
+    pub(crate) bond_count: usize,
+}
+
+pub(crate) fn element_inventory_from_molecule(mol: &Molecule) -> MoleculeInventory {
+    let mut counts = [0u16; 64];
+    let mut aromatic_counts = [0u16; 64];
+    let mut aliphatic_counts = [0u16; 64];
+    let mask = mol.atoms().fold(0u64, |mask, (atom_idx, _)| {
+        let atom = mol.atom(atom_idx);
+        let atomic_number = atom.element.atomic_number() as usize;
+        if atomic_number < counts.len() {
+            counts[atomic_number] = counts[atomic_number].saturating_add(1);
+            let class_counts = if atom.aromatic {
+                &mut aromatic_counts
+            } else {
+                &mut aliphatic_counts
+            };
+            class_counts[atomic_number] = class_counts[atomic_number].saturating_add(1);
+            mask | (1u64 << atomic_number)
+        } else {
+            mask
+        }
+    });
+    // Typical drug-like targets have only a few dozen distinct bond
+    // signatures. Collect keys inline, then sort/run-length encode them;
+    // this avoids constructing and hashing two maps for every expanded
+    // molecule while producing the same sorted lookup representation.
+    let mut bond_keys: SmallVec<[u16; 64]> = SmallVec::new();
+    let mut typed_bond_keys: SmallVec<[u16; 64]> = SmallVec::new();
+    for (_, bond) in mol.bonds() {
+        let a = mol.atom(bond.atom1).element.atomic_number();
+        let b = mol.atom(bond.atom2).element.atomic_number();
+        if a < 64 && b < 64 {
+            let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
+            let key = ((lo as u16) << 6) | hi as u16;
+            bond_keys.push(key);
+            if let Some(key) = crate::chem_env::typed_bond_count_key(a, b, bond.order) {
+                typed_bond_keys.push(key);
+            }
+        }
+    }
+    fn count_sorted(mut keys: SmallVec<[u16; 64]>) -> SmallVec<[(u16, u16); 24]> {
+        keys.sort_unstable();
+        let mut counts: SmallVec<[(u16, u16); 24]> = SmallVec::new();
+        for key in keys {
+            if let Some((last_key, count)) = counts.last_mut()
+                && *last_key == key
+            {
+                *count = count.saturating_add(1);
+            } else {
+                counts.push((key, 1));
+            }
+        }
+        counts
+    }
+    let bond_counts = count_sorted(bond_keys);
+    let typed_bond_counts = count_sorted(typed_bond_keys);
+    MoleculeInventory {
+        element_mask: mask,
+        element_counts: counts,
+        aromatic_element_counts: aromatic_counts,
+        aliphatic_element_counts: aliphatic_counts,
+        bond_counts,
+        typed_bond_counts,
+        atom_count: mol.atom_count(),
+        bond_count: mol.bonds().count(),
+    }
+}
+
 /// Hash the sorted frontier SMILES into a u64 for closed-set deduplication.
 /// Avoids String allocation per node vs. the former join-based state_key.
 /// Collision probability is 2^-64 per node pair — negligible in practice.
@@ -917,11 +1002,11 @@ fn state_hash(frontier: &[FEntry]) -> u64 {
 
 /// Stock-membership lookup memoized for one search run.
 ///
-/// Generated frontier entries are already canonical, but entries that miss
-/// the direct set lookup still need the comparatively expensive shared-policy
-/// parse/standardize fallback. The same intermediate is commonly inspected
-/// by the frontier scan, heuristic, and forbidden-element filter, so memoize
-/// only those fallback results. Direct stock hits remain allocation-free.
+/// Every generated frontier entry is already standardized and canonicalized
+/// with the stock-identity policy. The one externally supplied root entry is
+/// inserted into `cache` from its parsed molecule before search starts. A
+/// direct set miss can therefore be cached as `false` without reparsing and
+/// restandardizing the same canonical SMILES on the hot path.
 fn is_bb_cached(smiles: &str, env: &ChemEnv, cache: &mut FxHashMap<String, bool>) -> bool {
     if env.is_building_block_smiles(smiles) {
         return true;
@@ -929,11 +1014,8 @@ fn is_bb_cached(smiles: &str, env: &ChemEnv, cache: &mut FxHashMap<String, bool>
     if let Some(&cached) = cache.get(smiles) {
         return cached;
     }
-    let result = canonical_stock_identity_from_smiles(smiles)
-        .map(|canon| env.is_building_block_smiles(&canon))
-        .unwrap_or(false);
-    cache.insert(smiles.to_owned(), result);
-    result
+    cache.insert(smiles.to_owned(), false);
+    false
 }
 
 /// Pluggable molecule value estimator for the A* heuristic (Retro*-style).
@@ -943,6 +1025,61 @@ fn is_bb_cached(smiles: &str, env: &ChemEnv, cache: &mut FxHashMap<String, bool>
 /// value function without changing the search algorithm.
 pub trait MoleculeValueEstimator: Send + Sync {
     fn estimate_cost(&self, smiles: &str) -> f64;
+
+    /// Fail-closed boundary for model-backed estimators. Non-finite and
+    /// negative outputs are treated as abstention so one bad model response
+    /// cannot poison A* ordering or its resource behaviour. Implementations
+    /// that need richer abstention/resource diagnostics can override this
+    /// method while keeping the legacy scalar method intact.
+    fn estimate_cost_checked(&self, smiles: &str) -> Option<f64> {
+        let value = self.estimate_cost(smiles);
+        (value.is_finite() && value >= 0.0).then_some(value)
+    }
+}
+
+/// Structured value-model result. `confidence` and `abstained` are metadata
+/// for future calibration/OOD gates; the search consumes only `value` after
+/// the fail-closed checks in [`MoleculeValueEstimator::estimate_cost_checked`].
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, serde::Deserialize)]
+pub struct ValueEstimate {
+    pub value: f64,
+    pub confidence: Option<f64>,
+    pub abstained: bool,
+}
+
+/// Structured learned-value boundary. Models must estimate remaining search
+/// cost, not route success; route validation remains outside this interface.
+pub trait ValueModel: Send + Sync {
+    fn estimate(&self, smiles: &str) -> ValueEstimate;
+}
+
+/// Adapter that lets a structured [`ValueModel`] use the existing A* value
+/// estimator slot. Abstention and invalid confidence become a non-finite
+/// scalar, which the checked estimator path rejects and replaces with the
+/// safe SA heuristic.
+pub struct ValueModelEstimatorAdapter {
+    model: std::sync::Arc<dyn ValueModel>,
+}
+
+impl ValueModelEstimatorAdapter {
+    pub fn new(model: std::sync::Arc<dyn ValueModel>) -> Self {
+        Self { model }
+    }
+}
+
+impl MoleculeValueEstimator for ValueModelEstimatorAdapter {
+    fn estimate_cost(&self, smiles: &str) -> f64 {
+        let estimate = self.model.estimate(smiles);
+        if estimate.abstained
+            || estimate.confidence.is_some_and(|confidence| {
+                !confidence.is_finite() || !(0.0..=1.0).contains(&confidence)
+            })
+        {
+            f64::NAN
+        } else {
+            estimate.value
+        }
+    }
 }
 
 /// Default estimator: SA Score-based heuristic (h ∈ [1.0, 1.5] per unsolved molecule).
@@ -965,6 +1102,188 @@ impl MoleculeValueEstimator for SaScoreEstimator {
 /// The default implementation (`FrequencyPrior`) uses log-frequency from training data.
 pub trait ReactionPrior: Send + Sync {
     fn prior(&self, template_name: &str, target_smiles: &str) -> f64;
+
+    /// ID-aware extension point. The default delegates to the legacy
+    /// name-based method so existing callers and custom priors keep their
+    /// exact behavior. Model-backed adapters should override this method to
+    /// avoid ambiguity when rule names are not unique.
+    fn prior_for_template(
+        &self,
+        template_id: &str,
+        template_name: &str,
+        target_smiles: &str,
+    ) -> f64 {
+        let _ = template_id;
+        self.prior(template_name, target_smiles)
+    }
+}
+
+/// Stable, model-facing description of one template. The model adapter sees
+/// IDs and names only; it never receives mutable search state or molecule
+/// objects that would couple the adapter to the search implementation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TemplateInfo {
+    pub template_id: String,
+    pub template_name: String,
+}
+
+/// One model relevance output. Higher scores mean that a template should be
+/// tried earlier. The adapter normalizes valid scores into RENKIN's existing
+/// `[0.0, 0.2]` prior bonus range.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TemplatePolicyScore {
+    pub template_id: String,
+    pub score: f64,
+}
+
+/// Ordering-only decision returned by a template policy.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TemplatePolicyDecision {
+    pub scores: Vec<TemplatePolicyScore>,
+    pub abstained: bool,
+}
+
+/// Pluggable template-ranking boundary for learned policies.
+///
+/// Implementations must not add or remove candidates. A policy may return a
+/// partial decision or abstain; the adapter then uses the configured
+/// fallback prior for missing/invalid outputs.
+pub trait TemplatePolicy: Send + Sync {
+    fn rank_templates(&self, target: &str, templates: &[TemplateInfo]) -> TemplatePolicyDecision;
+}
+
+/// Bridges a [`TemplatePolicy`] into the existing [`ReactionPrior`] seam.
+///
+/// Decisions are cached per target, so a model is called at most once for a
+/// target during a search. The fallback remains active for abstentions,
+/// unknown IDs, duplicate IDs, and non-finite scores. This is intentionally
+/// ordering-only: candidate generation, validation, stock checks, and route
+/// selection stay in the existing pipeline.
+pub struct TemplatePolicyPrior {
+    policy: std::sync::Arc<dyn TemplatePolicy>,
+    templates: Vec<TemplateInfo>,
+    fallback: FrequencyPrior,
+    /// 1.0 keeps model-only ordering; 0.0 keeps legacy frequency ordering.
+    model_weight: f64,
+    cache:
+        std::sync::Mutex<std::collections::HashMap<String, std::collections::HashMap<String, f64>>>,
+}
+
+impl TemplatePolicyPrior {
+    pub fn new(policy: std::sync::Arc<dyn TemplatePolicy>, rules: &[RetroRule]) -> Self {
+        Self::with_model_weight(policy, rules, 1.0)
+    }
+
+    pub fn with_model_weight(
+        policy: std::sync::Arc<dyn TemplatePolicy>,
+        rules: &[RetroRule],
+        model_weight: f64,
+    ) -> Self {
+        Self {
+            policy,
+            templates: rules
+                .iter()
+                .map(|rule| TemplateInfo {
+                    template_id: rule.template_id.clone(),
+                    template_name: rule.name.clone(),
+                })
+                .collect(),
+            fallback: FrequencyPrior::from_rules(rules),
+            model_weight: model_weight.clamp(0.0, 1.0),
+            cache: std::sync::Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
+    fn blended_bonus(
+        &self,
+        template_name: &str,
+        target_smiles: &str,
+        score: Option<f64>,
+        scores: &std::collections::HashMap<String, f64>,
+    ) -> f64 {
+        let Some(score) = score else {
+            return self.fallback.prior(template_name, target_smiles);
+        };
+        let max_score = scores.values().copied().fold(f64::NEG_INFINITY, f64::max);
+        let min_score = scores.values().copied().fold(f64::INFINITY, f64::min);
+        let normalized = if max_score > min_score {
+            (score - min_score) / (max_score - min_score)
+        } else {
+            0.0
+        };
+        let model_bonus = (normalized * 0.2).clamp(0.0, 0.2);
+        let fallback_bonus = self.fallback.prior(template_name, target_smiles);
+        (self.model_weight * model_bonus + (1.0 - self.model_weight) * fallback_bonus)
+            .clamp(0.0, 0.2)
+    }
+
+    fn scores_for(&self, target: &str) -> std::collections::HashMap<String, f64> {
+        // Cache equivalent SMILES under the same standardized canonical key;
+        // formatting differences must not trigger duplicate model calls.
+        let cache_key =
+            canonical_stock_identity_from_smiles(target).unwrap_or_else(|_| target.to_owned());
+        if let Ok(cache) = self.cache.lock()
+            && let Some(scores) = cache.get(&cache_key)
+        {
+            return scores.clone();
+        }
+        let decision = self.policy.rank_templates(target, &self.templates);
+        let known: std::collections::HashSet<&str> = self
+            .templates
+            .iter()
+            .map(|template| template.template_id.as_str())
+            .collect();
+        let mut scores = std::collections::HashMap::new();
+        for score in decision.scores {
+            if !decision.abstained
+                && known.contains(score.template_id.as_str())
+                && score.score.is_finite()
+            {
+                scores
+                    .entry(score.template_id)
+                    .and_modify(|current| *current = f64::max(*current, score.score))
+                    .or_insert(score.score);
+            }
+        }
+        if let Ok(mut cache) = self.cache.lock() {
+            cache.insert(cache_key, scores.clone());
+        }
+        scores
+    }
+}
+
+impl ReactionPrior for TemplatePolicyPrior {
+    fn prior(&self, template_name: &str, target_smiles: &str) -> f64 {
+        let Some(template) = self
+            .templates
+            .iter()
+            .find(|template| template.template_name == template_name)
+        else {
+            return self.fallback.prior(template_name, target_smiles);
+        };
+        let scores = self.scores_for(target_smiles);
+        self.blended_bonus(
+            template_name,
+            target_smiles,
+            scores.get(&template.template_id).copied(),
+            &scores,
+        )
+    }
+
+    fn prior_for_template(
+        &self,
+        template_id: &str,
+        template_name: &str,
+        target_smiles: &str,
+    ) -> f64 {
+        let scores = self.scores_for(target_smiles);
+        self.blended_bonus(
+            template_name,
+            target_smiles,
+            scores.get(template_id).copied(),
+            &scores,
+        )
+    }
 }
 
 /// Default prior: log-frequency weight from USPTO training data (same as pre-v0.9 behavior).
@@ -994,6 +1313,39 @@ impl ReactionPrior for FrequencyPrior {
     }
 }
 
+fn accumulate_h<'a>(
+    entries: impl Iterator<Item = (&'a str, &'a Molecule)>,
+    initial: f64,
+    env: &ChemEnv,
+    sa_cache: &mut FxHashMap<String, f64>,
+    bb_cache: &mut FxHashMap<String, bool>,
+    estimator: Option<&std::sync::Arc<dyn MoleculeValueEstimator>>,
+) -> f64 {
+    let mut total = initial;
+    for (smiles, molecule) in entries {
+        if is_bb_cached(smiles, env, bb_cache) {
+            continue;
+        }
+        let value = if let Some(est) = estimator
+            && let Some(value) = est.estimate_cost_checked(smiles)
+        {
+            value
+        } else {
+            // Default: SA Score (cached)
+            let score = if let Some(&score) = sa_cache.get(smiles) {
+                score
+            } else {
+                let score = sa_score(molecule).clamp(1.0, 10.0);
+                sa_cache.insert(smiles.to_owned(), score);
+                score
+            };
+            1.0 + 0.5 * (score - 1.0) / 9.0
+        };
+        total += value;
+    }
+    total
+}
+
 fn compute_h(
     frontier: &[FEntry],
     env: &ChemEnv,
@@ -1001,22 +1353,68 @@ fn compute_h(
     bb_cache: &mut FxHashMap<String, bool>,
     estimator: Option<&std::sync::Arc<dyn MoleculeValueEstimator>>,
 ) -> f64 {
-    frontier
+    accumulate_h(
+        frontier
+            .iter()
+            .map(|entry| (entry.smiles.as_ref(), entry.mol.as_ref())),
+        0.0,
+        env,
+        sa_cache,
+        bb_cache,
+        estimator,
+    )
+}
+
+/// Precompute expensive default SA scores in parallel before the serial child
+/// materialization loop. The loop otherwise discovers new precursor molecules
+/// one at a time and runs ring perception on the main thread, even though each
+/// molecule's score is independent. Stock checks remain serial and use the
+/// same cache as [`compute_h`]; only genuinely unseen, non-stock molecules are
+/// submitted to Rayon.
+///
+/// Small batches stay on the established on-demand path because Rayon setup
+/// costs more than it saves there. Timed searches and custom value estimators
+/// deliberately do not call this helper: eager batch work would weaken their
+/// cancellation/call-count contracts.
+#[cfg(not(target_arch = "wasm32"))]
+fn precompute_default_sa_scores(
+    entries: &[RetroEntry],
+    molecule_cache: &FxHashMap<Arc<str>, Arc<Molecule>>,
+    env: &ChemEnv,
+    sa_cache: &mut FxHashMap<String, f64>,
+    bb_cache: &mut FxHashMap<String, bool>,
+) {
+    const PARALLEL_SA_THRESHOLD: usize = 8;
+
+    let mut seen: FxHashSet<&str> = FxHashSet::default();
+    let mut pending: Vec<(Arc<str>, Arc<Molecule>)> = Vec::new();
+    for smiles in entries
         .iter()
-        .filter(|e| !is_bb_cached(&e.smiles, env, bb_cache))
-        .map(|e| {
-            if let Some(est) = estimator {
-                return est.estimate_cost(&e.smiles);
-            }
-            // Default: SA Score (cached)
-            if let Some(&v) = sa_cache.get(e.smiles.as_ref()) {
-                return 1.0 + 0.5 * (v - 1.0) / 9.0;
-            }
-            let v = sa_score(&e.mol).clamp(1.0, 10.0);
-            sa_cache.insert(e.smiles.to_string(), v);
-            1.0 + 0.5 * (v - 1.0) / 9.0
-        })
-        .sum()
+        .flat_map(|entry| entry.precursor_smiles.iter())
+    {
+        let smiles_ref = smiles.as_ref();
+        if !seen.insert(smiles_ref)
+            || sa_cache.contains_key(smiles_ref)
+            || is_bb_cached(smiles_ref, env, bb_cache)
+        {
+            continue;
+        }
+        let molecule = molecule_cache
+            .get(smiles)
+            .expect("every generated precursor must be interned before SA precomputation");
+        pending.push((Arc::clone(smiles), Arc::clone(molecule)));
+    }
+    if pending.len() < PARALLEL_SA_THRESHOLD {
+        return;
+    }
+
+    let scores: Vec<(Arc<str>, f64)> = pending
+        .par_iter()
+        .map(|(smiles, molecule)| (Arc::clone(smiles), sa_score(molecule).clamp(1.0, 10.0)))
+        .collect();
+    for (smiles, score) in scores {
+        sa_cache.insert(smiles.to_string(), score);
+    }
 }
 
 /// Classify a rule name into a human-readable reaction family.
@@ -1281,6 +1679,65 @@ fn node_score_cmp(a: &Node, b: &Node) -> std::cmp::Ordering {
         .unwrap_or(std::cmp::Ordering::Equal)
 }
 
+/// Convert checked direct-generator output into the same lightweight
+/// expansion representation used by native rules. This is deliberately a
+/// separate helper: generator transport/SMILES validation happens at the
+/// adapter boundary, while frontier insertion remains subject to the normal
+/// deduplication, heuristic, stock, and completed-route integrity checks.
+fn direct_generator_entries(
+    generator: &dyn RetroGenerator,
+    target: &str,
+    depth: u32,
+    molecule_cache: &mut FxHashMap<Arc<str>, Arc<Molecule>>,
+) -> Vec<RetroEntry> {
+    let context = RetroGenerationContext {
+        depth,
+        max_proposals: MAX_DIRECT_GENERATOR_PROPOSALS,
+    };
+    let Ok(decision) = generator.propose_checked(target, &context) else {
+        return Vec::new();
+    };
+    decision
+        .proposals
+        .into_iter()
+        .filter_map(|proposal| {
+            let mut precursors = Vec::with_capacity(proposal.precursors.len());
+            for smiles in proposal.precursors {
+                let mol = mol_from_smiles(&smiles).ok()?;
+                let mol = standardize(&mol, &crate::chem_env::STANDARDIZE_OPTS);
+                let canonical = to_canonical(&mol);
+                if canonical == target {
+                    return None;
+                }
+                precursors.push(crate::chem_env::PrecursorMol {
+                    smiles: canonical,
+                    mol,
+                });
+            }
+            let step_cost = step_cost_iter(precursors.iter().map(|p| &p.mol));
+            let precursor_smiles = precursors
+                .into_iter()
+                .map(|precursor| {
+                    let smiles = Arc::<str>::from(precursor.smiles);
+                    molecule_cache
+                        .entry(Arc::clone(&smiles))
+                        .or_insert_with(|| Arc::new(precursor.mol));
+                    smiles
+                })
+                .collect();
+            Some(RetroEntry {
+                rule_name: "direct_generator".to_owned(),
+                template_id: format!(
+                    "generator:{}:{}",
+                    proposal.provenance.generator_id, proposal.candidate_id
+                ),
+                step_cost,
+                precursor_smiles,
+            })
+        })
+        .collect()
+}
+
 /// Returns `(eviction_stats, trace_ranks, diversity_stats)`.
 /// `eviction_stats` is `Some((evicted_count, evicted_f_min, evicted_f_max,
 /// boundary_f))` when a truncation actually happened (diagnostics-only
@@ -1417,6 +1874,12 @@ pub enum BeamDiversityPolicy {
     /// Actually reserves `diversity_slots` beam slots for family diversity
     /// (design doc §6).
     Active,
+    /// Reserves a small number of slots only when the pure score beam is
+    /// concentrated in too few families and alternatives are available.
+    /// The requested `diversity_slots` acts as an upper bound; this keeps the
+    /// opt-in policy from paying the full reservation cost on uncongested
+    /// frontiers.
+    Adaptive,
 }
 
 /// See [`BeamDiversityPolicy::Active`]. `families_rescued_by_reservation`
@@ -1486,7 +1949,12 @@ fn select_beam_survivors(
     let mut off_survivors = sorted.clone();
     off_survivors.truncate(beam_width);
 
-    let diversity_slots = diversity_slots.min(beam_width);
+    let diversity_slots = match policy {
+        BeamDiversityPolicy::Adaptive => {
+            adaptive_diversity_slots(&sorted, beam_width, diversity_slots)
+        }
+        _ => diversity_slots.min(beam_width),
+    };
     let score_slots = beam_width - diversity_slots;
     let remainder = if sorted.len() <= score_slots {
         Vec::new()
@@ -1543,7 +2011,40 @@ fn select_beam_survivors(
             survivors.extend(score_backfill.into_iter().take(unfilled));
             (survivors, stats)
         }
+        BeamDiversityPolicy::Adaptive => {
+            let mut survivors = score_selected;
+            survivors.extend(diversity_selected);
+            let unfilled = beam_width.saturating_sub(survivors.len());
+            survivors.extend(score_backfill.into_iter().take(unfilled));
+            (survivors, stats)
+        }
     }
+}
+
+/// Selects adaptive reservation capacity from the current frontier. A
+/// reservation is useful only when the pure top-beam is concentrated in one
+/// or a few families while lower-scoring alternatives exist. The cap is
+/// conservative (at most 20% of the beam, and never above the caller's
+/// requested slot limit) so the policy remains a bounded opt-in experiment.
+fn adaptive_diversity_slots(nodes: &[Node], beam_width: usize, requested: usize) -> usize {
+    if requested == 0 || beam_width == 0 || nodes.len() <= beam_width {
+        return 0;
+    }
+    let pure = &nodes[..beam_width];
+    let top_families: std::collections::HashSet<&str> = pure
+        .iter()
+        .filter_map(|node| node.family_key.as_deref())
+        .collect();
+    let all_families: std::collections::HashSet<&str> = nodes
+        .iter()
+        .filter_map(|node| node.family_key.as_deref())
+        .collect();
+    let missing = all_families.len().saturating_sub(top_families.len());
+    if missing == 0 || top_families.len() >= 4 {
+        return 0;
+    }
+    let cap = (beam_width / 5).max(1).min(beam_width);
+    requested.min(cap).min(missing)
 }
 
 /// Issue #101 / Phase 1B accounting for one node's expansion:
@@ -1561,14 +2062,14 @@ fn dedup_counts(entries: &[RetroEntry]) -> (u64, u64, u64) {
     let mut cross_template_duplicates = 0u64;
     // Keyed by (template_id, sorted precursor signature): collapses only
     // exact same-template repeats.
-    let mut seen_same_template: FxHashSet<(&str, Vec<String>)> = FxHashSet::default();
+    let mut seen_same_template: FxHashSet<(&str, SmallVec<[&str; 4]>)> = FxHashSet::default();
     // Keyed by sorted precursor signature alone: collapses regardless of template.
-    let mut seen_cross_template: FxHashMap<Vec<String>, &str> = FxHashMap::default();
+    let mut seen_cross_template: FxHashMap<SmallVec<[&str; 4]>, &str> = FxHashMap::default();
     for e in entries {
-        let mut sig: Vec<String> = e
+        let mut sig: SmallVec<[&str; 4]> = e
             .precursor_smiles
             .iter()
-            .map(|precursor| precursor.to_string())
+            .map(|precursor| precursor.as_ref())
             .collect();
         sig.sort_unstable();
         seen_same_template.insert((e.template_id.as_str(), sig.clone()));
@@ -1603,6 +2104,19 @@ fn insert_same_template_signature<'a>(
         .collect();
     signature.sort_unstable();
     seen.insert((entry.template_id.as_str(), signature))
+}
+
+fn insert_cross_template_signature<'a>(
+    seen: &mut FxHashSet<SmallVec<[&'a str; 4]>>,
+    entry: &'a RetroEntry,
+) -> bool {
+    let mut signature: SmallVec<[&str; 4]> = entry
+        .precursor_smiles
+        .iter()
+        .map(|smiles| smiles.as_ref())
+        .collect();
+    signature.sort_unstable();
+    seen.insert(signature)
 }
 
 /// Issue #101 Task 35 runtime integration: score one expansion's raw
@@ -1703,6 +2217,10 @@ pub struct SearchConfig {
     /// Custom reaction prior for template scoring.
     /// None = use `FrequencyPrior` (log-frequency weighting, same as pre-v0.9 behaviour).
     pub reaction_prior: Option<std::sync::Arc<dyn ReactionPrior>>,
+    /// Optional direct precursor generator. Its checked proposals are merged
+    /// into the normal frontier only when this is explicitly configured;
+    /// native rule proposals, validation, and stock semantics remain intact.
+    pub retro_generator: Option<std::sync::Arc<dyn RetroGenerator>>,
     /// Optional template metadata sidecar (`--template-metadata` / Python
     /// `template_metadata_path`), keyed by `RetroRule::template_id`. When Some,
     /// matching steps get `evidence` populated in post-processing; unmatched
@@ -1823,6 +2341,9 @@ pub struct SearchConfig {
     /// `beam_width` inside `select_beam_survivors` -- never panics if set
     /// larger.
     pub beam_diversity_slots: usize,
+    /// Opt-in same-parent cross-template deduplication. Default false
+    /// preserves provenance-rich historical behavior.
+    pub cross_template_dedup: bool,
 }
 
 impl Default for SearchConfig {
@@ -1838,6 +2359,7 @@ impl Default for SearchConfig {
             bb_price_map: None,
             value_estimator: None,
             reaction_prior: None,
+            retro_generator: None,
             template_metadata: None,
             #[cfg(all(not(target_arch = "wasm32"), feature = "nn-scoring"))]
             nn_scorer: None,
@@ -1849,6 +2371,7 @@ impl Default for SearchConfig {
             element_accounting_policy: ElementAccountingGatePolicy::Off,
             beam_diversity_policy: BeamDiversityPolicy::Off,
             beam_diversity_slots: 0,
+            cross_template_dedup: false,
         }
     }
 }
@@ -2322,6 +2845,11 @@ pub(crate) fn find_routes_with_control_prepared(
     let mut heap: BinaryHeap<Node> = BinaryHeap::new();
     let mut sa_cache: FxHashMap<String, f64> = FxHashMap::default();
     let mut bb_cache: FxHashMap<String, bool> = FxHashMap::default();
+    // The root comes from external text and may be canonical but not yet
+    // standardized according to the stock identity policy. Resolve it once
+    // from the already-parsed molecule; every generated descendant is
+    // standardized before it enters the frontier.
+    bb_cache.insert(target_canonical.clone(), env.is_building_block(&target_mol));
     let target_smiles_arc: Arc<str> = Arc::from(target_canonical.as_str());
     let target_mol_arc = Arc::new(target_mol);
     let mut molecule_cache: FxHashMap<Arc<str>, Arc<Molecule>> = FxHashMap::default();
@@ -2437,14 +2965,18 @@ pub(crate) fn find_routes_with_control_prepared(
         let Some(target_entry) = first_unsolved.or_else(|| node.frontier.first()) else {
             continue;
         };
-        let target_smi = target_entry.smiles.to_string();
+        // FEntry already stores canonical SMILES. Borrow it through the hot
+        // frontier loop; allocating an owned String here on every popped node
+        // was unnecessary, especially on retro-cache hits. Clone only at the
+        // cache insertion and route/path fields that actually require owned data.
+        let target_smi = target_entry.smiles.as_ref();
         let target_mol = Arc::clone(&target_entry.mol);
 
         // Opt-D: look up the memoized expansion for this target molecule.
         // On cache miss: run apply_retro in parallel (native) / sequential (WASM),
         // filter invalid results, precompute net step cost, and store.
         // On cache hit: O(1) Arc::clone — no Vec data is copied.
-        let expansions: Arc<Vec<RetroEntry>> = if let Some(cached) = retro_cache.get(&target_smi) {
+        let expansions: Arc<Vec<RetroEntry>> = if let Some(cached) = retro_cache.get(target_smi) {
             retro_cache_hits += 1;
             Arc::clone(cached) // O(1): pointer copy only, no Vec clone
         } else {
@@ -2472,7 +3004,7 @@ pub(crate) fn find_routes_with_control_prepared(
                     .filter_map(|i| rules.get(i))
                     .collect();
                 &retrieved
-            } else if let Some(v) = nn_rank(config, rules, &target_smi) {
+            } else if let Some(v) = nn_rank(config, rules, target_smi) {
                 per_node = v;
                 &per_node
             } else {
@@ -2510,7 +3042,7 @@ pub(crate) fn find_routes_with_control_prepared(
                 step_element_accounting_gated_out,
             ) = crate::candidate::raw_propose(
                 &target_mol,
-                &target_smi,
+                target_smi,
                 &scored_active_rules,
                 Some(prepared_rules),
                 crate::ring_context::RingContextArgs {
@@ -2537,7 +3069,7 @@ pub(crate) fn find_routes_with_control_prepared(
                 if let Some(reranker) = active_reranker {
                     match reranker_rank_bonuses(
                         reranker,
-                        &target_smi,
+                        target_smi,
                         &target_mol,
                         &raw_proposals,
                         &templates_by_id,
@@ -2557,7 +3089,7 @@ pub(crate) fn find_routes_with_control_prepared(
                     None
                 };
 
-            let entries: Vec<RetroEntry> = raw_proposals
+            let mut entries: Vec<RetroEntry> = raw_proposals
                 .into_iter()
                 .map(|p| {
                     let bonus = if let Some(ref map) = reranker_bonus_by_id {
@@ -2576,7 +3108,7 @@ pub(crate) fn find_routes_with_control_prepared(
                         // indistinguishable from a legitimate worst-rank
                         // bonus (rank_bonus(count-1, count) == 0.0), so
                         // fail loudly instead of masking it.
-                        *map.get(&crate::candidate::candidate_id_for(&target_smi, &key))
+                        *map.get(&crate::candidate::candidate_id_for(target_smi, &key))
                             .unwrap_or_else(|| {
                                 panic!(
                                     "candidate_id for proposal (rule {:?}, precursors {:?}) \
@@ -2587,13 +3119,11 @@ pub(crate) fn find_routes_with_control_prepared(
                                 )
                             })
                     } else if let Some(ref prior) = config.reaction_prior {
-                        prior.prior(&p.rule_name, &target_smi)
+                        prior.prior_for_template(&p.template_id, &p.rule_name, target_smi)
                     } else {
                         template_bonus(p.rule_weight, max_rule_weight)
                     };
-                    let step_c =
-                        step_cost(&p.precursors.iter().map(|pm| &pm.mol).collect::<Vec<_>>())
-                            - bonus;
+                    let step_c = step_cost_iter(p.precursors.iter().map(|pm| &pm.mol)) - bonus;
                     let mut precursor_smiles = Vec::with_capacity(p.precursors.len());
                     for precursor in p.precursors {
                         let smiles: Arc<str> = Arc::from(precursor.smiles);
@@ -2611,6 +3141,39 @@ pub(crate) fn find_routes_with_control_prepared(
                 })
                 .collect();
 
+            // Default unlimited native searches can score the independent
+            // unseen precursor molecules concurrently. This leaves every
+            // score and the later frontier-order summation unchanged; it only
+            // moves the expensive molecule-local SA/ring work off the serial
+            // child loop. Timed searches retain their per-candidate
+            // cancellation cadence, and custom estimators retain their
+            // historical call behavior.
+            #[cfg(not(target_arch = "wasm32"))]
+            if config.value_estimator.is_none()
+                && config.forbidden_elements == 0
+                && control.deadline.is_none()
+            {
+                precompute_default_sa_scores(
+                    &entries,
+                    &molecule_cache,
+                    env,
+                    &mut sa_cache,
+                    &mut bb_cache,
+                );
+            }
+
+            // Optional direct-generator arm. It augments, rather than
+            // replaces, native rule proposals so an external model cannot
+            // silently narrow RENKIN's established candidate space.
+            if let Some(generator) = config.retro_generator.as_deref() {
+                entries.extend(direct_generator_entries(
+                    generator,
+                    target_smi,
+                    node.depth,
+                    &mut molecule_cache,
+                ));
+            }
+
             // Account for duplicate outcomes before the child loop. Exact
             // repeats from one template are skipped there before heuristic,
             // path, and heap work; cross-template collisions remain intact so
@@ -2622,7 +3185,7 @@ pub(crate) fn find_routes_with_control_prepared(
             crowd_out.candidates_after_cross_template_dedup += after_cross_template;
 
             let arc = Arc::new(entries);
-            retro_cache.insert(target_smi.clone(), Arc::clone(&arc));
+            retro_cache.insert(target_smi.to_owned(), Arc::clone(&arc));
             #[cfg(not(target_arch = "wasm32"))]
             if let Some(t0) = expansion_t0 {
                 crowd_out.retro_expansion_wall_time_us += t0.elapsed().as_micros() as u64;
@@ -2649,7 +3212,30 @@ pub(crate) fn find_routes_with_control_prepared(
             depth_entry.children_produced += expansions.len() as u64;
         }
 
+        // Every child keeps the same parent-frontier entries except the
+        // molecule being expanded. Their heuristic contribution is therefore
+        // invariant across this whole expansion batch. Compute that prefix
+        // once, then continue the exact same left-to-right floating-point fold
+        // over each child's appended precursors. Custom estimators retain the
+        // historical full-frontier call behavior because they may be stateful.
+        let retained_default_h = if config.value_estimator.is_none() {
+            Some(accumulate_h(
+                node.frontier
+                    .iter()
+                    .filter(|entry| entry.smiles.as_ref() != target_smi)
+                    .map(|entry| (entry.smiles.as_ref(), entry.mol.as_ref())),
+                0.0,
+                env,
+                &mut sa_cache,
+                &mut bb_cache,
+                None,
+            ))
+        } else {
+            None
+        };
+
         let mut seen_same_template: FxHashSet<(&str, SmallVec<[&str; 4]>)> = FxHashSet::default();
+        let mut seen_cross_template: FxHashSet<SmallVec<[&str; 4]>> = FxHashSet::default();
         for (entry_index, entry) in expansions.iter().enumerate() {
             // Checkpoint 3/3 (per child, before its heavier processing):
             // `expansions` can hold thousands of raw proposals at high
@@ -2668,6 +3254,11 @@ pub(crate) fn find_routes_with_control_prepared(
             }
 
             if !insert_same_template_signature(&mut seen_same_template, entry) {
+                continue;
+            }
+            if config.cross_template_dedup
+                && !insert_cross_template_signature(&mut seen_cross_template, entry)
+            {
                 continue;
             }
 
@@ -2689,7 +3280,7 @@ pub(crate) fn find_routes_with_control_prepared(
             let new_frontier: SmallVec<[FEntry; 6]> = node
                 .frontier
                 .iter()
-                .filter(|e| e.smiles.as_ref() != target_smi.as_str())
+                .filter(|e| e.smiles.as_ref() != target_smi)
                 .cloned()
                 .chain(entry.precursor_smiles.iter().map(|smiles| {
                     FEntry {
@@ -2703,13 +3294,29 @@ pub(crate) fn find_routes_with_control_prepared(
                 }))
                 .collect();
 
-            let new_h = compute_h(
-                &new_frontier,
-                env,
-                &mut sa_cache,
-                &mut bb_cache,
-                config.value_estimator.as_ref(),
-            );
+            let new_h = if let Some(retained_h) = retained_default_h {
+                accumulate_h(
+                    entry.precursor_smiles.iter().map(|smiles| {
+                        let molecule = molecule_cache
+                            .get(smiles)
+                            .expect("every generated precursor must be interned");
+                        (smiles.as_ref(), molecule.as_ref())
+                    }),
+                    retained_h,
+                    env,
+                    &mut sa_cache,
+                    &mut bb_cache,
+                    None,
+                )
+            } else {
+                compute_h(
+                    &new_frontier,
+                    env,
+                    &mut sa_cache,
+                    &mut bb_cache,
+                    config.value_estimator.as_ref(),
+                )
+            };
 
             // Retain only a compact reference to the proposal here. Most
             // children are later evicted by the beam, so materializing their
@@ -2717,7 +3324,7 @@ pub(crate) fn find_routes_with_control_prepared(
             // at push time is wasted work. `collect_path` builds steps only
             // for nodes that actually reach stock.
             let new_path = Some(Arc::new(PathNode {
-                target: target_smi.clone(),
+                target: target_smi.to_owned(),
                 expansions: Arc::clone(&expansions),
                 entry_index,
                 prev: node.path.clone(),
@@ -2744,7 +3351,7 @@ pub(crate) fn find_routes_with_control_prepared(
                 let id = crowd_out.candidate_trace.len() as u64;
                 crowd_out.candidate_trace.push(CandidateTraceRecord {
                     depth: node.depth + 1,
-                    parent_smiles: target_smi.clone(),
+                    parent_smiles: target_smi.to_owned(),
                     template_id: entry.template_id.clone(),
                     rule_name: entry.rule_name.clone(),
                     provenance: classify_provenance(&entry.template_id, smirks),
@@ -2988,6 +3595,186 @@ mod tests {
             max_routes: 5,
             beam_width: 0,
             ..Default::default()
+        }
+    }
+
+    #[test]
+    fn invalid_value_estimate_abstains_to_safe_default() {
+        struct InvalidEstimator;
+        impl MoleculeValueEstimator for InvalidEstimator {
+            fn estimate_cost(&self, _smiles: &str) -> f64 {
+                f64::NAN
+            }
+        }
+
+        let env = ChemEnv::in_memory(&["CC"]);
+        let molecule = mol_from_smiles("CCO").unwrap();
+        let entry = FEntry {
+            smiles: Arc::from("CCO"),
+            mol: Arc::new(molecule),
+        };
+        let mut sa_cache = FxHashMap::default();
+        let mut bb_cache = FxHashMap::default();
+        let fallback = compute_h(&[entry], &env, &mut sa_cache, &mut bb_cache, None);
+        let mut sa_cache = FxHashMap::default();
+        let mut bb_cache = FxHashMap::default();
+        let estimator: Arc<dyn MoleculeValueEstimator> = Arc::new(InvalidEstimator);
+        let checked = compute_h(
+            &[FEntry {
+                smiles: Arc::from("CCO"),
+                mol: Arc::new(mol_from_smiles("CCO").unwrap()),
+            }],
+            &env,
+            &mut sa_cache,
+            &mut bb_cache,
+            Some(&estimator),
+        );
+        assert_eq!(checked, fallback);
+        assert!(checked.is_finite());
+        assert!(checked >= 0.0);
+    }
+
+    #[test]
+    fn incremental_default_heuristic_is_bit_exact_with_full_frontier_fold() {
+        let env = ChemEnv::in_memory(&["CC"]);
+        let make_entry = |smiles: &str| FEntry {
+            smiles: Arc::from(smiles),
+            mol: Arc::new(mol_from_smiles(smiles).unwrap()),
+        };
+        let retained = [make_entry("CCO"), make_entry("CC"), make_entry("CCC")];
+        let precursors = [make_entry("CCN"), make_entry("c1ccccc1")];
+        let full: Vec<FEntry> = retained.iter().chain(precursors.iter()).cloned().collect();
+
+        let mut full_sa_cache = FxHashMap::default();
+        let mut full_bb_cache = FxHashMap::default();
+        let full_h = compute_h(&full, &env, &mut full_sa_cache, &mut full_bb_cache, None);
+
+        let mut incremental_sa_cache = FxHashMap::default();
+        let mut incremental_bb_cache = FxHashMap::default();
+        let retained_h = accumulate_h(
+            retained
+                .iter()
+                .map(|entry| (entry.smiles.as_ref(), entry.mol.as_ref())),
+            0.0,
+            &env,
+            &mut incremental_sa_cache,
+            &mut incremental_bb_cache,
+            None,
+        );
+        let incremental_h = accumulate_h(
+            precursors
+                .iter()
+                .map(|entry| (entry.smiles.as_ref(), entry.mol.as_ref())),
+            retained_h,
+            &env,
+            &mut incremental_sa_cache,
+            &mut incremental_bb_cache,
+            None,
+        );
+
+        assert_eq!(incremental_h.to_bits(), full_h.to_bits());
+        assert_eq!(incremental_sa_cache, full_sa_cache);
+        assert_eq!(incremental_bb_cache, full_bb_cache);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn parallel_sa_precompute_matches_direct_scores_and_skips_stock() {
+        let env = ChemEnv::in_memory(&["CC"]);
+        let smiles = [
+            "CC", "CCO", "CCN", "CCC", "CCCC", "CCOC", "CCCl", "CC(=O)O", "c1ccccc1",
+        ];
+        let mut molecule_cache = FxHashMap::default();
+        let mut entries = Vec::new();
+        for (index, smiles) in smiles.iter().enumerate() {
+            let key: Arc<str> = Arc::from(*smiles);
+            molecule_cache.insert(Arc::clone(&key), Arc::new(mol_from_smiles(smiles).unwrap()));
+            entries.push(RetroEntry {
+                rule_name: format!("rule-{index}"),
+                template_id: format!("rule:{index}"),
+                step_cost: 1.0,
+                precursor_smiles: vec![key],
+            });
+        }
+
+        let mut sa_cache = FxHashMap::default();
+        let mut bb_cache = FxHashMap::default();
+        precompute_default_sa_scores(
+            &entries,
+            &molecule_cache,
+            &env,
+            &mut sa_cache,
+            &mut bb_cache,
+        );
+
+        assert!(
+            !sa_cache.contains_key("CC"),
+            "stock must not need an SA score"
+        );
+        for smiles in &smiles[1..] {
+            let expected = sa_score(molecule_cache.get(*smiles).unwrap()).clamp(1.0, 10.0);
+            assert_eq!(sa_cache.get(*smiles), Some(&expected));
+        }
+    }
+
+    #[test]
+    fn structured_value_model_adapter_preserves_valid_values_and_abstains() {
+        struct FixedModel {
+            estimate: ValueEstimate,
+        }
+        impl ValueModel for FixedModel {
+            fn estimate(&self, _smiles: &str) -> ValueEstimate {
+                self.estimate
+            }
+        }
+
+        let valid = ValueModelEstimatorAdapter::new(Arc::new(FixedModel {
+            estimate: ValueEstimate {
+                value: 2.5,
+                confidence: Some(0.9),
+                abstained: false,
+            },
+        }));
+        assert_eq!(valid.estimate_cost_checked("CCO"), Some(2.5));
+
+        let abstained = ValueModelEstimatorAdapter::new(Arc::new(FixedModel {
+            estimate: ValueEstimate {
+                value: 2.5,
+                confidence: Some(0.9),
+                abstained: true,
+            },
+        }));
+        assert_eq!(abstained.estimate_cost_checked("CCO"), None);
+    }
+
+    #[test]
+    fn structured_value_model_adapter_rejects_invalid_value_and_confidence() {
+        struct FixedModel(ValueEstimate);
+        impl ValueModel for FixedModel {
+            fn estimate(&self, _smiles: &str) -> ValueEstimate {
+                self.0
+            }
+        }
+
+        for estimate in [
+            ValueEstimate {
+                value: -1.0,
+                confidence: Some(0.9),
+                abstained: false,
+            },
+            ValueEstimate {
+                value: f64::NAN,
+                confidence: Some(0.9),
+                abstained: false,
+            },
+            ValueEstimate {
+                value: 1.0,
+                confidence: Some(f64::INFINITY),
+                abstained: false,
+            },
+        ] {
+            let adapter = ValueModelEstimatorAdapter::new(Arc::new(FixedModel(estimate)));
+            assert_eq!(adapter.estimate_cost_checked("CCO"), None);
         }
     }
 
@@ -3250,6 +4037,39 @@ mod tests {
         );
         // But it must still have computed what a rescue WOULD do.
         assert_eq!(diag_stats.families_rescued_by_reservation, 1);
+    }
+
+    #[test]
+    fn select_beam_survivors_adaptive_reserves_only_under_family_pressure() {
+        let concentrated = vec![
+            family_node(1.0, "A"),
+            family_node(2.0, "A"),
+            family_node(3.0, "A"),
+            family_node(4.0, "A"),
+            family_node(5.0, "A"),
+            family_node(6.0, "B"),
+        ];
+        let (survivors, stats) =
+            select_beam_survivors(concentrated, 5, 3, BeamDiversityPolicy::Adaptive);
+        assert!(
+            survivors
+                .iter()
+                .any(|node| node.family_key.as_deref() == Some("B"))
+        );
+        assert_eq!(stats.families_rescued_by_reservation, 1);
+
+        let already_diverse = vec![
+            family_node(1.0, "A"),
+            family_node(2.0, "B"),
+            family_node(3.0, "C"),
+            family_node(4.0, "D"),
+            family_node(5.0, "A"),
+            family_node(6.0, "E"),
+        ];
+        let (survivors, stats) =
+            select_beam_survivors(already_diverse, 5, 3, BeamDiversityPolicy::Adaptive);
+        assert_eq!(survivors.len(), 5);
+        assert_eq!(stats.families_rescued_by_reservation, 0);
     }
 
     #[test]
@@ -4278,6 +5098,137 @@ mod tests {
         let (routes, stats) = find_routes("CC(=O)Oc1ccccc1C(=O)O", &env, &rules, &cfg(3)).unwrap();
         assert!(!routes.is_empty());
         assert!(stats.nodes_expanded >= routes.len() as u64);
+    }
+
+    struct FixedTemplatePolicy {
+        calls: std::sync::atomic::AtomicUsize,
+    }
+
+    impl TemplatePolicy for FixedTemplatePolicy {
+        fn rank_templates(
+            &self,
+            _target: &str,
+            templates: &[TemplateInfo],
+        ) -> TemplatePolicyDecision {
+            self.calls
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            TemplatePolicyDecision {
+                scores: templates
+                    .iter()
+                    .take(2)
+                    .enumerate()
+                    .map(|(index, template)| TemplatePolicyScore {
+                        template_id: template.template_id.clone(),
+                        score: if index == 0 { 2.0 } else { 1.0 },
+                    })
+                    .collect(),
+                abstained: false,
+            }
+        }
+    }
+
+    #[test]
+    fn template_policy_prior_is_ordering_only_and_cached_per_target() {
+        let rules = default_rules();
+        let policy = std::sync::Arc::new(FixedTemplatePolicy {
+            calls: std::sync::atomic::AtomicUsize::new(0),
+        });
+        let prior = TemplatePolicyPrior::new(policy.clone(), &rules);
+        let first = prior.prior(&rules[0].name, "CCO");
+        let second = prior.prior(&rules[1].name, "CCO");
+        assert!(first > second);
+        assert_eq!(
+            prior.prior_for_template(&rules[0].template_id, &rules[0].name, "CCO"),
+            first
+        );
+        assert_eq!(prior.prior(&rules[1].name, "C(C)O"), second);
+        assert_eq!(policy.calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn template_policy_prior_falls_back_on_abstain() {
+        struct AbstainingPolicy;
+        impl TemplatePolicy for AbstainingPolicy {
+            fn rank_templates(
+                &self,
+                _target: &str,
+                _templates: &[TemplateInfo],
+            ) -> TemplatePolicyDecision {
+                TemplatePolicyDecision {
+                    scores: Vec::new(),
+                    abstained: true,
+                }
+            }
+        }
+        let rules = default_rules();
+        let expected = FrequencyPrior::from_rules(&rules).prior(&rules[0].name, "CCO");
+        let prior = TemplatePolicyPrior::new(std::sync::Arc::new(AbstainingPolicy), &rules);
+        assert_eq!(prior.prior(&rules[0].name, "CCO"), expected);
+    }
+
+    #[test]
+    fn direct_generator_entries_keep_checked_proposals_in_search_shape() {
+        struct FixtureGenerator;
+        impl crate::retro_generator::RetroGenerator for FixtureGenerator {
+            fn propose(
+                &self,
+                target: &str,
+                _context: &crate::retro_generator::RetroGenerationContext,
+            ) -> crate::retro_generator::RetroGeneratorDecision {
+                crate::retro_generator::RetroGeneratorDecision {
+                    proposals: vec![crate::retro_generator::RetroProposal {
+                        candidate_id: "fixture-1".to_owned(),
+                        target: target.to_owned(),
+                        precursors: vec!["CC".to_owned()],
+                        atom_mapping: None,
+                        provenance: crate::retro_generator::GeneratorProvenance {
+                            generator_id: "fixture".to_owned(),
+                            generator_version: "1".to_owned(),
+                            artifact_sha256: "sha256:fixture".to_owned(),
+                            source_rank: 0,
+                            model_confidence: Some(0.5),
+                        },
+                    }],
+                    abstained: false,
+                }
+            }
+        }
+
+        let mut molecule_cache = FxHashMap::default();
+        let entries = direct_generator_entries(&FixtureGenerator, "CCO", 0, &mut molecule_cache);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].rule_name, "direct_generator");
+        assert_eq!(entries[0].template_id, "generator:fixture:fixture-1");
+        assert_eq!(entries[0].precursor_smiles, vec![Arc::<str>::from("CC")]);
+        assert!(molecule_cache.contains_key("CC"));
+    }
+
+    #[test]
+    fn generated_stock_miss_does_not_restandardize_canonical_smiles() {
+        let env = ChemEnv::in_memory(&["CCO"]);
+        let mut cache = FxHashMap::default();
+        let ethane = canonical_stock_identity_from_smiles("CC").unwrap();
+        let ethanol = canonical_stock_identity_from_smiles("CCO").unwrap();
+
+        assert!(!is_bb_cached(&ethane, &env, &mut cache));
+        assert_eq!(cache.get(&ethane), Some(&false));
+        assert!(is_bb_cached(&ethanol, &env, &mut cache));
+    }
+
+    #[test]
+    fn template_policy_prior_can_blend_back_to_legacy_frequency_ordering() {
+        let rules = default_rules();
+        let policy = std::sync::Arc::new(FixedTemplatePolicy {
+            calls: std::sync::atomic::AtomicUsize::new(0),
+        });
+        let hybrid = TemplatePolicyPrior::with_model_weight(policy, &rules, 0.0);
+        let legacy = FrequencyPrior::from_rules(&rules);
+        for rule in rules.iter().take(4) {
+            assert_eq!(
+                hybrid.prior_for_template(&rule.template_id, &rule.name, "CCO"),
+                legacy.prior(&rule.name, "CCO")
+            );
+        }
     }
 
     // ── E2 closed-set correctness: proven LATENT bug reproduction ───────────

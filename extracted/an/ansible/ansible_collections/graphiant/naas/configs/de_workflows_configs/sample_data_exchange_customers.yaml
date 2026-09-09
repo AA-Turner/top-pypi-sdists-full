@@ -1,5 +1,5 @@
 # Sample Data Exchange Customers Configuration
-# This file demonstrates how to configure Data Exchange customers
+# This file demonstrates how to configure Data Exchange customers (Non Graphiant Customers)
 #
 # The system will:
 # 1. Read customer configuration from the 'data_exchange_customers' list

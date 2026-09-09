@@ -641,7 +641,7 @@ class _MultiheadAttention(nn.Module):
             lsa=lsa,
         )
 
-        # Poject output
+        # Project output
         self.to_out = nn.Sequential(
             nn.Linear(n_heads * d_v, hidden_size), nn.Dropout(proj_dropout)
         )
@@ -704,7 +704,7 @@ class _MultiheadAttention(nn.Module):
 class _ScaledDotProductAttention(nn.Module):
     """
     Scaled Dot-Product Attention module (Attention is all you need by Vaswani et al., 2017) with optional residual attention from previous layer
-    (Realformer: Transformer likes residual attention by He et al, 2020) and locality self sttention (Vision Transformer for Small-Size Datasets
+    (Realformer: Transformer likes residual attention by He et al, 2020) and locality self attention (Vision Transformer for Small-Size Datasets
     by Lee et al, 2021)
     """
 
@@ -832,7 +832,7 @@ class PatchTST(BaseModel):
         stride (int): stride of patch.
         revin (bool): bool to use RevIn.
         revin_affine (bool): bool to use affine in RevIn.
-        revin_subtract_last (bool): bool to use substract last in RevIn.
+        revin_subtract_last (bool): bool to use subtract last in RevIn.
         activation (str): activation from ['gelu','relu'].
         res_attention (bool): bool to use residual attention.
         batch_normalization (bool): bool to use batch normalization.
@@ -861,7 +861,7 @@ class PatchTST(BaseModel):
         lr_scheduler (Subclass of 'torch.optim.lr_scheduler.LRScheduler'): optional, user specified lr_scheduler instead of the default choice (StepLR).
         lr_scheduler_kwargs (dict): optional, list of parameters used by the user specified `lr_scheduler`.
         dataloader_kwargs (dict): optional, list of parameters passed into the PyTorch Lightning dataloader by the `TimeSeriesDataLoader`.
-        **trainer_kwargs (int):  keyword trainer arguments inherited from [PyTorch Lighning's trainer](https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.trainer.trainer.Trainer.html?highlight=trainer).
+        **trainer_kwargs (int):  keyword trainer arguments inherited from [PyTorch Lightning's trainer](https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.trainer.trainer.Trainer.html?highlight=trainer).
 
     References:
         - [Nie, Y., Nguyen, N. H., Sinthong, P., & Kalagnanam, J. (2022). "A Time Series is Worth 64 Words: Long-term Forecasting with Transformers"](https://arxiv.org/pdf/2211.14730.pdf)

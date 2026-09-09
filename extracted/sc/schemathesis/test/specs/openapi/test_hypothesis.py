@@ -247,12 +247,17 @@ def test_optional_false_query_parameter_is_sent(ctx):
         version="3.1.0",
     )
 
+    seen = []
+
     @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
     @settings(max_examples=10)
     def test(case):
-        assert case.query in ({}, {"flag": "false"})
+        if case.query not in seen:
+            seen.append(case.query)
 
     test()
+
+    assert sorted(seen, key=len) == [{}, {"flag": "false"}]
 
 
 def test_null_inside_query_array_is_sent(ctx):
@@ -275,12 +280,17 @@ def test_null_inside_query_array_is_sent(ctx):
         version="3.1.0",
     )
 
+    seen = []
+
     @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=5)
+    @settings(max_examples=10)
     def test(case):
-        assert case.query in ({}, {"ids": ["null"]})
+        if case.query not in seen:
+            seen.append(case.query)
 
     test()
+
+    assert sorted(seen, key=len) == [{}, {"ids": ["null"]}]
 
 
 def test_null_path_parameter_is_sent(ctx):
@@ -319,6 +329,32 @@ def test_inlined_definitions(deeply_nested_schema):
         assume(case.query["key"] == "null")
 
     test()
+
+
+def test_nullable_recursive_reference(ctx):
+    # Wrapping a nullable reference in `anyOf` must keep the storage its `$ref` points at.
+    schema = ctx.openapi.load_schema(
+        {
+            "/nodes": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/Node", "nullable": True}}
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {"Node": {"type": "object", "properties": {"child": {"$ref": "#/components/schemas/Node"}}}}
+        },
+    )
+    strategy = schema["/nodes"]["POST"].as_strategy()
+
+    assert find(strategy, lambda case: case.body is None).body is None
+    assert find(strategy, lambda case: isinstance(case.body, dict)).body == {}
 
 
 @pytest.mark.hypothesis_nested

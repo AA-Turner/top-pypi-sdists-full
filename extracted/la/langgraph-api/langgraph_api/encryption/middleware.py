@@ -696,6 +696,8 @@ async def encrypt_request(
     data: Mapping[str, Any],
     model_type: ModelType,
     fields: list[str],
+    *,
+    plaintext_for_core: bool = False,
 ) -> dict[str, Any]:
     """Encrypt specified fields in request data before passing to ops layer (in parallel).
 
@@ -715,6 +717,8 @@ async def encrypt_request(
         data: Request data mapping to encrypt (not mutated)
         model_type: Type identifier passed to EncryptionContext.model (e.g., "run", "cron", "thread")
         fields: List of field names to encrypt (e.g., ["metadata", "kwargs"])
+        plaintext_for_core: Return plaintext for Go encryption after verifying no field
+            requires Python's nested-subfield traversal.
 
     Returns:
         Original data if encryption disabled, otherwise new dict with encrypted fields
@@ -726,6 +730,19 @@ async def encrypt_request(
             ["metadata"]
         )
     """
+    if plaintext_for_core:
+        nested_fields = [
+            field
+            for field in fields
+            if (model_type, field) in NESTED_ENCRYPTED_SUBFIELDS
+        ]
+        if nested_fields:
+            raise RuntimeError(
+                f"Go encryption cannot handle nested encrypted fields: "
+                f"{model_type}.{', '.join(nested_fields)}"
+            )
+        return data
+
     encryption_instance = get_encryption()
     if encryption_instance is None:
         return data

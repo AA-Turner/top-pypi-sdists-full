@@ -1,13 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: vercel-oidc
-Version: 0.8.0
+Version: 0.8.1
 Summary: OIDC helpers for Vercel Python applications
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=4.0.0
 Requires-Dist: httpx<1,>=0.27.0
-Requires-Dist: vercel-headers>=0.7.1
+Requires-Dist: vercel-headers>=0.7.2
 Provides-Extra: verify
 Requires-Dist: cryptography>=48.0.1; extra == 'verify'
 Requires-Dist: pyjwt[crypto]<3,>=2.13.0; extra == 'verify'

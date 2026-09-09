@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from .array_ import Array, FSharpCons, create, of_seq
+from .array_ import Array, FSharpCons, create
 from .core import int32
 from .fsharp_core import Operators_IsNull
 from .protocols import IEnumerable_1
@@ -10,7 +10,7 @@ from .util import range
 
 
 def Helpers_arrayFrom[T](xs: IEnumerable_1[T]) -> Array[T]:
-    return of_seq(xs)
+    return Array[Any](xs)
 
 
 def Helpers_allocateArray[T](len_1: int) -> Array[T]:

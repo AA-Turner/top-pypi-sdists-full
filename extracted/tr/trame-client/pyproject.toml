@@ -1,6 +1,6 @@
 [project]
 name = "trame-client"
-version = "3.13.6"
+version = "4.0.0"
 description = "Internal client of trame"
 authors = [
     {name = "Kitware Inc."},
@@ -33,16 +33,13 @@ test = [
     "Pillow",
     "pixelmatch",
     "trame>=3.13",
+    "trame-server>=3.15",
 ]
 dev = [
     "pre-commit",
     "ruff",
+    "nox",
 ]
-
-
-
-
-
 
 [build-system]
 requires = ["hatchling"]
@@ -53,6 +50,7 @@ include = [
   "/src/**/*.py",
   "/src/trame_client/module/vue2-www/**",
   "/src/trame_client/module/vue3-www/**",
+  "/src/trame_client/module/react-www/**",
   "src/trame_client/module/user_provided_scripts/**",
 ]
 

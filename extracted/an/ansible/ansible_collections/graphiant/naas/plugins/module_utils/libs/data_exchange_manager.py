@@ -170,7 +170,9 @@ class DataExchangeManager(BaseManager):
                         "Service '%s' already exists (ID: %s), skipping creation", service_name, existing_service.id
                     )
                     # Drift detection: only when --diff requested (avoids extra API calls otherwise)
-                    service_type = service_config.get("type", "peering_service")
+                    # "serviceType" matches the API field name directly; "type" (legacy) is still
+                    # accepted as an alias.
+                    service_type = service_config.get("serviceType") or service_config.get("type") or "peering_service"
                     policy_config = service_config.get("policy") or {}
                     desired_prefix_tags = policy_config.get("prefixTags") or []
                     has_nat_mode = service_type == "client_to_server" and bool(policy_config.get("natTranslationMode"))
@@ -266,7 +268,7 @@ class DataExchangeManager(BaseManager):
                     )
                     # Validate prefixTags/NAT pool prefixes are properly-aligned CIDR network addresses
                     self._validate_service_prefixes_are_cidr(service_config["policy"], service_name)
-                    if service_config.get("type") == "client_to_server":
+                    if (service_config.get("serviceType") or service_config.get("type")) == "client_to_server":
                         # Validate sites belong to the LAN segment, and NAT edge devices belong to those sites
                         self._validate_sites_and_devices_for_lan_segment(
                             service_config["policy"],
@@ -351,7 +353,9 @@ class DataExchangeManager(BaseManager):
                         f"Service '{service_name}' not found. " "Use create_services to create new services."
                     )
                 service_id = existing_service.id
-                service_type = service_config.get("type", "peering_service")
+                # "serviceType" matches the API field name directly; "type" (legacy) is still
+                # accepted as an alias.
+                service_type = service_config.get("serviceType") or service_config.get("type") or "peering_service"
 
                 # Get current service details for comparison and payload construction
                 current_details_dict = self.gsdk.get_data_exchange_service_details(service_id, type=service_type)
@@ -2040,9 +2044,37 @@ class DataExchangeManager(BaseManager):
             raise
             # TODO: Don't fail the entire operation for validation issues ?
 
+    @staticmethod
+    def _acceptance_vpn_profile_names(site_to_site_vpn: dict) -> set:
+        """
+        Collect vpnProfile name(s) referenced by a siteToSiteVpn block — both the new multi-peer
+        ipsecGatewayPeers structure (vpnProfile per remote peer) and the legacy single-peer
+        ipsecGatewayDetails structure. Empty set means no vpnProfile is defined at all, which is
+        only valid for a Graphiant customer (see _process_multiple_acceptances) — a Non-Graphiant
+        customer still requires one.
+        """
+        names: set[str] = set()
+        if not site_to_site_vpn:
+            return names
+        if "ipsecGatewayPeers" in site_to_site_vpn:
+            for peer in site_to_site_vpn["ipsecGatewayPeers"].get("remotePeers", []):
+                vpn_profile_name = peer.get("vpnProfile")
+                if vpn_profile_name:
+                    names.add(vpn_profile_name)
+        elif "ipsecGatewayDetails" in site_to_site_vpn:
+            vpn_profile_name = site_to_site_vpn["ipsecGatewayDetails"].get("vpnProfile")
+            if vpn_profile_name:
+                names.add(vpn_profile_name)
+        return names
+
     def _validate_vpn_profiles_for_acceptances(self, acceptances):
         """
-        Validate VPN profile existence for all acceptances.
+        Validate VPN profile existence for all acceptances that define one.
+
+        Acceptances with no vpnProfile at all are intentionally not rejected here — whether
+        that's legitimate (a Graphiant customer, who needs no Site-to-Site VPN) can only be
+        determined once the customer's match-level visibility is resolved, which happens later
+        in _process_multiple_acceptances.
 
         Args:
             acceptances (list): List of acceptance configurations
@@ -2052,28 +2084,18 @@ class DataExchangeManager(BaseManager):
                 "_validate_vpn_profiles_for_acceptances: Validating VPN profiles for %s acceptances", len(acceptances)
             )
 
-            # Collect unique VPN profile names from acceptances
+            # Collect unique VPN profile names from acceptances that define at least one.
             vpn_profiles_to_validate = set()
             for acceptance in acceptances:
                 site_to_site_vpn = (acceptance.get("policy") or {}).get("siteToSiteVpn") or {}
-                if site_to_site_vpn:
-                    if "ipsecGatewayPeers" in site_to_site_vpn:
-                        # New multi-peer structure: vpnProfile is per remote peer
-                        for peer in site_to_site_vpn["ipsecGatewayPeers"].get("remotePeers", []):
-                            vpn_profile_name = peer.get("vpnProfile")
-                            if vpn_profile_name:
-                                vpn_profiles_to_validate.add(vpn_profile_name)
-                    elif "ipsecGatewayDetails" in site_to_site_vpn:
-                        # Legacy single-peer structure
-                        ipsec_gateway_details = site_to_site_vpn["ipsecGatewayDetails"]
-                        if "vpnProfile" in ipsec_gateway_details:
-                            vpn_profile_name = ipsec_gateway_details["vpnProfile"]
-                            if vpn_profile_name:
-                                vpn_profiles_to_validate.add(vpn_profile_name)
+                vpn_profiles_to_validate |= self._acceptance_vpn_profile_names(site_to_site_vpn)
 
             if not vpn_profiles_to_validate:
-                LOG.info("_validate_vpn_profiles_for_acceptances: No VPN profiles found in acceptances")
-                raise ConfigurationError("No VPN profiles found in acceptances")
+                LOG.info(
+                    "_validate_vpn_profiles_for_acceptances: No VPN profiles found in acceptances - "
+                    "skipping portal existence check"
+                )
+                return
 
             LOG.info(
                 "_validate_vpn_profiles_for_acceptances: Validating %s VPN profiles", len(vpn_profiles_to_validate)
@@ -2112,6 +2134,42 @@ class DataExchangeManager(BaseManager):
         except Exception as e:
             LOG.warning("_validate_vpn_profiles_for_acceptances: VPN profile validation failed: %s", e)
             raise
+
+    def _ensure_missing_vpn_profile_is_graphiant_customer(self, customer_name, service_name, peer_type) -> None:
+        """
+        Raise unless an acceptance's missing vpnProfile is explained by the customer being a
+        Graphiant customer.
+
+        Per the Data Exchange customer types (https://docs.graphiant.com/docs/data-exchange): a
+        Non-Graphiant customer (unmanaged/third-party edge device) needs a Site-to-Site VPN
+        Connection, so a vpnProfile is required. A Graphiant customer needs no such VPN.
+
+        Confirmed via peer_type from get_matching_customers_for_service — the same "type" the
+        customer was created with (data_exchange_customers), renamed by that call to peer_type;
+        this codebase already uses it for the same Graphiant/Non-Graphiant distinction elsewhere
+        (get_customers_summary's "Customer Type" column).
+
+        Args:
+            customer_name (str): Customer name, for error/log messages only
+            service_name (str): Service name, for error/log messages only
+            peer_type (str): "graphiant_peer" or "non_graphiant_peer", from
+                get_matching_customers_for_service
+        """
+        if peer_type != "graphiant_peer":
+            raise ConfigurationError(
+                f"No vpnProfile found for customer '{customer_name}' / service '{service_name}'. "
+                "A vpnProfile is required for Non-Graphiant customers, who connect via a "
+                "Site-to-Site VPN Connection through a proxy tenant. This customer's peer_type "
+                f"('{peer_type}') is not 'graphiant_peer'."
+            )
+
+        LOG.info(
+            "_ensure_missing_vpn_profile_is_graphiant_customer: Customer '%s' / service '%s' has no "
+            "vpnProfile but is a Graphiant customer (peer_type=graphiant_peer) - no Site-to-Site "
+            "VPN needed",
+            customer_name,
+            service_name,
+        )
 
     def _validate_prefixes_for_acceptances(self, acceptances) -> None:
         """
@@ -2229,6 +2287,10 @@ class DataExchangeManager(BaseManager):
             # Cache of already-linked match_ids per service_id (from matching-customers-summary API)
             # Prefetch per service_id on first use so we skip accept when consumer already exists
             already_linked_match_ids_by_service = {}
+            # Cache of {match_id: peer_type} per service_id, from the same API call above — reused
+            # to confirm a missing vpnProfile is legitimate (see
+            # _ensure_missing_vpn_profile_is_graphiant_customer).
+            customer_peer_type_by_match_id_by_service = {}
 
             for i, acceptance_config in enumerate(acceptances_config):
                 total_processed += 1  # Count every acceptance (including skipped/failed) so total_failed is correct
@@ -2265,6 +2327,7 @@ class DataExchangeManager(BaseManager):
                     if service_id not in already_linked_match_ids_by_service:
                         info = self.gsdk.get_matching_customers_for_service(service_id)
                         match_ids = set()
+                        peer_type_by_match_id = {}
                         if info:
                             LOG.info(
                                 "_process_multiple_acceptances: get_matching_customers_for_service for service %s: %s",
@@ -2274,6 +2337,8 @@ class DataExchangeManager(BaseManager):
                             for item in info:
                                 mid = getattr(item, "match_id", None) or getattr(item, "matchId", None)
                                 status = getattr(item, "status", None) or getattr(item, "Status", None)
+                                if mid is not None:
+                                    peer_type_by_match_id[mid] = getattr(item, "peer_type", None)
                                 # Only treat as already-linked if status is ACTIVE (already accepted).
                                 # get_matching_customers_for_service now calls the generic extranet
                                 # producer API (graphiant-sdk >= 26.7.0), which appears to use
@@ -2286,6 +2351,7 @@ class DataExchangeManager(BaseManager):
                                 ):
                                     match_ids.add(mid)
                         already_linked_match_ids_by_service[service_id] = match_ids
+                        customer_peer_type_by_match_id_by_service[service_id] = peer_type_by_match_id
                         LOG.info(
                             "_process_multiple_acceptances: Service %s has %s already-linked customer(s)",
                             service_id,
@@ -2311,14 +2377,30 @@ class DataExchangeManager(BaseManager):
                         total_skipped += 1
                         continue
 
+                    # A missing vpnProfile is only legitimate for a Graphiant customer (see
+                    # _ensure_missing_vpn_profile_is_graphiant_customer) — checked now, not in the
+                    # earlier _validate_vpn_profiles_for_acceptances pass, because it needs this
+                    # match's peer_type, which only exists once service_id/match_id are resolved.
+                    resolved_site_to_site_vpn = (resolved_config.get("policy") or {}).get("siteToSiteVpn") or {}
+                    if not self._acceptance_vpn_profile_names(resolved_site_to_site_vpn):
+                        peer_type = customer_peer_type_by_match_id_by_service.get(service_id, {}).get(match_id)
+                        self._ensure_missing_vpn_profile_is_graphiant_customer(
+                            acceptance_config.get("customerName"),
+                            acceptance_config.get("serviceName"),
+                            peer_type,
+                        )
+
                     # Validate required fields in resolved configuration. "natTranslationMode" is
                     # intentionally not required here — it's peering_service-only; client_to_server
                     # acceptances omit it entirely (see accept_data_exchange_service).
+                    # "siteToSiteVpn" is likewise not required — it's omitted entirely (not even
+                    # sent as {}) for a Graphiant customer with no vpnProfile, since the API
+                    # rejects an empty siteToSiteVpn object (see _resolve_acceptance_names_to_ids).
                     for field in ("id", "policy", "matchId"):
                         if field not in resolved_config or resolved_config[field] is None:
                             raise ConfigurationError(f"Missing required field '{field}' in resolved configuration")
                     resolved_policy_fields = resolved_config["policy"]
-                    for field in ("sites", "consumerLanSegments", "siteToSiteVpn"):
+                    for field in ("sites", "consumerLanSegments"):
                         if field not in resolved_policy_fields or resolved_policy_fields[field] is None:
                             raise ConfigurationError(
                                 f"Missing required field 'policy.{field}' in resolved configuration"
@@ -2420,7 +2502,7 @@ class DataExchangeManager(BaseManager):
         Lookup key = customerName.
         """
         customer_name = acceptance_config.get("customerName", "")
-        site_to_site_vpn = (acceptance_config.get("policy") or {}).get("siteToSiteVpn", {})
+        site_to_site_vpn = (acceptance_config.get("policy") or {}).get("siteToSiteVpn") or {}
         ipsec_peers = site_to_site_vpn.get("ipsecGatewayPeers", {})
 
         # md5Password: YAML wins if non-null, vault fills null/absent
@@ -2458,7 +2540,7 @@ class DataExchangeManager(BaseManager):
         Accepts a plain string (from YAML) or a dict with either "md5_password" or
         "md5Password" as the key; leaves None untouched.
         """
-        site_to_site_vpn = (acceptance_config.get("policy") or {}).get("siteToSiteVpn", {})
+        site_to_site_vpn = (acceptance_config.get("policy") or {}).get("siteToSiteVpn") or {}
         ipsec_peers = site_to_site_vpn.get("ipsecGatewayPeers", {})
         routing = ipsec_peers.get("routing", {}) if isinstance(ipsec_peers, dict) else {}
         bgp = routing.get("bgp") if isinstance(routing, dict) else None
@@ -2488,7 +2570,7 @@ class DataExchangeManager(BaseManager):
             dict: Updated acceptance configuration with filled values
         """
         try:
-            site_to_site_vpn = (acceptance_config.get("policy") or {}).get("siteToSiteVpn", {})
+            site_to_site_vpn = (acceptance_config.get("policy") or {}).get("siteToSiteVpn") or {}
 
             if "ipsecGatewayPeers" in site_to_site_vpn:
                 peers = site_to_site_vpn["ipsecGatewayPeers"].get("remotePeers", [])
@@ -2673,9 +2755,22 @@ class DataExchangeManager(BaseManager):
                         )
                     }
                 },
-                "siteToSiteVpn": site_to_site_vpn,
                 "globalObjectOps": policy_config.get("globalObjectOps", {}),
             }
+            # Omit siteToSiteVpn entirely when it defines no vpnProfile (Graphiant customer —
+            # see _ensure_missing_vpn_profile_is_graphiant_customer), rather than sending it with
+            # only region/emails or as an empty object. The API's embedded
+            # GuestConsumerSiteToSiteVpnConfig message enforces "Emails: at least 1 item" /
+            # "RegionId: > 0" only when that submessage is actually present in the request —
+            # sending "siteToSiteVpn": {...} (with or without region/emails, but no vpnProfile)
+            # still constructs the submessage and trips those checks; omitting the key entirely
+            # (confirmed against a live portal-generated request for this exact case) skips them.
+            # Must use the same "has a real vpnProfile" test as everywhere else that decides
+            # whether a vpnProfile is required (_validate_vpn_profiles_for_acceptances,
+            # _process_multiple_acceptances) — plain truthiness of the dict would disagree with
+            # those when region/emails are set but no vpnProfile is.
+            if self._acceptance_vpn_profile_names(site_to_site_vpn):
+                resolved_policy["siteToSiteVpn"] = site_to_site_vpn
             nat_translation_mode = policy_config.get("natTranslationMode")
             if nat_translation_mode:
                 resolved_policy["natTranslationMode"] = nat_translation_mode

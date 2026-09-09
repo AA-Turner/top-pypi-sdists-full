@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.236.1
+Version: 0.236.2
 Summary: Next-generation data transformation framework
 Author: SQLMesh Contributors
 License:                                  Apache License
@@ -265,6 +265,7 @@ Requires-Dist: dbt-bigquery; extra == "dev"
 Requires-Dist: dbt-core; extra == "dev"
 Requires-Dist: dbt-duckdb>=1.7.1; extra == "dev"
 Requires-Dist: dbt-snowflake!=1.10.1; extra == "dev"
+Requires-Dist: fastjsonschema<2.22; python_version < "3.10" and extra == "dev"
 Requires-Dist: dbt-athena-community; extra == "dev"
 Requires-Dist: dbt-clickhouse; extra == "dev"
 Requires-Dist: dbt-databricks; extra == "dev"
@@ -274,7 +275,7 @@ Requires-Dist: Faker; extra == "dev"
 Requires-Dist: google-auth; extra == "dev"
 Requires-Dist: google-cloud-bigquery; extra == "dev"
 Requires-Dist: google-cloud-bigquery-storage; extra == "dev"
-Requires-Dist: httpx; extra == "dev"
+Requires-Dist: httpx2; extra == "dev"
 Requires-Dist: mypy~=1.13.0; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
@@ -345,13 +346,17 @@ Requires-Dist: pymysql; extra == "starrocks"
 Provides-Extra: trino
 Requires-Dist: trino; extra == "trino"
 Provides-Extra: web
-Requires-Dist: fastapi==0.120.1; extra == "web"
+Requires-Dist: fastapi>=0.136.3; python_version >= "3.10" and extra == "web"
+Requires-Dist: starlette>=1.0.1; python_version >= "3.10" and extra == "web"
+Requires-Dist: fastapi==0.120.1; python_version < "3.10" and extra == "web"
 Requires-Dist: watchfiles>=0.19.0; extra == "web"
 Requires-Dist: uvicorn[standard]==0.22.0; extra == "web"
 Requires-Dist: sse-starlette>=0.2.2; extra == "web"
 Requires-Dist: pyarrow; extra == "web"
 Provides-Extra: lsp
-Requires-Dist: fastapi==0.120.1; extra == "lsp"
+Requires-Dist: fastapi>=0.136.3; python_version >= "3.10" and extra == "lsp"
+Requires-Dist: starlette>=1.0.1; python_version >= "3.10" and extra == "lsp"
+Requires-Dist: fastapi==0.120.1; python_version < "3.10" and extra == "lsp"
 Requires-Dist: watchfiles>=0.19.0; extra == "lsp"
 Requires-Dist: sse-starlette>=0.2.2; extra == "lsp"
 Requires-Dist: pyarrow; extra == "lsp"

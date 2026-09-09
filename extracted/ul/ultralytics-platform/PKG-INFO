@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics-platform
-Version: 0.1.32
+Version: 0.1.33
 Summary: Typed Python SDK for the Ultralytics Platform API
 Keywords: api-client,computer-vision,machine-learning,openapi,sdk,ultralytics,yolo
 Author: Ultralytics

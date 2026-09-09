@@ -76,6 +76,7 @@ class TestCheckSessionMutex:
         state.set_value("copilot.mode", "non-interactive")
         state.set_value("copilot.start_time", "2026-06-04T13:45:00Z")
         state.set_value("copilot.prompt_file", "/tmp/prompt.md")
+        state.set_value("copilot.log_file", "/tmp/copilot.log")
 
         result = _check_session_mutex()
 
@@ -85,6 +86,7 @@ class TestCheckSessionMutex:
         assert result["mode"] == "non-interactive"
         assert result["start_time"] == "2026-06-04T13:45:00Z"
         assert result["prompt_file"] == "/tmp/prompt.md"
+        assert result["log_file"] == "/tmp/copilot.log"
 
         captured = capsys.readouterr()
         assert "already running" in captured.err

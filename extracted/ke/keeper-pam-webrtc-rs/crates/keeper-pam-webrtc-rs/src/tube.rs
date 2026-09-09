@@ -969,7 +969,7 @@ impl Tube {
         let channels_guard = self.active_channels.read().await;
         let mut tokens = Vec::new();
 
-        for (_channel_name, metadata) in channels_guard.iter() {
+        for metadata in channels_guard.values() {
             if let Some(ref token) = metadata.callback_token {
                 tokens.push(token.clone());
             }
@@ -990,7 +990,7 @@ impl Tube {
         let channels_guard = self.active_channels.read().await;
 
         // Get ksm_config from the first channel that has one
-        for (_channel_name, metadata) in channels_guard.iter() {
+        for metadata in channels_guard.values() {
             if let Some(ref config) = metadata.ksm_config {
                 debug!(
                     "Found KSM config from active channel (tube_id: {}, conversation_id: {})",
@@ -2177,7 +2177,7 @@ impl Tube {
             let mut stats = ConnectionStats::default();
 
             // Parse WebRTC stats reports for relevant metrics
-            for (_id, report) in reports.reports.iter() {
+            for report in reports.reports.values() {
                 match report {
                     webrtc::stats::StatsReportType::InboundRTP(inbound) => {
                         stats.bytes_received += inbound.bytes_received;

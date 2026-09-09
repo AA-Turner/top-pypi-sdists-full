@@ -4398,6 +4398,40 @@ def _plot_observed_yields(parser, dir_outlook):
     )
 
 
+def _render_cone_figures(parser, path_config_files, db_path, dir_outlook,
+                         countries, crops, models):
+    """Cone-of-uncertainty figures for the DB this run just wrote.
+
+    Gated by ``[ML] make_cone_plots`` (default False) because the cones are a
+    publication product, not part of forecasting: they add wall-clock and, with
+    ``use_nass_reference``, a USDA QuickStats call that a compute node may not
+    be able to make. Output lands in ``<analysis>/cone`` beside ``outlook``.
+
+    The DB and crop tables come from THIS run rather than ``[cone] dbs``, so
+    the figures always describe the forecast just produced instead of whatever
+    DB the config happens to name.
+    """
+    from geocif.viz import cone as _cone
+
+    run_crops = sorted(crops) if crops else []
+    if not run_crops:
+        logger.warning("make_cone_plots: no crops in this run, nothing to draw")
+        return []
+    # cone draws ONE model. Take it from the run when unambiguous; with several
+    # models let [cone] model decide rather than picking one silently.
+    model = models[0] if models and len(set(models)) == 1 else None
+    written = []
+    for country in countries:
+        out_dir = dir_outlook.parent / "cone"
+        if len(countries) > 1:
+            out_dir = out_dir / country
+        sources = {c: (db_path, f"{country}_{c}") for c in run_crops}
+        written += _cone.run(path_config_files, sources=sources, out=out_dir,
+                             model=model) or []
+    logger.info(f"make_cone_plots: wrote {len(written)} cone file(s)")
+    return written
+
+
 def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
         reuse_db=None, use_latest_stage=True, fdw_export=False, since_year=None,
         until_year=None, parser=None, logger_obj=None, outlook_db_name=None,
@@ -5746,6 +5780,19 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             forecast_year=current_year,
             experiment_name="outlook",
         )
+
+    # Optional cone-of-uncertainty figures for the DB just written.
+    # [ML] make_cone_plots (default False). Wrapped so a plotting failure can
+    # never discard a completed ML run -- every forecast is already persisted.
+    if parser.getboolean("ML", "make_cone_plots", fallback=False):
+        try:
+            _render_cone_figures(
+                parser, path_config_files, db_path, dir_outlook, countries,
+                sorted({row[2] for row in inputs}) if inputs else crops,
+                sorted({row[4] for row in inputs}) if inputs else list(models),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Cone figures failed (non-fatal): {exc}")
 
     # End-of-run signal + forced exit.
     #

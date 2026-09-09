@@ -25,7 +25,7 @@ from docker.api.container import DEFAULT_DATA_CHUNK_SIZE  # type: ignore[import-
 from docker.models.containers import Container  # type: ignore[import-untyped]
 from docker.types import DriverConfig, Mount as DockerSDKMount  # type: ignore[import-untyped]
 from docker.utils import parse_repository_tag
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from .._mount_security import (
@@ -185,6 +185,7 @@ class DockerSandboxSessionState(SandboxSessionState):
     image: str
     container_id: str
     network_mode: Literal["none"] | None = None
+    labels: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate_network_configuration(self) -> Self:
@@ -214,6 +215,7 @@ class DockerSandboxClientOptions(BaseSandboxClientOptions):
     image: str
     exposed_ports: tuple[int, ...] = ()
     network_mode: Literal["none"] | None = None
+    labels: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate_network_configuration(self) -> Self:
@@ -230,12 +232,14 @@ class DockerSandboxClientOptions(BaseSandboxClientOptions):
         *,
         type: Literal["docker"] = "docker",
         network_mode: Literal["none"] | None = None,
+        labels: dict[str, str] | None = None,
     ) -> None:
         super().__init__(
             type=type,
             image=image,
             exposed_ports=exposed_ports,
             network_mode=network_mode,
+            labels={} if labels is None else labels,
         )
 
 
@@ -1076,7 +1080,7 @@ class DockerSandboxSession(BaseSandboxSession):
             )
 
         yield_time_ms = 10_000 if yield_time_s is None else int(yield_time_s * 1000)
-        output, original_token_count = await self._collect_pty_output(
+        output, original_token_count, output_closed = await self._collect_pty_output(
             entry=entry,
             yield_time_ms=clamp_pty_yield_time_ms(yield_time_ms),
             max_output_tokens=max_output_tokens,
@@ -1086,6 +1090,7 @@ class DockerSandboxSession(BaseSandboxSession):
             entry=entry,
             output=output,
             original_token_count=original_token_count,
+            output_closed=output_closed,
         )
 
     async def pty_write_stdin(
@@ -1122,7 +1127,7 @@ class DockerSandboxSession(BaseSandboxSession):
             await asyncio.sleep(0.1)
 
         yield_time_ms = 250 if yield_time_s is None else int(yield_time_s * 1000)
-        output, original_token_count = await self._collect_pty_output(
+        output, original_token_count, output_closed = await self._collect_pty_output(
             entry=entry,
             yield_time_ms=resolve_pty_write_yield_time_ms(
                 yield_time_ms=yield_time_ms, input_empty=chars == ""
@@ -1135,6 +1140,7 @@ class DockerSandboxSession(BaseSandboxSession):
             entry=entry,
             output=output,
             original_token_count=original_token_count,
+            output_closed=output_closed,
         )
 
     async def pty_terminate_all(self) -> None:
@@ -1238,7 +1244,7 @@ class DockerSandboxSession(BaseSandboxSession):
         entry: _DockerPtyProcessEntry,
         yield_time_ms: int,
         max_output_tokens: int | None,
-    ) -> tuple[bytes, int | None]:
+    ) -> tuple[bytes, int | None, bool]:
         return await collect_pty_output(
             output_chunks=entry.output_chunks,
             output_lock=entry.output_lock,
@@ -1255,11 +1261,12 @@ class DockerSandboxSession(BaseSandboxSession):
         entry: _DockerPtyProcessEntry,
         output: bytes,
         original_token_count: int | None,
+        output_closed: bool,
     ) -> PtyExecUpdate:
-        if entry.output_closed.is_set() and entry.exit_code is None:
+        if output_closed and entry.exit_code is None:
             await self._refresh_pty_exit_code(entry)
 
-        exit_code = entry.exit_code
+        exit_code = entry.exit_code if output_closed else None
         live_process_id: int | None = process_id
 
         if exit_code is not None:
@@ -1282,7 +1289,7 @@ class DockerSandboxSession(BaseSandboxSession):
             return None
 
         meta = [
-            (process_id, entry.last_used, entry.exit_code is not None)
+            (process_id, entry.last_used, entry.output_closed.is_set())
             for process_id, entry in self._pty_processes.items()
         ]
         process_id = process_id_to_prune_from_meta(meta)
@@ -1535,6 +1542,7 @@ class DockerSandboxClient(BaseSandboxClient[DockerSandboxClientOptions]):
                 exposed_ports=options.exposed_ports,
                 network_mode=options.network_mode,
                 session_id=session_id,
+                labels=options.labels,
             )
             container.start()
             container_id = container.id
@@ -1549,6 +1557,7 @@ class DockerSandboxClient(BaseSandboxClient[DockerSandboxClientOptions]):
                 container_id=container_id,
                 exposed_ports=options.exposed_ports,
                 network_mode=options.network_mode,
+                labels=options.labels,
             )
             inner = DockerSandboxSession(
                 docker_client=self.docker_client,
@@ -1653,6 +1662,7 @@ class DockerSandboxClient(BaseSandboxClient[DockerSandboxClientOptions]):
                 container,
                 state.network_mode,
             )
+            _assert_existing_container_labels_match(container, state.labels)
         owns_replacement = container is None
         replacement_session_id = (
             uuid.uuid4()
@@ -1681,6 +1691,7 @@ class DockerSandboxClient(BaseSandboxClient[DockerSandboxClientOptions]):
                     exposed_ports=state.exposed_ports,
                     network_mode=state.network_mode,
                     session_id=replacement_session_id,
+                    labels=state.labels,
                 )
                 container_id = container.id
                 assert container_id is not None
@@ -1715,6 +1726,7 @@ class DockerSandboxClient(BaseSandboxClient[DockerSandboxClientOptions]):
         exposed_ports: tuple[int, ...] = (),
         network_mode: Literal["none"] | None = None,
         session_id: uuid.UUID | None = None,
+        labels: dict[str, str] | None = None,
     ) -> Container:
         if manifest is not None:
             _validate_docker_path_grants(manifest)
@@ -1736,6 +1748,8 @@ class DockerSandboxClient(BaseSandboxClient[DockerSandboxClientOptions]):
         }
         if network_mode is not None:
             create_kwargs["network_mode"] = network_mode
+        if labels:
+            create_kwargs["labels"] = labels
         if manifest is not None:
             docker_mounts = _build_docker_volume_mounts(manifest, session_id=session_id)
             if docker_mounts:
@@ -1892,6 +1906,25 @@ def _assert_existing_container_network_configuration_matches(
         raise ValueError(
             "Existing Docker sandbox network configuration does not match persisted "
             "network_mode='none'; create a fresh sandbox session"
+        )
+
+
+def _assert_existing_container_labels_match(
+    container: Container,
+    labels: dict[str, str],
+) -> None:
+    if not labels:
+        return
+
+    container.reload()
+    attrs = getattr(container, "attrs", {}) or {}
+    config = attrs.get("Config")
+    actual_labels = config.get("Labels") if isinstance(config, dict) else None
+    actual_labels = actual_labels if isinstance(actual_labels, dict) else {}
+    if any(actual_labels.get(key) != value for key, value in labels.items()):
+        raise ValueError(
+            "Existing Docker sandbox labels do not match persisted labels; "
+            "create a fresh sandbox session"
         )
 
 

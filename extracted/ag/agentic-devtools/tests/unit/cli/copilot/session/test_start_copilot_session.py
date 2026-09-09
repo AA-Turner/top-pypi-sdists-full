@@ -1,13 +1,33 @@
 """Tests for start_copilot_session."""
 
 import io
+import os
+import shlex
+import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agentic_devtools import state
 from agentic_devtools.cli.copilot import session as session_module
-from agentic_devtools.cli.copilot.session import CopilotChildAliveError, CopilotSessionResult, start_copilot_session
+from agentic_devtools.cli.copilot.session import (
+    CopilotChildAliveError,
+    CopilotSessionResult,
+    CopilotTerminalLaunchError,
+    start_copilot_session,
+)
+
+
+def _terminal_lifecycle_entries(log_file_path: Path) -> list[dict[str, object]]:
+    """Return lifecycle JSONL entries for a terminal session log."""
+    import json
+
+    return [
+        json.loads(line)
+        for line in log_file_path.with_suffix(".jsonl").read_text(encoding="utf-8").splitlines()
+        if json.loads(line).get("event_type") == "lifecycle"
+    ]
 
 
 @pytest.fixture
@@ -266,6 +286,242 @@ class TestStartCopilotSessionInteractive:
         assert env.get("MY_CUSTOM_VAR") == "my_value"
 
 
+class TestStartCopilotSessionTerminal:
+    """Tests for dedicated terminal-window sessions."""
+
+    def test_launches_terminal_and_persists_process_identity(self, temp_state, mock_available):
+        """Terminal mode starts a host process and returns without waiting for Copilot."""
+        process = MagicMock()
+        process.pid = 4321
+        with (
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process) as mock_popen,
+            patch.object(session_module, "_transfer_session_mutex_claim", return_value=True) as mock_transfer,
+            patch.object(session_module, "_start_terminal_monitor") as mock_monitor,
+        ):
+            result = start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+                model="gpt-4.1",
+            )
+
+        assert result.mode == "terminal"
+        assert result.pid == 4321
+        assert result.log_file
+        mock_popen.assert_called_once()
+        mock_transfer.assert_called_once_with(os.getpid(), 4321)
+        assert mock_popen.call_args.kwargs["shell"] is False
+        mock_monitor.assert_called_once_with(4321, temp_state / "state.json")
+        assert state.get_value("copilot.pid") == 4321
+        assert state.get_value("copilot.model_id") == "gpt-4.1"
+
+    def test_terminal_launch_writes_structured_lifecycle_start_entries(self, temp_state, mock_available):
+        """Terminal mode writes start markers in the lifecycle log and JSONL files."""
+        import json
+        from pathlib import Path
+
+        process = MagicMock()
+        process.pid = 4321
+        with (
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process),
+            patch.object(session_module, "_transfer_session_mutex_claim", return_value=True),
+            patch.object(session_module, "_start_terminal_monitor"),
+        ):
+            result = start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        log_content = Path(result.log_file).read_text(encoding="utf-8")
+        assert log_content.startswith("[agdt-copilot-session] SESSION_START ")
+        assert f"session_id={result.session_id}" in log_content
+
+        jsonl_entries = [
+            json.loads(line)
+            for line in Path(result.log_file).with_suffix(".jsonl").read_text(encoding="utf-8").splitlines()
+        ]
+        assert len(jsonl_entries) == 1
+        assert jsonl_entries[0]["event_type"] == "lifecycle"
+        assert jsonl_entries[0]["content"] == "SESSION_START"
+        assert jsonl_entries[0]["session_id"] == result.session_id
+        assert "timestamp" in jsonl_entries[0]
+
+    def test_terminal_launch_uses_non_interactive_copilot_args(self, temp_state, mock_available):
+        """Terminal mode builds non-interactive copilot args even when interactive defaults true."""
+        process = MagicMock()
+        process.pid = 4321
+        with (
+            patch.object(
+                session_module,
+                "_build_copilot_args",
+                return_value=["copilot", "-p", "Open a dedicated window"],
+            ) as mock_build_args,
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process),
+            patch.object(session_module, "_transfer_session_mutex_claim", return_value=True),
+            patch.object(session_module, "_start_terminal_monitor"),
+        ):
+            start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        assert mock_build_args.call_args.kwargs["interactive"] is False
+
+    def test_terminal_host_failure_releases_mutex(self, temp_state, mock_available):
+        """A missing terminal host produces a clear error and no stale PID claim."""
+        with (
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(
+                session_module,
+                "_terminal_launch_args",
+                side_effect=CopilotTerminalLaunchError("terminal host unavailable"),
+            ),
+            pytest.raises(CopilotTerminalLaunchError, match="terminal host unavailable"),
+        ):
+            start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        assert state.get_value("copilot.pid") == ""
+        log_file = list((temp_state / "background-tasks" / "logs").glob("*.log"))[0]
+        lifecycle_entries = _terminal_lifecycle_entries(log_file)
+        assert [entry["content"] for entry in lifecycle_entries] == ["SESSION_START", "SESSION_ERROR", "SESSION_END"]
+
+    def test_monitor_start_failure_terminates_terminal_host(self, temp_state, mock_available):
+        """A detached-monitor failure terminates the launched terminal host."""
+        process = MagicMock()
+        process.pid = 4321
+        with (
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process),
+            patch.object(session_module, "_transfer_session_mutex_claim", return_value=True),
+            patch.object(session_module, "_start_terminal_monitor", side_effect=OSError("monitor unavailable")),
+            pytest.raises(OSError, match="monitor unavailable"),
+        ):
+            start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        process.kill.assert_called_once()
+        assert state.get_value("copilot.pid") == ""
+        log_file = list((temp_state / "background-tasks" / "logs").glob("*.log"))[0]
+        lifecycle_entries = _terminal_lifecycle_entries(log_file)
+        assert [entry["content"] for entry in lifecycle_entries] == ["SESSION_START", "SESSION_ERROR", "SESSION_END"]
+
+    def test_terminal_launch_persists_state_only_once(self, temp_state, mock_available):
+        """Terminal mode must not re-persist state after a successful launch."""
+        process = MagicMock()
+        process.pid = 4321
+        with (
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process),
+            patch.object(session_module, "_transfer_session_mutex_claim", return_value=True),
+            patch.object(session_module, "_start_terminal_monitor"),
+            patch.object(
+                session_module, "_persist_session_state", side_effect=[None, OSError("state busy")]
+            ) as persist,
+        ):
+            result = start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        assert result.pid == 4321
+        assert persist.call_count == 1
+
+    def test_terminal_persist_failure_terminates_host_and_releases_mutex(self, temp_state, mock_available):
+        """A state-persistence failure aborts the terminal host and clears the mutex claim."""
+        process = MagicMock()
+        process.pid = 4321
+        process.wait.return_value = 1
+        with (
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process),
+            patch.object(session_module, "_persist_session_state", side_effect=OSError("state busy")),
+            pytest.raises(OSError, match="state busy"),
+        ):
+            start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        process.kill.assert_called_once_with()
+        process.wait.assert_called_once_with(timeout=0.5)
+        assert state.get_value("copilot.pid") == ""
+        log_file = list((temp_state / "background-tasks" / "logs").glob("*.log"))[0]
+        lifecycle_entries = _terminal_lifecycle_entries(log_file)
+        assert [entry["content"] for entry in lifecycle_entries] == ["SESSION_START", "SESSION_ERROR", "SESSION_END"]
+
+    def test_terminal_persist_failure_retains_child_claim_when_exit_unconfirmed(
+        self,
+        temp_state,
+        mock_available,
+        capsys,
+    ):
+        """An unconfirmed terminal-host abort raises CopilotChildAliveError and keeps the child PID."""
+        process = MagicMock()
+        process.pid = 4321
+        process.wait.side_effect = subprocess.TimeoutExpired(cmd="terminal-host", timeout=0.5)
+        with (
+            patch.object(session_module.os, "getpid", return_value=4242),
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process),
+            patch.object(session_module, "_persist_session_state", side_effect=OSError("state busy")),
+            pytest.raises(CopilotChildAliveError, match="state busy") as exc_info,
+        ):
+            start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        assert isinstance(exc_info.value.__cause__, OSError)
+        process.kill.assert_called_once_with()
+        process.wait.assert_called_once_with(timeout=0.5)
+        assert state.get_value("copilot.pid") == 4321
+        assert "could not confirm terminal-host exit after session-state persistence failure" in capsys.readouterr().err
+
+    def test_terminal_launch_transfer_failure_kills_host_and_raises(self, temp_state, mock_available):
+        """A terminal-host mutex transfer failure aborts launch and releases owner claim."""
+        process = MagicMock()
+        process.pid = 4321
+        with (
+            patch.object(session_module, "_get_copilot_binary", return_value="/usr/bin/copilot"),
+            patch.object(session_module, "_terminal_launch_args", return_value=(["terminal-host"], 0)),
+            patch.object(session_module.subprocess, "Popen", return_value=process),
+            patch.object(session_module, "_transfer_session_mutex_claim", return_value=False),
+            pytest.raises(RuntimeError, match="Could not transfer the session mutex claim"),
+        ):
+            start_copilot_session(
+                prompt="Open a dedicated window",
+                working_directory=str(temp_state),
+                terminal=True,
+            )
+
+        process.kill.assert_called_once()
+        assert state.get_value("copilot.pid") == ""
+        log_file = list((temp_state / "background-tasks" / "logs").glob("*.log"))[0]
+        lifecycle_entries = _terminal_lifecycle_entries(log_file)
+        assert [entry["content"] for entry in lifecycle_entries] == ["SESSION_START", "SESSION_ERROR", "SESSION_END"]
+
+
 class TestStartCopilotSessionNonInteractive:
     """Tests for start_copilot_session in non-interactive mode."""
 
@@ -354,6 +610,15 @@ class TestStartCopilotSessionNonInteractive:
             interactive=False,
         )
         assert state.get_value("copilot.pid") == mock_proc.pid
+
+    def test_log_file_persisted_in_state(self, temp_state, mock_available, mock_popen_noninteractive):
+        """Log path is stored in state for non-interactive sessions."""
+        result = start_copilot_session(
+            prompt="Review the PR",
+            working_directory=str(temp_state),
+            interactive=False,
+        )
+        assert state.get_value("copilot.log_file") == result.log_file
 
     def test_cleans_up_child_when_state_persistence_fails(self, temp_state, mock_available):
         """A launched child is terminated and the mutex claim is released on persistence failure."""
@@ -2505,6 +2770,7 @@ class TestStartCopilotSessionMutex:
             "mode": "non-interactive",
             "prompt_file": "/tmp/existing-prompt.md",
             "start_time": "2026-06-04T13:45:00Z",
+            "log_file": "/tmp/existing-session.log",
             "pid": 12345,
         }
         with patch.object(session_module, "_check_session_mutex", return_value=existing_snapshot):
@@ -2519,6 +2785,7 @@ class TestStartCopilotSessionMutex:
         assert result.mode == "non-interactive"
         assert result.pid == 12345
         assert result.process is None
+        assert result.log_file == "/tmp/existing-session.log"
 
     def test_skips_trust_seeding_when_mutex_blocks(self, temp_state):
         """Trust seeding is skipped when mutex indicates a session is already running."""
@@ -2540,6 +2807,344 @@ class TestStartCopilotSessionMutex:
                 )
 
         mock_seed.assert_not_called()
+
+
+class TestTerminalLaunchHelpers:
+    """Tests for dedicated terminal command construction and monitoring."""
+
+    def test_quotes_values_for_shell_commands(self, tmp_path):
+        """Shell and PowerShell values are quoted safely."""
+        with patch.object(session_module.shutil, "which", return_value="/usr/bin/bash"):
+            assert session_module._powershell_quote("a'b") == "'a''b'"
+            command = session_module._terminal_shell_command(
+                ["copilot", "--prompt", "hello world"],
+                tmp_path / "session.log",
+            )
+        assert command.startswith("/usr/bin/bash -o pipefail -c ")
+        assert "tee -a" in command
+        assert "copilot --prompt" in command
+        assert shlex.quote(str(tmp_path / "session.log")) in command
+
+    def test_terminal_shell_command_requires_bash(self, tmp_path):
+        """Dedicated terminal capture fails early when bash is unavailable."""
+        with (
+            patch.object(session_module.shutil, "which", return_value=None),
+            pytest.raises(CopilotTerminalLaunchError, match="bash is required"),
+        ):
+            session_module._terminal_shell_command(["copilot"], tmp_path / "session.log")
+
+    def test_terminal_lifecycle_shell_command_invokes_lifecycle_writer(self, tmp_path):
+        """Terminal lifecycle shell commands delegate marker writes to the helper CLI."""
+        command = session_module._terminal_lifecycle_shell_command(
+            ["copilot", "--prompt", "hello world"],
+            tmp_path / "session.log",
+            "session-1",
+        )
+
+        assert "--write-terminal-lifecycle" in command
+        assert '"$marker"' in command
+        assert '"$exit_code"' in command
+
+    def test_append_terminal_lifecycle_entry_uses_structured_log_and_jsonl_formats(self, tmp_path):
+        """Terminal lifecycle helper writes the same marker and JSONL shape each time."""
+        import json
+
+        log_file_path = tmp_path / "session.log"
+
+        session_module._append_terminal_lifecycle_entry(
+            log_file_path,
+            "session-1",
+            "SESSION_ERROR",
+            exit_code=17,
+        )
+
+        log_content = log_file_path.read_text(encoding="utf-8")
+        assert log_content.startswith("[agdt-copilot-session] SESSION_ERROR ")
+        assert "session_id=session-1" in log_content
+        assert "exit_code=17" in log_content
+
+        jsonl_entries = [
+            json.loads(line) for line in log_file_path.with_suffix(".jsonl").read_text(encoding="utf-8").splitlines()
+        ]
+        assert jsonl_entries == [
+            {
+                "timestamp": jsonl_entries[0]["timestamp"],
+                "event_type": "lifecycle",
+                "content": "SESSION_ERROR",
+                "session_id": "session-1",
+                "exit_code": 17,
+            }
+        ]
+
+    def test_windows_terminal_launch(self, tmp_path):
+        """Windows Terminal receives a PowerShell capture command."""
+        with (
+            patch.object(session_module.sys, "platform", "win32"),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "wt.exe": "/bin/wt.exe",
+                    "powershell.exe": "/bin/powershell.exe",
+                }.get(name),
+            ),
+        ):
+            command, creation_flags = session_module._terminal_launch_args(
+                ["copilot", "--allow-all"],
+                "/work/tree",
+                tmp_path / "session.log",
+                "session-1",
+            )
+
+        assert command[:6] == [
+            "/bin/wt.exe",
+            "--wait",
+            "new-window",
+            "--title",
+            "Copilot session-1",
+            "--startingDirectory",
+        ]
+        assert command[-4:-1] == [
+            "-NoLogo",
+            "-NoProfile",
+            "-Command",
+        ]
+        assert creation_flags == 0
+        assert "Tee-Object" in command[-1]
+        assert "Tee-Object -Append" in command[-1]
+        assert "--write-terminal-lifecycle" in command[-1]
+
+    def test_windows_configured_cmd_host_uses_console_creation(self, tmp_path):
+        """A configured cmd.exe host uses cmd.exe syntax."""
+        with (
+            patch.object(session_module.sys, "platform", "win32"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "cmd.exe"}),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "cmd.exe": "/bin/cmd.exe",
+                    "powershell.exe": "/bin/powershell.exe",
+                }.get(name),
+            ),
+            patch.object(subprocess, "CREATE_NEW_CONSOLE", 42, create=True),
+        ):
+            command, creation_flags = session_module._terminal_launch_args(
+                ["copilot"],
+                "/work/tree",
+                tmp_path / "session.log",
+                "session-1",
+            )
+
+        assert command[:4] == ["/bin/cmd.exe", "/D", "/S", "/C"]
+        assert creation_flags == 42
+
+    def test_windows_configured_unsupported_host_raises_clear_error(self, tmp_path):
+        """Configured Windows hosts other than wt.exe/cmd.exe are rejected clearly."""
+        with (
+            patch.object(session_module.sys, "platform", "win32"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "pwsh.exe"}),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "pwsh.exe": "/bin/pwsh.exe",
+                    "powershell.exe": "/bin/powershell.exe",
+                }.get(name),
+            ),
+            pytest.raises(CopilotTerminalLaunchError, match="unsupported Windows terminal host"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+    def test_windows_configured_missing_host_raises_clear_error(self, tmp_path):
+        """Missing configured Windows hosts fail before subprocess launch."""
+        with (
+            patch.object(session_module.sys, "platform", "win32"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "wt.exe"}),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "powershell.exe": "/bin/powershell.exe",
+                }.get(name),
+            ),
+            pytest.raises(CopilotTerminalLaunchError, match="configured Windows terminal host 'wt.exe' is unavailable"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+    def test_windows_terminal_requires_host_and_powershell(self, tmp_path):
+        """Windows reports a clear error when a required executable is absent."""
+        with (
+            patch.object(session_module.sys, "platform", "win32"),
+            patch.object(session_module.shutil, "which", return_value=None),
+            pytest.raises(CopilotTerminalLaunchError, match="supported Windows host"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+    def test_macos_terminal_launch_and_failure(self, tmp_path):
+        """macOS uses osascript and reports when it is unavailable."""
+        with (
+            patch.object(session_module.sys, "platform", "darwin"),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "osascript": "/usr/bin/osascript",
+                    "bash": "/bin/bash",
+                }.get(name),
+            ),
+        ):
+            command, creation_flags = session_module._terminal_launch_args(
+                ["copilot"], "/work/tree", tmp_path / "session.log", "session-1"
+            )
+        assert command[0] == "/usr/bin/osascript"
+        assert "Terminal" in command[-1]
+        assert "repeat while busy of terminalTab" in command[-1]
+        assert creation_flags == 0
+
+        with (
+            patch.object(session_module.sys, "platform", "darwin"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "/custom/bin/osascript"}),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "/custom/bin/osascript": "/custom/bin/osascript",
+                    "bash": "/bin/bash",
+                }.get(name),
+            ),
+        ):
+            command, creation_flags = session_module._terminal_launch_args(
+                ["copilot"], "/work/tree", tmp_path / "session.log", "session-1"
+            )
+        assert command[0] == "/custom/bin/osascript"
+        assert creation_flags == 0
+
+        with (
+            patch.object(session_module.sys, "platform", "darwin"),
+            patch.object(session_module.shutil, "which", return_value=None),
+            pytest.raises(CopilotTerminalLaunchError, match="osascript"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+        with (
+            patch.object(session_module.sys, "platform", "darwin"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "osascript"}),
+            patch.object(session_module.shutil, "which", return_value=None),
+            pytest.raises(
+                CopilotTerminalLaunchError, match="configured macOS terminal host 'osascript' is unavailable"
+            ),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+        with (
+            patch.object(session_module.sys, "platform", "darwin"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "xterm"}),
+            pytest.raises(CopilotTerminalLaunchError, match="unsupported macOS terminal host"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+        with (
+            patch.object(session_module.sys, "platform", "darwin"),
+            patch.object(session_module.shutil, "which", return_value="/usr/bin/osascript"),
+            patch.object(
+                session_module,
+                "_terminal_lifecycle_shell_command",
+                side_effect=CopilotTerminalLaunchError("bash is required"),
+            ),
+            pytest.raises(CopilotTerminalLaunchError, match="bash is required"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+    def test_linux_terminal_hosts_and_failure(self, tmp_path):
+        """Linux supports gnome-terminal, generic hosts, and clear failure."""
+        with (
+            patch.object(session_module.sys, "platform", "linux"),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "gnome-terminal": "/usr/bin/gnome-terminal",
+                    "bash": "/bin/bash",
+                }.get(name),
+            ),
+        ):
+            command, _ = session_module._terminal_launch_args(
+                ["copilot"], "/work/tree", tmp_path / "session.log", "session-1"
+            )
+        assert command[1:4] == ["--", "sh", "-lc"]
+
+        with (
+            patch.object(session_module.sys, "platform", "linux"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "xterm"}),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: {
+                    "xterm": "/usr/bin/xterm",
+                    "bash": "/bin/bash",
+                }.get(name),
+            ),
+        ):
+            command, _ = session_module._terminal_launch_args(
+                ["copilot"], "/work/tree", tmp_path / "session.log", "session-1"
+            )
+        assert command[1:4] == ["-e", "sh", "-lc"]
+
+        with (
+            patch.object(session_module.sys, "platform", "linux"),
+            patch.object(session_module.shutil, "which", return_value=None),
+            pytest.raises(CopilotTerminalLaunchError, match="no supported terminal host"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+        with (
+            patch.object(session_module.sys, "platform", "linux"),
+            patch.dict(session_module.os.environ, {"AGDT_TERMINAL_HOST": "xterm"}),
+            patch.object(session_module.shutil, "which", return_value=None),
+            pytest.raises(CopilotTerminalLaunchError, match="configured terminal host 'xterm' is unavailable"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+        with (
+            patch.object(session_module.sys, "platform", "linux"),
+            patch.object(
+                session_module.shutil,
+                "which",
+                side_effect=lambda name: "/usr/bin/gnome-terminal" if name == "gnome-terminal" else None,
+            ),
+            pytest.raises(CopilotTerminalLaunchError, match="bash is required"),
+        ):
+            session_module._terminal_launch_args(["copilot"], "/work/tree", tmp_path / "session.log", "session-1")
+
+    def test_detached_monitor_releases_after_host_exits(self, tmp_path):
+        """The detached monitor waits for the host before releasing its mutex."""
+        state_path = tmp_path / "state.json"
+        with (
+            patch.object(session_module, "_is_process_alive", side_effect=[True, False]) as is_alive,
+            patch.object(session_module.time, "sleep") as sleep,
+            patch.object(session_module, "_release_session_mutex_claim") as release,
+        ):
+            session_module._monitor_terminal_pid(123, state_path)
+
+        assert is_alive.call_count == 2
+        sleep.assert_called_once_with(0.1)
+        release.assert_called_once_with(123, state_file_path=state_path)
+
+    def test_starts_detached_monitor_process(self, tmp_path):
+        """The monitor helper is launched independently from the terminal host."""
+        with patch.object(session_module.subprocess, "Popen", return_value=MagicMock()) as popen:
+            session_module._start_terminal_monitor(123, tmp_path / "state.json")
+
+        assert popen.call_args.args[0] == [
+            session_module.sys.executable,
+            "-m",
+            "agentic_devtools.cli.copilot.session",
+            "--monitor-terminal",
+            "123",
+            str(tmp_path / "state.json"),
+        ]
+        assert popen.call_args.kwargs["start_new_session"] is True
 
     def test_proceeds_when_mutex_allows(self, temp_state, mock_available, mock_popen_interactive):
         """start_copilot_session proceeds normally when mutex returns None."""

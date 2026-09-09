@@ -1,6 +1,6 @@
 """
-Helper classes and methods used in mixins implementing various commands.
-Unlike _helpers.py, here the methods should be used only in mixins.
+Helper classes and methods used in mixins implementing various commands. Unlike _helpers.py, here the methods should be
+used only in mixins.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ from . import _msgs as msgs
 from ._helpers import Database, SimpleError, null_terminate
 from ._typing import ServerType, VersionType
 
+# Dragonfly stores at most 256MB in one string, where redis allows 512MB.
+DRAGONFLY_MAX_STRING_SIZE = 2**28
 MAX_STRING_SIZE = 512 * 1024 * 1024
 SUPPORTED_COMMANDS: dict[str, Signature] = {}  # Dictionary of supported commands name => Signature
 COMMANDS_WITH_SUB: set[str] = set()  # Commands with sub-commands
@@ -160,8 +162,8 @@ class DbIndex(Int):
 class Float(RedisType):
     """Argument converter for floating-point values.
 
-    Redis uses long double for some cases (INCRBYFLOAT, HINCRBYFLOAT)
-    and double for others (zset scores), but Python doesn't support
+    Redis uses long double for some cases (INCRBYFLOAT, HINCRBYFLOAT) and double for others (zset scores), but Python
+    doesn't support
     `long double`.
     """
 
@@ -177,8 +179,8 @@ class Float(RedisType):
         crop_null: bool = False,
         decode_error: str | None = None,
     ) -> float:
-        # Redis has some quirks in float parsing, with several variants.
-        # See https://github.com/antirez/redis/issues/5706
+        # Redis has some quirks in float parsing, with several variants. See
+        # https://github.com/antirez/redis/issues/5706
         try:
             if crop_null:
                 value = null_terminate(value)
@@ -191,14 +193,28 @@ class Float(RedisType):
             out = float(value)
             if math.isnan(out):
                 raise ValueError
-            # Values that over- or under-flow are explicitly rejected by
-            # redis. This is a crude hack to determine whether the input
-            # may have been such a value.
+            # Values that over- or under-flow are explicitly rejected by redis. This is a crude hack to determine
+            # whether the input may have been such a value.
             if not allow_erange and out in (math.inf, -math.inf, 0.0) and re.match(b"^[^a-zA-Z]*[1-9]", value):
                 raise ValueError
             return out
         except ValueError:
             raise SimpleError(decode_error or cls.DECODE_ERROR)
+
+    @classmethod
+    def encode_shortest(cls, value: float) -> bytes:
+        """Render a double the way Dragonfly does, as the shortest string that round-trips.
+
+        Redis pads doubles out to 17 significant digits, so a score of 3.2 comes back as
+        ``3.2000000000000002``; Dragonfly prints ``3.2``, and drops the fractional part
+        altogether for whole numbers.
+        """
+        if math.isinf(value):
+            return str(value).encode()
+        out = repr(value)
+        if out.endswith(".0"):
+            out = out[:-2]
+        return out.encode()
 
     @classmethod
     def encode(cls, value: float, humanfriendly: bool) -> bytes:
@@ -285,7 +301,7 @@ class Signature:
         repeat: tuple[type[RedisType | bytes]] = (),  # type:ignore
         args: tuple[str] = (),  # type:ignore
         flags: str = "",
-        server_types: Collection[ServerType] = ("redis", "valkey", "dragonfly"),
+        server_types: Collection[ServerType] = ("redis", "valkey", "dragonfly", "kividb"),
     ):
         self.name = name
         self.func_name = func_name

@@ -22,6 +22,19 @@ COMMAND_DESCRIPTIONS = {
 }
 
 
+class _UnsupportedDebugProxyAction(argparse.Action):
+    """Reject proxy flags when they are passed to `fivetran debug`."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, "_reject_proxy_flags", False):
+            parser.error(
+                "Proxy Agent routing is not supported with `fivetran debug`. "
+                f"`{option_string}` is only supported with `fivetran deploy`. "
+                "Please run `fivetran debug` from a machine that can reach the source directly."
+            )
+        setattr(namespace, self.dest, values)
+
+
 def _add_force(subparser):
     subparser.add_argument("-f", "--force", action="store_true", help=argparse.SUPPRESS)
 
@@ -57,10 +70,34 @@ def _add_hd_agent_id(subparser):
                            help="Hybrid Deployment agent ID. Defaults to the destination's default agent.")
 
 def _add_proxy_id(subparser, hidden=False):
+    if subparser.get_default("_reject_proxy_flags"):
+        subparser.add_argument(
+            "--proxy-id",
+            nargs="?",
+            const="",
+            default=None,
+            metavar="<proxy-id>",
+            action=_UnsupportedDebugProxyAction,
+            help=argparse.SUPPRESS if hidden else "Proxy Agent ID for routing connector traffic through a Proxy Agent",
+        )
+        return
+
     subparser.add_argument("--proxy-id", type=str, default=None, metavar="<proxy-id>",
                            help=argparse.SUPPRESS if hidden else "Proxy Agent ID for routing connector traffic through a Proxy Agent")
 
 def _add_proxy_host_config_key(subparser, hidden=False):
+    if subparser.get_default("_reject_proxy_flags"):
+        subparser.add_argument(
+            "--proxy-host-config-key",
+            nargs="?",
+            const="",
+            default=None,
+            metavar="<proxy-host-config-key>",
+            action=_UnsupportedDebugProxyAction,
+            help=argparse.SUPPRESS if hidden else "Configuration key that contains the host details to proxy",
+        )
+        return
+
     subparser.add_argument("--proxy-host-config-key", type=str, default=None, metavar="<proxy-host-config-key>",
                            help=argparse.SUPPRESS if hidden else "Configuration key that contains the host details to proxy")
 
@@ -83,6 +120,10 @@ def _add_non_interactive(subparser):
 def _add_test(subparser):
     subparser.add_argument("--test", action="store_true",
                            help="Run all setup tests defined in configuration_form(). Only valid with the 'configuration' command.")
+
+def _add_disable_encryption(subparser):
+    subparser.add_argument("--disable-encryption", action="store_true",
+                           help="Disable encryption for sensitive fields (not recommended when working with AI)")
 
 def create_argument_parser():
     parser = argparse.ArgumentParser(
@@ -117,10 +158,13 @@ def create_argument_parser():
 
     debug_subparser = subparsers.add_parser("debug", help=COMMAND_DESCRIPTIONS["debug"],
                                             usage="fivetran debug [project_path] [options]")
+    debug_subparser.set_defaults(_reject_proxy_flags=True)
     _add_project_path(debug_subparser)
     _add_configuration(debug_subparser)
     _add_state(debug_subparser)
     _add_naming(debug_subparser)
+    _add_proxy_id(debug_subparser, hidden=True)
+    _add_proxy_host_config_key(debug_subparser, hidden=True)
 
     deploy_subparser = subparsers.add_parser("deploy", help=COMMAND_DESCRIPTIONS["deploy"],
                                              usage="fivetran deploy [project_path] [options]")
@@ -155,11 +199,11 @@ def create_argument_parser():
 
     configuration_subparser = subparsers.add_parser(
         "configuration",
-        help=COMMAND_DESCRIPTIONS["configuration"],
         usage="fivetran configuration [project_path] [options]",
     )
     _add_project_path(configuration_subparser)
     _add_test(configuration_subparser)
+    _add_disable_encryption(configuration_subparser)
 
     subparsers.add_parser("help", help=COMMAND_DESCRIPTIONS["help"],
                           usage="fivetran help")

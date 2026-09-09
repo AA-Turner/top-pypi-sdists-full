@@ -82,6 +82,19 @@ def _make_tap(root):
     return root
 
 
+def _make_mirror_tap(root, name, desc):
+    """A tap shipping one skill — for a curated fallback with duplicate names."""
+    d = root / "skills" / name
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text(
+        "---\nname: %s\ndescription: %s\nversion: 1.0.0\n---\n\n"
+        "# %s\n\nBody text.\n" % (name, desc, name), encoding="utf-8")
+    _git(root, "init", "-q")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "skill")
+    return root
+
+
 # ---------------------------------------------------------------- search
 
 class TestSearch:
@@ -130,6 +143,9 @@ class TestSearch:
         # BM25 (the default engine) scores are positive floats, not the old
         # integer heuristic score — assert the shape, not a magic constant.
         assert isinstance(data[0]["score"], float) and data[0]["score"] > 0
+        # search_blob is index fuel, not display data — ~36% of a raw payload
+        # by measurement; a --json consumer should never pay for it.
+        assert "search_blob" not in data[0]
 
     def test_a_stem_query_reaches_the_inflected_skill_and_says_so(
             self, boost, tapped):
@@ -249,6 +265,77 @@ class TestSearch:
         # junk reply → keep the base BM25 order (tdd-workflow ranks first)
         assert r.out.index("tdd-workflow") < r.out.index("jira-integration")
         assert "ranked by full-content BM25" in r.out
+        # Previously silent: AI was available and was tried, but produced
+        # nothing usable — indistinguishable from a deliberate BM25-only run.
+        assert "using the heuristic fallback" in " ".join(r.err.split())
+
+    def test_smart_with_a_failed_ai_call_still_warns(self, boost, tapped,
+                                                      monkeypatch):
+        monkeypatch.delenv("BOOST_NO_AI", raising=False)
+        monkeypatch.setattr("boost_cli.core.ai.available", lambda: True)
+        monkeypatch.setattr("boost_cli.core.ai.ask", lambda *a, **k: None)
+        r = boost("search", "workflow", "--smart")
+        assert r.out.index("tdd-workflow") < r.out.index("jira-integration")
+        assert "ranked by full-content BM25" in r.out
+        assert "using the heuristic fallback" in " ".join(r.err.split())
+
+    def test_json_carries_a_ranker_field(self, boost, tapped):
+        # `--json` used to drop the ranker entirely — a script had no way to
+        # tell BM25 from a Claude rerank without parsing the human footer.
+        r = boost("search", "brainstorming", "--json")
+        data = json.loads(r.out)
+        assert data[0]["ranker"] == "full-content BM25"
+
+    def test_json_smart_reranks_before_printing(self, boost, tapped,
+                                                monkeypatch):
+        # `--json --smart` used to be byte-identical to `--json` alone: the
+        # JSON branch returned before the --smart rerank ever ran.
+        monkeypatch.delenv("BOOST_NO_AI", raising=False)
+        monkeypatch.setattr("boost_cli.core.ai.available", lambda: True)
+        monkeypatch.setattr("boost_cli.core.ai.ask",
+                            lambda *a, **k: '["jira-integration", "tdd-workflow"]')
+        r = boost("search", "workflow", "--json", "--smart")
+        data = json.loads(r.out)
+        assert [e["name"] for e in data] == ["jira-integration", "tdd-workflow"]
+        assert data[0]["ranker"] == "Claude Haiku relevance"
+
+    def test_json_smart_without_ai_warns_but_stdout_stays_valid_json(
+            self, boost, tapped):
+        # BOOST_NO_AI=1 (the sandbox default): --smart can't rerank, so it
+        # must say so on stderr while stdout stays one clean JSON document —
+        # a script reading stdout must still learn --smart silently did
+        # nothing, without that warning corrupting the JSON it parses.
+        r = boost("search", "brainstorming", "--json", "--smart")
+        assert "using the heuristic fallback" in " ".join(r.err.split())
+        data = json.loads(r.out)
+        assert r.out.count("\n") == 1
+        assert data[0]["name"] == "brainstorming"
+        assert data[0]["ranker"] == "full-content BM25"
+
+    def test_json_on_empty_results_is_an_empty_array(self, boost, tapped):
+        r = boost("search", "zzzznothing", "--json")
+        assert json.loads(r.out) == []
+        # No human empty-state line either — --json stays pure.
+        assert "no matches" not in r.out
+
+    def test_footer_says_top_of_cap_when_retrieval_saturates(
+            self, boost, tapped, monkeypatch):
+        # The footer used to report the retrieval cap (`max(60, limit*4)`) as
+        # though it were the true match count. Force retrieval to return
+        # exactly the cap so the wording must say "top N of K+", not a count
+        # that reads as exact but is an artifact of the cap.
+        from boost_cli.core import rag
+
+        def fake_retrieve_any(query, k=60, **kwargs):
+            hits = [{"entry": {"name": "skill-%d" % i, "description": "d",
+                               "kind": "skill", "tap": "fixture-tap"},
+                     "score": 1.0, "content": None, "snippet": ""}
+                    for i in range(k)]
+            return hits, "BM25 full-content"
+        monkeypatch.setattr(rag, "retrieve_any", fake_retrieve_any)
+        r = boost("search", "anything", "--limit", "1")
+        assert "top 1 of 60+ retrieved · ranked by full-content BM25" in r.out
+        assert "matches ·" not in r.out
 
     def test_index_build_failure_degrades_to_heuristic(self, boost, tapped,
                                                        monkeypatch):
@@ -450,6 +537,79 @@ class TestIndex:
         r = boost("index", expect=1)
         assert "gh api timed out on page 1" in r.err
 
+    def test_rate_limited_gh_gets_a_boost_native_hint(self, boost, sandbox,
+                                                       monkeypatch):
+        # gh's own rate-limit failure is multi-line prose plus a JSON blob —
+        # this must not reach the user verbatim as the error hint.
+        monkeypatch.setattr("boost_cli.commands.discovery.shutil.which",
+                            lambda c: "/usr/bin/gh")
+        raw = ('gh: API rate limit exceeded for your IP.\n'
+               '{"message": "API rate limit exceeded"}')
+        monkeypatch.setattr(
+            "boost_cli.commands.discovery.subprocess.run",
+            lambda cmd, **kw: types.SimpleNamespace(
+                returncode=1, stdout="", stderr=raw))
+        r = boost("index", expect=1)
+        assert "GitHub code search failed" in r.err
+        assert ("GitHub rate limit hit — wait a minute or authenticate: "
+                "`gh auth login` / GH_TOKEN") in r.err
+        assert "API rate limit exceeded" not in r.err
+
+    def test_zero_results_keeps_the_previous_index(self, boost, sandbox,
+                                                    monkeypatch):
+        monkeypatch.setattr("boost_cli.commands.discovery.shutil.which",
+                            lambda c: "/usr/bin/gh")
+        monkeypatch.setattr(
+            "boost_cli.commands.discovery.subprocess.run",
+            lambda cmd, **kw: types.SimpleNamespace(
+                returncode=0, stderr="", stdout=_gh_page(
+                    [_gh_item("octo/skills", "a/SKILL.md"),
+                     _gh_item("acme/pack", "b/SKILL.md")])))
+        boost("index", "--limit", "100")
+        before = (paths.cache_dir() / "discovery.json").read_text(encoding="utf-8")
+
+        monkeypatch.setattr(
+            "boost_cli.commands.discovery.subprocess.run",
+            lambda cmd, **kw: types.SimpleNamespace(
+                returncode=0, stderr="", stdout=_gh_page([], total=0)))
+        r = boost("index", "zzzznomatch")
+        assert ("no SKILL.md files match zzzznomatch — keeping the "
+                "previous index of 2 entries") in r.out
+        assert "indexed" not in r.out
+        after = (paths.cache_dir() / "discovery.json").read_text(encoding="utf-8")
+        assert after == before   # untouched, not rewritten with 0 items
+
+    def test_zero_results_with_no_prior_index_still_writes_one(self, boost,
+                                                                sandbox,
+                                                                monkeypatch):
+        # No discovery.json exists yet, so there is nothing to lose — an
+        # empty index is still written rather than reporting "keeping" one
+        # that was never there.
+        monkeypatch.setattr("boost_cli.commands.discovery.shutil.which",
+                            lambda c: "/usr/bin/gh")
+        monkeypatch.setattr(
+            "boost_cli.commands.discovery.subprocess.run",
+            lambda cmd, **kw: types.SimpleNamespace(
+                returncode=0, stderr="", stdout=_gh_page([], total=0)))
+        r = boost("index", "zzzznomatch")
+        assert "indexed 0 skill files across 0 repos" in r.out
+        data = json.loads((paths.cache_dir() / "discovery.json").read_text(encoding="utf-8"))
+        assert data["items"] == []
+
+    def test_progress_bar_is_cleared_before_a_failure(self, boost, sandbox,
+                                                       monkeypatch):
+        monkeypatch.setattr("boost_cli.commands.discovery.shutil.which",
+                            lambda c: "/usr/bin/gh")
+        monkeypatch.setattr(
+            "boost_cli.commands.discovery.subprocess.run",
+            lambda cmd, **kw: types.SimpleNamespace(
+                returncode=1, stdout="", stderr="boom"))
+        cleared = []
+        monkeypatch.setattr("boost_cli.commands.discovery.spin.progress_clear",
+                            lambda *a, **kw: cleared.append(True))
+        boost("index", expect=1)
+        assert cleared == [True]
+
 
 class TestGithubSkillSearch:
     """The one-shot reach-out helper behind the boost_discover_github MCP tool."""
@@ -580,21 +740,28 @@ class TestDiscover:
         assert "build it with `boost index` (GitHub Code Search)" in r.out
         r = boost("discover", "--json")
         assert json.loads(r.out) == []
+        # The bug: stdout stayed valid JSON, but stderr said nothing at all, so
+        # a script could not tell "nothing indexed yet" from "no matches".
+        assert "the discovery index has not been built yet" in r.err
 
     def test_query_filters_and_footer_counts(self, boost, sandbox):
         _write_index(_ITEMS)
         r = boost("discover", "--local", "acme")
         assert "octo/skills" not in r.out
-        assert "skills/web/SKILL.md" in r.out and "skills/db/SKILL.md" in r.out
+        # One row per repository: acme/pack ships two matching files, so the
+        # "(2)" cell — same as the live table — is what says so, not a second
+        # row for the file `_by_repo` folded away.
+        assert "acme/pack (2)" in r.out
+        assert "skills/web/SKILL.md" in r.out
         # "when this index was built" is load-bearing: `boost index` now takes a
         # query, so github_total is the total for *that* query at *that* time,
         # not a live GitHub-wide count.
-        assert ("2 of 3 indexed skills · GitHub reported ~42 total when this "
-                "index was built") in r.out
+        assert ("1 repo(s) across 2 of 3 indexed skill files · GitHub reported "
+                "~42 total when this index was built") in r.out
         # multi-token queries AND together
         r = boost("discover", "--local", "acme", "web")
         assert "skills/db/SKILL.md" not in r.out
-        assert "1 of 3 indexed skills" in r.out
+        assert "1 repo(s) across 1 of 3 indexed skill files" in r.out
 
     def test_the_footer_names_the_query_the_index_was_built_with(self, boost,
                                                                  sandbox):
@@ -622,7 +789,7 @@ class TestDiscover:
     def test_limit(self, boost, sandbox):
         _write_index(_ITEMS)
         r = boost("discover", "--limit", "1")
-        assert "1 of 3 indexed skills" in r.out
+        assert "1 repo(s) across 3 of 3 indexed skill files" in r.out
         assert "acme/pack" not in r.out
 
     def test_corrupt_index(self, boost, sandbox):
@@ -740,7 +907,7 @@ class TestDiscoverLive:
         monkeypatch.setattr("boost_cli.commands.discovery.subprocess.run", boom)
         _write_index(_ITEMS)
         r = boost("discover", "--local", "acme")
-        assert "2 of 3 indexed skills" in r.out
+        assert "1 repo(s) across 2 of 3 indexed skill files" in r.out
 
     def test_bare_discover_still_browses_the_cache(self, boost, sandbox, monkeypatch):
         """No query is a browse request, and browsing the cache is free."""
@@ -752,7 +919,7 @@ class TestDiscoverLive:
         monkeypatch.setattr("boost_cli.commands.discovery.subprocess.run", boom)
         _write_index(_ITEMS)
         r = boost("discover")
-        assert "3 of 3 indexed skills" in r.out
+        assert "2 repo(s) across 3 of 3 indexed skill files" in r.out
 
     def test_empty_github_result_is_reported_not_masked(self, boost, sandbox,
                                                         monkeypatch):
@@ -770,7 +937,7 @@ class TestDiscoverLive:
         r = boost("discover", "acme")
         # The notice belongs on stderr — see test_json_survives_a_fallback.
         assert "GitHub code search failed" in r.err
-        assert "2 of 3 indexed skills" in r.out
+        assert "1 repo(s) across 2 of 3 indexed skill files" in r.out
 
     def test_missing_gh_falls_back_to_the_index(self, boost, sandbox, monkeypatch):
         monkeypatch.setattr("boost_cli.commands.discovery.shutil.which",
@@ -778,7 +945,7 @@ class TestDiscoverLive:
         _write_index(_ITEMS)
         r = boost("discover", "acme")
         assert "GitHub search needs the `gh` CLI" in r.err
-        assert "2 of 3 indexed skills" in r.out
+        assert "1 repo(s) across 2 of 3 indexed skill files" in r.out
 
     def test_a_fallback_miss_does_not_blame_a_flag_you_never_passed(
             self, boost, sandbox, monkeypatch):
@@ -786,10 +953,25 @@ class TestDiscoverLive:
                             lambda c: None)
         _write_index(_ITEMS)
         r = boost("discover", "zzz")
-        assert "because GitHub could not be reached" in r.out
+        # The bug: this said "because GitHub could not be reached" whatever the
+        # real reason — here, the real reason is that `gh` is not on PATH.
+        assert "because the `gh` CLI is not installed" in r.out
+        assert "because GitHub could not be reached" not in r.out
         # "drop --local" contradicts the warning above it for a user who never
         # typed --local, and is advice they cannot act on.
         assert "drop --local" not in r.out
+
+    def test_a_bare_browse_miss_does_not_claim_github_was_unreachable(
+            self, boost, sandbox, monkeypatch):
+        # No query means no live attempt at all — GitHub was never asked, so
+        # blaming it for being unreachable would be false, same bug as the
+        # gh-missing case above but with no fallback reason to report.
+        monkeypatch.setattr("boost_cli.commands.discovery.shutil.which",
+                            lambda c: "/usr/bin/gh")
+        _write_index([])
+        r = boost("discover")
+        assert "because GitHub could not be reached" not in r.out
+        assert "GitHub was not searched" in r.out
 
     def test_json_survives_a_fallback_and_says_which_corpus_answered(
             self, boost, sandbox, monkeypatch):
@@ -900,6 +1082,48 @@ class TestRecommend:
         assert "no stack-specific matches — curated picks instead:" in r.out
         assert "brainstorming" in r.out
 
+    def test_curated_fallback_json_carries_the_same_list_as_text(
+            self, boost, fixture_tap_src, tmp_path):
+        # `recommend --json` used to return `"recommendations": []` here —
+        # the JSON branch ran before the curated fallback existed at all —
+        # while the text path printed real rows in the same directory.
+        boost("tap", fixture_tap_src, "--curated")
+        proj = tmp_path / "empty-proj"
+        proj.mkdir()
+        data = json.loads(boost("recommend", "--path", proj, "--json").out)
+        assert data["recommendations"]
+        assert all(r["because"] == ["curated"] for r in data["recommendations"])
+        names = {r["name"] for r in data["recommendations"]}
+        assert "brainstorming" in names
+        # index fuel never belongs in a --json payload.
+        assert all("search_blob" not in r for r in data["recommendations"])
+
+    def test_curated_fallback_dedupes_mirrors_by_name(self, boost, tmp_path):
+        # Two taps shipping the same curated name (locale mirrors, in the
+        # audit's repro) used to count as two rows instead of one, and
+        # crowded out every other curated pick in the --limit window.
+        _make_mirror_tap(tmp_path / "mirror-a", "shared-skill", "from tap a")
+        _make_mirror_tap(tmp_path / "mirror-b", "shared-skill", "from tap b")
+        boost("tap", tmp_path / "mirror-a", "--curated")
+        boost("tap", tmp_path / "mirror-b", "--curated")
+        proj = tmp_path / "empty-proj"
+        proj.mkdir()
+        data = json.loads(boost("recommend", "--path", proj, "--json").out)
+        matches = [r for r in data["recommendations"] if r["name"] == "shared-skill"]
+        assert len(matches) == 1
+        r = boost("recommend", "--path", proj)
+        assert r.out.count("shared-skill") == 1
+
+    def test_stack_line_shows_extra_keywords_not_in_languages_or_frameworks(
+            self, boost, stack_tap, tmp_path):
+        # `stack: ... · frameworks: ...` used to drop any matched keyword that
+        # wasn't itself a language or framework (e.g. `ci`), even though the
+        # `because:` column on the very same row went on to cite it.
+        proj = tmp_path / "ci-proj"
+        (proj / ".github" / "workflows").mkdir(parents=True)
+        r = boost("recommend", "--path", proj)
+        assert "· also: ci" in r.out
+
     def test_no_recommendations_at_all(self, boost, tapped, tmp_path):
         proj = tmp_path / "empty-proj"
         proj.mkdir()
@@ -1000,7 +1224,53 @@ class TestBrowse:
         for name in ("brainstorming", "commit-messages", "cowboy-coding",
                      "jira-integration", "tdd-workflow"):
             assert name in r.out
-        assert "5 skills · install with `boost install <name>`" in r.out
+        assert "5 items: 5 skills · install with `boost install <name>`" in r.out
+        assert "narrow with `boost search <query>`" in r.out
+        # every fixture entry is a skill and none are curated: the kind
+        # column carries the (redundant but honest) [skill] badge, and the
+        # curated column is dropped rather than rendered as an empty header.
+        assert "[skill]" in r.out
+        assert "★" not in r.out
+
+    def test_non_tty_dedupes_mirrored_rows(self, boost, tapped, monkeypatch):
+        # A registry rendering one skill into multiple agent dirs used to list
+        # every mirror in the plain fallback with nothing to tell them apart.
+        from boost_cli.core import catalog
+        entries = catalog.all_entries()
+        mirror = dict(entries[0])
+        monkeypatch.setattr(catalog, "all_entries", lambda: [*entries, mirror])
+        r = boost("browse")
+        assert r.out.count(mirror["name"]) == 1
+
+    def test_non_tty_shows_curated_column_when_curated(self, boost, tapped, monkeypatch):
+        from boost_cli.core import catalog
+        entries = catalog.all_entries()
+        entries[0]["curated"] = True
+        monkeypatch.setattr(catalog, "all_entries", lambda: entries)
+        r = boost("browse")
+        assert "★" in r.out
+
+    def test_curses_init_failure_falls_back_to_plain(self, boost, tapped, monkeypatch):
+        # An fd that claims isatty() but isn't a real pty (IDE consoles,
+        # `script`, TERM=dumb) can fail deep inside curses.wrapper rather than
+        # at the isatty() check — regression: this used to crash with an
+        # "unexpected error" and leave the terminal in raw mode.
+        if not _curses_available():
+            pytest.skip("curses not available on this platform")
+        import curses as real_curses
+
+        from boost_cli.commands import discovery
+        tty = types.SimpleNamespace(isatty=lambda: True)
+        monkeypatch.setattr(discovery, "sys",
+                            types.SimpleNamespace(stdin=tty, stdout=tty))
+
+        def boom(curses, entries):
+            raise real_curses.error("nocbreak() returned ERR")
+
+        monkeypatch.setattr(discovery, "_browse_tui", boom)
+        r = boost("browse")
+        assert "the terminal does not support curses (nocbreak() returned ERR)" in r.out
+        assert "showing the full catalog" in r.out
 
     def test_no_skills(self, boost, sandbox):
         r = boost("browse", expect=1)
@@ -1407,6 +1677,24 @@ class TestTrending:
         assert "jira-integration" in r.out
         assert "brainstorming" not in r.out
 
+    def test_a_name_shared_by_two_taps_shows_the_first_taps_description(
+            self, boost, tmp_path):
+        # `by_name` used to be a dict comprehension, which keeps the LAST
+        # entry per name (whichever tap sorts last), while `recommend`'s
+        # equivalent aggregation keeps the first — so the two commands showed
+        # different descriptions for the same name. First-wins here matches
+        # that convention.
+        from boost_cli.core import journal
+        _make_mirror_tap(tmp_path / "mirror-a", "shared-skill", "from tap a")
+        _make_mirror_tap(tmp_path / "mirror-b", "shared-skill", "from tap b")
+        boost("tap", tmp_path / "mirror-a")
+        boost("tap", tmp_path / "mirror-b")
+        journal.log("install", "shared-skill")
+        r = boost("trending")
+        line = next(l for l in r.out.splitlines() if l.startswith("shared-skill"))
+        assert "from tap a" in line
+        assert "from tap b" not in line
+
     def test_curated_picks_show_a_kind_column(self, boost, fixture_tap_src):
         boost("tap", fixture_tap_src, "--curated")
         r = boost("trending", "--limit", "2")
@@ -1462,7 +1750,10 @@ class TestStats:
         assert "1.4.0" in lines["version"]
         assert "fixture-tap" in lines["tap"]
         assert entry["sha256"][:12] in lines["sha256"]
-        assert "claude-code, windsurf, cursor" in lines["agents"]
+        # Sorted, not lock/install order — `lockfile.agent_names` is what
+        # both `stats` and the installed-rule/workflow card now share, so a
+        # rule's agents line and a skill's read the same way.
+        assert "claude-code, cursor, windsurf" in lines["agents"]
         assert "no" in lines["pinned"]
         sdir = paths.store_dir() / "brainstorming"
         assert util.human_size(util.dir_size(sdir)) in lines["size"]
@@ -1538,6 +1829,37 @@ class TestStats:
         assert data["kind"] == "rule"
         assert data["installed"] is True
         assert data["lock"]["version"] == "1.2.0"
+
+    def test_installed_rule_shows_latest_description_and_upstream(
+            self, boost, fixture_tap_src, tmp_path):
+        # docs/roadmap/items/audit-info-stats-explain-render-a-different-
+        # smaller-shape-for-rule.md: the `kind != skill` branch used to
+        # `return` right after its own activity line, before the shared
+        # latest/description/upstream section below ever ran — even though
+        # `catalog.find` found the entry just like it does for a skill.
+        tap = tmp_path / "rule-tap"
+        shutil.copytree(fixture_tap_src, tap)
+        (tap / "rules").mkdir()
+        (tap / "rules" / "dep-mgmt.mdc").write_text(
+            "---\nname: dep-mgmt\nversion: 1.0.0\n"
+            "description: Keep dependency manifests in sync with lockfiles.\n"
+            "---\n\nAlways pin transitive dependency versions.\n",
+            encoding="utf-8")
+        subprocess.run(["git", "-C", str(tap), "add", "-A"],
+                       check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(tap), "commit", "-qm", "add rule"],
+                       check=True, capture_output=True)
+        boost("tap", str(tap))
+        boost("install", "dep-mgmt", "--agent", "claude-code")
+        r = boost("stats", "dep-mgmt")
+        assert "1.0.0 (up to date)" in r.out
+        assert "Keep dependency manifests in sync with lockfiles." in r.out
+        assert "add rule" in r.out          # fixture commit subject, upstream
+        data = json.loads(boost("stats", "dep-mgmt", "--json").out)
+        assert data["kind"] == "rule"
+        assert data["catalog"]["description"] == \
+            "Keep dependency manifests in sync with lockfiles."
+        assert data["size"] is None          # no store dir for a rule
 
     def test_json_purity(self, boost, installed):
         r = boost("stats", "brainstorming", "--json")

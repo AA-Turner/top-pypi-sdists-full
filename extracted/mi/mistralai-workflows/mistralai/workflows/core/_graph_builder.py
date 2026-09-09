@@ -204,8 +204,8 @@ def _resolve_call(call: ast.Call, module_ns: dict[str, Any]) -> Any:
     return _resolve(call.func, module_ns)
 
 
-def _block_exit_kind(stmts: list[ast.stmt]) -> Literal["return", "raise"] | None:
-    """Return how a statement block terminates: 'return', 'raise', or None.
+def _block_exit(stmts: list[ast.stmt]) -> tuple[Literal["return", "raise"], ast.stmt] | None:
+    """Return how a statement block terminates and the statement that terminates it.
 
     Inspects the last statement and recurses into transparent compound statements
     (with-blocks, and if/else where both branches exit) so a return or raise nested
@@ -215,16 +215,18 @@ def _block_exit_kind(stmts: list[ast.stmt]) -> Literal["return", "raise"] | None
         return None
     last = stmts[-1]
     if isinstance(last, ast.Raise):
-        return "raise"
+        return "raise", last
     if isinstance(last, ast.Return):
-        return "return"
+        return "return", last
     if isinstance(last, (ast.With, ast.AsyncWith)):
-        return _block_exit_kind(last.body)
+        return _block_exit(last.body)
     if isinstance(last, ast.If) and last.orelse:
-        true_kind = _block_exit_kind(last.body)
-        false_kind = _block_exit_kind(last.orelse)
-        if true_kind is not None and false_kind is not None:
-            return "raise" if true_kind == "raise" and false_kind == "raise" else "return"
+        true_exit = _block_exit(last.body)
+        false_exit = _block_exit(last.orelse)
+        if true_exit is not None and false_exit is not None:
+            if true_exit[0] == "raise" and false_exit[0] == "raise":
+                return "raise", last
+            return "return", last
     return None
 
 
@@ -273,6 +275,19 @@ def _abs_range(
     """Absolute byte offsets in the concatenated source blob for a per-file span."""
     fb = file_ranges.get(file_path, {}).get("begin", 0)
     return _SourceRange(begin=fb + begin, end=fb + end, line=line)
+
+
+def _exit_source_range(
+    exit_info: tuple[str, ast.stmt] | None,
+    index: _FileIndex,
+    file_ranges: dict[str, dict[str, int]],
+    file_path: str,
+) -> _SourceRange | None:
+    if exit_info is None:
+        return None
+    stmt = exit_info[1]
+    begin, end = _ast_span(stmt, index)
+    return _abs_range(file_ranges, file_path, begin, end, line=stmt.lineno)
 
 
 def _make_ellipsis_node(ctx: _TreeCtx, workflow_name: str, source_range: _SourceRange) -> _EllipsisNode:
@@ -1198,10 +1213,10 @@ def _walk_body_tree(
             cond_idx = ctx.cond_counter[0]
             ctx.cond_counter[0] += 1
             cb, ce = _ast_span(stmt, index)
-            true_kind = _block_exit_kind(stmt.body)
-            false_kind = _block_exit_kind(stmt.orelse)
-            true_exits = true_kind is not None
-            false_exits = false_kind is not None
+            true_exit = _block_exit(stmt.body)
+            false_exit = _block_exit(stmt.orelse)
+            true_exits = true_exit is not None
+            false_exits = false_exit is not None
             true_branch: list[TreeNode] = _walk_lane(stmt.body)
             false_branch: list[TreeNode] = _walk_lane(stmt.orelse if stmt.orelse else [])
             sr = _abs_range(file_ranges, file_path, cb, ce, line=stmt.lineno)
@@ -1219,11 +1234,13 @@ def _walk_body_tree(
                     source_range=sr,
                     true_branch=true_branch,
                     true_exits=true_exits,
-                    true_exit_error=true_kind == "raise",
+                    true_exit_error=true_exit is not None and true_exit[0] == "raise",
                     false_branch=false_branch,
                     false_exits=false_exits,
-                    false_exit_error=false_kind == "raise",
+                    false_exit_error=false_exit is not None and false_exit[0] == "raise",
                     rejoin=rejoin,
+                    true_exit_range=_exit_source_range(true_exit, index, file_ranges, file_path),
+                    false_exit_range=_exit_source_range(false_exit, index, file_ranges, file_path),
                 )
             )
             return result

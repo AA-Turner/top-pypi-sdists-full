@@ -624,20 +624,6 @@ class TOPBAR_PT_name_marker(_bpy_types.Panel):
         """
 
     @staticmethod
-    def is_using_pose_markers(context) -> None:
-        """
-
-        :param context:
-        """
-
-    @staticmethod
-    def is_using_sequencer(context) -> None:
-        """
-
-        :param context:
-        """
-
-    @staticmethod
     def row_with_icon(layout, icon) -> None:
         """
 

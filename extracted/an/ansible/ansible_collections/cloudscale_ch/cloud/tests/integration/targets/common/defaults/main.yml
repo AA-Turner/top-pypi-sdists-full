@@ -1,9 +1,9 @@
 ---
 # The image to use for test servers
-cloudscale_test_image: 'debian-10'
+cloudscale_test_image: 'debian-13'
 
 # Alternate test image to use if a different image is required
-cloudscale_alt_test_image: 'ubuntu-20.04'
+cloudscale_alt_test_image: 'ubuntu-24.04'
 
 # The flavor to use for test servers
 cloudscale_test_flavor: 'flex-4-2'
@@ -18,3 +18,7 @@ cloudscale_test_alt_zone: 'rma1'
 
 # The region to use to request floating IPs
 cloudscale_test_region: 'lpg'
+
+# Base URL of the cloudscale.ch API. Override in
+# integration_config.yml to target a non-production API.
+cloudscale_api_url: 'https://api.cloudscale.ch/v1'

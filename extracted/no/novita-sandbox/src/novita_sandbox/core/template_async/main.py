@@ -11,6 +11,7 @@ from novita_sandbox.core.connection_config import ApiParams, ConnectionConfig
 from novita_sandbox.core.legacy_api import template_list_from_dict
 from novita_sandbox.core.template.consts import RESOLVE_SYMLINKS
 from novita_sandbox.core.template.logger import LogEntry, LogEntryEnd, LogEntryStart
+from novita_sandbox.core.exceptions import BuildException
 from novita_sandbox.core.template.main import TemplateBase, TemplateClass
 from novita_sandbox.core.template.types import (
     BuildInfo,
@@ -35,6 +36,7 @@ from .build_api import (
     wait_for_build_finish,
 )
 from novita_sandbox.core.api.client_async import get_api_client
+from novita_sandbox.core.api.client.api.templates import get_templates_template_id
 
 
 class AsyncTemplate(TemplateBase):
@@ -157,6 +159,10 @@ class AsyncTemplate(TemplateBase):
                     message=f"Template created with ID: {template_id}, Build ID: {build_id}",
                 )
             )
+
+        # Before the instructions are assembled: this can add a WORKDIR step and
+        # set the start command, both of which have to be in the payload below.
+        template._template._resolve_inherited_config(on_build_logs)
 
         instructions_with_hashes = template._template._instructions_with_hashes()
 
@@ -475,6 +481,16 @@ class AsyncTemplate(TemplateBase):
         raise_if_legacy(opts, "AsyncTemplate.exists")
 
         return await AsyncTemplate.alias_exists(name, **opts)
+
+    @staticmethod
+    async def get(template_id: str, **opts: Unpack[ApiParams]):
+        raise_if_legacy(opts, "AsyncTemplate.get")
+        config = ConnectionConfig(**opts)
+        client = get_api_client(config, require_api_key=True, require_access_token=False)
+        response = await get_templates_template_id.asyncio_detailed(template_id=template_id, client=client)
+        if response.parsed is None:
+            raise BuildException(f"Failed to get template {template_id}: {response.status_code}")
+        return response.parsed
 
     @staticmethod
     async def alias_exists(

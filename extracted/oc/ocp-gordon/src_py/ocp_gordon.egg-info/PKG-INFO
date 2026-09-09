@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ocp_gordon
-Version: 0.3.0
+Version: 0.3.1
 Summary: A Python library for Gordon Surface interpolation using B-splines.
 Author-email: Fan Gong <gongfan99@hotmail.com>
 License-Expression: Apache-2.0
@@ -15,11 +15,12 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cadquery-ocp-novtk<8.1,>=8.0
+Requires-Dist: cadquery_ocp_proxy<8.1,>=8.0
 Requires-Dist: numpy<3,>=2
 Requires-Dist: scipy
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: cadquery_ocp_novtk<8.1,>=8.0; extra == "test"
 Provides-Extra: stubs
 Requires-Dist: cadquery-ocp-stubs<8.1,>=8.0; extra == "stubs"
 Dynamic: license-file

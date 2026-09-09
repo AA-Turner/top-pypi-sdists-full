@@ -262,6 +262,17 @@ class _CustomCheckpointerAdapter(BaseCheckpointSaver):
         return f"{next_v:032}.{next_h:.16f}"
 
 
+def _encryption_context_provider() -> Callable[[], dict[str, Any]] | None:
+    """Supply request-scoped encryption context to the gRPC checkpointer."""
+    if not config.LANGGRAPH_ENCRYPTION:
+        return None
+    from langgraph_api.encryption.context import (  # noqa: PLC0415
+        get_encryption_context,
+    )
+
+    return get_encryption_context
+
+
 async def get_checkpointer(
     *,
     conn: Any | None = None,
@@ -331,6 +342,7 @@ async def get_checkpointer(
             GrpcCheckpointer(
                 get_stub=_get_shared_checkpointer_stub,
                 serializer=_ApiSerializer(),
+                encryption_context_provider=_encryption_context_provider(),
             ),
         )
 
@@ -345,6 +357,7 @@ async def get_checkpointer(
             GrpcCheckpointer(
                 get_stub=_get_shared_checkpointer_stub,
                 serializer=_ApiSerializer(),
+                encryption_context_provider=_encryption_context_provider(),
             ),
         )
 

@@ -12,12 +12,6 @@ short_description: Provide information of OpenSSL X.509 certificates
 description:
   - This module allows one to query information on OpenSSL certificates.
   - It uses the cryptography Python library to interact with OpenSSL.
-  - Note that this module was called C(openssl_certificate_info) when included directly in Ansible up to version 2.9. When
-    moved to the collection C(community.crypto), it was renamed to M(community.crypto.x509_certificate_info). From Ansible
-    2.10 on, it can still be used by the old short name (or by C(ansible.builtin.openssl_certificate_info)), which redirects
-    to M(community.crypto.x509_certificate_info). When using FQCNs or when using the
-    L(collections,https://docs.ansible.com/ansible/latest/user_guide/collections_using.html#using-collections-in-a-playbook)
-    keyword, the new name M(community.crypto.x509_certificate_info) should be used to avoid a deprecation warning.
 author:
   - Felix Fontein (@felixfontein)
   - Yanis Guenane (@Spredzy)
@@ -57,7 +51,7 @@ options:
       - The default choice is V(auto), which tries to use C(cryptography) if available.
       - If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
       - Note that with community.crypto 3.0.0, all values behave the same.
-        This option will be deprecated in a later version.
+        This option is deprecated and will be removed from community.crypto 4.0.0.
         We recommend to not set it explicitly.
     type: str
     default: auto
@@ -423,6 +417,8 @@ def main() -> t.NoReturn:
                 "type": "str",
                 "default": "auto",
                 "choices": ["auto", "cryptography"],
+                "removed_in_version": "4.0.0",
+                "removed_from_collection": "community.crypto",
             },
         },
         required_one_of=(["path", "content"],),

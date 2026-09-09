@@ -34,14 +34,12 @@ from ..tracing.spans import Span
 from ..usage import (
     Usage,
     _raw_usage_snapshot,
-    _requests_for_response_without_usage,
-    model_usage_to_span_usage,
 )
 from ..util._error_tracing import model_span_errors
 from ..util._json import _to_dump_compatible
 from ._openai_retry import get_openai_retry_advice
 from ._retry_runtime import should_disable_provider_managed_retries
-from ._trace import model_config_for_trace
+from ._trace import model_config_for_trace, populate_generation_span
 from .chatcmpl_converter import Converter
 from .chatcmpl_helpers import HEADERS, HEADERS_OVERRIDE, ChatCmplHelpers
 from .chatcmpl_stream_handler import ChatCmplStreamHandler
@@ -300,6 +298,18 @@ class OpenAIChatCompletionsModel(Model):
                 else Usage(requests=1)
             )
 
+            # Record the request and token usage on the span before the terminal
+            # branches below, so a ModelBehaviorError raised for a truncated empty
+            # completion still leaves the request and usage accounted for.
+            span_generation.span_data.usage = {
+                "requests": usage.requests,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "total_tokens": usage.total_tokens,
+                "input_tokens_details": usage.input_tokens_details.model_dump(),
+                "output_tokens_details": usage.output_tokens_details.model_dump(),
+            }
+
             # Some providers signal a filtered non-streaming completion only through
             # finish_reason="content_filter" and an otherwise empty message. Preserve
             # that terminal signal as a refusal instead of returning an empty output.
@@ -313,18 +323,27 @@ class OpenAIChatCompletionsModel(Model):
             ):
                 message.refusal = "Response withheld by the provider's content filter."
 
+            # A completion truncated before any visible token (finish_reason="length")
+            # is a token- or reasoning-budget exhaustion, not a policy refusal.
+            # Surface it as a model behavior error rather than manufacturing a
+            # refusal that would route through model_refusal handlers.
+            if (
+                message is not None
+                and first_choice is not None
+                and first_choice.finish_reason == "length"
+                and not message.content
+                and not message.refusal
+                and not message.tool_calls
+            ):
+                raise ModelBehaviorError(
+                    "Chat Completions response terminated with finish_reason='length' "
+                    "but produced no assistant text, tool call, or refusal."
+                )
+
             if tracing.include_data():
                 span_generation.span_data.output = (
                     [message.model_dump()] if message is not None else []
                 )
-            span_generation.span_data.usage = {
-                "requests": usage.requests,
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-                "total_tokens": usage.total_tokens,
-                "input_tokens_details": usage.input_tokens_details.model_dump(),
-                "output_tokens_details": usage.output_tokens_details.model_dump(),
-            }
 
             # Build provider_data for provider_specific_fields
             provider_data = {"model": self.model}
@@ -470,6 +489,7 @@ class OpenAIChatCompletionsModel(Model):
                     cast(AsyncStream[ChatCompletionChunk], stream_for_handler),
                     model=self.model,
                     strict_feature_validation=self._strict_feature_validation,
+                    raise_on_length_truncation=True,
                     **raw_usage_options,
                 ):
                     if chunk.type == "response.completed":
@@ -483,6 +503,12 @@ class OpenAIChatCompletionsModel(Model):
                         )
 
                     yield chunk
+            except ModelBehaviorError:
+                # The handler preserves the request and any reported token usage on the
+                # base response before raising (e.g. a token-budget-exhausted empty
+                # completion). Attach it to the span before the error surfaces.
+                self._populate_stream_generation_span(span_generation, response, tracing)
+                raise
             except asyncio.CancelledError:
                 close_stream_in_background = True
                 self._schedule_async_iterator_close(stream)
@@ -507,30 +533,7 @@ class OpenAIChatCompletionsModel(Model):
         final_response: Response,
         tracing: ModelTracing,
     ) -> None:
-        if tracing.include_data():
-            span_generation.span_data.output = [final_response.model_dump()]
-
-        if final_response.usage is not None:
-            span_generation.span_data.usage = {
-                "requests": 1,
-                "input_tokens": final_response.usage.input_tokens,
-                "output_tokens": final_response.usage.output_tokens,
-                "total_tokens": final_response.usage.total_tokens,
-                "input_tokens_details": (
-                    final_response.usage.input_tokens_details.model_dump()
-                    if final_response.usage.input_tokens_details is not None
-                    else {"cached_tokens": 0, "cache_write_tokens": 0}
-                ),
-                "output_tokens_details": (
-                    final_response.usage.output_tokens_details.model_dump()
-                    if final_response.usage.output_tokens_details is not None
-                    else {"reasoning_tokens": 0}
-                ),
-            }
-        elif _requests_for_response_without_usage(final_response):
-            # Keep streamed tracing aligned with the non-streaming path, which records the
-            # request even when the provider reports no usage.
-            span_generation.span_data.usage = model_usage_to_span_usage(Usage(requests=1))
+        populate_generation_span(span_generation, final_response, tracing)
 
     def _handle_unsupported_server_managed_conversation_state(
         self,

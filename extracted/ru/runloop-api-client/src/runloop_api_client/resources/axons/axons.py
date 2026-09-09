@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, Optional
 from typing_extensions import Literal
 
 import httpx
@@ -23,7 +23,13 @@ from .events import (
     EventsResourceWithStreamingResponse,
     AsyncEventsResourceWithStreamingResponse,
 )
-from ...types import axon_list_params, axon_create_params, axon_publish_params, axon_subscribe_sse_params
+from ...types import (
+    axon_list_params,
+    axon_create_params,
+    axon_update_params,
+    axon_publish_params,
+    axon_subscribe_sse_params,
+)
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
@@ -75,6 +81,7 @@ class AxonsResource(SyncAPIResource):
     def create(
         self,
         *,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
         name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -88,6 +95,8 @@ class AxonsResource(SyncAPIResource):
         [Beta] Create a new axon.
 
         Args:
+          metadata: User defined metadata to attach to the axon for organization.
+
           name: (Optional) Name for the axon.
 
           extra_headers: Send extra headers
@@ -102,7 +111,13 @@ class AxonsResource(SyncAPIResource):
         """
         return self._post(
             "/v1/axons",
-            body=maybe_transform({"name": name}, axon_create_params.AxonCreateParams),
+            body=maybe_transform(
+                {
+                    "metadata": metadata,
+                    "name": name,
+                },
+                axon_create_params.AxonCreateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -146,12 +161,61 @@ class AxonsResource(SyncAPIResource):
             cast_to=AxonView,
         )
 
+    def update(
+        self,
+        id: str,
+        *,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> AxonView:
+        """[Beta] Updates the specified axon fields.
+
+        Omitted fields are left unchanged. An
+        empty metadata map clears the metadata.
+
+        Args:
+          metadata: User defined metadata to replace the axon metadata. Omit or set to null to leave
+              unchanged, or set to an empty map to clear it.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._post(
+            path_template("/v1/axons/{id}", id=id),
+            body=maybe_transform({"metadata": metadata}, axon_update_params.AxonUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=AxonView,
+        )
+
     def list(
         self,
         *,
         id: str | Omit = omit,
         include_total_count: bool | Omit = omit,
         limit: int | Omit = omit,
+        metadata_key: str | Omit = omit,
+        metadata_key_in: str | Omit = omit,
         name: str | Omit = omit,
         search: str | Omit = omit,
         starting_after: str | Omit = omit,
@@ -172,6 +236,11 @@ class AxonsResource(SyncAPIResource):
               the count query for better performance on large datasets.
 
           limit: The limit of items to return. Default is 20. Max is 5000.
+
+          metadata_key: Filter axons by metadata key-value pair. Can be used multiple times for
+              different keys.
+
+          metadata_key_in: Filter axons by metadata key with multiple possible values (OR condition).
 
           name: Filter by axon name (prefix match supported).
 
@@ -200,6 +269,8 @@ class AxonsResource(SyncAPIResource):
                         "id": id,
                         "include_total_count": include_total_count,
                         "limit": limit,
+                        "metadata_key": metadata_key,
+                        "metadata_key_in": metadata_key_in,
                         "name": name,
                         "search": search,
                         "starting_after": starting_after,
@@ -390,6 +461,7 @@ class AsyncAxonsResource(AsyncAPIResource):
     async def create(
         self,
         *,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
         name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -403,6 +475,8 @@ class AsyncAxonsResource(AsyncAPIResource):
         [Beta] Create a new axon.
 
         Args:
+          metadata: User defined metadata to attach to the axon for organization.
+
           name: (Optional) Name for the axon.
 
           extra_headers: Send extra headers
@@ -417,7 +491,13 @@ class AsyncAxonsResource(AsyncAPIResource):
         """
         return await self._post(
             "/v1/axons",
-            body=await async_maybe_transform({"name": name}, axon_create_params.AxonCreateParams),
+            body=await async_maybe_transform(
+                {
+                    "metadata": metadata,
+                    "name": name,
+                },
+                axon_create_params.AxonCreateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -461,12 +541,61 @@ class AsyncAxonsResource(AsyncAPIResource):
             cast_to=AxonView,
         )
 
+    async def update(
+        self,
+        id: str,
+        *,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> AxonView:
+        """[Beta] Updates the specified axon fields.
+
+        Omitted fields are left unchanged. An
+        empty metadata map clears the metadata.
+
+        Args:
+          metadata: User defined metadata to replace the axon metadata. Omit or set to null to leave
+              unchanged, or set to an empty map to clear it.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._post(
+            path_template("/v1/axons/{id}", id=id),
+            body=await async_maybe_transform({"metadata": metadata}, axon_update_params.AxonUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=AxonView,
+        )
+
     def list(
         self,
         *,
         id: str | Omit = omit,
         include_total_count: bool | Omit = omit,
         limit: int | Omit = omit,
+        metadata_key: str | Omit = omit,
+        metadata_key_in: str | Omit = omit,
         name: str | Omit = omit,
         search: str | Omit = omit,
         starting_after: str | Omit = omit,
@@ -487,6 +616,11 @@ class AsyncAxonsResource(AsyncAPIResource):
               the count query for better performance on large datasets.
 
           limit: The limit of items to return. Default is 20. Max is 5000.
+
+          metadata_key: Filter axons by metadata key-value pair. Can be used multiple times for
+              different keys.
+
+          metadata_key_in: Filter axons by metadata key with multiple possible values (OR condition).
 
           name: Filter by axon name (prefix match supported).
 
@@ -515,6 +649,8 @@ class AsyncAxonsResource(AsyncAPIResource):
                         "id": id,
                         "include_total_count": include_total_count,
                         "limit": limit,
+                        "metadata_key": metadata_key,
+                        "metadata_key_in": metadata_key_in,
                         "name": name,
                         "search": search,
                         "starting_after": starting_after,
@@ -684,6 +820,9 @@ class AxonsResourceWithRawResponse:
         self.retrieve = to_raw_response_wrapper(
             axons.retrieve,
         )
+        self.update = to_raw_response_wrapper(
+            axons.update,
+        )
         self.list = to_raw_response_wrapper(
             axons.list,
         )
@@ -715,6 +854,9 @@ class AsyncAxonsResourceWithRawResponse:
         )
         self.retrieve = async_to_raw_response_wrapper(
             axons.retrieve,
+        )
+        self.update = async_to_raw_response_wrapper(
+            axons.update,
         )
         self.list = async_to_raw_response_wrapper(
             axons.list,
@@ -748,6 +890,9 @@ class AxonsResourceWithStreamingResponse:
         self.retrieve = to_streamed_response_wrapper(
             axons.retrieve,
         )
+        self.update = to_streamed_response_wrapper(
+            axons.update,
+        )
         self.list = to_streamed_response_wrapper(
             axons.list,
         )
@@ -779,6 +924,9 @@ class AsyncAxonsResourceWithStreamingResponse:
         )
         self.retrieve = async_to_streamed_response_wrapper(
             axons.retrieve,
+        )
+        self.update = async_to_streamed_response_wrapper(
+            axons.update,
         )
         self.list = async_to_streamed_response_wrapper(
             axons.list,

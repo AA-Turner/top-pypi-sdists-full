@@ -6,7 +6,39 @@ Row and column numbers are always 1-based (VBA / Excel convention).
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
+
+class TableColumnInfo(TypedDict):
+    id: str | None
+    name: str
+    totals_row_function: str | None
+    totals_row_label: str | None
+    calculated_column_formula: str | None
+
+class TableInfo(TypedDict):
+    name: str
+    display_name: str
+    ref: str
+    header_row_count: int
+    totals_row_count: int
+    totals_row_shown: bool
+    style_name: str | None
+    auto_filter_ref: str | None
+    autofilter_columns: list[dict[str, Any]]
+    columns: list[TableColumnInfo]
+
+class DataValidationInfo(TypedDict):
+    validation_type: str
+    operator: str | None
+    formula1: str | None
+    formula2: str | None
+    allow_blank: bool
+    prompt_title: str | None
+    prompt: str | None
+    error_style: str | None
+    error_title: str | None
+    error: str | None
+    sqref: list[str]
 
 def open_stream(
     path: str,
@@ -164,6 +196,26 @@ class Vm:
         """Return a detached workbook snapshot including hidden rows/columns; optionally include ``formulas``."""
         ...
 
+    @property
+    def can_undo(self) -> bool: ...
+    @property
+    def can_redo(self) -> bool: ...
+    def undo(self) -> bool:
+        """Restore the most recent bounded cell/formula edit."""
+        ...
+    def redo(self) -> bool:
+        """Restore the most recently undone cell/formula edit."""
+        ...
+    def begin_transaction(self) -> None:
+        """Start an atomic edit transaction; nested transactions are rejected."""
+        ...
+    def commit_transaction(self) -> bool:
+        """Commit all edits as one undoable operation."""
+        ...
+    def abort_transaction(self) -> bool:
+        """Discard the transaction and restore its pre-edit state."""
+        ...
+
     # ── Formula support ────────────────────────────────────────────────────────
 
     def set_cell_formula(self, row: int, col: int, formula: str) -> None:
@@ -273,6 +325,14 @@ class Vm:
         already-resolved ``Worksheet`` object), an unknown name is a real
         error here rather than silently returning ``"visible"``.
         """
+        ...
+
+    def sheet_id(self, name: str) -> str | None:
+        """Return the source XLSX sheetId, or None for a new/ODS sheet."""
+        ...
+
+    def sheet_name_for_id(self, sheet_id: str) -> str:
+        """Resolve a source XLSX sheetId to the current lowercase sheet key."""
         ...
 
     def defined_names(self) -> dict[str, str]:
@@ -524,6 +584,23 @@ class Vm:
         """
         ...
 
+    def tables(self, sheet: str | None = None) -> list[TableInfo]:
+        """Return a detached typed projection of the sheet's table metadata.
+
+        The projection is structural: calculated-column formulas remain raw text
+        and are not evaluated, while unknown OOXML attributes remain preserved by
+        the round-trip writer.
+        """
+        ...
+
+    def data_validations(self, sheet: str | None = None) -> list[DataValidationInfo]:
+        """Return a detached typed projection of worksheet validation rules.
+
+        This reports rule metadata and ranges; it does not validate existing cell
+        values or execute validation formulas.
+        """
+        ...
+
     def merge_cells(self, addr: str, sheet: str | None = None) -> None:
         """Creates a merge over *addr*.
 
@@ -740,6 +817,7 @@ def load_workbook(
     max_work_units: Optional[int] = None,
     timeout_ms: Optional[int] = None,
     cancellation: Optional[ReadCancellation] = None,
+    external_links: str = "preserve",
 ) -> Vm:
     """Load an ``.xlsx``, ``.xlsm``, or ``.ods`` file into a new :class:`Vm`.
 
@@ -760,6 +838,9 @@ def load_workbook(
         Optional maximum workbook-read time in milliseconds.
     cancellation:
         Optional :class:`ReadCancellation` handle.
+    external_links:
+        ``"preserve"`` (default) keeps external-link parts for round-trip only;
+        ``"reject"`` fails closed; ``"drop"`` removes external-link parts on save.
     """
     ...
 

@@ -121,8 +121,12 @@ class ConnectionConfig:
         self.debug = debug or ConnectionConfig._debug()
         self.api_key = api_key or ConnectionConfig._api_key()
         self.access_token = access_token or ConnectionConfig._access_token()
-        self.headers = headers or {}
-        self.headers["User-Agent"] = f"novita-sandbox-python-sdk/{package_version}"
+        self.headers = {
+            **(headers or {}),
+            "User-Agent": f"novita-sandbox-python-sdk/{package_version}",
+            "X-Novita-SDK-Name": "sdk_py",
+            "X-Novita-SDK-Version": package_version,
+        }
         self.__extra_sandbox_headers = extra_sandbox_headers or {}
 
         self.proxy = proxy

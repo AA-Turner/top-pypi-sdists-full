@@ -471,24 +471,38 @@ impl ConfigSnapshot {
     }
 }
 
-/// The process-wide cache: one snapshot, replaced on scan, dropped on
-/// [`invalidate`]. A `Mutex<Option<Arc<_>>>` rather than an `RwLock`: the
-/// critical section is a pointer clone.
-/// (engine identity, snapshot) — the one cached slot.
-type CachedSnapshot = Option<(usize, Arc<ConfigSnapshot>)>;
+/// The cache: one snapshot PER ENGINE, a few at most, replaced on scan,
+/// dropped by [`invalidate_engine`] (one engine) or [`invalidate`] (all).
+///
+/// One slot for the whole process was right for a node (one engine) and
+/// wrong for a test binary, where a dozen engines read their config planes on
+/// parallel threads: every read from another engine evicted this one's
+/// snapshot, so a test counting scans saw a rescan for every neighbour's
+/// read (Codex on #570). A small map keyed by engine identity gives each
+/// engine its own slot; [`CACHE_SLOTS`] bounds it, evicting the oldest.
+/// A `Mutex` rather than an `RwLock`: the critical section is a pointer clone.
+type CachedSnapshot = Vec<(usize, Arc<ConfigSnapshot>)>;
+
+/// How many engines keep a snapshot at once. A node has one; the bound exists
+/// so a process that churns engines (a test binary, the embedded fold
+/// re-serving) cannot grow the map without limit.
+const CACHE_SLOTS: usize = 8;
 
 fn cache() -> &'static std::sync::Mutex<CachedSnapshot> {
     static CACHE: std::sync::OnceLock<std::sync::Mutex<CachedSnapshot>> =
         std::sync::OnceLock::new();
-    CACHE.get_or_init(|| std::sync::Mutex::new(None))
+    CACHE.get_or_init(|| std::sync::Mutex::new(Vec::new()))
 }
 
 /// The identity a snapshot is valid for: the `Engine` it was scanned from. A
 /// process normally holds one engine, but a test binary holds many at once
 /// (one `sqlite::memory:` each), and the embedded fold may re-serve on
 /// another home; a snapshot must never answer for a store it did not read.
-fn engine_identity(engine: &Arc<Engine>) -> usize {
-    Arc::as_ptr(engine) as usize
+fn engine_identity(engine: &Engine) -> usize {
+    // The address of the `Engine` value itself — for an `Arc<Engine>` this is
+    // exactly `Arc::as_ptr`, and it lets a door that holds only `&Engine`
+    // (`attest::put`) name the same slot.
+    std::ptr::from_ref(engine) as usize
 }
 
 /// Drop the cached snapshot: the next read scans. Called by every in-process
@@ -496,20 +510,45 @@ fn engine_identity(engine: &Arc<Engine>) -> usize {
 /// emits in `attest`), and by compose at serve start so an in-process
 /// re-serve on another home never reads the previous node's config.
 pub fn invalidate() {
-    *cache().lock().unwrap_or_else(|p| p.into_inner()) = None;
+    cache().lock().unwrap_or_else(|p| p.into_inner()).clear();
+}
+
+/// Drop ONE engine's cached snapshot: the next read on that engine scans;
+/// every other engine's snapshot stands. This is the door the config-plane
+/// writers use — `set_config`, the withdraw/recant emits in `attest` — because
+/// a write to one store says nothing about another's (Codex on #570).
+pub fn invalidate_engine(engine: &Engine) {
+    let me = engine_identity(engine);
+    cache()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .retain(|(owner, _)| *owner != me);
 }
 
 /// The current config snapshot: cached if fresh, else one scan. THE read
 /// door — every getter below goes through it.
 pub async fn snapshot(engine: &Arc<Engine>) -> Result<Arc<ConfigSnapshot>> {
     let me = engine_identity(engine);
-    if let Some((owner, snap)) = cache().lock().unwrap_or_else(|p| p.into_inner()).as_ref() {
-        if *owner == me && snap.fresh() {
-            return Ok(Arc::clone(snap));
+    let cached = cache()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .iter()
+        .find(|(owner, _)| *owner == me)
+        .map(|(_, snap)| Arc::clone(snap));
+    if let Some(snap) = cached {
+        if snap.fresh() {
+            return Ok(snap);
         }
     }
     let snap = Arc::new(live_config_rows(engine).await?);
-    *cache().lock().unwrap_or_else(|p| p.into_inner()) = Some((me, Arc::clone(&snap)));
+    {
+        let mut slots = cache().lock().unwrap_or_else(|p| p.into_inner());
+        slots.retain(|(owner, _)| *owner != me);
+        if slots.len() >= CACHE_SLOTS {
+            slots.remove(0);
+        }
+        slots.push((me, Arc::clone(&snap)));
+    }
     Ok(snap)
 }
 
@@ -578,15 +617,15 @@ async fn live_config_rows(engine: &Arc<Engine>) -> Result<ConfigSnapshot> {
     // The FAMILY prefix, not one exact leaf: since persist v42 every key is
     // its own leaf (`config:{key}:v1`), and the legacy single leaf `config:v1`
     // matches the same prefix, which is how a corpus written before 0.5.201
-    // keeps reading. On this handle persist compiles `dimension_prefixes` to
-    // `json_extract(attestation_envelope, '$.dimension') LIKE 'config:%'` —
-    // still a per-row JSON parse of everything this node authored, exactly as
-    // `dimension_exact` was (CIRISServer#557); the `attesting_key_id` predicate
-    // is what bounds it. That is why the result is cached as a snapshot, and
-    // why the indexed family seek is asked of persist (CIRISPersist#817)
-    // rather than papered over here. No type filter: the first write of a key
-    // is a `scores` row and every renewal is a `supersedes` (CC 3.4.5.1); both
-    // carry the entry and both are folded below.
+    // keeps reading. Since persist v42.1.0 (CIRISPersist#817, filed from
+    // CIRISServer#557) this handle compiles `dimension_prefixes` to a RANGE on
+    // the indexed generated `dimension` column (V137) — the read is
+    // index-served, no longer a per-row `json_extract` over everything this
+    // node authored — and (#818) compares bytes, not case-folded LIKE. The
+    // snapshot cache stays: the point was fifty getters costing one read, and
+    // that is true whatever the read costs. No type filter: the first write of
+    // a key is a `scores` row and every renewal is a `supersedes` (CC 3.4.5.1);
+    // both carry the entry and both are folded below.
     filter.dimension_prefixes = vec![CONFIG_DIMENSION_PREFIX.to_owned()];
 
     // ── The scope gate is REAL and this read must pass it honestly ──────────
@@ -850,7 +889,7 @@ pub async fn set_config(
     // A write reads the plane first (the version chain and the head to
     // supersede), and that read must not be a cached one another writer has
     // since made stale — nor may the next read be served from before this row.
-    invalidate();
+    invalidate_engine(engine);
     let snap = snapshot(engine).await?;
     let current = latest_for_key(&snap.rows, key);
     let head = snap.heads.get(key);
@@ -906,7 +945,7 @@ pub async fn set_config(
         .emit_attestation_self(input)
         .await
         .map_err(|e| anyhow::anyhow!("emit_attestation_self({dimension}, {kind}): {e}"))?;
-    invalidate();
+    invalidate_engine(engine);
     tracing::info!(
         key,
         version,

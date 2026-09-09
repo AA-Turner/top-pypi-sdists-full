@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import abc
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
+
+from typing_extensions import TypedDict
 
 from .imports import np, npt
 from .input import AudioInput, StreamedAudioInput
@@ -14,8 +16,33 @@ DEFAULT_TTS_INSTRUCTIONS = (
 )
 DEFAULT_TTS_BUFFER_SIZE = 120
 
-TTSVoice = Literal["alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"]
-"""Exportable type for the TTSModelSettings voice enum"""
+
+class TTSCustomVoice(TypedDict):
+    """A custom OpenAI TTS voice reference."""
+
+    id: str
+    """The custom voice ID."""
+
+
+TTSVoice = (
+    Literal[
+        "alloy",
+        "ash",
+        "ballad",
+        "coral",
+        "echo",
+        "fable",
+        "onyx",
+        "nova",
+        "sage",
+        "shimmer",
+        "verse",
+        "marin",
+        "cedar",
+    ]
+    | TTSCustomVoice
+)
+"""Exportable type for built-in TTS voices and custom voice IDs."""
 
 
 @dataclass
@@ -115,6 +142,15 @@ class STTModelSettings:
 
     turn_detection: dict[str, Any] | None = None
     """The turn detection settings for the model when using streamed audio input."""
+
+    languages: list[str] | None = field(default=None, kw_only=True)
+    """Possible languages of the audio input, expressed as API-supported language codes, when
+    using streamed audio input. Supported by `gpt-transcribe` and `gpt-live-transcribe`. Takes
+    precedence over `language`."""
+
+    keywords: list[str] | None = field(default=None, kw_only=True)
+    """Words or phrases to guide transcription of the audio input when using streamed audio
+    input. Supported by `gpt-transcribe` and `gpt-live-transcribe`."""
 
 
 class STTModel(abc.ABC):

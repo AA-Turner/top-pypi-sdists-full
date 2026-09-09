@@ -30,7 +30,7 @@ class SchemaResponse(_message.Message):
     with_schema: _common_pb2.SchemaList
     without_schema: _common_pb2.TableList
     selection_not_supported: bool
-    def __init__(self, schema_response_not_supported: bool = ..., with_schema: _Optional[_Union[_common_pb2.SchemaList, _Mapping]] = ..., without_schema: _Optional[_Union[_common_pb2.TableList, _Mapping]] = ..., selection_not_supported: bool = ...) -> None: ...
+    def __init__(self, schema_response_not_supported: _Optional[bool] = ..., with_schema: _Optional[_Union[_common_pb2.SchemaList, _Mapping]] = ..., without_schema: _Optional[_Union[_common_pb2.TableList, _Mapping]] = ..., selection_not_supported: _Optional[bool] = ...) -> None: ...
 
 class UpdateRequest(_message.Message):
     __slots__ = ("configuration", "selection", "state_json")
@@ -63,7 +63,7 @@ class TablesWithNoSchema(_message.Message):
     INCLUDE_NEW_TABLES_FIELD_NUMBER: _ClassVar[int]
     tables: _containers.RepeatedCompositeFieldContainer[TableSelection]
     include_new_tables: bool
-    def __init__(self, tables: _Optional[_Iterable[_Union[TableSelection, _Mapping]]] = ..., include_new_tables: bool = ...) -> None: ...
+    def __init__(self, tables: _Optional[_Iterable[_Union[TableSelection, _Mapping]]] = ..., include_new_tables: _Optional[bool] = ...) -> None: ...
 
 class TablesWithSchema(_message.Message):
     __slots__ = ("schemas", "include_new_schemas")
@@ -71,7 +71,7 @@ class TablesWithSchema(_message.Message):
     INCLUDE_NEW_SCHEMAS_FIELD_NUMBER: _ClassVar[int]
     schemas: _containers.RepeatedCompositeFieldContainer[SchemaSelection]
     include_new_schemas: bool
-    def __init__(self, schemas: _Optional[_Iterable[_Union[SchemaSelection, _Mapping]]] = ..., include_new_schemas: bool = ...) -> None: ...
+    def __init__(self, schemas: _Optional[_Iterable[_Union[SchemaSelection, _Mapping]]] = ..., include_new_schemas: _Optional[bool] = ...) -> None: ...
 
 class SchemaSelection(_message.Message):
     __slots__ = ("included", "schema_name", "tables", "include_new_tables")
@@ -83,7 +83,7 @@ class SchemaSelection(_message.Message):
     schema_name: str
     tables: _containers.RepeatedCompositeFieldContainer[TableSelection]
     include_new_tables: bool
-    def __init__(self, included: bool = ..., schema_name: _Optional[str] = ..., tables: _Optional[_Iterable[_Union[TableSelection, _Mapping]]] = ..., include_new_tables: bool = ...) -> None: ...
+    def __init__(self, included: _Optional[bool] = ..., schema_name: _Optional[str] = ..., tables: _Optional[_Iterable[_Union[TableSelection, _Mapping]]] = ..., include_new_tables: _Optional[bool] = ...) -> None: ...
 
 class TableSelection(_message.Message):
     __slots__ = ("included", "table_name", "columns", "include_new_columns")
@@ -93,7 +93,7 @@ class TableSelection(_message.Message):
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
         value: bool
-        def __init__(self, key: _Optional[str] = ..., value: bool = ...) -> None: ...
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[bool] = ...) -> None: ...
     INCLUDED_FIELD_NUMBER: _ClassVar[int]
     TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     COLUMNS_FIELD_NUMBER: _ClassVar[int]
@@ -102,7 +102,7 @@ class TableSelection(_message.Message):
     table_name: str
     columns: _containers.ScalarMap[str, bool]
     include_new_columns: bool
-    def __init__(self, included: bool = ..., table_name: _Optional[str] = ..., columns: _Optional[_Mapping[str, bool]] = ..., include_new_columns: bool = ...) -> None: ...
+    def __init__(self, included: _Optional[bool] = ..., table_name: _Optional[str] = ..., columns: _Optional[_Mapping[str, bool]] = ..., include_new_columns: _Optional[bool] = ...) -> None: ...
 
 class UpdateResponse(_message.Message):
     __slots__ = ("structured_record", "schema_change", "checkpoint", "warning", "task", "structured_records", "unstructured_record")
@@ -178,7 +178,7 @@ class UnstructuredRecord(_message.Message):
     chunk_data: bytes
     expected_bytes: int
     is_last: bool
-    def __init__(self, schema_name: _Optional[str] = ..., storage_name: _Optional[str] = ..., file_path: _Optional[str] = ..., chunk_data: _Optional[bytes] = ..., expected_bytes: _Optional[int] = ..., is_last: bool = ...) -> None: ...
+    def __init__(self, schema_name: _Optional[str] = ..., storage_name: _Optional[str] = ..., file_path: _Optional[str] = ..., chunk_data: _Optional[bytes] = ..., expected_bytes: _Optional[int] = ..., is_last: _Optional[bool] = ...) -> None: ...
 
 class Checkpoint(_message.Message):
     __slots__ = ("state_json",)

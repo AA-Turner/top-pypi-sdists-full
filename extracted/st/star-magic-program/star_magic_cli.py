@@ -74,6 +74,21 @@ def cmd_calc(args) -> int:
     return 0
 
 
+
+def cmd_survey(args) -> int:
+    """THE ONE-COMMAND USER PATH: a LAS file in, one honest strata report
+    out. --demo runs the bundled public KTB excerpt so a stranger sees a
+    real result within two minutes of pip install."""
+    from uqff_downhole_simulator.uqff_survey_cmd import run_survey
+    txt, _ = run_survey(path=getattr(args, 'file', None),
+                        demo=bool(getattr(args, 'demo', False)),
+                        family=getattr(args, 'family',
+                                       'continental_crystalline'),
+                        lat=getattr(args, 'lat', None),
+                        elev=getattr(args, 'elev', None))
+    print(txt)
+    return 0
+
 def cmd_gate(_args) -> int:
     """Run the full fidelity gate from ANY cwd on ANY layout (Daniel's lock #2):
     the gate bootstraps itself through uqff_paths.data_root()."""
@@ -90,6 +105,15 @@ def cmd_well(args) -> int:
     sys.argv = ["uqff_downhole_simulator"] + args.rest
     return dm.main() if hasattr(dm, "main") else 0
 
+
+
+def cmd_guide(_args) -> int:
+    """Print TESTER_GUIDE.md - the click-by-click instructions a
+    non-technical tester follows (field-tested against the Windows
+    not-on-PATH trap)."""
+    p = uqff_paths.resolve("TESTER_GUIDE.md")
+    print(p.read_text(encoding="utf-8"))
+    return 0
 
 def cmd_docs(_args) -> int:
     root = uqff_paths.data_root()
@@ -164,6 +188,20 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="star-magic",
                                  description="Star-Magic UQFF: calculator + downhole surveying, one door.")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    p_srv = sub.add_parser(
+        "survey", help="ONE COMMAND: LAS file in, honest strata report out "
+                       "(try: star-magic survey --demo)")
+    p_srv.add_argument("file", nargs="?", default=None,
+                       help="LAS 2.0 well-log file")
+    p_srv.add_argument("--demo", action="store_true",
+                       help="run on the bundled public KTB excerpt")
+    p_srv.add_argument("--family", default="continental_crystalline",
+                       help="prior family (printed as an assumption)")
+    p_srv.add_argument("--lat", type=float, default=None,
+                       help="site latitude for cited WGS84 reference QC")
+    p_srv.add_argument("--elev", type=float, default=None,
+                       help="site elevation (m) for reference QC")
+    p_srv.set_defaults(fn=cmd_survey)
     p_calc = sub.add_parser("calc", help="run a paper dispatch with honesty flags")
     p_calc.add_argument("paper", nargs="?", default="")
     p_calc.add_argument("--list", action="store_true")
@@ -187,6 +225,8 @@ def main(argv=None) -> int:
     p_exp.set_defaults(fn=cmd_export)
     p_qs = sub.add_parser("quickstart", help="first run: catalogue well 200 steps + PAPER_646 with honesty flags")
     p_qs.set_defaults(fn=cmd_quickstart)
+    p_gd = sub.add_parser("guide", help="print the click-by-click tester guide")
+    p_gd.set_defaults(fn=cmd_guide)
     p_docs = sub.add_parser("docs", help="where the corpus lives on this machine")
     p_docs.set_defaults(fn=cmd_docs)
     p_gui = sub.add_parser("gui", help="Qt operator shell (gui extra)")

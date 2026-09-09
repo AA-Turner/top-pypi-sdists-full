@@ -11,13 +11,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
-from schemathesis.core import media_types, string_to_boolean
+from schemathesis.core import NOT_SET, media_types, string_to_boolean
 from schemathesis.core.failures import AcceptedNegativeData, Failure
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
-from schemathesis.core.transport import Response, expand_status_code
+from schemathesis.core.transport import HTTP_METHODS_SCHEMA, Response, expand_status_code
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario, FuzzingPhaseData
 from schemathesis.openapi.checks import (
@@ -321,6 +321,52 @@ def _body_negation_becomes_valid_after_serialization(case: Case) -> bool:
 
     # Only the body is negative and it's a stringifying media type
     return True
+
+
+def _body_negation_is_only_forbidden_property(case: Case) -> bool:
+    """Check if the body violates nothing but properties the request schema forbids outright.
+
+    Read-only properties are rewritten to a schema nothing satisfies. The spec lets the owning
+    authority ignore such input instead of rejecting it, so accepting it is not a failure.
+    """
+    meta = case.meta
+    assert meta is not None
+
+    body_meta = meta.components.get(ParameterLocation.BODY)
+    if body_meta is None or not body_meta.mode.is_negative:
+        return False
+
+    # Another negative component carries its own expectation, so the check still applies.
+    for location in (
+        ParameterLocation.QUERY,
+        ParameterLocation.HEADER,
+        ParameterLocation.COOKIE,
+        ParameterLocation.PATH,
+    ):
+        component = meta.components.get(location)
+        if component is not None and component.mode.is_negative:
+            return False
+
+    if case.body is NOT_SET:
+        return False
+
+    validator_cls = _get_openapi_schema(case).adapter.jsonschema_validator_cls
+    for alternative in case.operation.body:
+        if alternative.media_type != case.media_type:
+            continue
+        schema = alternative.optimized_schema
+        permissive = alternative.permissive_schema
+        # No property was forbidden, so validating against the permissive schema would repeat the check below.
+        if permissive is schema:
+            return False
+        try:
+            if make_validator(schema, validator_cls).is_valid(case.body):
+                return False
+            return make_validator(permissive, validator_cls).is_valid(case.body)
+        except Exception:
+            # Schemas or values the validator cannot read — can't tell what was negated
+            return False
+    return False
 
 
 def _coerce_string_to_numeric(value: str, expected_types: list[str]) -> int | float | None:
@@ -652,6 +698,7 @@ def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -
         and response.status_code not in allowed_statuses
         and not has_only_additional_properties_in_non_body_parameters(case)
         and not _body_negation_becomes_valid_after_serialization(case)
+        and not _body_negation_is_only_forbidden_property(case)
         and not _single_element_array_becomes_valid_after_serialization(case)
         and not _string_type_mutation_becomes_valid_after_serialization(case, ParameterLocation.PATH)
         and not _string_type_mutation_becomes_valid_after_serialization(case, ParameterLocation.QUERY)
@@ -962,8 +1009,6 @@ IMPLICIT_METHODS = frozenset({"head", "options"})
 @schemathesis.check
 @requires_openapi_schema
 def allow_header_conformance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
-    from schemathesis.specs.openapi.operations import HTTP_METHODS
-
     if response.request.method != "OPTIONS":
         return None
     values = response.headers.get("allow")
@@ -974,7 +1019,7 @@ def allow_header_conformance(ctx: CheckContext, response: Response, case: Case) 
     if not advertised:
         return None
     declared = {method.lower() for method in case.operation.schema[case.operation.path]}
-    declared &= HTTP_METHODS
+    declared &= HTTP_METHODS_SCHEMA
     missing = sorted(declared - advertised - IMPLICIT_METHODS)
     undocumented = sorted(advertised - declared - IMPLICIT_METHODS)
     if not missing and not undocumented:

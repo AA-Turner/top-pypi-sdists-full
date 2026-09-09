@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "novita-sandbox"
-version = "2.1.0"
+version = "2.1.1"
 description = "Novita Agent Sandbox SDK - Python library for Novita Agent Sandbox"
 readme = "README.md"
 license = { text = "MIT" }

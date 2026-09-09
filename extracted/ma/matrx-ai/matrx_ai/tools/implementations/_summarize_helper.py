@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from matrx_utils import vcprint
 from pydantic import BaseModel
 
-from matrx_ai.agents.named import AgentRecordSource, NamedAgent
+from matrx_ai.agents.named import NamedAgent
 from matrx_ai.mandates import run_mandated
 from matrx_ai.tools.models import ToolContext
 
@@ -15,16 +15,23 @@ if TYPE_CHECKING:
 
 
 class SummarizeContentAgent(NamedAgent):
+    """Mandated: ``mandate.definition`` (key ``tools.summarize_content``) owns
+    which agent runs. A hardcoded ``source`` next to ``mandate_key`` is refused
+    by ``NamedAgent._check_definition`` — that exact refusal made every
+    ``web`` ``summarize=true`` call return a "[Summarization failed: ...]"
+    shell until 2026-09-08. Never add a source here."""
+
     name = "summarize_content"
     mandate_key = "tools.summarize_content"
-    source = AgentRecordSource(
-        agent_id="23f455a1-355d-4771-8e01-bb9141fb5eec",
-        is_version=False,
-    )
 
     class Inputs(BaseModel):
         instructions: str
         content: str
+
+
+#: Every failure path below returns a string starting with this so callers
+#: (web_read) can turn it into a real ToolResult failure instead of a "success".
+SUMMARIZE_FAILURE_PREFIX = "[Summarization failed:"
 
 
 async def summarize_content(

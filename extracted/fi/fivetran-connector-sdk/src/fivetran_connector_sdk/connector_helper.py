@@ -5,10 +5,8 @@ import json
 import sys
 import stat
 import time
-import atexit
 import socket
 import shutil
-import threading
 import platform
 import traceback
 import subprocess
@@ -30,6 +28,7 @@ from fivetran_connector_sdk.helpers import (
     validate_and_load_configuration,
     _validate_table_name,
     PromptMode,
+    resolve_confirmation,
 )
 from fivetran_connector_sdk.constants import (
     OS_MAP,
@@ -41,6 +40,7 @@ from fivetran_connector_sdk.constants import (
     UPLOAD_FILENAME,
     LAST_VERSION_CHECK_FILE,
     ROOT_LOCATION,
+    TESTER_LOCATION,
     CONFIG_FILE,
     OUTPUT_FILES_DIR,
     REQUIREMENTS_TXT,
@@ -88,157 +88,6 @@ class NetworkingMethod(str, Enum):
 
 def log_setup_tests_running() -> None:
     print_library_log(SETUP_TESTS_RUNNING_MESSAGE, log_icon=Logging.LogIcon.STEP)
-
-
-def _get_rss_bytes() -> int:
-    # Returns the current RSS (Resident Set Size) of this process in bytes.
-    # Only tracks the current Python process and its threads, not child processes.
-    if sys.platform == "linux":
-        # /proc/self/status provides accurate current RSS in KB
-        with open("/proc/self/status") as f:
-            for line in f:
-                if line.startswith("VmRSS:"):
-                    return int(line.split()[1]) * 1024  # KB to bytes
-        return -1  # VmRSS line not found
-    elif sys.platform == "darwin":
-        # ru_maxrss on macOS returns peak RSS, not current — use ps instead
-        result = subprocess.run(
-            ["ps", "-o", "rss=", "-p", str(os.getpid())],
-            capture_output=True,
-            text=True,
-        )
-        rss_kb = result.stdout.strip()
-        return int(rss_kb) * 1024 if rss_kb else -1  # ps returned no output
-    elif sys.platform == "win32":
-        import ctypes
-        import ctypes.wintypes
-        # WorkingSetSize is the Windows equivalent of RSS
-        class ProcessMemoryCounters(ctypes.Structure):
-            _fields_ = [
-                ("cb", ctypes.wintypes.DWORD),
-                ("PageFaultCount", ctypes.wintypes.DWORD),
-                ("PeakWorkingSetSize", ctypes.c_size_t),
-                ("WorkingSetSize", ctypes.c_size_t),
-                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                ("PagefileUsage", ctypes.c_size_t),
-                ("PeakPagefileUsage", ctypes.c_size_t),
-            ]
-        pmc = ProcessMemoryCounters()
-        pmc.cb = ctypes.sizeof(pmc)
-        # restype/argtypes must be set explicitly to avoid handle truncation on 64-bit Windows
-        kernel32 = ctypes.windll.kernel32
-        kernel32.GetCurrentProcess.restype = ctypes.wintypes.HANDLE
-        psapi = ctypes.WinDLL("psapi")
-        psapi.GetProcessMemoryInfo.restype = ctypes.wintypes.BOOL
-        psapi.GetProcessMemoryInfo.argtypes = [
-            ctypes.wintypes.HANDLE,
-            ctypes.POINTER(ProcessMemoryCounters),
-            ctypes.wintypes.DWORD,
-        ]
-        result = psapi.GetProcessMemoryInfo(
-            kernel32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb
-        )
-        return pmc.WorkingSetSize if result else -1  # API call failed
-    return -1  # unsupported platform
-
-
-def _monitor_memory():
-    global _peak_rss_bytes
-    limit_bytes = constants.MEMORY_LIMIT_BYTES
-    logged_rss_failure = False
-    # Verify RSS reading works before entering the monitor loop.
-    # If it fails, log a warning and exit — no point looping if we can't read memory.
-    try:
-        rss = _get_rss_bytes()
-        if rss == -1:
-            print_library_log(
-                f"could not enforce memory constraint of {constants.MEMORY_LIMIT_BYTES // (1024 ** 3)} GB on connector process; debug will continue without memory constraint",
-                Logging.Level.WARNING
-            )
-            return
-        print_library_log(
-            f"enforcing a {constants.MEMORY_LIMIT_BYTES // (1024 ** 3)} GB memory limit for local testing. Connectors may be subject to memory limits in production as well",
-            Logging.Level.INFO
-        )
-    except Exception:
-        print_library_log(
-            f"could not enforce memory constraint of {constants.MEMORY_LIMIT_BYTES // (1024 ** 3)} GB on connector process; debug will continue without memory constraint",
-            Logging.Level.WARNING
-        )
-        return
-    while True:
-        try:
-            rss = _get_rss_bytes()
-            if rss == -1:
-                continue
-            if rss > _peak_rss_bytes:
-                _peak_rss_bytes = rss
-            if rss > limit_bytes:
-                used_gb = rss / (1024 ** 3)
-                print_library_log(
-                    f"memory usage of connector code exceeded the allowed limit "
-                    f"(used: {used_gb:.2f} GB, limit: {constants.MEMORY_LIMIT_BYTES // (1024 ** 3)} GB)",
-                    Logging.Level.SEVERE
-                )
-                print_library_log(
-                    "refer to https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/connector-memory-management "
-                    "for analysing and fixing memory usage",
-                    Logging.Level.SEVERE
-                )
-                # Flush before os._exit to ensure logs are visible in Docker (non-TTY stdout is fully buffered)
-                sys.stdout.flush()
-                sys.stderr.flush()
-                # os._exit bypasses atexit handlers and works correctly even when running as PID 1 in Docker
-                os._exit(1)
-        except Exception:
-            # Log only once to avoid spamming on repeated failures
-            if not logged_rss_failure:
-                print_library_log(
-                    f"could not enforce memory constraint of {constants.MEMORY_LIMIT_BYTES // (1024 ** 3)} GB on connector process; debug will continue without memory constraint",
-                    Logging.Level.WARNING
-                )
-                logged_rss_failure = True
-        finally:
-            time.sleep(1)
-
-
-_memory_monitor_started = False
-_peak_rss_bytes = 0
-
-
-def _print_peak_memory():
-    try:
-        if _peak_rss_bytes > 0:
-            peak_gb = _peak_rss_bytes / (1024 ** 3)
-            print_library_log(f"peak memory used by the debug process: {peak_gb:.2f} GB", Logging.Level.INFO)
-    except Exception:
-        pass
-
-
-def apply_memory_limit():
-    """Monitors RSS every second and hard-kills the process if it exceeds the limit.
-    Uses /proc/self/status on Linux, ps on macOS, and ctypes on Windows.
-    If monitoring cannot be started, debug continues without enforcement.
-    """
-    global _memory_monitor_started
-    if _memory_monitor_started:
-        return
-    try:
-        thread = threading.Thread(target=_monitor_memory, daemon=True)
-        thread.start()
-        _memory_monitor_started = True
-    except Exception:
-        print_library_log("memory limit could not be enforced; debug will continue without memory constraint",
-                          Logging.Level.WARNING)
-        return
-    try:
-        atexit.register(_print_peak_memory)
-    except Exception:
-        print_library_log("peak memory reporting could not be registered; memory limit is still enforced",
-                          Logging.Level.WARNING)
 
 
 def get_destination_group(args):
@@ -318,7 +167,7 @@ def get_proxy_host_config_key(args):
 def get_state(args):
     if args.command.lower() == "deploy" and args.state:
         print_library_log(
-            "unrecognised argument: '--state'; not supported by 'deploy'\n      manage connection state using the Fivetran API instead\n      reference:https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/state-management",
+            "unrecognised argument: '--state'; not supported by 'deploy'\nmanage connection state using the Fivetran API instead\nreference:https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/state-management",
             Logging.Level.WARNING
         )
         sys.exit(1)
@@ -397,10 +246,10 @@ def get_configuration(args):
 def check_newer_version(version: str):
     """Periodically checks for a newer version of the SDK and notifies the user if one is available."""
     try:
-        tester_root_dir = tester_root_dir_helper()
-        last_check_file_path = os.path.join(tester_root_dir, LAST_VERSION_CHECK_FILE)
-        if not os.path.isdir(tester_root_dir):
-            os.makedirs(tester_root_dir, exist_ok=True)
+        config_root_dir = config_root_dir_helper()
+        last_check_file_path = os.path.join(config_root_dir, LAST_VERSION_CHECK_FILE)
+        if not os.path.isdir(config_root_dir):
+            os.makedirs(config_root_dir, exist_ok=True)
 
         if os.path.isfile(last_check_file_path):
             # Is it time to check again?
@@ -433,15 +282,20 @@ def check_newer_version(version: str):
         pass
 
 
-def tester_root_dir_helper() -> str:
-    """Returns the root directory for the tester."""
+def config_root_dir_helper() -> str:
+    """Returns the root directory for connector_sdk-wide (non-tester) local state, e.g. `~/.fivetran/connector_sdk`."""
     return os.path.join(os.path.expanduser("~"), ROOT_LOCATION)
+
+
+def tester_root_dir_helper() -> str:
+    """Returns the root directory for the tester, nested under the connector_sdk config root."""
+    return os.path.join(config_root_dir_helper(), TESTER_LOCATION)
 
 
 
 def _warn_exit_usage(filename, line_no, func):
     print_library_log(
-        f"avoid using {func} to exit from python code\n      this may cause the connector to hang\n      raise an error instead at: {filename}:{line_no}\n      reference: https://fivetran.com/docs/connector-sdk/technical-reference/connector-sdk-logs#exceptionhandling",
+        f"avoid using {func} to exit from python code\nthis may cause the connector to hang\nraise an error instead at: {filename}:{line_no}\nreference: https://fivetran.com/docs/connector-sdk/technical-reference/connector-sdk-logs#exceptionhandling",
         Logging.Level.WARNING
     )
 
@@ -502,11 +356,11 @@ def check_dict(incoming: dict, string_only: bool = False, exempt_keys: set = Non
             if k in exempt:
                 if not isinstance(v, (str, list)):
                     print_library_log(
-                        f"invalid configuration file; value for '{k}' must be a string or a list of strings\n      reference: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson", Logging.Level.SEVERE)
+                        f"invalid configuration file; value for '{k}' must be a string or a list of strings\nreference: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson", Logging.Level.SEVERE)
                     sys.exit(1)
             elif not isinstance(v, str):
                 print_library_log(
-                    "invalid configuration file; all values must be strings\n      reference: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson", Logging.Level.SEVERE)
+                    "invalid configuration file; all values must be strings\nreference: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson", Logging.Level.SEVERE)
                 sys.exit(1)
 
     return incoming
@@ -590,7 +444,7 @@ def get_available_port():
 
 
 def update_base_url_if_required():
-    config_file_path = os.path.join(tester_root_dir_helper(), CONFIG_FILE)
+    config_file_path = os.path.join(config_root_dir_helper(), CONFIG_FILE)
     if os.path.isfile(config_file_path):
         with open(config_file_path, 'r', encoding=UTF_8) as f:
             data = json.load(f)
@@ -635,7 +489,7 @@ def fetch_requirements_as_dict(file_path: str) -> dict:
             print_library_log(f"Invalid requirement format: '{requirement}'", Logging.Level.SEVERE)
     return requirements_dict
 
-def validate_requirements_file(project_path: str, is_deploy: bool, version: str):
+def validate_requirements_file(project_path: str, is_deploy: bool, version: str, prompt_mode: PromptMode = PromptMode.INTERACTIVE):
     """Validates the `requirements.txt` file against the project's actual dependencies.
 
     This method generates a temporary requirements file using `pipreqs`, compares
@@ -647,6 +501,7 @@ def validate_requirements_file(project_path: str, is_deploy: bool, version: str)
         project_path (str): The path to the project directory containing the `requirements.txt`.
         is_deploy (bool): If `True`, the method will exit the process on critical errors.
         version (str): The current version of the connector.
+        prompt_mode (PromptMode): Controls how prompts are answered. Defaults to INTERACTIVE.
 
     """
     requirements_file_path = os.path.join(project_path, REQUIREMENTS_TXT)
@@ -677,8 +532,8 @@ def validate_requirements_file(project_path: str, is_deploy: bool, version: str)
         else:
             print_library_log("`requirements.txt` file not found in your project folder", Logging.Level.WARNING)
 
-    update_version_requirements = verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements)
-    update_missing_requirements = verify_missing_deps(is_deploy, requirements, tmp_requirements)
+    update_version_requirements = verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements, prompt_mode)
+    update_missing_requirements = verify_missing_deps(is_deploy, requirements, tmp_requirements, prompt_mode)
     log_unused_deps_if_present(is_deploy, requirements, tmp_requirements)
 
     if update_version_requirements or update_missing_requirements:
@@ -701,7 +556,7 @@ def log_unused_deps_if_present(is_deploy, requirements, tmp_requirements, file_n
     log_unused_deps(unused_deps, is_deploy, file_name)
 
 
-def verify_missing_deps(is_deploy, requirements, tmp_requirements):
+def verify_missing_deps(is_deploy, requirements, tmp_requirements, prompt_mode: PromptMode = PromptMode.INTERACTIVE):
     missing_deps = {key: tmp_requirements[key] for key in (tmp_requirements.keys() - requirements.keys())}
     if not missing_deps:
         return False
@@ -710,19 +565,21 @@ def verify_missing_deps(is_deploy, requirements, tmp_requirements):
     if not is_deploy:
         return False
 
-    confirm = input(f"Would you like us to update {REQUIREMENTS_TXT} to add missing dependent libraries? (y/N):")
-    if confirm.lower() == "n":
-        print_library_log(
-            f"Changes identified as missing dependencies for libraries have been ignored. These changes have NOT been made to {REQUIREMENTS_TXT}.")
-        return False
-    elif confirm.lower() == "y":
+    if resolve_confirmation(
+        f"Would you like us to update {REQUIREMENTS_TXT} to add missing dependent libraries? (y/N): ",
+        default=False,
+        prompt_mode=prompt_mode
+    ):
         for requirement in missing_deps:
             requirements[requirement] = tmp_requirements[requirement]
         print_library_log(f"Successfully added missing dependencies to {REQUIREMENTS_TXT}.")
-    return True
+        return True
+    print_library_log(
+        f"Changes identified as missing dependencies for libraries have been ignored. These changes have NOT been made to {REQUIREMENTS_TXT}.")
+    return False
 
 
-def verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements):
+def verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements, prompt_mode: PromptMode = PromptMode.INTERACTIVE):
     version_mismatch_deps = {key: tmp_requirements[key] for key in
                              (requirements.keys() & tmp_requirements.keys())
                              if requirements[key] != tmp_requirements[key]}
@@ -737,18 +594,19 @@ def verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements):
     print_library_log(RECOMMEND_STABLE_VERSION_MESSAGE,
                       Logging.Level.WARNING)
     print(version_mismatch_deps)
-    confirm = input(
-        f"Would you like us to update {REQUIREMENTS_TXT} to the current stable versions of the dependent libraries? (y/N):")
-    if confirm.lower() == "n":
-        print_library_log(
-            f"Changes identified for libraries with version conflicts have been ignored. These changes have NOT been made to {REQUIREMENTS_TXT}.")
-        return False
-    elif confirm.lower() == "y":
+    if resolve_confirmation(
+        f"Would you like us to update {REQUIREMENTS_TXT} to the current stable versions of the dependent libraries? (y/N): ",
+        default=False,
+        prompt_mode=prompt_mode
+    ):
         for requirement in version_mismatch_deps:
             requirements[requirement] = tmp_requirements[requirement]
         print_library_log(
             f"Successfully updated {REQUIREMENTS_TXT} to the current stable versions of the dependent libraries.")
-    return True
+        return True
+    print_library_log(
+        f"Changes identified for libraries with version conflicts have been ignored. These changes have NOT been made to {REQUIREMENTS_TXT}.")
+    return False
 
 
 def run_pipreqs_with_retries(is_deploy, project_path, tmp_requirements_file_path):
@@ -789,17 +647,16 @@ def run_pipreqs_with_retries(is_deploy, project_path, tmp_requirements_file_path
 def log_unused_deps(unused_deps, is_deploy, file_name=REQUIREMENTS_TXT):
     level = Logging.Level.WARNING if is_deploy else Logging.Level.INFO
     print_library_log("The following dependencies are not needed, "
-                      f"they are already installed or not in use. Remove them from {file_name}:", level)
-    print(*unused_deps)
+                      f"they are already installed or not in use. Remove them from {file_name}:\n" + " ".join(unused_deps), level)
 
 def handle_missing_deps(missing_deps, is_deploy, file_name=REQUIREMENTS_TXT):
     level = Logging.Level.SEVERE if is_deploy else Logging.Level.INFO
     print_library_log(f"Include the following dependency libraries in {file_name}, to be used by "
                       "Fivetran production. "
                       "For more information, see our docs: "
-                      "https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/project-dependencies",
+                      "https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/project-dependencies\n" + 
+                      " ".join(list(missing_deps.values())),
                       level)
-    print(*list(missing_deps.values()))
 
 def load_or_add_requirements_file(requirements_file_path):
     if os.path.exists(requirements_file_path):
@@ -856,7 +713,7 @@ def parse_pyproject_dependencies(pyproject_path: str) -> dict:
     return result
 
 
-def validate_pyproject_file(project_path: str, is_deploy: bool):
+def validate_pyproject_file(project_path: str, is_deploy: bool, prompt_mode: PromptMode = PromptMode.INTERACTIVE):
     """Validates the `pyproject.toml` file against the project's actual dependencies.
 
     This method generates a temporary requirements file using `pipreqs`, compares
@@ -871,6 +728,7 @@ def validate_pyproject_file(project_path: str, is_deploy: bool):
     Args:
         project_path (str): The path to the project directory containing the `pyproject.toml`.
         is_deploy (bool): If `True`, use SEVERE/WARNING levels and prompt per issue category.
+        prompt_mode (PromptMode): Controls how prompts are answered. Defaults to INTERACTIVE.
     """
     if sys.version_info < (3, 11):
         print_library_log(PYPROJECT_SKIP_VALIDATION_MESSAGE)
@@ -897,14 +755,14 @@ def validate_pyproject_file(project_path: str, is_deploy: bool):
     for requirement in corrupt_requirements:
         del tmp_requirements[requirement]
 
-    verify_pyproject_version_mismatch_deps(is_deploy, requirements, tmp_requirements)
-    verify_pyproject_missing_deps(is_deploy, requirements, tmp_requirements)
+    verify_pyproject_version_mismatch_deps(is_deploy, requirements, tmp_requirements, prompt_mode)
+    verify_pyproject_missing_deps(is_deploy, requirements, tmp_requirements, prompt_mode)
     log_unused_deps_if_present(is_deploy, requirements, tmp_requirements, PYPROJECT_TOML)
 
     if is_deploy: print_library_log(f"Validation of {PYPROJECT_TOML} completed.")
 
 
-def verify_pyproject_missing_deps(is_deploy, requirements, tmp_requirements):
+def verify_pyproject_missing_deps(is_deploy, requirements, tmp_requirements, prompt_mode: PromptMode = PromptMode.INTERACTIVE):
     missing_deps = {key: tmp_requirements[key] for key in (tmp_requirements.keys() - requirements.keys())}
     if not missing_deps:
         return
@@ -914,10 +772,10 @@ def verify_pyproject_missing_deps(is_deploy, requirements, tmp_requirements):
         return
 
     prompt_pyproject_continue_or_abort(
-        f"Some libraries are imported but not declared in {PYPROJECT_TOML}. Continue? (Y/n):")
+        f"Some libraries are imported but not declared in {PYPROJECT_TOML}. Continue? (Y/n):", prompt_mode)
 
 
-def verify_pyproject_version_mismatch_deps(is_deploy, requirements, tmp_requirements):
+def verify_pyproject_version_mismatch_deps(is_deploy, requirements, tmp_requirements, prompt_mode: PromptMode = PromptMode.INTERACTIVE):
     version_mismatch_deps = {key: tmp_requirements[key] for key in
                              (requirements.keys() & tmp_requirements.keys())
                              if requirements[key] != tmp_requirements[key]}
@@ -931,10 +789,10 @@ def verify_pyproject_version_mismatch_deps(is_deploy, requirements, tmp_requirem
         return
 
     prompt_pyproject_continue_or_abort(
-        f"Some libraries in {PYPROJECT_TOML} are not at the current stable version. Continue? (Y/n):")
+        f"Some libraries in {PYPROJECT_TOML} are not at the current stable version. Continue? (Y/n):", prompt_mode)
 
 
-def prompt_pyproject_continue_or_abort(prompt_message: str):
+def prompt_pyproject_continue_or_abort(prompt_message: str, prompt_mode: PromptMode = PromptMode.INTERACTIVE):
     """Prompts the user to continue (default Y) or abort (n).
 
     Pressing Enter or any input other than `n`/`N` continues. Only an explicit
@@ -942,9 +800,9 @@ def prompt_pyproject_continue_or_abort(prompt_message: str):
 
     Args:
         prompt_message (str): The full prompt text to display, including the (Y/n) suffix.
+        prompt_mode (PromptMode): Controls how prompts are answered. Defaults to INTERACTIVE.
     """
-    confirm = input(prompt_message)
-    if confirm.lower() == "n":
+    if not resolve_confirmation(prompt_message, default=True, prompt_mode=prompt_mode):
         print_library_log(f"Aborting. Fix {PYPROJECT_TOML} and try again.", Logging.Level.SEVERE)
         sys.exit(1)
 
@@ -1396,7 +1254,7 @@ def _collect_zip_contents(zipf, project_path, extra_files, skip_tracker):
 def _validate_zip_contents(connector_file_exists, custom_drivers_exists, custom_driver_installation_script_exists, configuration_form_pb_exists):
     if not connector_file_exists:
         print_library_log(
-            "connector.py not found in the project root\n      this file is required to start a sync and must be named in lowercase",
+            "connector.py not found in the project root\nthis file is required to start a sync and must be named in lowercase",
             Logging.Level.SEVERE)
         sys.exit(1)
 
@@ -1748,7 +1606,7 @@ def get_group_info(group: str, deploy_key: str) -> tuple[str, str]:
 
     if not resp.ok:
         print_library_log(
-            f"request failed error: {resp.status_code}\n      ensure you're using a valid base64-encoded API key",
+            f"request failed error: {resp.status_code}\nensure you're using a valid base64-encoded API key",
             Logging.Level.SEVERE)
         sys.exit(1)
 
@@ -1991,7 +1849,7 @@ def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, s
 
 
 def run_configuration_tester(java_exe_str: str, root_dir: str, project_path: str, port: int,
-                              run_tests: bool):
+                              run_tests: bool, disable_encryption: bool = False):
     """Runs the connector tester in configuration mode.
 
     Runs the tester with stdin/stdout/stderr inherited from the terminal so that
@@ -2003,9 +1861,10 @@ def run_configuration_tester(java_exe_str: str, root_dir: str, project_path: str
         project_path (str): The path to the project.
         port (int): The port number to use for the tester.
         run_tests (bool): If True, run setup tests instead of collecting configuration.
+        disable_encryption (bool): If True, skip encryption of sensitive fields. Defaults to False.
     """
     cmd = _build_configuration_tester_command(
-        java_exe_str, root_dir, project_path, port, run_tests
+        java_exe_str, root_dir, project_path, port, run_tests, disable_encryption
     )
     return_code = subprocess.run(cmd).returncode
     if return_code != 0:
@@ -2013,12 +1872,14 @@ def run_configuration_tester(java_exe_str: str, root_dir: str, project_path: str
 
 
 def _build_configuration_tester_command(java_exe_str: str, root_dir: str, working_dir: str,
-                                         port: int, run_tests: bool) -> list:
+                                         port: int, run_tests: bool, disable_encryption: bool = False) -> list:
     """Builds the command list for running the tester in configuration mode."""
     cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port)
     cmd.append("configuration")
     if run_tests:
         cmd.append("--test")
+    if disable_encryption:
+        cmd.append("--disable-encryption")
     return cmd
 
 
@@ -2189,7 +2050,7 @@ def validate_configuration(configuration: dict | None):
     if configuration is None:
         print_library_log(
             "configuration is required; provide it via the --configuration flag, the FIVETRAN_CONFIGURATION environment variable, or by placing configuration.json in the project folder."
-            "\n     If your connector does not require configuration, pass an empty configuration.json file."
-            "\n     For more information, see https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json.",
+            "\nIf your connector does not require configuration, pass an empty configuration.json file."
+            "\nFor more information, see https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json.",
             level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)

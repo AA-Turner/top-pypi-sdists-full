@@ -56,6 +56,7 @@ from .literals import (
     ChecksumAlgorithmType,
     ChecksumTypeType,
     MFADeleteStatusType,
+    ObjectLockEventHoldType,
     ObjectLockLegalHoldStatusType,
     ObjectLockModeType,
     ObjectStorageClassType,
@@ -1644,6 +1645,9 @@ class Object(ServiceResource):
     object_lock_mode: ObjectLockModeType
     object_lock_retain_until_date: datetime
     object_lock_legal_hold_status: ObjectLockLegalHoldStatusType
+    object_lock_event_hold: ObjectLockEventHoldType
+    object_lock_event_hold_duration_days: int
+    object_lock_event_hold_duration_years: int
     meta: S3ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

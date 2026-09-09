@@ -17,8 +17,10 @@ translators (anthropic = top-level `name`, generic_openai = nested
 `function.name`), so the duplicate can never reach a provider regardless of the
 upstream double-injection bug.
 """
+
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 from matrx_ai.providers.base_translator import BaseTranslator
@@ -51,8 +53,7 @@ def test_cross_bucket_name_collision_dedups_to_one(monkeypatch) -> None:
         ToolRegistry,
         "get_provider_tools",
         lambda self, names, provider: [
-            {"name": n, "description": f"registered {n}", "input_schema": {}}
-            for n in names
+            {"name": n, "description": f"registered {n}", "input_schema": {}} for n in names
         ],
     )
     cfg = _config(["update_plan", "user"], [_custom("update_plan"), _custom("user")])
@@ -72,8 +73,7 @@ def test_anthropic_translator_payload_has_unique_tool_names(monkeypatch) -> None
         ToolRegistry,
         "get_provider_tools",
         lambda self, names, provider: [
-            {"name": n, "description": f"registered {n}", "input_schema": {}}
-            for n in names
+            {"name": n, "description": f"registered {n}", "input_schema": {}} for n in names
         ],
     )
     cfg = _config(["update_plan"], [_custom("update_plan")])
@@ -89,8 +89,7 @@ def test_generic_openai_nested_function_name_dedups(monkeypatch) -> None:
         ToolRegistry,
         "get_provider_tools",
         lambda self, names, provider: [
-            {"type": "function", "function": {"name": n, "parameters": {}}}
-            for n in names
+            {"type": "function", "function": {"name": n, "parameters": {}}} for n in names
         ],
     )
     cfg = _config(["update_plan"], [_custom("update_plan")])
@@ -102,9 +101,7 @@ def test_generic_openai_nested_function_name_dedups(monkeypatch) -> None:
 def test_nameless_native_tools_are_never_deduped(monkeypatch) -> None:
     # Anthropic/OpenAI native server tools (web search etc.) have no top-level
     # name — they must all survive, never collapsed against each other.
-    monkeypatch.setattr(
-        ToolRegistry, "get_provider_tools", lambda self, names, provider: []
-    )
+    monkeypatch.setattr(ToolRegistry, "get_provider_tools", lambda self, names, provider: [])
     cfg = SimpleNamespace(tools=[], custom_tools=[])
     cfg.tools = ["x"]
     monkeypatch.setattr(
@@ -120,8 +117,47 @@ def test_nameless_native_tools_are_never_deduped(monkeypatch) -> None:
 
 
 def test_no_tools_returns_empty(monkeypatch) -> None:
-    monkeypatch.setattr(
-        ToolRegistry, "get_provider_tools", lambda self, names, provider: []
-    )
+    monkeypatch.setattr(ToolRegistry, "get_provider_tools", lambda self, names, provider: [])
     cfg = SimpleNamespace(tools=[], custom_tools=[])
     assert _Translator().build_provider_tools(cfg, "anthropic") == []
+
+
+def test_external_mcp_name_is_serialized_instead_of_dropped(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ToolRegistry,
+        "get_provider_tools",
+        lambda self, names, provider: [
+            {"type": "function", "function": {"name": names[0], "parameters": {}}}
+        ],
+    )
+    cfg = _config(["mcp.docker-hub.listRepositoryTags"], [])
+
+    [declaration] = _Translator().build_provider_tools(cfg, "generic_openai")
+
+    assert declaration["function"]["name"] == "mcp__docker-hub__listRepositoryTags"
+
+
+def test_unserializable_drop_creates_structured_capture(monkeypatch) -> None:
+    captured = []
+
+    async def fake_capture_error(exc, **kwargs):
+        captured.append({"exc": exc, **kwargs})
+
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", fake_capture_error)
+    monkeypatch.setattr(
+        ToolRegistry,
+        "get_provider_tools",
+        lambda self, names, provider: [
+            {"name": names[0], "description": "bad", "input_schema": {}}
+        ],
+    )
+
+    async def exercise() -> None:
+        assert _Translator().build_provider_tools(_config(["x" * 65], []), "anthropic") == []
+        await asyncio.sleep(0)
+
+    asyncio.run(exercise())
+
+    assert len(captured) == 1
+    assert captured[0]["kind"] == "provider_tool_name_unserializable"
+    assert captured[0]["error_type"] == "ToolNameSerializationError"

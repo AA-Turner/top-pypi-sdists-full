@@ -68,9 +68,29 @@ def read_config():
     return host, username, password, None
 
 
-def graphiant_config_from_read_config(**kwargs):
-    """Build GraphiantConfig from read_config() with optional extra constructor kwargs."""
+def graphiant_config_from_read_config(proxy_tenant=False, **kwargs):
+    """
+    Build GraphiantConfig from read_config() with optional extra constructor kwargs.
+
+    proxy_tenant=True substitutes GRAPHIANT_PROXY_TENANT_USERNAME for GRAPHIANT_USERNAME (same
+    GRAPHIANT_PASSWORD/GRAPHIANT_ACCESS_TOKEN) — lets Data Exchange tests that need a second,
+    independent tenant (e.g. accept_invitation's consumer/proxy side) run in the same test
+    invocation as the main-tenant tests, without manually re-exporting GRAPHIANT_USERNAME between
+    runs. Assumes both tenants authenticate with the same password/token — e.g. two test admin
+    accounts sharing one password, or a token that already carries the exact identity needed for
+    each side. Global objects each tenant needs on its own (e.g. VPN profiles, LAN segments) are
+    configured by their own proxy_tenant=True test methods (e.g. test_configure_vpn_profiles_proxy_tenant,
+    test_configure_data_exchange_global_lan_segments) rather than requiring a separate manual
+    playbook run per tenant.
+    """
     base_url, username, password, access_token = read_config()
+    if proxy_tenant:
+        proxy_username = os.getenv("GRAPHIANT_PROXY_TENANT_USERNAME")
+        if not proxy_username:
+            raise ValueError(
+                "GRAPHIANT_PROXY_TENANT_USERNAME environment variable is required for proxy_tenant=True"
+            )
+        username = proxy_username
     return GraphiantConfig(
         base_url=base_url,
         username=username,
@@ -446,6 +466,19 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         LOG.info("Configure VPN profiles result: %s", result)
         result = graphiant_config.global_config.configure("sample_global_vpn_profiles.yaml")
         LOG.info("Configure VPN profiles result (rerun check): %s", result)
+
+    def test_configure_vpn_profiles_proxy_tenant(self):
+        """
+        Configure Global VPN Profile Objects on the proxy tenant (requires
+        GRAPHIANT_PROXY_TENANT_USERNAME) — needed by the Data Exchange accept_invitation tests,
+        whose vpnProfile references (e.g. "vpnprofile-global-test") are resolved against the
+        accepting tenant's own portal.
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        result = graphiant_config.global_config.configure("sample_global_vpn_profiles.yaml")
+        LOG.info("Configure VPN profiles result (proxy tenant): %s", result)
+        result = graphiant_config.global_config.configure("sample_global_vpn_profiles.yaml")
+        LOG.info("Configure VPN profiles result (proxy tenant, rerun check): %s", result)
 
     def test_deconfigure_vpn_profiles(self):
         """
@@ -990,6 +1023,30 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         self.assertTrue(result["skipped"], f"Expected service to be skipped, got: {result}")
         self.assertFalse(result["created"], f"Expected no new services to be created, got: {result}")
 
+    def test_create_data_exchange_services_graphiant_peer_client_to_server(self):
+        """
+        Create the client_to_server service for the Graphiant-customer scenario (issue #154).
+        Requires GRAPHIANT_PROXY_TENANT_USERNAME — this service is created there, matched to a
+        "graphiant_peer" customer, and accepted from the main tenant with no policy.siteToSiteVpn
+        at all (see test_accept_data_exchange_invitation_graphiant_peer_client_to_server).
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        graphiant_config.data_exchange.create_services(
+            "de_workflows_configs/sample_data_exchange_services_graphiant_peer_client_to_server.yaml"
+        )
+
+    def test_create_data_exchange_services_graphiant_peer_client_to_server_idempotent(self):
+        """
+        Create the Graphiant-customer client_to_server service again — must be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        result = graphiant_config.data_exchange.create_services(
+            "de_workflows_configs/sample_data_exchange_services_graphiant_peer_client_to_server.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent create_services, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected service to be skipped, got: {result}")
+        self.assertFalse(result["created"], f"Expected no new services to be created, got: {result}")
+
     def test_update_data_exchange_services_client_to_server(self):
         """
         Update the client_to_server service's prefixTags and NAT pools (natTranslationMode).
@@ -1061,6 +1118,29 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         self.assertTrue(result["skipped"], f"Expected service to be skipped, got: {result}")
         self.assertFalse(result["deleted"], f"Expected no services to be deleted, got: {result}")
 
+    def test_delete_data_exchange_services_graphiant_peer_client_to_server(self):
+        """
+        Delete the Graphiant-customer client_to_server service (issue #154 cleanup). Requires
+        GRAPHIANT_PROXY_TENANT_USERNAME. Run after test_delete_data_exchange_customers_graphiant_peer
+        — the customer must be deleted first (services can't be deleted while a customer is matched).
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        graphiant_config.data_exchange.delete_services(
+            "de_workflows_configs/sample_data_exchange_services_graphiant_peer_client_to_server.yaml"
+        )
+
+    def test_delete_data_exchange_services_graphiant_peer_client_to_server_idempotent(self):
+        """
+        Delete the Graphiant-customer service again — already deleted, must be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        result = graphiant_config.data_exchange.delete_services(
+            "de_workflows_configs/sample_data_exchange_services_graphiant_peer_client_to_server.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent delete_services, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected service to be skipped, got: {result}")
+        self.assertFalse(result["deleted"], f"Expected no services to be deleted, got: {result}")
+
     def test_create_data_exchange_customers(self):
         """
         Create Data Exchange Customers.
@@ -1078,6 +1158,31 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         )
         self.assertFalse(result["changed"], f"Expected no change on idempotent create_customers, got: {result}")
         self.assertTrue(result["skipped"], f"Expected customers to be skipped, got: {result}")
+        self.assertFalse(result["created"], f"Expected no new customers to be created, got: {result}")
+
+    def test_create_data_exchange_customers_graphiant_peer(self):
+        """
+        Create a "graphiant_peer" Data Exchange customer (issue #154) — a business already on
+        the Graphiant network, as opposed to "non_graphiant_peer" (see
+        sample_data_exchange_customers.yaml). Requires GRAPHIANT_PROXY_TENANT_USERNAME — this
+        customer is created there, matched to a client_to_server service, and accepted from the
+        main tenant with no policy.siteToSiteVpn at all.
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        graphiant_config.data_exchange.create_customers(
+            "de_workflows_configs/sample_data_exchange_customers_graphiant_peer.yaml"
+        )
+
+    def test_create_data_exchange_customers_graphiant_peer_idempotent(self):
+        """
+        Create the graphiant_peer customer again with same config — must be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        result = graphiant_config.data_exchange.create_customers(
+            "de_workflows_configs/sample_data_exchange_customers_graphiant_peer.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent create_customers, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected customer to be skipped, got: {result}")
         self.assertFalse(result["created"], f"Expected no new customers to be created, got: {result}")
 
     def test_update_data_exchange_customers(self):
@@ -1165,6 +1270,34 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         self.assertFalse(result["matched"], f"Expected no new matches to be created, got: {result}")
         self.assertFalse(result["failed"], f"Expected no match failures, got: {result}")
 
+    def test_match_data_exchange_service_to_customers_graphiant_peer_client_to_server(self):
+        """
+        Match the Graphiant-customer client_to_server service to "graphiant-customer-1"
+        (issue #154). Requires GRAPHIANT_PROXY_TENANT_USERNAME. Saves the matches_responses file
+        consumed by test_accept_data_exchange_invitation_graphiant_peer_client_to_server (run
+        from the main tenant).
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        result = graphiant_config.data_exchange.match_service_to_customers(
+            "de_workflows_configs/sample_data_exchange_matches_graphiant_peer_client_to_server.yaml"
+        )
+        LOG.info("Match Graphiant-customer client_to_server service to customer result: %s", result)
+        self.assertTrue(result["matched"], f"Expected a new match to be created, got: {result}")
+        self.assertFalse(result["failed"], f"Expected no match failures, got: {result}")
+
+    def test_match_data_exchange_service_to_customers_graphiant_peer_client_to_server_idempotent(self):
+        """
+        Match the Graphiant-customer service/customer pair again — already-matched, must be skipped.
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        result = graphiant_config.data_exchange.match_service_to_customers(
+            "de_workflows_configs/sample_data_exchange_matches_graphiant_peer_client_to_server.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent match, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected match to be skipped, got: {result}")
+        self.assertFalse(result["matched"], f"Expected no new matches to be created, got: {result}")
+        self.assertFalse(result["failed"], f"Expected no match failures, got: {result}")
+
     def test_delete_data_exchange_customers(self):
         """
         Delete Data Exchange Customers.
@@ -1182,6 +1315,30 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         )
         self.assertFalse(result["changed"], f"Expected no change on idempotent delete_customers, got: {result}")
         self.assertTrue(result["skipped"], f"Expected customers to be skipped, got: {result}")
+        self.assertFalse(result["deleted"], f"Expected no customers to be deleted, got: {result}")
+
+    def test_delete_data_exchange_customers_graphiant_peer(self):
+        """
+        Delete the "graphiant_peer" Data Exchange customer (issue #154 cleanup). Requires
+        GRAPHIANT_PROXY_TENANT_USERNAME. Run before
+        test_delete_data_exchange_services_graphiant_peer_client_to_server — customers must be
+        deleted before services they depend on.
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        graphiant_config.data_exchange.delete_customers(
+            "de_workflows_configs/sample_data_exchange_customers_graphiant_peer.yaml"
+        )
+
+    def test_delete_data_exchange_customers_graphiant_peer_idempotent(self):
+        """
+        Delete the graphiant_peer customer again — already deleted, must be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
+        result = graphiant_config.data_exchange.delete_customers(
+            "de_workflows_configs/sample_data_exchange_customers_graphiant_peer.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent delete_customers, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected customer to be skipped, got: {result}")
         self.assertFalse(result["deleted"], f"Expected no customers to be deleted, got: {result}")
 
     def test_create_data_exchange_services_scale(self):
@@ -1243,14 +1400,31 @@ class TestGraphiantPlaybooks(unittest.TestCase):
             vault_dict_from_example(config_path, "vault_data_exchange_psk"),
         )
 
+    def test_configure_data_exchange_lan_interfaces(self):
+        """
+        Configure LAN interfaces on producer edge devices for Data Exchange (main tenant).
+        Uses de_workflows_configs/sample_edge_lan_interfaces_config.yaml — attaches
+        "lan-segment-3" to edge-1/2/3-sdktest, matching
+        playbooks/de_workflows/00_dataex_lan_interface_prerequisites.yml's default config_file.
+        Runs twice to verify idempotency.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.interfaces.configure_lan_interfaces(
+            "de_workflows_configs/sample_edge_lan_interfaces_config.yaml")
+        LOG.info("Configure DE LAN interfaces result: %s", result)
+        result = graphiant_config.interfaces.configure_lan_interfaces(
+            "de_workflows_configs/sample_edge_lan_interfaces_config.yaml")
+        LOG.info("Configure DE LAN interfaces result (idempotency check): %s", result)
+
     def test_configure_data_exchange_global_lan_segments(self):
         """
-        Configure global LAN segments required for Data Exchange acceptance tests.
+        Configure global LAN segments required for Data Exchange acceptance tests (proxy tenant
+        — requires GRAPHIANT_PROXY_TENANT_USERNAME).
         Uses de_workflows_configs/sample_global_lan_segments.yaml (includes customer-1-segment
         and FinanceBank-* segments used by acceptance and scale configs).
         Runs twice to verify idempotency.
         """
-        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
         result = graphiant_config.global_config.configure("de_workflows_configs/sample_global_lan_segments.yaml")
         LOG.info("Configure DE global LAN segments result: %s", result)
         result = graphiant_config.global_config.configure("de_workflows_configs/sample_global_lan_segments.yaml")
@@ -1259,11 +1433,11 @@ class TestGraphiantPlaybooks(unittest.TestCase):
 
     def test_accept_data_exchange_invitation_check_mode(self):
         """
-        Accept Data Exchange Service Invitation in check mode (requires consumer/proxy tenant creds).
+        Accept Data Exchange Service Invitation in check mode (requires GRAPHIANT_PROXY_TENANT_USERNAME).
         Validates the full payload construction and SDK schema validation without calling the API.
         Expected: changed=True (would accept), total_accepted=1, status="check_mode", no failures.
         """
-        graphiant_config = graphiant_config_from_read_config(check_mode=True)
+        graphiant_config = graphiant_config_from_read_config(check_mode=True, proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
@@ -1283,13 +1457,13 @@ class TestGraphiantPlaybooks(unittest.TestCase):
     def test_accept_data_exchange_invitation_legacy_shape_check_mode(self):
         """
         Accept Data Exchange Service Invitation using the legacy flat config shape (requires
-        consumer/proxy tenant creds). Targets the exact same customer/service as
+        GRAPHIANT_PROXY_TENANT_USERNAME). Targets the exact same customer/service as
         sample_data_exchange_acceptance.yaml, just written in the old shape, to prove
         accept_invitation auto-translates it to the same resolved payload — not a breaking
         change. Check mode only: does not call the real API.
         Expected: changed=True (would accept), total_accepted=1, status="check_mode", no failures.
         """
-        graphiant_config = graphiant_config_from_read_config(check_mode=True)
+        graphiant_config = graphiant_config_from_read_config(check_mode=True, proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance_legacy.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
@@ -1308,10 +1482,10 @@ class TestGraphiantPlaybooks(unittest.TestCase):
 
     def test_accept_data_exchange_invitation(self):
         """
-        Accept Data Exchange Service Invitation — live mode (requires consumer/proxy tenant creds).
+        Accept Data Exchange Service Invitation — live mode (requires GRAPHIANT_PROXY_TENANT_USERNAME).
         Expected: changed=True, total_accepted=1, total_skipped=0, status="success".
         """
-        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
@@ -1330,10 +1504,11 @@ class TestGraphiantPlaybooks(unittest.TestCase):
 
     def test_accept_data_exchange_invitation_idempotent(self):
         """
-        Accept Data Exchange Service Invitation again — already accepted (requires consumer/proxy tenant creds).
-        Expected: changed=False, total_skipped=1, total_accepted=0 (idempotent).
+        Accept Data Exchange Service Invitation again — already accepted (requires
+        GRAPHIANT_PROXY_TENANT_USERNAME). Expected: changed=False, total_skipped=1, total_accepted=0
+        (idempotent).
         """
-        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
@@ -1352,11 +1527,11 @@ class TestGraphiantPlaybooks(unittest.TestCase):
     def test_accept_data_exchange_invitation_client_to_server_check_mode(self):
         """
         Accept a client_to_server Data Exchange Service Invitation in check mode
-        (requires consumer/proxy tenant creds). Same payload shape as peering_service,
+        (requires GRAPHIANT_PROXY_TENANT_USERNAME). Same payload shape as peering_service,
         except policy.natTranslationMode is omitted (client_to_server NAT is producer-side).
         Expected: changed=True (would accept), total_accepted=1, status="check_mode", no failures.
         """
-        graphiant_config = graphiant_config_from_read_config(check_mode=True)
+        graphiant_config = graphiant_config_from_read_config(check_mode=True, proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance_client_to_server.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_client_to_server_responses_latest.json"
@@ -1376,10 +1551,10 @@ class TestGraphiantPlaybooks(unittest.TestCase):
     def test_accept_data_exchange_invitation_client_to_server(self):
         """
         Accept a client_to_server Data Exchange Service Invitation — live mode
-        (requires consumer/proxy tenant creds).
+        (requires GRAPHIANT_PROXY_TENANT_USERNAME).
         Expected: changed=True, total_accepted=1, total_skipped=0, status="success".
         """
-        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance_client_to_server.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_client_to_server_responses_latest.json"
@@ -1399,9 +1574,9 @@ class TestGraphiantPlaybooks(unittest.TestCase):
     def test_accept_data_exchange_invitation_client_to_server_idempotent(self):
         """
         Accept the client_to_server invitation again — already accepted (requires
-        consumer/proxy tenant creds). Expected: changed=False, total_skipped=1 (idempotent).
+        GRAPHIANT_PROXY_TENANT_USERNAME). Expected: changed=False, total_skipped=1 (idempotent).
         """
-        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config = graphiant_config_from_read_config(proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance_client_to_server.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_client_to_server_responses_latest.json"
@@ -1417,14 +1592,96 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         self.assertEqual(result["total_skipped"], 1)
         self.assertEqual(result["results"][0]["status"], "skipped")
 
+    def test_accept_data_exchange_invitation_graphiant_peer_client_to_server_check_mode(self):
+        """
+        Accept a client_to_server invitation for a Graphiant customer in check mode (issue #154;
+        requires MAIN tenant creds — opposite of the other accept_invitation tests, since this
+        scenario's service/customer/match are created in the proxy tenant and consumed back by
+        the main tenant). policy.siteToSiteVpn is entirely absent from
+        sample_data_exchange_acceptance_graphiant_peer_client_to_server.yaml — accept_invitation
+        must confirm this via peer_type=graphiant_peer (from get_matching_customers_for_service)
+        and proceed without requiring a vpnProfile.
+        Expected: changed=True (would accept), total_accepted=1, status="check_mode", no failures.
+        """
+        graphiant_config = graphiant_config_from_read_config(check_mode=True)
+        vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
+        config_file = "de_workflows_configs/sample_data_exchange_acceptance_graphiant_peer_client_to_server.yaml"
+        matches_file = (
+            "de_workflows_configs/output/"
+            "sample_data_exchange_matches_graphiant_peer_client_to_server_responses_latest.json"
+        )
+
+        result = graphiant_config.data_exchange.accept_invitation(
+            config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
+        )
+        LOG.info("Accept Graphiant-customer client_to_server invitation (check mode) result: %s", result)
+
+        self.assertTrue(result["changed"], "check_mode: expected changed=True (would have accepted)")
+        self.assertEqual(result["total_processed"], 1)
+        self.assertEqual(result["total_accepted"], 1)
+        self.assertEqual(result["total_skipped"], 0)
+        self.assertEqual(len(result["results"]), 1)
+        self.assertEqual(result["results"][0]["status"], "check_mode")
+
+    def test_accept_data_exchange_invitation_graphiant_peer_client_to_server(self):
+        """
+        Accept a client_to_server invitation for a Graphiant customer — live mode (issue #154;
+        requires MAIN tenant creds). No vpnProfile is provided or needed: the customer's
+        peer_type is "graphiant_peer", so no Site-to-Site VPN Connection is established.
+        Expected: changed=True, total_accepted=1, total_skipped=0, status="success".
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
+        config_file = "de_workflows_configs/sample_data_exchange_acceptance_graphiant_peer_client_to_server.yaml"
+        matches_file = (
+            "de_workflows_configs/output/"
+            "sample_data_exchange_matches_graphiant_peer_client_to_server_responses_latest.json"
+        )
+
+        result = graphiant_config.data_exchange.accept_invitation(
+            config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
+        )
+        LOG.info("Accept Graphiant-customer client_to_server invitation result: %s", result)
+
+        self.assertTrue(result["changed"], "Expected changed=True on first acceptance")
+        self.assertEqual(result["total_processed"], 1)
+        self.assertEqual(result["total_accepted"], 1)
+        self.assertEqual(result["total_skipped"], 0)
+        self.assertEqual(len(result["results"]), 1)
+        self.assertEqual(result["results"][0]["status"], "success")
+
+    def test_accept_data_exchange_invitation_graphiant_peer_client_to_server_idempotent(self):
+        """
+        Accept the Graphiant-customer invitation again — already accepted (requires MAIN tenant
+        creds). Expected: changed=False, total_skipped=1 (idempotent).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
+        config_file = "de_workflows_configs/sample_data_exchange_acceptance_graphiant_peer_client_to_server.yaml"
+        matches_file = (
+            "de_workflows_configs/output/"
+            "sample_data_exchange_matches_graphiant_peer_client_to_server_responses_latest.json"
+        )
+
+        result = graphiant_config.data_exchange.accept_invitation(
+            config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
+        )
+        LOG.info("Accept Graphiant-customer client_to_server invitation (idempotent) result: %s", result)
+
+        self.assertFalse(result["changed"], "Expected changed=False when already accepted")
+        self.assertEqual(result["total_processed"], 1)
+        self.assertEqual(result["total_accepted"], 0)
+        self.assertEqual(result["total_skipped"], 1)
+        self.assertEqual(result["results"][0]["status"], "skipped")
+
     def test_accept_data_exchange_invitation_scale_check_mode(self):
         """
         Accept multiple Data Exchange Service Invitations in check mode — scale config
-        (requires consumer/proxy tenant creds).
+        (requires GRAPHIANT_PROXY_TENANT_USERNAME).
         Validates payload construction and SDK schema validation for all acceptances without calling the API.
         Expected: no failures across all acceptances, all statuses="check_mode".
         """
-        graphiant_config = graphiant_config_from_read_config(check_mode=True)
+        graphiant_config = graphiant_config_from_read_config(check_mode=True, proxy_tenant=True)
         vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
         config_file = "de_workflows_configs/sample_data_exchange_acceptance_scale.yaml"
         matches_file = "de_workflows_configs/output/sample_data_exchange_matches_scale_responses_latest.json"
@@ -1442,6 +1699,177 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         for r in result["results"]:
             self.assertIn(r["status"], ("check_mode", "skipped"),
                           f"Unexpected status '{r['status']}' for {r.get('customer_name')}")
+
+    def test_create_local_extranet_policies(self):
+        """
+        Create Local Extranet policies.
+
+        Second run should be idempotent (changed=False, skipped, nothing created).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.local_extranet.create_policies("sample_local_extranet_policies.yaml")
+        LOG.info("Create Local Extranet policies result: %s", result)
+
+        result2 = graphiant_config.local_extranet.create_policies("sample_local_extranet_policies.yaml")
+        LOG.info("Create Local Extranet policies result (idempotency check): %s", result2)
+        self.assertFalse(result2["changed"], f"Expected no change on idempotent create_policies, got: {result2}")
+        self.assertTrue(result2["skipped"], f"Expected policies to be skipped, got: {result2}")
+        self.assertFalse(result2["created"], f"Expected no new policies to be created, got: {result2}")
+
+    def test_get_local_extranet_policies_summary(self):
+        """
+        Get Local Extranet policies summary.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config.local_extranet.get_policies_summary()
+
+    def test_update_local_extranet_policies(self):
+        """
+        Update Local Extranet policies (adds a second sharedPrefixes entry).
+
+        Second run should be idempotent (changed=False) since the desired state already matches.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        updated_config_path = "sample_local_extranet_policies_update.yaml"
+
+        result = graphiant_config.local_extranet.update_policies(updated_config_path)
+        LOG.info("Update Local Extranet policies result: %s", result)
+        self.assertTrue(result["changed"], f"Expected update to change the policy, got: {result}")
+
+        result2 = graphiant_config.local_extranet.update_policies(updated_config_path)
+        LOG.info("Update Local Extranet policies result (idempotency check): %s", result2)
+        self.assertFalse(result2["changed"], f"Expected no change on idempotent update, got: {result2}")
+        self.assertTrue(result2["skipped"], f"Expected policy to be skipped, got: {result2}")
+
+    def test_update_local_extranet_policies_restore(self):
+        """
+        Restore Local Extranet policies to their original sharedPrefixes after the update test.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.local_extranet.update_policies(
+            "sample_local_extranet_policies.yaml"
+        )
+        self.assertTrue(result["changed"], f"Expected restore to change the policy, got: {result}")
+
+    def test_delete_local_extranet_policies(self):
+        """
+        Delete Local Extranet policies.
+
+        Second run should be idempotent (changed=False, skipped, nothing deleted).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.local_extranet.delete_policies("sample_local_extranet_policies.yaml")
+        LOG.info("Delete Local Extranet policies result: %s", result)
+
+        result2 = graphiant_config.local_extranet.delete_policies("sample_local_extranet_policies.yaml")
+        LOG.info("Delete Local Extranet policies result (idempotency check): %s", result2)
+        self.assertFalse(result2["changed"], f"Expected no change on idempotent delete_policies, got: {result2}")
+        self.assertTrue(result2["skipped"], f"Expected policies to be skipped, got: {result2}")
+        self.assertFalse(result2["deleted"], f"Expected no policies to be deleted, got: {result2}")
+
+    def test_create_public_vif_services(self):
+        """
+        Create Public VIF services. Loads vault_public_vif_bgp_md5_passwords from
+        vault_secrets.yml.example (same pattern as test_create_site_to_site_vpn).
+
+        Second run should be idempotent (changed=False, skipped, nothing created) since
+        create_services skips services that already exist by name.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        config_path = graphiant_config.config_utils.config_path
+        vault_md5 = vault_dict_from_example(config_path, "vault_public_vif_bgp_md5_passwords")
+
+        result = graphiant_config.public_vif.create_services(
+            "sample_public_vif_services.yaml",
+            vault_public_vif_bgp_md5_passwords=vault_md5,
+        )
+        LOG.info("Create Public VIF services result: %s", result)
+
+        result2 = graphiant_config.public_vif.create_services(
+            "sample_public_vif_services.yaml",
+            vault_public_vif_bgp_md5_passwords=vault_md5,
+        )
+        LOG.info("Create Public VIF services result (idempotency check): %s", result2)
+        self.assertFalse(result2["changed"], f"Expected no change on idempotent create_services, got: {result2}")
+        self.assertTrue(result2["skipped"], f"Expected services to be skipped, got: {result2}")
+        self.assertFalse(result2["created"], f"Expected no new services to be created, got: {result2}")
+
+    def test_get_public_vif_services_summary(self):
+        """
+        Get Public VIF services summary.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.public_vif.get_services_summary()
+        LOG.info("Public VIF services summary: %s", result)
+
+    def test_get_public_vif_service_details(self):
+        """
+        Get detailed configuration for the Public VIF service created above.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.public_vif.get_service_details("pvif-service-1")
+        LOG.info("Public VIF service details: %s", result)
+
+    def test_update_public_vif_services(self):
+        """
+        Update Public VIF services (adds a second gatewayBgpNeighbors entry for gateway-2).
+
+        No live-state diff is performed for this operation (see public_vif_manager module
+        docstring): every run pushes the full payload and reports changed=True, regardless
+        of whether the desired state already matches — unlike create_services/delete_services.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        config_path = graphiant_config.config_utils.config_path
+        vault_md5 = vault_dict_from_example(config_path, "vault_public_vif_bgp_md5_passwords")
+
+        result = graphiant_config.public_vif.update_services(
+            "sample_public_vif_services_update.yaml",
+            vault_public_vif_bgp_md5_passwords=vault_md5,
+        )
+        LOG.info("Update Public VIF services result: %s", result)
+        self.assertTrue(result["changed"], f"Expected update to report changed, got: {result}")
+
+        result2 = graphiant_config.public_vif.update_services(
+            "sample_public_vif_services_update.yaml",
+            vault_public_vif_bgp_md5_passwords=vault_md5,
+        )
+        LOG.info("Update Public VIF services result (rerun check): %s", result2)
+        self.assertTrue(result2["changed"], f"Expected rerun to also report changed, got: {result2}")
+
+    def test_update_public_vif_services_restore(self):
+        """
+        Restore Public VIF services to their original (pre-update) configuration.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        config_path = graphiant_config.config_utils.config_path
+        vault_md5 = vault_dict_from_example(config_path, "vault_public_vif_bgp_md5_passwords")
+
+        result = graphiant_config.public_vif.update_services(
+            "sample_public_vif_services.yaml",
+            vault_public_vif_bgp_md5_passwords=vault_md5,
+        )
+        LOG.info("Restore Public VIF services result: %s", result)
+        self.assertTrue(result["changed"], f"Expected restore to report changed, got: {result}")
+
+    def test_delete_public_vif_services(self):
+        """
+        Delete Public VIF services.
+
+        Second run should be idempotent (changed=False, skipped, nothing deleted) since
+        delete_services skips services that are not found.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.public_vif.delete_services("sample_public_vif_services.yaml")
+        LOG.info("Delete Public VIF services result: %s", result)
+
+        result2 = graphiant_config.public_vif.delete_services("sample_public_vif_services.yaml")
+        LOG.info("Delete Public VIF services result (idempotency check): %s", result2)
+        self.assertFalse(result2["changed"], f"Expected no change on idempotent delete_services, got: {result2}")
+        self.assertTrue(result2["skipped"], f"Expected services to be skipped, got: {result2}")
+        self.assertFalse(result2["deleted"], f"Expected no services to be deleted, got: {result2}")
 
     def test_show_validated_payload_for_device_config(self):
         """
@@ -1555,6 +1983,36 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         result2 = graphiant_config.ospfv2.deconfigure("sample_ospfv2.yaml")
         LOG.info("Deconfigure OSPFv2 result (idempotency check): %s", result2)
         assert result2['changed'] is False, "Deconfigure OSPFv2 idempotency failed"
+
+    def test_configure_data_assurance(self):
+        """
+        Configure Data Assurance policies (assurance, protection-by-URL, and protection-by-category
+        content-filter policies) from the sample YAML.
+
+        Second run should be idempotent (changed=False) if desired state already matches.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.data_assurance.configure("sample_data_assurance_policies.yaml")
+        LOG.info("Configure Data Assurance result: %s", result)
+        result2 = graphiant_config.data_assurance.configure("sample_data_assurance_policies.yaml")
+        LOG.info("Configure Data Assurance result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Configure Data Assurance idempotency failed"
+
+    def test_deconfigure_data_assurance(self):
+        """
+        Deconfigure (delete) Data Assurance and content-filter policies listed in the sample YAML.
+
+        Deletion detaches sites (and clears apps/rules) before removing each policy.
+        Second run should be idempotent (changed=False) when the policies are already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.data_assurance.deconfigure("sample_data_assurance_policies.yaml")
+        LOG.info("Deconfigure Data Assurance result: %s", result)
+        result2 = graphiant_config.data_assurance.deconfigure("sample_data_assurance_policies.yaml")
+        LOG.info("Deconfigure Data Assurance result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Deconfigure Data Assurance idempotency failed"
 
     def test_configure_global_ntp(self):
         """
@@ -2718,30 +3176,47 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_ipfix_service'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_ntp'))
 
-    # Data Exchange Tests
+    # Data Exchange Partner Services Tests
+    # Cleanup
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_customers_scale'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_scale'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_customers'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_client_to_server'))
     #   Pre-req: Prefix lists
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_prefix_lists'))
     #   Pre-req: Graphiant filters
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_graphiant_filters'))
+    #   Pre-req (main tenant / producer): LAN segments referenced by services' policy.serviceLanSegment
+    #   (e.g. "lan-segment-3"), and LAN interfaces configured on producer edge devices so those LAN
+    #   segments are attached to a site — mirrors playbooks/de_workflows/00_dataex_lan_segments_prerequisites.yml
+    #   and 00_dataex_lan_interface_prerequisites.yml.
+    suite.addTest(TestGraphiantPlaybooks('test_configure_global_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_data_exchange_lan_interfaces'))
+    #   peering_service service type
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_services'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_services_summary'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_restore'))
-    #   client_to_server service type (NAT pools)
+    #   client_to_server service type
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_services_client_to_server'))
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_services_client_to_server_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_services_summary'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_client_to_server'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_client_to_server_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_client_to_server_restore'))
+    #   non_graphiant_peer customers
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_customers'))
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_customers_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_customers'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_customers_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_customers_restore'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_customers_summary'))
+    #   Match Peer to Peer Services to Non Graphiant Customers
     suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers'))
+    suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers_idempotent'))
+    #   Match Client to Server Services to Non Graphiant Customers
     suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers_client_to_server'))
     suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers_client_to_server_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_customers_summary'))
@@ -2755,19 +3230,77 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers_scale'))
 
     # -------------------------------------------------------------------------------------------- #
-    # Run Data Exchange accept_invitation tests in isolation.
-    # Requires consumer/proxy tenant credentials.
-    # suite.addTest(TestGraphiantPlaybooks("test_configure_data_exchange_global_lan_segments"))
-    # suite.addTest(TestGraphiantPlaybooks("test_configure_vpn_profiles"))
-    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_check_mode"))
-    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_legacy_shape_check_mode"))
-    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation"))
-    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_idempotent"))
-    # suite.addTest(TestGraphiantPlaybooks('test_accept_data_exchange_invitation_scale_check_mode'))
+    # Data Exchange accept_invitation tests — consumer/proxy tenant side.
+    #
+    # Runs in the SAME invocation as the main-tenant suite above: proxy-tenant operations use
+    # GRAPHIANT_PROXY_TENANT_USERNAME (same GRAPHIANT_PASSWORD/GRAPHIANT_ACCESS_TOKEN as the main
+    # tenant — see graphiant_config_from_read_config's proxy_tenant kwarg), so no manual
+    # re-exporting of GRAPHIANT_USERNAME is needed between phases anymore.
+    #
+    #   Pre-req: Create VPN profiles used in Accept Invitation Site-to-Site VPN configuration
+    suite.addTest(TestGraphiantPlaybooks("test_configure_vpn_profiles_proxy_tenant"))
+    #   Pre-req: Create Global object lan segments for each Non Graphiant Customers in the Gateway Devices
+    suite.addTest(TestGraphiantPlaybooks("test_configure_data_exchange_global_lan_segments"))
+    #   peering_service acceptance (requires the peering_service service/match from above)
+    suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_check_mode"))
+    suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_legacy_shape_check_mode"))
+    suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation"))
+    suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_idempotent"))
+    suite.addTest(TestGraphiantPlaybooks('test_accept_data_exchange_invitation_scale_check_mode'))
     #   client_to_server acceptance (requires the client_to_server service/match from above)
-    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server_check_mode"))
-    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server"))
-    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server_idempotent"))
+    suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server_check_mode"))
+    suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server"))
+    suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server_idempotent"))
+    # -------------------------------------------------------------------------------------------- #
+
+    # -------------------------------------------------------------------------------------------- #
+    # Data Exchange service with existing Graphiant-customer example scenario
+    #
+    # Producer/customer roles are REVERSED here relative to the flows above: the PROXY tenant
+    # creates the service AND the customer record (representing the MAIN tenant,
+    # "graphiant-customer-1", type "graphiant_peer") and matches them; the MAIN tenant then
+    # accepts the invitation with NO policy.siteToSiteVpn at all — accept_invitation confirms the
+    # Graphiant customer via peer_type from get_matching_customers_for_service and proceeds
+    # without a vpnProfile.
+    #
+    # All three phases run in ONE invocation, in order, as long as both GRAPHIANT_USERNAME (main
+    # tenant) and GRAPHIANT_PROXY_TENANT_USERNAME (proxy tenant) are set.
+    #
+    # REQUIRES the accept_invitation block above to have already run in this same invocation (or
+    # a prior one): accepting sample_data_exchange_acceptance.yaml /
+    # sample_data_exchange_acceptance_client_to_server.yaml in the proxy tenant is what
+    # associates LAN segment "customer-1-segment" with site "site-sjc-sdktest"'s gateway devices
+    # there — a side effect of that acceptance, not something test_configure_data_exchange_
+    # global_lan_segments (which only creates the LAN segment object) does on its own. Without
+    # it, test_create_data_exchange_services_graphiant_peer_client_to_server fails with
+    # "site(s) [...] are not part of LAN segment 'customer-1-segment'" — this service
+    # uses that same site/LAN segment pairing (in the proxy tenant, reversed from the main-tenant
+    # flows above).
+    #
+    # Phase 1 (proxy tenant): create service, customer, and match.
+    suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_services_graphiant_peer_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks(
+        'test_create_data_exchange_services_graphiant_peer_client_to_server_idempotent'))
+    suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_customers_graphiant_peer'))
+    suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_customers_graphiant_peer_idempotent'))
+    suite.addTest(TestGraphiantPlaybooks(
+        'test_match_data_exchange_service_to_customers_graphiant_peer_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks(
+        'test_match_data_exchange_service_to_customers_graphiant_peer_client_to_server_idempotent'))
+
+    # Phase 2 (main tenant): accept the invitation.
+    suite.addTest(TestGraphiantPlaybooks(
+        'test_accept_data_exchange_invitation_graphiant_peer_client_to_server_check_mode'))
+    suite.addTest(TestGraphiantPlaybooks('test_accept_data_exchange_invitation_graphiant_peer_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks(
+        'test_accept_data_exchange_invitation_graphiant_peer_client_to_server_idempotent'))
+
+    # Phase 3 (proxy tenant): cleanup.
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_customers_graphiant_peer'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_customers_graphiant_peer_idempotent'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_graphiant_peer_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks(
+        'test_delete_data_exchange_services_graphiant_peer_client_to_server_idempotent'))
     # -------------------------------------------------------------------------------------------- #
 
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_customers_scale'))
@@ -2776,6 +3309,28 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services'))
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_client_to_server'))
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_client_to_server_idempotent'))
+
+    # Local Extranet Tests (Pre-req: LAN segments, configured above for Data Exchange)
+    suite.addTest(TestGraphiantPlaybooks('test_configure_global_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_create_local_extranet_policies'))
+    suite.addTest(TestGraphiantPlaybooks('test_get_local_extranet_policies_summary'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_local_extranet_policies'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_local_extranet_policies_restore'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_local_extranet_policies'))
+
+    # Public VIF (gateway "local data exchange") Tests
+    # Failure is expected unless the gateway devices referenced in
+    # sample_public_vif_services.yaml (gatewayBgpNeighbors/natPrefixStrategy) already have the
+    # Public VIF gateway service enabled, are already configured on the producer 'lanSegment',
+    # and their referenced localInterface is already configured on that same LAN segment.
+    suite.addTest(TestGraphiantPlaybooks('test_create_public_vif_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_get_public_vif_services_summary'))
+    suite.addTest(TestGraphiantPlaybooks('test_get_public_vif_service_details'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_public_vif_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_public_vif_services_restore'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_public_vif_services'))
+
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_config_graphiant_filters'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_config_prefix_lists'))
 
@@ -2842,6 +3397,15 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_ospfv2'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_interfaces'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_lan_segments'))
+
+    '''
+    # Traffic in needed in order to configure.
+    # Data Assurance & Content-Filter (protection) Policy Tests
+    # Pre-req: site list referenced by assurance-policy-1 (siteListName) and flex-algos used
+    # in the sample must exist in the target enterprise.
+    suite.addTest(TestGraphiantPlaybooks('test_configure_data_assurance'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_data_assurance'))
+    '''
 
     # To deconfigure all interfaces
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_interfaces'))

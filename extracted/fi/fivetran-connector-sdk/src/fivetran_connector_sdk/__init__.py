@@ -3,6 +3,7 @@ os.environ["GRPC_VERBOSITY"] = "ERROR"
 import sys
 import grpc
 import json
+import atexit
 import traceback
 import faulthandler
 import threading
@@ -14,6 +15,7 @@ from concurrent import futures
 from typing import Callable, Optional
 
 from fivetran_connector_sdk.initialisation_helper import init
+from fivetran_connector_sdk.crash_report import build_debug_crash_report
 from fivetran_connector_sdk.protos import common_pb2
 from fivetran_connector_sdk.protos import connector_sdk_pb2
 from fivetran_connector_sdk.protos import connector_sdk_pb2_grpc
@@ -25,12 +27,14 @@ from fivetran_connector_sdk.configuration_form import ConfigurationForm
 from fivetran_connector_sdk.test import Test
 from fivetran_connector_sdk import form_field
 from fivetran_connector_sdk import constants
+from fivetran_connector_sdk.memory_tracker import get_memory_tracker
 from fivetran_connector_sdk.constants import (
     TESTER_VERSION, VERSION_FILENAME, UTF_8, DEPRECATED_FORCE_FLAG_WARNING,
     DEFAULT_PYTHON_VERSION, TABLES, PYPROJECT_TOML
 )
 from fivetran_connector_sdk.helpers import (
-    print_library_log, reset_local_file_directory, find_connector_object, PromptMode, resolve_confirmation
+    print_library_log, reset_local_file_directory, find_connector_object, PromptMode, resolve_confirmation,
+    _resolve_existing_project_path, enable_debugging_for_verbose_commands
 )
 from fivetran_connector_sdk.cli_parser import create_argument_parser, intercept_unknown_command
 from fivetran_connector_sdk.connector_helper import (
@@ -45,12 +49,12 @@ from fivetran_connector_sdk.connector_helper import (
     get_destination_group, get_connection_name, get_api_key, get_state, get_naming,
     get_python_version, get_hd_agent_id, get_proxy_id, get_proxy_host_config_key, get_configuration,
     validate_proxy_configuration,
-    handle_connection_response, apply_memory_limit, validate_required_deploy_params, validate_configuration
+    handle_connection_response, validate_required_deploy_params, validate_configuration
 )
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.11.0"
+__version__ = "2.12.0"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
 __all__ = [cls.__name__ for cls in [ByteStream, FileUpload, Logging, Operations, ConfigurationForm, Test]] + ["form_field"]
@@ -66,18 +70,27 @@ def package(
         prompt_mode (PromptMode): Controls how prompts are answered. Defaults to INTERACTIVE.
         configuration_form_method: Optional callable returning a ConfigurationForm instance.
     """
-    if not prompt_mode.is_non_interactive_mode:
+    if prompt_mode != PromptMode.FORCE:
         pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
         if os.path.exists(pyproject_path):
-            validate_pyproject_file(project_path, True)
+            validate_pyproject_file(project_path, True, prompt_mode)
         else:
-            validate_requirements_file(project_path, True, __version__)
+            validate_requirements_file(project_path, True, __version__, prompt_mode)
     else:
         print_library_log(f"skipping dependency validation; {prompt_mode.value} is set")
 
     package_path = create_package(project_path, configuration_form_method)
     print_library_log(f"package created at: {package_path}", log_icon=Logging.LogIcon.SUCCESS)
     sys.exit(0)
+
+
+def _format_runtime_error_message(error_message):
+    if constants.DEBUGGING:
+        return error_message
+    # The stacktrace is appended to the RuntimeError message so that the java client
+    # can surface it in the user task.
+    return f"{error_message}\n{traceback.format_exc()}"
+
 
 class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
     # noinspection PyShadowingNames
@@ -96,6 +109,8 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
 
         self.configuration = None
         self.state = None
+        self.project_path = None
+        self._debug_crash_report = None
 
         update_base_url_if_required()
 
@@ -160,15 +175,14 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         if resolved_proxy_host_config_key:
             connection_config["proxy_host_config_key"] = resolved_proxy_host_config_key
 
-        if not prompt_mode.is_non_interactive_mode:
+        if prompt_mode != PromptMode.FORCE:
             pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
             if os.path.exists(pyproject_path):
-                validate_pyproject_file(project_path, True)
+                validate_pyproject_file(project_path, True, prompt_mode)
             else:
-                validate_requirements_file(project_path, True, __version__)
+                validate_requirements_file(project_path, True, __version__, prompt_mode)
         else:
-            print_library_log(
-                f"skipping dependency validation; {prompt_mode.value} is set")
+            print_library_log(f"skipping dependency validation; {prompt_mode.value} is set")
 
         group_id, group_name = get_group_info(group, deploy_key)
         connection_id, service = get_connection_details(connection, group, group_id, deploy_key) or (None, None)
@@ -285,17 +299,20 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         java_exe, tester_root_dir = ensure_tester_installed()
 
         project_path = os.getcwd() if project_path is None else project_path
+        project_path = _resolve_existing_project_path(project_path)
+        self.project_path = project_path
         pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
         if os.path.exists(pyproject_path):
             validate_pyproject_file(project_path, False)
         else:
             validate_requirements_file(project_path, False, __version__)
         print_library_log(f"debugging connector at: {project_path}", log_icon=Logging.LogIcon.STEP)
+        self._register_debug_crash_report_at_exit()
         try:
             faulthandler.enable()
         except (RuntimeError, OSError):
             pass
-        apply_memory_limit()
+        
         available_port = get_available_port()
         exit_check(project_path)
 
@@ -313,26 +330,25 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 java_exe, tester_root_dir, project_path, available_port,
                 json.dumps(self.state), self.configuration, naming):
                 print(log_msg, end="")
-        except subprocess.CalledProcessError as e:
-            print(traceback.format_exc())
-            raise e
-        except Exception as e:
-            print(traceback.format_exc())
-            raise e
         finally:
             server.stop(grace=2.0)
 
     def _validate_and_cache_form(self, run_tests: bool):
         if self.configuration_form_method is None:
             print_library_log(
-                "Your connector does not implement the configuration_form() method. Please implement it and re-run.",
+                "Your connector does not implement the configuration_form() method. Please implement it and re-run."
+                "\nFor more information, see https://fivetran.com/docs/connector-sdk/technical-reference/connector-sdk-setup-form",
                 Logging.Level.SEVERE
             )
             sys.exit(1)
 
         constants.DEBUGGING = True
         Logging.LOG_LEVEL = Logging.Level.INFO
-        self._cached_form = self.configuration_form_method()
+        try:
+            self._cached_form = self.configuration_form_method()
+        except Exception as e:
+            self._set_debug_crash_report(e, "configuration_form()")
+            raise
 
         if run_tests and not self._cached_form._tests:
             print_library_log(
@@ -353,7 +369,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 print_library_log(f"'{constants.CONFIGURATION_JSON}' already exists; creating new file and overriding values cancelled")
                 sys.exit(0)
 
-    def generate_configuration(self, project_path: str, run_tests: bool = False):
+    def generate_configuration(self, project_path: str, run_tests: bool = False, disable_encryption: bool = False):
         """Runs the fivetran configuration command via the connector tester.
 
         Starts the gRPC server and invokes the Java tester in configuration mode.
@@ -364,11 +380,14 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         Args:
             project_path: Path to the connector project directory.
             run_tests: If True, run setup tests instead of collecting configuration.
+            disable_encryption: If True, skip encryption of sensitive fields. Defaults to False.
         """
+        project_path = os.getcwd() if project_path is None else project_path
+        self.project_path = project_path
+        self._register_debug_crash_report_at_exit()
+
         self._validate_and_cache_form(run_tests)
         check_newer_version(__version__)
-
-        project_path = os.getcwd() if project_path is None else project_path
 
         if not run_tests:
             self._confirm_configuration_override(project_path)
@@ -382,7 +401,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         server = self.run(available_port, {}, log_level=Logging.Level.INFO)
         try:
             print_library_log("starting connector tester", log_icon=Logging.LogIcon.STEP)
-            run_configuration_tester(java_exe, tester_root_dir, project_path, available_port, run_tests)
+            run_configuration_tester(java_exe, tester_root_dir, project_path, available_port, run_tests, disable_encryption)
         except subprocess.CalledProcessError:
             raise
         except Exception as e:
@@ -390,6 +409,35 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             raise e
         finally:
             server.stop(grace=2.0)
+
+    def _register_debug_crash_report_at_exit(self):
+        # Registered at exit so the report prints after the java tester's failure
+        # summary, which is emitted when the tester subprocess is torn down.
+        atexit.register(self._print_debug_crash_report)
+
+    def _print_debug_crash_report(self):
+        if not self._debug_crash_report:
+            return
+        print(Logging.colorize(self._debug_crash_report, Logging.Level.SEVERE))
+        self._debug_crash_report = None
+        atexit.unregister(self._print_debug_crash_report)
+
+    def _set_debug_crash_report(self, exception, handler, state=None):
+        if not constants.DEBUGGING:
+            return
+
+        try:
+            self._debug_crash_report = build_debug_crash_report(
+                exception,
+                self.project_path,
+                configuration=self.configuration,
+                handler=handler,
+                sdk_version=__version__,
+                state=state,
+            )
+        except Exception as report_error:
+            # Crash reports are best-effort diagnostics and must not replace the customer exception.
+            print_library_log(f"failed to build crash report: {report_error}. Please contact support: https://support.fivetran.com/", Logging.Level.WARNING)
 
     # -- Methods below override ConnectorServicer methods
     def ConfigurationForm(self, request, context):
@@ -412,10 +460,10 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             form = self._get_configuration_form()
             return form._to_proto()
         except Exception as e:
-            stacktrace = traceback.format_exc()
+            self._set_debug_crash_report(e, "configuration_form()")
             error_message = f"failed while executing configuration_form() error: {str(e)}"
             print_library_log(error_message, Logging.Level.SEVERE)
-            raise RuntimeError(f"{error_message}\n{stacktrace}") from e
+            raise RuntimeError(_format_runtime_error_message(error_message)) from e
 
     def Test(self, request, context):
         """Overrides the Test method from ConnectorServicer.
@@ -449,10 +497,10 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 )
             return result
         except Exception as e:
-            stacktrace = traceback.format_exc()
+            self._set_debug_crash_report(e, "test()")
             error_message = f"failed while executing test '{request.name}' error: {str(e)}"
             print_library_log(error_message, Logging.Level.SEVERE)
-            raise RuntimeError(f"{error_message}\n{stacktrace}") from e
+            raise RuntimeError(_format_runtime_error_message(error_message)) from e
 
     def _get_configuration_form(self):
         if self._cached_form is None:
@@ -476,20 +524,17 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             return connector_sdk_pb2.SchemaResponse(schema_response_not_supported=True)
         else:
             try:
-                configuration = self.configuration if self.configuration else request.configuration
+                configuration = self.configuration if self.configuration else dict(request.configuration)
                 print_library_log("calling schema()", Logging.Level.INFO)
                 response = self.schema_method(configuration)
                 process_tables(response, table_list)
                 return connector_sdk_pb2.SchemaResponse(without_schema=common_pb2.TableList(tables=TABLES.values()))
 
             except Exception as e:
-                stacktrace = traceback.format_exc()
+                self._set_debug_crash_report(e, "schema()")
                 error_message = f"failed while executing schema() error: {str(e)}"
                 print_library_log(error_message, Logging.Level.SEVERE)
-                # The stacktrace is appended to the RuntimeError message so that the java client
-                # can surface it in the user task.
-                runtime_error_message = f"{error_message}\n{stacktrace}"
-                raise RuntimeError(runtime_error_message) from e
+                raise RuntimeError(_format_runtime_error_message(error_message)) from e
 
     def Update(self, request, context):
         """Overrides the Update method from ConnectorServicer.
@@ -501,11 +546,15 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         Yields:
             connector_sdk_pb2.UpdateResponse: The update response.
         """
-        configuration = self.configuration if self.configuration else request.configuration
+        configuration = self.configuration if self.configuration else dict(request.configuration)
         state = self.state if self.state else json.loads(request.state_json)
         exception_queue = queue.Queue()
 
         try:
+            # Create memory tracker for both debug and sync modes
+            memory_tracker = get_memory_tracker()
+            memory_tracker.start()
+
             print_library_log("calling update()", Logging.Level.INFO)
 
             def run_update():
@@ -526,24 +575,28 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 finally:
                     Operations.operation_stream.mark_done()
 
-            thread = threading.Thread(target=run_update)
-            thread.start()
+            thread = None
+            try:
+                thread = threading.Thread(target=run_update)
+                thread.start()
 
-            # consumer - yield the operations in the operation_stream.
-            for response in Operations.operation_stream:
-                # checkpoint and file-upload-chunk flushes both return a list of responses.
-                if isinstance(response, list):
-                    for res in response:
-                        yield res
-                    # add_checkpoint blocks the producer until its checkpoint response is yielded.
-                    # File-upload flushes also return lists, but they do not block the producer, so
-                    # unblock only when this batch contains a checkpoint.
-                    if any(res.WhichOneof("operation") == "checkpoint" for res in response):
-                        Operations.operation_stream.unblock()
-                else:
-                    yield response
-
-            thread.join()
+                # consumer - yield the operations in the operation_stream.
+                for response in Operations.operation_stream:
+                    # checkpoint and file-upload-chunk flushes both return a list of responses.
+                    if isinstance(response, list):
+                        for res in response:
+                            yield res
+                        # add_checkpoint blocks the producer until its checkpoint response is yielded.
+                        # File-upload flushes also return lists, but they do not block the producer, so
+                        # unblock only when this batch contains a checkpoint.
+                        if any(res.WhichOneof("operation") == "checkpoint" for res in response):
+                            Operations.operation_stream.unblock()
+                    else:
+                        yield response
+            finally:
+                memory_tracker.stop()
+                if thread is not None:
+                    thread.join()
 
             # Check if any exception was raised during the update
             if not exception_queue.empty():
@@ -552,13 +605,10 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             print_library_log("finished receiving records from customer's update().", Logging.Level.INFO, True)
 
         except Exception as e:
-            stacktrace = traceback.format_exc()
+            self._set_debug_crash_report(e, "update()", state=state)
             error_message = f"failed while executing update() error: {str(e)}"
             print_library_log(error_message, Logging.Level.SEVERE)
-            # The stacktrace is appended to the RuntimeError message so that the java client
-            # can surface it in the user task.
-            runtime_error_message = f"{error_message}\n{stacktrace}"
-            raise RuntimeError(runtime_error_message) from e
+            raise RuntimeError(_format_runtime_error_message(error_message)) from e
 
 def print_version():
     print_library_log("fivetran_connector_sdk " + __version__)
@@ -572,6 +622,7 @@ def main():
     intercept_unknown_command()
     parser = create_argument_parser()
     args = parser.parse_args()
+    enable_debugging_for_verbose_commands(args.command)
     try:
         prompt_mode = PromptMode.from_args(args.non_interactive, args.force, args.yes)
     except ValueError as e:
@@ -589,14 +640,21 @@ def main():
 
     if args.command.lower() == "version":
         print_version()
-    elif args.command.lower() == "reset":
-        reset_local_file_directory(args, prompt_mode)
-        sys.exit(0)
     elif args.command.lower() == "init":
         check_newer_version(__version__)
         init(args.project_path, args.template, prompt_mode)
     elif args.command.lower() == "help":
         parser.print_help()
+        sys.exit(0)
+
+    try:
+        args.project_path = _resolve_existing_project_path(args.project_path)
+    except ValueError as e:
+        print_library_log(str(e), level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
+
+    if args.command.lower() == "reset":
+        reset_local_file_directory(args, prompt_mode)
         sys.exit(0)
 
     connector_object = find_connector_object(args.project_path)
@@ -620,10 +678,13 @@ def main():
         get_state(args)
         naming = get_naming(args)
 
-        connector_object.deploy(args.project_path, ft_deploy_key, ft_group, ft_connection, hd_agent_id,
-                                configuration, config_path, python_version, prompt_mode, naming,
-                                proxy_id, proxy_host_config_key)
-
+        try:
+            connector_object.deploy(args.project_path, ft_deploy_key, ft_group, ft_connection, hd_agent_id,
+                                    configuration, config_path, python_version, prompt_mode, naming,
+                                    proxy_id, proxy_host_config_key)
+        except Exception as e:
+            print_library_log(f"deploy run failed with error: {str(e)}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+            sys.exit(1)
     elif args.command.lower() == "debug":
         configuration, config_path = get_configuration(args)
         state = get_state(args)
@@ -648,7 +709,8 @@ def main():
 
     elif args.command.lower() == "configuration":
         try:
-            connector_object.generate_configuration(args.project_path, run_tests=args.test)
+            connector_object.generate_configuration(args.project_path, run_tests=args.test,
+                                                   disable_encryption=args.disable_encryption)
         except subprocess.CalledProcessError as e:
             print_library_log(f"connector tester failed with exit code: {e.returncode}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
             sys.exit(e.returncode)

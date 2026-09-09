@@ -23,6 +23,7 @@ class WorkerFeaturesTypedDict(TypedDict):
     """
 
     upload_graph: NotRequired[Nullable[bool]]
+    events_api_version: NotRequired[Nullable[str]]
 
 
 class WorkerFeatures(BaseModel):
@@ -36,10 +37,12 @@ class WorkerFeatures(BaseModel):
 
     upload_graph: OptionalNullable[bool] = UNSET
 
+    events_api_version: OptionalNullable[str] = UNSET
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["upload_graph"])
-        nullable_fields = set(["upload_graph"])
+        optional_fields = set(["upload_graph", "events_api_version"])
+        nullable_fields = set(["upload_graph", "events_api_version"])
         serialized = handler(self)
         m = {}
 

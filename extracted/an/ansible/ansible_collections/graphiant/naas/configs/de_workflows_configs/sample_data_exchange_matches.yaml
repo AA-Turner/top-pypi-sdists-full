@@ -1,5 +1,5 @@
 # Sample Data Exchange Matches Configuration
-# This file demonstrates how to match Data Exchange services to customers
+# This file demonstrates how to match Data Exchange services (peering_service services) to customers
 #
 # The system will:
 # 1. Read match configuration from the 'data_exchange_matches' list

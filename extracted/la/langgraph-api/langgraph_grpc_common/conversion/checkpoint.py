@@ -99,8 +99,7 @@ def checkpoint_to_proto(checkpoint: Checkpoint) -> engine_common_pb2.Checkpoint:
                         )
             elif not isinstance(v, Send):
                 raise ValueError(
-                    "Task must be a Send object objects."
-                    f" Got type={type(v)} value={v}",
+                    f"Task must be a Send object objects. Got type={type(v)} value={v}",
                 )
         if isinstance(v, Send):
             checkpoint_proto.channel_values[k].CopyFrom(

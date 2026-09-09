@@ -1,11 +1,22 @@
 ---
 name: Release
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      publish_only:
+        description: Build and publish an existing tag without changing the changelog
+        type: boolean
+        default: false
+      tag:
+        description: Existing tag to publish when publish_only is selected
+        type: string
+        default: 2026.09.08
 
 jobs:
   build:
     name: Publish a release
+    if: ${{ !inputs.publish_only }}
     runs-on: ubuntu-latest
 
     # Specifying an environment is strongly recommended by PyPI.
@@ -20,7 +31,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # See
           # https://github.com/stefanzweifel/git-auto-commit-action?tab=readme-ov-file#push-to-protected-branches
@@ -33,10 +44,8 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.0.1
         with:
-          # Avoid https://github.com/astral-sh/uv/issues/12260.
-          version: 0.6.6
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
 
@@ -55,26 +64,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get the changelog underline
-        id: changelog_underline
-        run: |
-          underline="$(echo "${{ steps.calver.outputs.release }}" | tr -c '\n' '-')"
-          echo "underline=${underline}" >> "$GITHUB_OUTPUT"
+      # towncrier writes the rendered notes to stdout (informational
+      # chatter goes to stderr), so this is the curated release body for
+      # this version, not github-tag-action's commit-derived changelog.
+      - name: Generate the GitHub release notes
+        env:
+          RELEASE: ${{ steps.calver.outputs.release }}
+        run: uv run --group=release towncrier build --draft --version "$RELEASE" >
+          release-notes.md
 
-      - name: Update changelog
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "Next\n----"
-          replace: "Next\n----\n\n${{ steps.calver.outputs.release }}\n${{ steps.changelog_underline.outputs.underline\
-            \ }}"
-          include: CHANGELOG.rst
-          regex: false
+      # Assemble the same fragments into CHANGELOG.rst under a new
+      # ``$RELEASE`` section and delete the consumed fragment files.
+      - name: Update the changelog
+        env:
+          RELEASE: ${{ steps.calver.outputs.release }}
+        run: uv run --group=release towncrier build --yes --version "$RELEASE"
 
       - uses: stefanzweifel/git-auto-commit-action@v7
         id: commit
         with:
           commit_message: Bump CHANGELOG
-          file_pattern: CHANGELOG.rst
+          file_pattern: CHANGELOG.rst newsfragments
           # Error if there are no changes.
           skip_dirty_check: true
 
@@ -89,13 +99,15 @@ jobs:
 
       - name: Build a binary wheel and a source tarball
         id: build-wheel
+        env:
+          NEW_TAG: ${{ steps.tag_version.outputs.new_tag }}
         run: |
           sudo rm -rf dist/ build/
           git fetch --tags
-          git checkout ${{ steps.tag_version.outputs.new_tag }}
+          git checkout "$NEW_TAG"
           uv build --sdist --wheel --out-dir dist/
           WHEEL="$(ls dist/*.whl)"
-          uv run --extra=release check-wheel-contents "${WHEEL}"
+          uv run --group=release check-wheel-contents "${WHEEL}"
           echo "wheel_filename=${WHEEL}" >> "$GITHUB_OUTPUT"
 
       - name: Publish distribution 📦 to PyPI
@@ -112,4 +124,51 @@ jobs:
           tag: ${{ steps.tag_version.outputs.new_tag }}
           makeLatest: true
           name: Release ${{ steps.tag_version.outputs.new_tag }}
-          body: ${{ steps.tag_version.outputs.changelog }}
+          bodyFile: release-notes.md
+
+  publish-existing:
+    name: Publish an existing tag
+    if: ${{ inputs.publish_only }}
+    runs-on: ubuntu-latest
+
+    environment: release
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: false
+
+      - name: Build the existing tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          git rev-parse --verify "refs/tags/${TAG}^{commit}"
+          git checkout "$TAG"
+          uv build --sdist --wheel --out-dir dist/
+          WHEEL="$(ls dist/*.whl)"
+          uv run --group=release check-wheel-contents "$WHEEL"
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          skip-existing: true
+
+      - name: Create a GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          artifactErrorsFailBuild: true
+          tag: ${{ inputs.tag }}
+          makeLatest: true
+          name: Release ${{ inputs.tag }}
+          generateReleaseNotes: true

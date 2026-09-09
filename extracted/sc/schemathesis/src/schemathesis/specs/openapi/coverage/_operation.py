@@ -15,10 +15,11 @@ from typing import TYPE_CHECKING, Any, TypeGuard, cast
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator
+from schemathesis.core.jsonschema.types import JsonSchemaObject, as_object_schema
 from schemathesis.core.media_types import FORM_MEDIA_TYPES, find_media_type_strategy
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
 from schemathesis.core.timing import Instant
-from schemathesis.core.transforms import deepclone
+from schemathesis.core.transforms import deepclone, to_wire_string
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.coverage import GenerationSession
@@ -46,14 +47,15 @@ if TYPE_CHECKING:
     from schemathesis.core.parameters import ContainerName
     from schemathesis.core.transport import HttpMethod
     from schemathesis.resources import PoolDraw, ResourcePool
-    from schemathesis.schemas import APIOperation, ParameterSet
-    from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
+    from schemathesis.schemas import APIOperation, ParameterSet, PayloadAlternatives
+    from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter
 
 
 class Template:
     __slots__ = (
         "_components",
         "_optional_query",
+        "_parameter_modes",
         "_serializers",
         "_template",
         "body_is_fallback_negative",
@@ -65,6 +67,7 @@ class Template:
 
     def __init__(self, serializers: dict[str, Callable], optional_query: frozenset[str]) -> None:
         self._components: dict[ParameterLocation, ComponentInfo] = {}
+        self._parameter_modes: dict[ParameterLocation, dict[str, GenerationMode]] = {}
         self._template: dict[str, Any] = {}
         self._serializers = serializers
         self._optional_query = optional_query
@@ -95,14 +98,17 @@ class Template:
         return self._template.get(key, default)
 
     def add_parameter(self, location: ParameterLocation, name: str, value: GeneratedValue) -> None:
-        info = self._components.get(location)
-        if info is None:
-            self._components[location] = ComponentInfo(mode=value.generation_mode)
-        elif value.generation_mode == GenerationMode.NEGATIVE:
-            info.mode = GenerationMode.NEGATIVE
-
         container = self._template.setdefault(location.container_name, {})
         container[name] = value.value
+        self._parameter_modes.setdefault(location, {})[name] = value.generation_mode
+        self._components[location] = ComponentInfo(mode=self._mode_for(location, container))
+
+    def _mode_for(self, location: ParameterLocation, container: dict[str, Any]) -> GenerationMode:
+        """The mode a location carries, given the values its container currently holds."""
+        modes = self._parameter_modes.get(location, {})
+        if any(modes.get(name) == GenerationMode.NEGATIVE for name in container):
+            return GenerationMode.NEGATIVE
+        return GenerationMode.POSITIVE
 
     def set_body(self, body: GeneratedValue, media_type: str) -> None:
         self._template["body"] = body.value
@@ -153,10 +159,15 @@ class Template:
     def without_body(self) -> TemplateValue:
         # A `Content-Type` describing a body that is not there is a different oddity than sending no body at all.
         raw = {key: value for key, value in self._template.items() if key not in ("body", "media_type")}
+        components = {**self._components, ParameterLocation.BODY: ComponentInfo(mode=GenerationMode.NEGATIVE)}
         headers = raw.get("headers")
         if isinstance(headers, dict):
-            raw["headers"] = {name: value for name, value in headers.items() if name.lower() != "content-type"}
-        components = {**self._components, ParameterLocation.BODY: ComponentInfo(mode=GenerationMode.NEGATIVE)}
+            headers = {name: value for name, value in headers.items() if name.lower() != "content-type"}
+            raw["headers"] = headers
+            if ParameterLocation.HEADER in components:
+                components[ParameterLocation.HEADER] = ComponentInfo(
+                    mode=self._mode_for(ParameterLocation.HEADER, headers)
+                )
         kwargs = self._serialize(raw, components)
         return TemplateValue(kwargs=kwargs, raw=raw, components=components)
 
@@ -342,14 +353,8 @@ def _dedup_key(kwargs: dict[str, Any]) -> dict[str, Any]:
 
 
 def _stringify_value(val: Any, container_name: str) -> Any:
-    if val is None:
-        return "null"
-    if val is True:
-        return "true"
-    if val is False:
-        return "false"
-    if isinstance(val, int | float):
-        return str(val)
+    if val is None or isinstance(val, int | float | bool):
+        return to_wire_string(val)
     if isinstance(val, list):
         if container_name == "query":
             # Having a list here ensures there will be multiple query parameters with the same name
@@ -463,7 +468,7 @@ def _generate_multipart_body_from_custom_strategies(body: OpenApiBody) -> dict[s
     if body.media_type not in FORM_MEDIA_TYPES:
         return None
 
-    schema = body.definition.get("schema", {})
+    schema = as_object_schema(body.definition.get("schema", {}))
     properties = schema.get("properties", {})
     required = schema.get("required", [])
 
@@ -593,6 +598,26 @@ class CoverageRun:
     correlated: dict[tuple[ParameterLocation, str], Any]
 
 
+def _positive_fallback(run: CoverageRun, parameter: OpenApiParameter, schema: dict[str, Any]) -> GeneratedValue | None:
+    """The value a positive run would seed for this parameter, if any."""
+    generator = cover_schema_iter(
+        CoverageContext(
+            session=run.session,
+            root_schema=schema,
+            location=parameter.location,
+            media_type=None,
+            generation_modes=[GenerationMode.POSITIVE],
+            is_required=parameter.is_required,
+            custom_formats=run.custom_formats,
+            validator_cls=run.validator_cls,
+            update_pattern=run.update_pattern,
+            allow_extra_parameters=run.generation_config.allow_extra_parameters,
+        ),
+        schema,
+    )
+    return next(generator, None)
+
+
 def _seed_parameters(run: CoverageRun) -> None:
     operation = run.operation
     template = run.template
@@ -636,7 +661,7 @@ def _seed_parameters(run: CoverageRun) -> None:
     for parameter in operation.iter_parameters():
         location = parameter.location
         name = parameter.name
-        schema = parameter.unoptimized_schema
+        schema = as_object_schema(parameter.unoptimized_schema)
         schema_is_clone = False
         if error_feedback is not None and isinstance(schema, dict):
             inferred_properties = _inferred_properties(location)
@@ -682,55 +707,46 @@ def _seed_parameters(run: CoverageRun) -> None:
             ),
             schema,
         )
+        if parameter.wire_bounds:
+            gen = _drop_negatives_the_schema_admits(gen, parameter.without_wire_bounds(schema), validator_cls)
         value = next(gen, NOT_SET)
         # Pin the template's Content-Type to the body media type when CT is declared as an explicit
         # header parameter — otherwise body cases inherit a fuzzed CT (often empty) and ship bodies
         # that downstream tools can't dispatch. CT-mutation variants still flow through the iterator.
         if location == ParameterLocation.HEADER and name.lower() == "content-type" and operation.body:
-            value = GeneratedValue.with_positive(
-                value=operation.body[0].media_type,
-                scenario=CoverageScenario.VALID_STRING,
-                description="Valid Content-Type pinned to body media type",
-            )
+            media_type = _media_type_the_header_admits(parameter, operation.body, validator_cls)
+            if media_type is not None:
+                value = GeneratedValue.with_positive(
+                    value=media_type,
+                    scenario=CoverageScenario.VALID_STRING,
+                    description="Valid Content-Type pinned to body media type",
+                )
         if isinstance(value, NotSet):
+            if location != ParameterLocation.PATH and not parameter.is_required:
+                continue
             if location == ParameterLocation.PATH:
-                # Can't skip path parameters - they should be filled
+                # Interpolated into the URL, so it needs a non-empty value even when its schema offers none.
                 schema = dict(schema)
                 schema.setdefault("type", "string")
                 schema.setdefault("minLength", 1)
-                gen = cover_schema_iter(
-                    CoverageContext(
-                        session=session,
-                        root_schema=schema,
-                        location=location,
-                        media_type=None,
-                        generation_modes=[GenerationMode.POSITIVE],
-                        is_required=parameter.is_required,
-                        custom_formats=custom_formats,
-                        validator_cls=validator_cls,
-                        update_pattern=update_pattern,
-                        allow_extra_parameters=generation_config.allow_extra_parameters,
-                    ),
-                    schema,
+            # Dropping a required parameter would leave it out of every case built off this template, so
+            # those cases would fail on the omission instead of the mutation they target.
+            fallback = _positive_fallback(run, parameter, schema)
+            if fallback is None and location == ParameterLocation.PATH:
+                fallback = GeneratedValue(
+                    "value",
+                    generation_mode=GenerationMode.NEGATIVE,
+                    scenario=CoverageScenario.UNSUPPORTED_PATH_PATTERN,
+                    description="Sample value for unsupported path parameter pattern",
+                    parameter=name,
+                    location="/",
                 )
-                value = next(
-                    gen,
-                    GeneratedValue(
-                        "value",
-                        generation_mode=GenerationMode.NEGATIVE,
-                        scenario=CoverageScenario.UNSUPPORTED_PATH_PATTERN,
-                        description="Sample value for unsupported path parameter pattern",
-                        parameter=name,
-                        location="/",
-                    ),
-                )
-                # A negative fallback means the required path parameter has no representable positive value.
-                if value.generation_mode == GenerationMode.NEGATIVE:
-                    template.unsatisfiable_required_parameter = True
-                template.add_parameter(location, name, value)
-                continue
-            if parameter.is_required:
+            # Without a positive value no case built off this template is a valid positive request.
+            if fallback is None or fallback.generation_mode == GenerationMode.NEGATIVE:
                 template.unsatisfiable_required_parameter = True
+            if fallback is None:
+                continue
+            template.add_parameter(location, name, fallback)
             continue
         # Positive values precede negative ones, so a negative seed means the required parameter has no
         # positive value; the positive case built from this template would be invalid.
@@ -745,6 +761,66 @@ def _seed_parameters(run: CoverageRun) -> None:
         generators[(location, name)] = gen
     template.seed_time = instant.elapsed
     template.has_required_body = bool(operation.body and any(b.is_required for b in operation.body))
+
+
+def _is_invalid_positive(template: Template, value: GeneratedValue) -> bool:
+    """Whether a required parameter without a positive value already invalidates this body case."""
+    return value.generation_mode == GenerationMode.POSITIVE and template.unsatisfiable_required_parameter
+
+
+def _container_without_wire_bounds(
+    schema: JsonSchemaObject, parameter_set: ParameterSet[OpenApiParameter]
+) -> JsonSchemaObject | None:
+    """Restore what the document declares wherever a serialization-implied bound replaced it."""
+    properties = schema["properties"]
+    declared = {
+        parameter.name: parameter.without_wire_bounds(properties[parameter.name])
+        for parameter in parameter_set
+        if parameter.wire_bounds and isinstance(properties.get(parameter.name), dict)
+    }
+    if not declared:
+        return None
+    return {**schema, "properties": {**properties, **declared}}
+
+
+def _media_type_the_header_admits(
+    parameter: OpenApiParameter,
+    body: PayloadAlternatives[OpenApiBody],
+    validator_cls: type[jsonschema_rs.Validator],
+) -> str | None:
+    """First declared body media type the header's own contract accepts, or `None` when it accepts none."""
+    declared = parameter.validation_schema
+    validator = None
+    if isinstance(declared, dict):
+        try:
+            validator = make_validator(declared, validator_cls)
+        except Exception:
+            # Schema rejected by `jsonschema_rs` — validity is unknown, so keep the body's media type.
+            pass
+    if validator is None:
+        return body[0].media_type
+    for alternative in body:
+        if validator.is_valid(alternative.media_type):
+            return alternative.media_type
+    return None
+
+
+def _drop_negatives_the_schema_admits(
+    values: Generator[GeneratedValue, None, None],
+    schema: JsonSchemaObject,
+    validator_cls: type[jsonschema_rs.Validator],
+) -> Generator[GeneratedValue, None, None]:
+    """Keep only the negatives the API contract actually rejects."""
+    try:
+        validator = make_validator(schema, validator_cls)
+    except Exception:
+        # Schema rejected by `jsonschema_rs` — validity is unknown, so keep everything.
+        yield from values
+        return
+    for value in values:
+        if value.generation_mode == GenerationMode.NEGATIVE and validator.is_valid(value.value):
+            continue
+        yield value
 
 
 def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
@@ -787,20 +863,21 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
             if "body" not in template:
                 template.seed_time += elapsed
                 template.set_body(first_custom_value, body.media_type)
-            data = template.with_body(value=first_custom_value, media_type=body.media_type)
-            yield emitter.build(
-                data,
-                mode=first_custom_value.generation_mode,
-                elapsed=elapsed,
-                scenario=first_custom_value.scenario,
-                description=first_custom_value.description,
-                location=first_custom_value.location,
-                parameter=body.media_type,
-                parameter_location=ParameterLocation.BODY,
-            )
+            if not _is_invalid_positive(template, first_custom_value):
+                data = template.with_body(value=first_custom_value, media_type=body.media_type)
+                yield emitter.build(
+                    data,
+                    mode=first_custom_value.generation_mode,
+                    elapsed=elapsed,
+                    scenario=first_custom_value.scenario,
+                    description=first_custom_value.description,
+                    location=first_custom_value.location,
+                    parameter=body.media_type,
+                    parameter_location=ParameterLocation.BODY,
+                )
             continue
 
-        schema = body.unoptimized_schema
+        schema = as_object_schema(body.unoptimized_schema)
         schema_is_clone = False
         if error_feedback is not None:
             adjusted = apply_adjustments(
@@ -810,7 +887,7 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
                 store=error_feedback,
             )
             if adjusted is not schema:
-                schema = adjusted
+                schema = as_object_schema(adjusted)
                 schema_is_clone = True
         examples = body.examples
         if examples and schema_is_clone:
@@ -901,25 +978,28 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
                     template.set_body(value, body.media_type)
                 else:
                     template.set_body(first_positive, body.media_type)
-        data = template.with_body(value=value, media_type=body.media_type)
-        case = emitter.emit(
-            data,
-            mode=value.generation_mode,
-            elapsed=elapsed,
-            scenario=value.scenario,
-            description=value.description,
-            location=value.location,
-            parameter=body.media_type,
-            parameter_location=ParameterLocation.BODY,
-        )
-        if case is None:
-            continue
-        yield case
+        if not _is_invalid_positive(template, value):
+            data = template.with_body(value=value, media_type=body.media_type)
+            case = emitter.emit(
+                data,
+                mode=value.generation_mode,
+                elapsed=elapsed,
+                scenario=value.scenario,
+                description=value.description,
+                location=value.location,
+                parameter=body.media_type,
+                parameter_location=ParameterLocation.BODY,
+            )
+            if case is None:
+                continue
+            yield case
         iterator = iter(gen)
         while True:
             instant = Instant()
             try:
                 next_value = next(iterator)
+                if _is_invalid_positive(template, next_value):
+                    continue
                 data = template.with_body(value=next_value, media_type=body.media_type)
                 case = emitter.emit(
                     data,
@@ -1202,25 +1282,29 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
             return schema
 
         def _yield_negative(
-            subschema: dict[str, Any], _location: ParameterLocation, is_required: bool, _dedup: Dedup
+            subschema: dict[str, Any],
+            _location: ParameterLocation,
+            is_required: bool,
+            _dedup: Dedup,
+            _declared: JsonSchemaObject | None,
         ) -> Generator[Case, None, None]:
-            iterator = iter(
-                cover_schema_iter(
-                    CoverageContext(
-                        session=session,
-                        root_schema=subschema,
-                        location=_location,
-                        media_type=None,
-                        generation_modes=[GenerationMode.NEGATIVE],
-                        is_required=is_required,
-                        custom_formats=custom_formats,
-                        validator_cls=validator_cls,
-                        update_pattern=update_pattern,
-                        allow_extra_parameters=generation_config.allow_extra_parameters,
-                    ),
-                    subschema,
-                )
+            iterator = cover_schema_iter(
+                CoverageContext(
+                    session=session,
+                    root_schema=subschema,
+                    location=_location,
+                    media_type=None,
+                    generation_modes=[GenerationMode.NEGATIVE],
+                    is_required=is_required,
+                    custom_formats=custom_formats,
+                    validator_cls=validator_cls,
+                    update_pattern=update_pattern,
+                    allow_extra_parameters=generation_config.allow_extra_parameters,
+                ),
+                subschema,
             )
+            if _declared is not None:
+                iterator = _drop_negatives_the_schema_admits(iterator, _declared, validator_cls)
             while True:
                 instant = Instant()
                 try:
@@ -1245,9 +1329,7 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
         # 1. Generate only required properties
         if required and all_params != required:
             only_required = {k: v for k, v in base_container.items() if k in required}
-            if GenerationMode.POSITIVE in generation_modes and not (
-                template.has_required_body and not template.has_generated_required_body
-            ):
+            if GenerationMode.POSITIVE in generation_modes and template.can_emit(GenerationMode.POSITIVE):
                 case = make_case(
                     only_required,
                     CoverageScenario.OBJECT_ONLY_REQUIRED,
@@ -1261,13 +1343,14 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
                     yield case
             if GenerationMode.NEGATIVE in generation_modes:
                 subschema = _combination_schema(only_required, required, parameter_set)
-                yield from _yield_negative(subschema, location, bool(required), Dedup.WIRE_NEGATIVE_SET)
+                declared = _container_without_wire_bounds(subschema, parameter_set)
+                yield from _yield_negative(subschema, location, bool(required), Dedup.WIRE_NEGATIVE_SET, declared)
 
         # 2. Generate combinations with required properties and one optional property
         for opt_param in optional:
             combo = {k: v for k, v in base_container.items() if k in required or k == opt_param}
             if combo != base_container and GenerationMode.POSITIVE in generation_modes:
-                if not (template.has_required_body and not template.has_generated_required_body):
+                if template.can_emit(GenerationMode.POSITIVE):
                     case = make_case(
                         combo,
                         CoverageScenario.OBJECT_REQUIRED_AND_OPTIONAL,
@@ -1281,13 +1364,14 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
                         yield case
                 if GenerationMode.NEGATIVE in generation_modes:
                     subschema = _combination_schema(combo, required, parameter_set)
-                    yield from _yield_negative(subschema, location, bool(required), Dedup.WIRE_REQUEST)
+                    declared = _container_without_wire_bounds(subschema, parameter_set)
+                    yield from _yield_negative(subschema, location, bool(required), Dedup.WIRE_REQUEST, declared)
 
         # 3. Generate one combination for each size from 2 to N-1 of optional parameters
         if (
             len(optional) > 1
             and GenerationMode.POSITIVE in generation_modes
-            and not (template.has_required_body and not template.has_generated_required_body)
+            and template.can_emit(GenerationMode.POSITIVE)
         ):
             for size in range(2, len(optional)):
                 for combination in combinations(optional, size):

@@ -45,6 +45,16 @@ class EncryptionStub:
                 request_serializer=encryption__pb2.DecryptJSONRequest.SerializeToString,
                 response_deserializer=encryption__pb2.DecryptResponse.FromString,
                 _registered_method=True)
+        self.EncryptBlob = channel.unary_unary(
+                '/encryption.Encryption/EncryptBlob',
+                request_serializer=encryption__pb2.EncryptBlobRequest.SerializeToString,
+                response_deserializer=encryption__pb2.EncryptResponse.FromString,
+                _registered_method=True)
+        self.DecryptBlob = channel.unary_unary(
+                '/encryption.Encryption/DecryptBlob',
+                request_serializer=encryption__pb2.DecryptBlobRequest.SerializeToString,
+                response_deserializer=encryption__pb2.DecryptResponse.FromString,
+                _registered_method=True)
 
 
 class EncryptionServicer:
@@ -65,6 +75,20 @@ class EncryptionServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EncryptBlob(self, request, context):
+        """Encrypt blob data (checkpoint channel values and pending writes).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DecryptBlob(self, request, context):
+        """Decrypt blob data. Context is supplied by the caller from the blob wrapper.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_EncryptionServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -76,6 +100,16 @@ def add_EncryptionServicer_to_server(servicer, server):
             'DecryptJSON': grpc.unary_unary_rpc_method_handler(
                     servicer.DecryptJSON,
                     request_deserializer=encryption__pb2.DecryptJSONRequest.FromString,
+                    response_serializer=encryption__pb2.DecryptResponse.SerializeToString,
+            ),
+            'EncryptBlob': grpc.unary_unary_rpc_method_handler(
+                    servicer.EncryptBlob,
+                    request_deserializer=encryption__pb2.EncryptBlobRequest.FromString,
+                    response_serializer=encryption__pb2.EncryptResponse.SerializeToString,
+            ),
+            'DecryptBlob': grpc.unary_unary_rpc_method_handler(
+                    servicer.DecryptBlob,
+                    request_deserializer=encryption__pb2.DecryptBlobRequest.FromString,
                     response_serializer=encryption__pb2.DecryptResponse.SerializeToString,
             ),
     }
@@ -133,6 +167,60 @@ class Encryption:
             target,
             '/encryption.Encryption/DecryptJSON',
             encryption__pb2.DecryptJSONRequest.SerializeToString,
+            encryption__pb2.DecryptResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def EncryptBlob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/encryption.Encryption/EncryptBlob',
+            encryption__pb2.EncryptBlobRequest.SerializeToString,
+            encryption__pb2.EncryptResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DecryptBlob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/encryption.Encryption/DecryptBlob',
+            encryption__pb2.DecryptBlobRequest.SerializeToString,
             encryption__pb2.DecryptResponse.FromString,
             options,
             channel_credentials,

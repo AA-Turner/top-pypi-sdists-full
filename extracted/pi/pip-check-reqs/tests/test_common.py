@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import re
 import sys
@@ -12,9 +13,18 @@ import uuid
 from pathlib import Path
 
 import pytest
+from packaging.utils import canonicalize_name
 
 import __main__
 from pip_check_reqs import __version__, common
+
+from .conftest import write_dist_info
+
+# The file system is case-insensitive when this file is found under another
+# spelling of its name, as it is on macOS and Windows by default.
+_CASE_INSENSITIVE_FILESYSTEM = (
+    Path(__file__).with_name(Path(__file__).name.upper()).exists()
+)
 
 
 @pytest.mark.parametrize(
@@ -47,7 +57,9 @@ def test_found_module() -> None:
 def test_pyfiles_file(tmp_path: Path) -> None:
     python_file = tmp_path / "example.py"
     python_file.touch()
-    assert list(common.pyfiles(root=python_file)) == [python_file]
+    assert list(common.pyfiles(root=python_file, use_gitignore=False)) == [
+        python_file,
+    ]
 
 
 def test_pyfiles_file_no_dice(tmp_path: Path) -> None:
@@ -60,7 +72,7 @@ def test_pyfiles_file_no_dice(tmp_path: Path) -> None:
             f"{not_python_file} is not a python file or directory",
         ),
     ):
-        list(common.pyfiles(root=not_python_file))
+        list(common.pyfiles(root=not_python_file, use_gitignore=False))
 
 
 def test_pyfiles_package(tmp_path: Path) -> None:
@@ -74,10 +86,237 @@ def test_pyfiles_package(tmp_path: Path) -> None:
 
     not_python_file.touch()
 
-    assert list(common.pyfiles(root=tmp_path)) == [
+    assert list(common.pyfiles(root=tmp_path, use_gitignore=False)) == [
         python_file,
         nested_python_file,
     ]
+
+
+def test_pyfiles_skips_virtual_environment(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A virtual environment within the scanned directory is not scanned.
+
+    Its files belong to installed distributions, not to the project.
+    A directory is a virtual environment when it holds a ``pyvenv.cfg``
+    file, which ``venv``, ``virtualenv`` and ``uv`` all write.
+    """
+    python_file = tmp_path / "example.py"
+    python_file.touch()
+
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").touch()
+    venv_python_file = venv / "lib" / "site-packages" / "spam.py"
+    venv_python_file.parent.mkdir(parents=True)
+    venv_python_file.touch()
+
+    # A directory which merely resembles a virtual environment by name is
+    # still scanned.
+    lookalike_python_file = tmp_path / ".venv" / "example.py"
+    lookalike_python_file.parent.mkdir()
+    lookalike_python_file.touch()
+
+    with caplog.at_level(level=logging.DEBUG):
+        found = list(common.pyfiles(root=tmp_path, use_gitignore=False))
+
+    assert found == [python_file, lookalike_python_file]
+    assert f"skipping virtual environment: {venv}" in caplog.text
+
+
+def test_pyfiles_does_not_follow_directory_symlink(tmp_path: Path) -> None:
+    """A symbolic link to a directory is not descended into.
+
+    A link back to a parent directory would otherwise be followed forever.
+    """
+    python_file = tmp_path / "example.py"
+    python_file.touch()
+    linked_directory = tmp_path / "linked"
+    linked_directory.mkdir()
+    (linked_directory / "spam.py").touch()
+    (linked_directory / "loop").symlink_to(target=tmp_path)
+
+    assert list(common.pyfiles(root=tmp_path, use_gitignore=False)) == [
+        python_file,
+        linked_directory / "spam.py",
+    ]
+
+
+def test_pyfiles_unreadable_directory(tmp_path: Path) -> None:
+    """A directory which cannot be read raises an error.
+
+    Skipping it silently would hide any missing requirement which only its
+    files import.
+    """
+    unreadable = tmp_path / "unreadable"
+    unreadable.mkdir()
+    (unreadable / "spam.py").touch()
+    unreadable.chmod(mode=0)
+    try:
+        # File mode bits do not restrict reading a directory on Windows, and
+        # the superuser can read a directory regardless of its mode.
+        # Coverage is measured on Windows too, so the lines only one of
+        # these platforms runs are excluded from it.
+        if os.access(unreadable, os.R_OK):
+            pytest.skip(  # pragma: no cover
+                reason="This user can read a directory with mode 0",
+            )
+        with pytest.raises(  # pragma: no cover
+            expected_exception=PermissionError,
+        ):
+            list(common.pyfiles(root=tmp_path, use_gitignore=False))
+    finally:
+        unreadable.chmod(mode=0o755)
+
+
+def test_pyfiles_root_is_virtual_environment(tmp_path: Path) -> None:
+    """A virtual environment given directly as the source path is scanned.
+
+    Only environments found within the given path are skipped.
+    """
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").touch()
+    venv_python_file = venv / "spam.py"
+    venv_python_file.touch()
+
+    assert list(common.pyfiles(root=venv, use_gitignore=False)) == [
+        venv_python_file,
+    ]
+
+
+def test_pyfiles_use_gitignore(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """With ``use_gitignore``, what a ``.gitignore`` file ignores is skipped.
+
+    A pattern applies from the directory of its ``.gitignore`` file down,
+    a later pattern overrides an earlier one, and a ``.gitignore`` file in
+    a deeper directory overrides one above it. An ignored directory is not
+    looked within, so a deeper file cannot bring back anything in it.
+    Without ``use_gitignore``, a ``.gitignore`` file has no effect.
+    """
+    (tmp_path / ".gitignore").write_text(
+        textwrap.dedent(
+            """\
+            build/
+            generated_*.py
+            !generated_keep.py
+            """,
+        ),
+        encoding="utf-8",
+    )
+    kept = tmp_path / "kept.py"
+    kept.touch()
+    generated = tmp_path / "generated_spam.py"
+    generated.touch()
+    generated_keep = tmp_path / "generated_keep.py"
+    generated_keep.touch()
+
+    build = tmp_path / "build"
+    build.mkdir()
+    built = build / "built.py"
+    built.touch()
+    # Git ignores everything within an ignored directory, so a deeper file
+    # cannot bring anything in it back.
+    (build / ".gitignore").write_text("!built.py\n", encoding="utf-8")
+
+    # A pattern ending in a slash matches only a directory, so a file of
+    # the same name is kept.
+    build_file = tmp_path / "subdir" / "build"
+    build_file.parent.mkdir()
+    build_file.touch()
+    nested_generated = tmp_path / "subdir" / "generated_eggs.py"
+    nested_generated.touch()
+    # A deeper file overrides a shallower one.
+    (tmp_path / "subdir" / ".gitignore").write_text(
+        "!generated_eggs.py\n",
+        encoding="utf-8",
+    )
+
+    assert list(common.pyfiles(root=tmp_path, use_gitignore=False)) == [
+        generated_keep,
+        generated,
+        kept,
+        built,
+        nested_generated,
+    ]
+
+    with caplog.at_level(level=logging.DEBUG):
+        found = list(common.pyfiles(root=tmp_path, use_gitignore=True))
+
+    assert found == [generated_keep, kept, nested_generated]
+    assert f"skipping ignored by .gitignore: {build}" in caplog.text
+    assert f"skipping ignored by .gitignore: {generated}" in caplog.text
+
+
+def test_pyfiles_use_gitignore_above_root(tmp_path: Path) -> None:
+    """A ``.gitignore`` file above the scanned directory applies.
+
+    The source to scan is often a directory within the repository, such as
+    a package under ``src``, while the ``.gitignore`` file is at the
+    repository root. A pattern anchored to the repository root is matched
+    from there, and a directory in between need not have a ``.gitignore``
+    file of its own. A ``.gitignore`` file above the repository has no
+    effect.
+    """
+    (tmp_path / ".gitignore").write_text("outside.py\n", encoding="utf-8")
+    repository = tmp_path / "repository"
+    (repository / ".git").mkdir(parents=True)
+    (repository / ".gitignore").write_text(
+        textwrap.dedent(
+            """\
+            /src/anchored.py
+            unanchored.py
+            """,
+        ),
+        encoding="utf-8",
+    )
+    source = repository / "src" / "package"
+    source.mkdir(parents=True)
+    outside = source / "outside.py"
+    outside.touch()
+    # The anchored pattern names a file directly under ``src``, not one in
+    # a directory below it.
+    anchored = source / "anchored.py"
+    anchored.touch()
+    (source / "unanchored.py").touch()
+
+    assert list(common.pyfiles(root=source, use_gitignore=True)) == [
+        anchored,
+        outside,
+    ]
+
+
+def test_pyfiles_use_gitignore_outside_repository(tmp_path: Path) -> None:
+    """Outside a repository, only ``.gitignore`` files within the root apply.
+
+    Git reads no ``.gitignore`` file outside a repository, so one above the
+    scanned directory has no effect when no ``.git`` is found above it.
+    """
+    (tmp_path / ".gitignore").write_text("above.py\n", encoding="utf-8")
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / ".gitignore").write_text("within.py\n", encoding="utf-8")
+    above = source / "above.py"
+    above.touch()
+    (source / "within.py").touch()
+
+    assert list(common.pyfiles(root=source, use_gitignore=True)) == [above]
+
+
+def test_pyfiles_use_gitignore_root_file(tmp_path: Path) -> None:
+    """A file given directly as the source path is scanned even if ignored.
+
+    The user has named the file, so it is what they want checked.
+    """
+    (tmp_path / ".gitignore").write_text("ignored.py\n", encoding="utf-8")
+    ignored = tmp_path / "ignored.py"
+    ignored.touch()
+
+    assert list(common.pyfiles(root=ignored, use_gitignore=True)) == [ignored]
 
 
 @pytest.mark.parametrize(
@@ -115,9 +354,10 @@ def test_find_imported_modules_simple(
 
     result = common.find_imported_modules(
         paths=[tmp_path],
-        ignore_files_function=common.ignorer(ignore_cfg=[]),
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
         ignore_modules_function=common.ignorer(ignore_cfg=[]),
-    )
+        use_gitignore=False,
+    ).found
 
     assert set(result.keys()) == expected_module_names
     for value in result.values():
@@ -154,9 +394,31 @@ def test_find_imported_modules_frozen(
 
     result = common.find_imported_modules(
         paths=[tmp_path],
-        ignore_files_function=common.ignorer(ignore_cfg=[]),
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
         ignore_modules_function=common.ignorer(ignore_cfg=[]),
-    )
+        use_gitignore=False,
+    ).found
+
+    assert set(result.keys()) == set()
+
+
+def test_find_imported_modules_built_in(
+    tmp_path: Path,
+) -> None:
+    """Built-in modules are not included in the result.
+
+    A built-in module is compiled into the interpreter, so it has no file
+    which could belong to a distribution.
+    """
+    spam = tmp_path / "spam.py"
+    spam.write_text(data="import sys")
+
+    result = common.find_imported_modules(
+        paths=[tmp_path],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    ).found
 
     assert set(result.keys()) == set()
 
@@ -184,9 +446,10 @@ def test_find_imported_modules_main(
 
     result = common.find_imported_modules(
         paths=[tmp_path],
-        ignore_files_function=common.ignorer(ignore_cfg=[]),
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
         ignore_modules_function=common.ignorer(ignore_cfg=[]),
-    )
+        use_gitignore=False,
+    ).found
 
     assert set(result.keys()) == set()
 
@@ -212,12 +475,39 @@ def test_find_imported_modules_no_spec(tmp_path: Path) -> None:
     try:
         result = common.find_imported_modules(
             paths=[tmp_path],
-            ignore_files_function=common.ignorer(ignore_cfg=[]),
+            ignore_files_function=common.file_ignorer(ignore_cfg=[]),
             ignore_modules_function=common.ignorer(ignore_cfg=[]),
-        )
+            use_gitignore=False,
+        ).found
     finally:
         del sys.modules[name]
     assert set(result.keys()) == set()
+
+
+def test_find_imported_modules_syntax_error(tmp_path: Path) -> None:
+    """A file which cannot be parsed gives an error naming file and line."""
+    spam = tmp_path / "spam.py"
+    spam.write_text(
+        data=textwrap.dedent(
+            text="""\
+            import os
+
+            def (
+            """,
+        ),
+    )
+
+    expected_message = f"could not parse {spam}:3: invalid syntax"
+    with pytest.raises(
+        expected_exception=ValueError,
+        match=f"^{re.escape(expected_message)}$",
+    ):
+        common.find_imported_modules(
+            paths=[tmp_path],
+            ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+            ignore_modules_function=common.ignorer(ignore_cfg=[]),
+            use_gitignore=False,
+        )
 
 
 def test_find_imported_modules_period(tmp_path: Path) -> None:
@@ -234,11 +524,40 @@ def test_find_imported_modules_period(tmp_path: Path) -> None:
 
     result = common.find_imported_modules(
         paths=[tmp_path],
-        ignore_files_function=common.ignorer(ignore_cfg=[]),
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
         ignore_modules_function=common.ignorer(ignore_cfg=[]),
-    )
+        use_gitignore=False,
+    ).found
 
     assert set(result.keys()) == {"ruamel.yaml"}
+
+
+@pytest.mark.parametrize(
+    "parent_name",
+    [
+        "pytest",
+        "pprint",
+    ],
+)
+def test_find_imported_modules_missing_from_submodule(
+    parent_name: str,
+    tmp_path: Path,
+) -> None:
+    """A missing sub-module is not attributed to its installed parent."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "example.py").write_text(
+        f"from {parent_name}.missing import attribute",
+    )
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    ).found
+
+    assert not result
 
 
 @pytest.mark.parametrize(
@@ -247,7 +566,7 @@ def test_find_imported_modules_period(tmp_path: Path) -> None:
         (
             False,
             False,
-            ["ast", "pathlib", "hashlib", "sys"],
+            ["ast", "pathlib", "hashlib"],
             [
                 ("spam.py", 2),
                 ("ham.py", 2),
@@ -256,11 +575,11 @@ def test_find_imported_modules_period(tmp_path: Path) -> None:
         (
             False,
             True,
-            ["ast", "pathlib", "sys"],
+            ["ast", "pathlib"],
             [("spam.py", 2), ("ham.py", 2)],
         ),
-        (True, False, ["ast", "sys"], [("spam.py", 2)]),
-        (True, True, ["ast", "sys"], [("spam.py", 2)]),
+        (True, False, ["ast"], [("spam.py", 2)]),
+        (True, True, ["ast"], [("spam.py", 2)]),
     ],
 )
 def test_find_imported_modules_advanced(
@@ -295,8 +614,8 @@ def test_find_imported_modules_advanced(
 
     caplog.set_level(logging.INFO)
 
-    def ignore_files(path: str) -> bool:
-        return bool(Path(path).name == "ham.py" and ignore_ham)
+    def ignore_files(path: Path) -> bool:
+        return bool(path.name == "ham.py" and ignore_ham)
 
     def ignore_mods(module: str) -> bool:
         return bool(module == "hashlib" and ignore_hashlib)
@@ -305,7 +624,8 @@ def test_find_imported_modules_advanced(
         paths=[root],
         ignore_files_function=ignore_files,
         ignore_modules_function=ignore_mods,
-    )
+        use_gitignore=False,
+    ).found
     assert set(result) == set(expect)
     absolute_locations = result["ast"].locations
     relative_locations = [
@@ -316,6 +636,343 @@ def test_find_imported_modules_advanced(
 
     if ignore_ham:
         assert caplog.records[0].message == f"ignoring: {ham}"
+
+
+def test_find_imported_modules_uninstalled(tmp_path: Path) -> None:
+    """An import of a module which is not installed is reported."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    source_file = source_dir / "spam.py"
+    name = "a" + uuid.uuid4().hex
+    source_file.write_text(
+        data=textwrap.dedent(
+            text=f"""\
+            import re
+            import {name}
+            from {name}.ham import eggs
+            """,
+        ),
+    )
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    )
+
+    assert set(result.found) == {"re"}
+    assert result.uninstalled == {
+        name: [(str(source_file), 2), (str(source_file), 3)],
+    }
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        pytest.param("import {name}.ham\n", id="Import"),
+        pytest.param("from {name}.ham import eggs\n", id="ImportFrom"),
+    ],
+)
+@pytest.mark.parametrize(
+    "ignore_glob",
+    [
+        pytest.param("{name}", id="Top-level module name"),
+        pytest.param("{name}*", id="Glob"),
+        pytest.param("{name}.ham", id="Dotted import path"),
+    ],
+)
+def test_find_imported_modules_uninstalled_ignored(
+    *,
+    ignore_glob: str,
+    statement: str,
+    tmp_path: Path,
+) -> None:
+    """An ignored module which is not installed is not reported."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    name = "a" + uuid.uuid4().hex
+    (source_dir / "spam.py").write_text(data=statement.format(name=name))
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(
+            ignore_cfg=[ignore_glob.format(name=name)],
+        ),
+        use_gitignore=False,
+    )
+
+    assert not result.uninstalled
+
+
+def test_find_imported_modules_uninstalled_no_spec(tmp_path: Path) -> None:
+    """A module without a ``__spec__`` is available, so is not reported.
+
+    See ``test_find_imported_modules_no_spec`` for how such a module comes
+    about.
+    """
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    name = "a" + uuid.uuid4().hex
+    (source_dir / "spam.py").write_text(data=f"from {name}.ham import eggs\n")
+    module = types.ModuleType(name=name)
+    module.__spec__ = None
+    sys.modules[name] = module
+
+    try:
+        result = common.find_imported_modules(
+            paths=[source_dir],
+            ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+            ignore_modules_function=common.ignorer(ignore_cfg=[]),
+            use_gitignore=False,
+        )
+    finally:
+        del sys.modules[name]
+
+    assert not result.uninstalled
+
+
+def test_find_imported_modules_uninstalled_submodule(tmp_path: Path) -> None:
+    """A missing sub-module of an installed package is not reported.
+
+    The distribution which would provide the sub-module is installed, so
+    there is no requirement which we cannot check.
+    """
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "spam.py").write_text(
+        data=textwrap.dedent(
+            text="""\
+            import pytest.missing
+            from pytest.missing import attribute
+            """,
+        ),
+    )
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    )
+
+    assert not result.uninstalled
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        pytest.param("except ImportError:", id="ImportError"),
+        pytest.param("except ModuleNotFoundError:", id="ModuleNotFoundError"),
+        pytest.param("except builtins.ImportError:", id="Dotted path"),
+        pytest.param("except (ValueError, ImportError):", id="Tuple"),
+        pytest.param("except (*errors, ImportError):", id="Tuple with a star"),
+        pytest.param("except:  # noqa: E722", id="Bare except"),
+    ],
+)
+@pytest.mark.parametrize(
+    "statement",
+    [
+        pytest.param("import {name}", id="Import"),
+        pytest.param("from {name} import ham", id="ImportFrom"),
+    ],
+)
+def test_find_imported_modules_uninstalled_optional(
+    *,
+    handler: str,
+    statement: str,
+    tmp_path: Path,
+) -> None:
+    """An import which the source tolerates failing is not reported.
+
+    A soft dependency is imported in a ``try`` block which catches
+    ``ImportError``, so the code runs whether or not it is installed.
+    """
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    name = "a" + uuid.uuid4().hex
+    (source_dir / "spam.py").write_text(
+        data=textwrap.dedent(
+            text="""\
+            try:
+                {statement}
+            {handler}
+                pass
+            """,
+        ).format(statement=statement.format(name=name), handler=handler),
+    )
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    )
+
+    assert not result.uninstalled
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(
+            """\
+            try:
+                {statement}
+            except ValueError:
+                pass
+            """,
+            id="Handler which does not catch ImportError",
+        ),
+        pytest.param(
+            """\
+            try:
+                pass
+            except ImportError:
+                {statement}
+            """,
+            id="Import in the handler",
+        ),
+        pytest.param(
+            """\
+            try:
+                pass
+            except ImportError:
+                pass
+            else:
+                {statement}
+            """,
+            id="Import in the else block",
+        ),
+        pytest.param(
+            """\
+            try:
+                pass
+            except ImportError:
+                pass
+            finally:
+                {statement}
+            """,
+            id="Import in the finally block",
+        ),
+        pytest.param(
+            """\
+            try:
+                pass
+            except ImportError:
+                pass
+            {statement}
+            """,
+            id="Import after the try statement",
+        ),
+    ],
+)
+def test_find_imported_modules_uninstalled_not_optional(
+    *,
+    source: str,
+    tmp_path: Path,
+) -> None:
+    """An import which the ``try`` does not guard is still reported."""
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    source_file = source_dir / "spam.py"
+    name = "a" + uuid.uuid4().hex
+    source_file.write_text(
+        data=textwrap.dedent(text=source).format(statement=f"import {name}"),
+    )
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    )
+
+    assert set(result.uninstalled) == {name}
+
+
+def test_find_imported_modules_optional_installed(tmp_path: Path) -> None:
+    """An optional import of an installed module is still a use of it.
+
+    A soft dependency which is installed and listed in the requirements is
+    used, so ``pip-extra-reqs`` must not report it as extra.
+    """
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "spam.py").write_text(
+        data=textwrap.dedent(
+            text="""\
+            try:
+                import pytest
+            except ImportError:
+                pass
+            """,
+        ),
+    )
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    )
+
+    assert set(result.found) == {"pytest"}
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        pytest.param("import spam", id="Module in the source"),
+        pytest.param("import ham", id="Package in the source"),
+        pytest.param("from ham.eggs import scrambled", id="Source submodule"),
+        pytest.param("import source", id="Directory we scan"),
+        pytest.param("import ignored", id="Ignored file in the source"),
+    ],
+)
+def test_find_imported_modules_source_module(
+    *,
+    statement: str,
+    tmp_path: Path,
+) -> None:
+    """A module which the scanned source provides is not reported.
+
+    Such a module is not expected to be installed, so reporting it would be
+    a false positive.
+    """
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "spam.py").write_text(data=statement)
+    (source_dir / "ignored.py").touch()
+    package_dir = source_dir / "ham"
+    package_dir.mkdir()
+    (package_dir / "__init__.py").touch()
+    (package_dir / "eggs.py").touch()
+
+    result = common.find_imported_modules(
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(
+            ignore_cfg=["*ignored.py"],
+        ),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        use_gitignore=False,
+    )
+
+    assert not result.uninstalled
+
+
+def test_source_module_names_file(tmp_path: Path) -> None:
+    """A single source file gives its own module name."""
+    source_file = tmp_path / "spam.py"
+    source_file.touch()
+
+    result = common.source_module_names(
+        paths=[source_file],
+        use_gitignore=False,
+    )
+
+    assert result == {"spam"}
 
 
 @pytest.mark.parametrize(
@@ -329,7 +986,6 @@ def test_find_imported_modules_advanced(
         (["spam*"], "spam", True),
         (["spam*"], "spam.ham", True),
         (["spam*"], "eggs", False),
-        (["spam"], str(Path.cwd() / "spam"), True),
     ],
 )
 def test_ignorer(
@@ -342,31 +998,264 @@ def test_ignorer(
     assert ignorer(candidate) == result
 
 
-def test_find_required_modules(tmp_path: Path) -> None:
-    fake_requirements_file = tmp_path / "requirements.txt"
-    fake_requirements_file.write_text("foobar==1\nbarfoo==2")
+@pytest.mark.parametrize(
+    ("ignore_cfg", "candidate", "result"),
+    [
+        ([], Path("spam"), False),
+        (["spam"], Path("spam"), True),
+        (["spam"], Path("eggs"), False),
+        (["spam*"], Path("spam.py"), True),
+        (["spam"], Path.cwd() / "spam", True),
+        (["eggs"], Path.cwd() / "spam", False),
+        (["spam"], Path.cwd() / "eggs" / ".." / "spam", True),
+        (["spam"], Path("eggs") / ".." / "spam", True),
+        (["spam"], Path.cwd().parent / "spam", False),
+    ],
+)
+def test_file_ignorer(
+    *,
+    ignore_cfg: list[str],
+    candidate: Path,
+    result: bool,
+) -> None:
+    ignorer = common.file_ignorer(ignore_cfg=ignore_cfg)
+    assert ignorer(candidate) == result
 
-    reqs = common.find_required_modules(
-        ignore_requirements_function=common.ignorer(ignore_cfg=["barfoo"]),
-        skip_incompatible=False,
-        requirements_filename=fake_requirements_file,
-    )
-    assert reqs == {"foobar"}
+
+def test_file_ignorer_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A file is matched by the path it was found under, not its target.
+
+    A symbolic link within the path is not followed, so a glob written for
+    the path as it appears in the project matches.
+    """
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (project / "link").symlink_to(target=outside)
+    monkeypatch.chdir(path=project)
+    ignorer = common.file_ignorer(ignore_cfg=["link/*"])
+
+    assert ignorer(Path.cwd() / "link" / "spam.py")
 
 
-def test_find_required_modules_env_markers(tmp_path: Path) -> None:
-    fake_requirements_file = tmp_path / "requirements.txt"
-    fake_requirements_file.write_text(
-        'spam==1; python_version<"2.0"\nham==2;\neggs==3\n',
-    )
+@pytest.mark.skipif(
+    condition=platform.system() != "Windows",
+    reason="Only Windows has drives, which is what this test is about",
+)
+def test_ignorer_other_drive() -> None:  # pragma: no cover
+    """A candidate on another drive than the working directory is handled.
 
-    reqs = common.find_required_modules(
-        ignore_requirements_function=common.ignorer(ignore_cfg=[]),
-        skip_incompatible=True,
-        requirements_filename=fake_requirements_file,
-    )
-    assert reqs == {"ham", "eggs"}
+    Making such a path relative to the working directory is impossible, and
+    that used to raise an error.
+    """
+    working_directory_drive = Path.cwd().drive
+    other_drive = "Y:" if working_directory_drive.upper() == "Z:" else "Z:"
+    ignorer = common.file_ignorer(ignore_cfg=["eggs"])
+
+    assert not ignorer(Path(rf"{other_drive}\eggs\spam.py"))
 
 
 def test_version_info_shows_version_number() -> None:
-    assert __version__ in common.version_info()
+    major, minor, patch = sys.version_info[:3]
+    python_version = f"{major}.{minor}.{patch}"
+    parent_directory = Path(common.__file__).parent.resolve()
+    expected_version_info = (
+        f"pip-check-reqs {__version__} "
+        f"from {parent_directory} "
+        f"(python {python_version})"
+    )
+    assert common.version_info() == expected_version_info
+
+
+def test_no_wrong_environment_warning_without_active_virtualenv(
+    tmp_path: Path,
+) -> None:
+    warning = common.wrong_environment_warning(
+        running_prefix=tmp_path,
+        active_virtualenv=None,
+        color=False,
+    )
+    assert warning is None
+
+
+def test_no_wrong_environment_warning_from_active_virtualenv(
+    tmp_path: Path,
+) -> None:
+    warning = common.wrong_environment_warning(
+        running_prefix=tmp_path,
+        active_virtualenv=str(tmp_path),
+        color=False,
+    )
+    assert warning is None
+
+
+def test_wrong_environment_warning(tmp_path: Path) -> None:
+    # We resolve the paths as the warning shows resolved paths, and a
+    # temporary directory is reached through a symbolic link on some hosts.
+    active_prefix = (tmp_path / "active").resolve()
+    running_prefix = (tmp_path / "running").resolve()
+
+    warning = common.wrong_environment_warning(
+        running_prefix=running_prefix,
+        active_virtualenv=str(active_prefix),
+        color=False,
+    )
+
+    expected_warning = (
+        f"WARNING: Running from {running_prefix}, but the active "
+        f"virtual environment is {active_prefix}. "
+        "Results describe the environment pip-check-reqs is installed in. "
+        "Install pip-check-reqs in the active virtual environment, and "
+        'run "hash -r" ("rehash" in zsh), to check that environment.'
+    )
+    assert warning == expected_warning
+
+
+def test_wrong_environment_warning_in_color(tmp_path: Path) -> None:
+    active_prefix = (tmp_path / "active").resolve()
+    running_prefix = (tmp_path / "running").resolve()
+
+    warning = common.wrong_environment_warning(
+        running_prefix=running_prefix,
+        active_virtualenv=str(active_prefix),
+        color=True,
+    )
+
+    plain_warning = common.wrong_environment_warning(
+        running_prefix=running_prefix,
+        active_virtualenv=str(active_prefix),
+        color=False,
+    )
+    yellow = "\033[33m"
+    reset = "\033[0m"
+    assert warning == f"{yellow}{plain_warning}{reset}"
+
+
+@pytest.mark.skipif(
+    condition=not _CASE_INSENSITIVE_FILESYSTEM,
+    reason="Only a case-insensitive file system has two spellings of a path",
+)
+def test_used_packages_other_case_path(  # pragma: no cover
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A module imported under another spelling of its path is attributed.
+
+    On a case-insensitive file system, which macOS and Windows have by
+    default, a directory on ``sys.path`` may be spelled with different case
+    to how it is on disk. The module is then found at a path which differs
+    by case from the one on disk, and it used to be taken for a standard
+    library or local module because the installed file was recorded with
+    the other spelling.
+    """
+    distribution_name = "case-package-12345"
+    module_name = "case_package_12345"
+    site_packages = tmp_path / "site-packages"
+    write_dist_info(
+        site_packages=site_packages,
+        distribution_name=distribution_name,
+        direct_url=None,
+    )
+    module_file = site_packages / f"{module_name}.py"
+    module_file.touch()
+    record = site_packages / f"{module_name}-1.0.dist-info" / "RECORD"
+    with record.open("a", encoding="utf-8") as record_file:
+        record_file.write(f"{module_file.name},,\n")
+
+    other_spelling = site_packages.with_name(site_packages.name.upper())
+
+    source_file = tmp_path / "source.py"
+    source_file.write_text(f"import {module_name}\n", encoding="utf-8")
+
+    # The parameter has no annotation until
+    # https://github.com/pytest-dev/pytest/pull/14988 is released.
+    monkeypatch.syspath_prepend(  # pyright: ignore[reportUnknownMemberType]
+        str(other_spelling),
+    )
+    common.get_packages_info.cache_clear()
+    try:
+        imported = common.find_imported_modules(
+            paths=[source_file],
+            ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+            ignore_modules_function=common.ignorer(ignore_cfg=[]),
+            use_gitignore=False,
+        )
+        used = common.used_packages(
+            used_modules=imported.found,
+            paths=[source_file],
+        )
+    finally:
+        common.get_packages_info.cache_clear()
+
+    assert module_name in imported.found
+    uses = used[canonicalize_name(distribution_name)]
+    assert [info.modname for info in uses] == [module_name]
+
+
+def test_editable_source_directories(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only a distribution installed in editable mode has a source directory.
+
+    A distribution installed from a local directory records that directory in
+    ``direct_url.json`` just as an editable install does, but its modules are
+    copied into ``site-packages``, so the directory does not provide them.
+    """
+    site_packages = tmp_path / "site-packages"
+    editable_source_directory = tmp_path / "editable-project"
+    write_dist_info(
+        site_packages=site_packages,
+        distribution_name="editable-package-12345",
+        direct_url={
+            "url": editable_source_directory.as_uri(),
+            "dir_info": {"editable": True},
+        },
+    )
+    write_dist_info(
+        site_packages=site_packages,
+        distribution_name="copied-package-12345",
+        direct_url={
+            "url": (tmp_path / "copied-project").as_uri(),
+            "dir_info": {},
+        },
+    )
+    write_dist_info(
+        site_packages=site_packages,
+        distribution_name="index-package-12345",
+        direct_url=None,
+    )
+
+    # The parameter has no annotation until
+    # https://github.com/pytest-dev/pytest/pull/14988 is released.
+    monkeypatch.syspath_prepend(  # pyright: ignore[reportUnknownMemberType]
+        str(site_packages),
+    )
+    common.editable_source_directories.cache_clear()
+
+    try:
+        directories = common.editable_source_directories()
+    finally:
+        common.editable_source_directories.cache_clear()
+
+    # The environment the tests run in may have editable installs of its
+    # own, so we look only at the distributions we wrote.
+    written_names = {
+        "editable-package-12345",
+        "copied-package-12345",
+        "index-package-12345",
+    }
+    written_directories = {
+        directory: name
+        for directory, name in directories.items()
+        if name in written_names
+    }
+    assert written_directories == {
+        editable_source_directory.resolve(): "editable-package-12345",
+    }

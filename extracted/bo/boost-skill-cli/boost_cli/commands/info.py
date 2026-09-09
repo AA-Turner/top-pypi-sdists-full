@@ -23,6 +23,7 @@ from ..core import (
     capabilities,
     catalog,
     config,
+    deps,
     faithfulness,
     frontmatter,
     gitutil,
@@ -31,6 +32,7 @@ from ..core import (
     journal,
     lockfile,
     logs,
+    mcpdecl,
     paths,
     projectlock,
     registry,
@@ -358,16 +360,31 @@ def cmd_list(argv):
     return 0
 
 
+def _catalog_description(name: str, tap: str | None) -> str:
+    """The tap's description for ``name``, preferring an entry from ``tap``.
+
+    A rule/workflow's lock entry carries no description of its own (unlike a
+    skill's SKILL.md frontmatter, nothing about a materialized block is
+    self-describing), so the catalog is the only place left to ask — same
+    source `cmd_stats` already reads for a not-installed item's description.
+    """
+    matches = catalog.find(name)
+    same_tap = [e for e in matches if e.get("tap") == tap]
+    cat = (same_tap or matches)[0] if (same_tap or matches) else None
+    return str((cat or {}).get("description") or "")
+
+
 def _info_materialized(name: str, kind: str, entry: dict, as_json: bool) -> int:
-    """The identity card for an installed rule/workflow — the lock facts.
+    """The identity card for an installed rule/workflow — the lock facts,
+    plus the catalog description when a tap still carries this entry.
 
     No store dir, quality score or file counts here: those describe a skill's
-    directory, which these kinds do not have. What matters is what the lock
-    records — where it came from and which agent files carry it.
+    directory, which these kinds do not have.
     """
+    desc = _catalog_description(name, entry.get("tap"))
     if as_json:
-        print(json.dumps({"name": name, "kind": kind, "installed": entry},
-                         indent=2))
+        print(json.dumps({"name": name, "kind": kind, "description": desc,
+                         "installed": entry}, indent=2))
         return 0
     out.heading(name)
     badges = [out.badge("installed %s" % kind, "green")]
@@ -379,6 +396,8 @@ def _info_materialized(name: str, kind: str, entry: dict, as_json: bool) -> int:
         badges.append(out.badge(str(entry["tap"]), "violet"))
     out.info(" ".join(badges))
     out.kv("kind", kind)
+    if desc:
+        out.kv("description", desc, wrap=True)
     out.kv("version", str(entry.get("version", "?")))
     out.kv("tap", entry.get("tap", "?"))
     if kind == "workflow" and entry.get("slot"):
@@ -403,8 +422,8 @@ def _info_materialized(name: str, kind: str, entry: dict, as_json: bool) -> int:
         # files that were just removed.
         out.kv("materialized", "(removed — quarantined)")
     else:
-        agents = [m.get("agent", "?") for m in entry.get("materializations") or []]
-        out.kv("materialized", ", ".join(agents) or "(none)")
+        out.kv("materialized",
+               ", ".join(lockfile.agent_names(kind, entry)) or "(none)")
     out.kv("pinned", "yes" if entry.get("pinned") else "no")
     out.kv("quarantined", "yes" if entry.get("quarantined") else "no")
     return 0
@@ -445,6 +464,12 @@ def cmd_info(argv):
         cat = candidates[0] if candidates else None
     else:
         cat = catalog.resolve_one(args.name)   # raises if unknown anywhere
+    # `lock`/`plock` only ever hold a *skill* lock entry (they read the
+    # lock's "skills" section specifically) — an installed rule or workflow
+    # was already answered above via `_info_materialized`. So the only way
+    # `kind` is anything but "skill" here is a not-yet-installed catalog
+    # entry, and `cat["kind"]` is where that lives.
+    kind = (cat or {}).get("kind") or "skill"
 
     sdir = store.skill_store_dir(name)
     skill_dir = sdir if lock and sdir.is_dir() else None
@@ -477,7 +502,7 @@ def cmd_info(argv):
 
     if args.json:
         print(json.dumps({
-            "name": name, "description": desc,
+            "name": name, "kind": kind, "description": desc,
             "installed": lock, "project": plock,
             "capabilities": declared_caps, "detected_capabilities": detected_extra,
             "mcp_servers": [r["name"] for r in mcp_servers],
@@ -507,12 +532,19 @@ def cmd_info(argv):
     elif plock:
         badges.append(out.badge("installed in this project", "green"))
     else:
-        badges.append(out.badge("not installed", "cyan"))
+        # A not-installed rule/workflow says so in its own badge — previously
+        # this printed the same bare "not installed" a not-yet-tapped skill
+        # gets, with no sign anywhere that the item is not a skill at all.
+        badges.append(out.badge(
+            "not installed" if kind == "skill" else "not installed %s" % kind,
+            "cyan"))
     tapname = (lock or cat or {}).get("tap")
     if tapname:
         badges.append(out.badge(str(tapname), "violet"))
     if badges:
         out.info(" ".join(badges))
+    if kind != "skill":
+        out.kv("kind", kind)
     if desc:
         # kv's own wrap=True already folds to the real terminal width and
         # aligns continuations under the value — the hand-rolled version this
@@ -534,7 +566,13 @@ def cmd_info(argv):
         out.kv("category", category)
     if lock and sdir.is_dir():
         out.kv("store", _tilde(sdir))
-    src = lock.get("source_dir") if lock else (cat or {}).get("rel_dir")
+    # A skill's catalog `rel_dir` is its own directory — the right thing to
+    # show as "source". A rule/workflow's `rel_dir` is the tap's whole
+    # commands/rules directory shared by every item of that kind; `skill_md`
+    # (despite the name, the generic per-entry relative file path) is the
+    # one file this item actually is.
+    src = lock.get("source_dir") if lock else (
+        (cat or {}).get("skill_md") if kind != "skill" else (cat or {}).get("rel_dir"))
     if src:
         out.kv("source", _tilde(src))
     if lock:
@@ -634,9 +672,16 @@ def cmd_edit(argv):
                         hint="set $VISUAL or $EDITOR to a valid command") from e
     if rc != 0:
         out.warn("editor exited with status %d" % rc)
+        return 1
     sha = util.sha256_dir(sdir)
     if sha != lock.get("sha256"):
-        lock["sha256"], lock["updated_at"] = sha, util.now_iso()
+        # Deliberately does NOT rewrite lock["sha256"] to the post-edit hash:
+        # that field is also what drift_state compares the store against, and
+        # overwriting it here would make an edited store always match its own
+        # lock, hiding the edit from `boost drift` (which would then fall
+        # through to UPSTREAM_MOVED instead of LOCAL_EDITS). The journal is
+        # the record of the edit; drift/attest compare honestly instead.
+        lock["updated_at"] = util.now_iso()
         lockfile.set_skill(name, lock)
         journal.log("edit", name)
         out.warn("local edits diverge from the tap source — boost drift will flag this")
@@ -703,8 +748,18 @@ def cmd_preview(argv):
     args = ap.parse_args(argv)
     text, _kind, lock, cat = _resolve_text(args.name)
     meta, body = frontmatter.parse(text)
+    if not sys.stdout.isatty():
+        # A piped/redirected preview renders nothing — no ANSI, so the
+        # per-chunk `_inline()` substitution would strip `**`/backtick
+        # markers with no styled substitute, and lines with no special-cased
+        # handling (a bare `---`, a wrapped `> quote` continuation) print
+        # mangled rather than as either faithful Markdown or a real render.
+        # `boost cat` already resolves this the same way: raw text through.
+        sys.stdout.write(body if body.endswith("\n") else body + "\n")
+        return 0
+    version = meta.get("version") or (lock or cat or {}).get("version") or "?"
     print(out.titlebar("%s · v%s · %s" % (meta.get("name") or args.name,
-                                          meta.get("version") or "?",
+                                          version,
                                           (lock or cat or {}).get("tap", "local"))))
     print()
     _render_markdown(body)
@@ -739,6 +794,7 @@ def cmd_explain(argv):
                                  description="Explain what a skill does in plain English")
     ap.add_argument("name")
     args = ap.parse_args(argv)
+    _qualifier, _bare = catalog.split_name(args.name)
     text, _kind, _lock, _cat = _resolve_text(args.name)
     if ai.available():
         reply = ai.ask(
@@ -757,10 +813,28 @@ def cmd_explain(argv):
                      "extractive summary instead"
                      % ", ".join(faithfulness.ungrounded_terms(reply, text)[:4]),
                      stream=sys.stderr)
+        else:
+            # The backend was available but the call itself produced nothing —
+            # distinct from "no backend at all", so it gets the same
+            # attributed note rather than silence.
+            out.warn(ai.fallback_note(), wrap=True, stream=sys.stderr)
     else:
         out.warn(ai.fallback_note(), wrap=True, stream=sys.stderr)
     meta, body = frontmatter.parse(text)
+    if _kind != "skill":
+        # A materialized claude-mode rule/workflow's block body is the
+        # synthetic "# <name>\n\n<body>" header `rules.render_claude_body`
+        # writes — not a real heading from the item's own content. Strip it
+        # before the outline scan below, or every installed rule's outline
+        # starts at the CLAUDE.md managed-block header instead of a real one.
+        body = re.sub(r"\A#[ \t]+%s[ \t]*\n+" % re.escape(_bare), "",
+                      body, count=1)
     desc = str(meta.get("description") or "").strip()
+    if not desc and _lock:
+        # The lock has no description field of its own for a rule/workflow
+        # (unlike a skill's SKILL.md frontmatter), and its materialized text
+        # carries none either — the catalog is the only place left to ask.
+        desc = _catalog_description(_bare, _lock.get("tap"))
     if desc:
         _print_wrapped(desc)
     headings = re.findall(r"^(#{1,6})\s+(.*)$", body, re.MULTILINE)
@@ -849,11 +923,14 @@ def cmd_log(argv):
     ap.add_argument("--crashes", action="store_true",
                     help="list recent crash reports")
     args = ap.parse_args(argv)
+    if args.name and (args.crashes or args.diagnostics):
+        ap.error("NAME is not used with --diagnostics/--crashes")
     if args.crashes:
         return _show_crashes(args.limit)
     if args.diagnostics:
         return _show_diagnostics(args.limit)
     if args.name:
+        _, bare = catalog.split_name(args.name)
         found = lockfile.find_any(args.name)
         if found:
             # A skill records its source dir; rules/workflows record a source
@@ -874,9 +951,9 @@ def cmd_log(argv):
                             hint="run `boost update %s`" % tap.name)
         lines = gitutil.log_for_path(tap.path, rel, args.limit)
         if not lines:
-            out.info("no commits touch %s in %s" % (args.name, tap.name))
+            out.info("no commits touch %s in %s" % (bare, tap.name))
             return 0
-        out.heading("%s — history in %s" % (args.name, tap.name))
+        out.heading("%s — history in %s" % (bare, tap.name))
         for line in lines:
             out.info(line)
         return 0
@@ -884,6 +961,7 @@ def cmd_log(argv):
     if not events:
         out.info("no activity yet")
         return 0
+    out.heading("activity")
     action_roles = {"install": "success", "uninstall": "danger"}
     w_time = max(len(util.rel_time(e.get("ts", ""))) for e in events)
     w_user = max(len(e.get("user", "?")) for e in events)
@@ -929,6 +1007,46 @@ def cmd_home(argv):
     return 0
 
 
+def _skill_dir_for_deps(name: str):
+    """Best-effort on-disk skill directory for reading a bundled ``.mcp.json``
+    sidecar — the installed store copy preferred, a materialized tap source
+    otherwise. ``None`` when neither resolves (not a skill, or unknown
+    everywhere) — an MCP declaration is a skill-only concept.
+    """
+    sdir = store.skill_store_dir(name)
+    if sdir.is_dir():
+        return sdir
+    try:
+        cat = catalog.resolve_one(name)
+    except BoostError:
+        return None
+    try:
+        return store.source_dir_for(cat)
+    except BoostError:
+        return None
+
+
+def _mcp_requirement_rows(skill_dir) -> list[dict]:
+    """Declared MCP servers a skill needs -> ``{name, registrable}`` rows.
+
+    ``registrable`` is whether boost has an actual runnable spec for the
+    server (a bundled ``.mcp.json`` command) — a name-only frontmatter
+    declaration never is, since boost will not invent a launch command on an
+    author's behalf (:func:`mcpdecl.registrable`). This is the fact
+    ``requires: mcp <name> (not registered)`` reports: not a live check
+    against any host's actual configuration (boost has no generic reader for
+    that), only whether boost itself could wire the server up.
+    """
+    if skill_dir is None:
+        return []
+    declared = store.declared_mcp_servers(skill_dir)
+    if not declared:
+        return []
+    registrable = {r["name"] for r in mcpdecl.registrable(declared)}
+    return [{"name": r["name"], "registrable": r["name"] in registrable}
+            for r in declared]
+
+
 def cmd_deps(argv):
     ap = cliparse.parser(prog="boost deps",
                                  description="Show dependency & conflict relationships")
@@ -944,50 +1062,66 @@ def cmd_deps(argv):
     if args.name:
         text, _kind, _lock, _cat = _resolve_text(args.name)
         meta = frontmatter.parse(text)[0]
-        requires = _as_list(meta.get("requires"))
-        conflicts = _as_list(meta.get("conflicts"))
-        problems = (any(r not in have for r in requires)
-                    or any(c in have for c in conflicts))
+        requires = deps.requirement_names(meta)
+        conflicts = deps.conflict_names(meta)
+        req_rows = [deps.requirement_row(
+                        r, have, deps.requirement_names(_skill_meta(r) or {}))
+                    for r in requires]
+        conflict_rows = [deps.conflict_row(c, have) for c in conflicts]
+        _qualifier, bare = catalog.split_name(args.name)
+        mcp_rows = _mcp_requirement_rows(_skill_dir_for_deps(bare))
+        # A transitively unmet requirement used to print a "✗ not installed"
+        # line the exit code never counted — `has_unmet` walks the same
+        # nesting the renderer does, so the two can never disagree again.
+        problems = deps.has_unmet(req_rows) or deps.active_conflicts(conflict_rows)
         if args.json:
             print(json.dumps({
                 "name": args.name,
-                "requires": [{"name": r, "installed": r in have,
-                              "requires": _as_list((_skill_meta(r) or {}).get("requires"))}
-                             for r in requires],
-                "conflicts": [{"name": c, "installed": c in have} for c in conflicts],
+                "requires": req_rows,
+                "mcp": mcp_rows,
+                "conflicts": conflict_rows,
             }, indent=2))
             return 1 if problems else 0
         out.info(out.c(args.name, out.BOLD))
-        if not requires:
+        if not requires and not mcp_rows:
             out.info("  requires: " + out.role("(none)", "muted"))
-        for r in requires:
-            out.info("  requires: %s %s" % (r, _mark(r in have)))
-            for sub in _as_list((_skill_meta(r) or {}).get("requires")):
-                out.info("      ↳ %s %s" % (sub, _mark(sub in have)))
+        for row in req_rows:
+            out.info("  requires: %s %s" % (row["name"], _mark(row["installed"])))
+            for sub in row["requires"]:
+                out.info("      ↳ %s %s" % (sub["name"], _mark(sub["installed"])))
+        for r in mcp_rows:
+            note = "" if r["registrable"] else out.role(" (not registered)", "muted")
+            out.info("  requires: mcp %s%s" % (r["name"], note))
         if not conflicts:
             out.info("  conflicts: " + out.role("(none)", "muted"))
-        for c_name in conflicts:
-            state = (out.role("✗ installed (conflict!)", "danger") if c_name in have
+        for row in conflict_rows:
+            state = (out.role("✗ installed (conflict!)", "danger") if row["installed"]
                      else out.role("not installed", "muted"))
-            out.info("  conflicts: %s %s" % (c_name, state))
+            out.info("  conflicts: %s %s" % (row["name"], state))
+        if problems:
+            missing = deps.unmet_names(req_rows)
+            if missing:
+                out.warn("`boost install %s` to satisfy %d unmet requirement%s"
+                         % (" ".join(missing), len(missing),
+                            "" if len(missing) == 1 else "s"))
         return 1 if problems else 0
 
     unmet: list[dict] = []
-    pairs: list[list] = []   # JSON-dumped, so lists rather than tuples
+    pairs: list[dict] = []
     seen: set = set()
     for name in sorted(inst):
         meta = _skill_meta(name) or {}
         unmet.extend(
-            {"skill": name, "requires": r}
-            for r in _as_list(meta.get("requires"))
+            {"skill": name, "requires": deps.requirement_row(r, have)}
+            for r in deps.requirement_names(meta)
             if r not in have
         )
-        for c_name in _as_list(meta.get("conflicts")):
+        for c_name in deps.conflict_names(meta):
             if c_name in have:
                 key = tuple(sorted((name, c_name)))
                 if key not in seen:
                     seen.add(key)
-                    pairs.append(list(key))
+                    pairs.append({"a": key[0], "b": key[1]})
     if args.json:
         print(json.dumps({"unmet": unmet, "conflicts": pairs}, indent=2))
         return 1 if unmet or pairs else 0
@@ -997,14 +1131,20 @@ def cmd_deps(argv):
         return 0
     for u in unmet:
         out.info("%s requires %s %s"
-                 % (out.c(u["skill"], out.BOLD), u["requires"], _mark(False)))
-    for a, b in pairs:
-        out.info("%s %s %s" % (out.c(a, out.BOLD),
-                               out.role("conflicts with", "danger"), out.c(b, out.BOLD)))
+                 % (out.c(u["skill"], out.BOLD), u["requires"]["name"],
+                    _mark(u["requires"]["installed"])))
+    for pair in pairs:
+        out.info("%s %s %s" % (out.c(pair["a"], out.BOLD),
+                               out.role("conflicts with", "danger"), out.c(pair["b"], out.BOLD)))
     if not unmet and not pairs:
         out.ok("no unmet requirements or conflicts across %d skill%s"
                % (len(inst), "" if len(inst) == 1 else "s"))
         return 0
+    if unmet:
+        missing = sorted({u["requires"]["name"] for u in unmet})
+        out.warn("`boost install %s` to satisfy %d unmet requirement%s"
+                 % (" ".join(missing), len(missing),
+                    "" if len(missing) == 1 else "s"))
     return 1
 
 

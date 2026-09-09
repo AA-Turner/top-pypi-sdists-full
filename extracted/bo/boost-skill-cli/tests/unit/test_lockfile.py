@@ -146,6 +146,33 @@ class TestWrite:
         lockfile.write({"skills": {"c": {}}})
         assert len(list(paths.lock_history_dir().glob("lock-*.json"))) == 2
 
+    def test_history_stamp_is_the_archived_lock_s_own_updated_time(
+            self, sandbox, monkeypatch):
+        # Regression: the history filename used to be stamped with `now` — the
+        # moment a lock became history, i.e. the NEXT write — rather than the
+        # moment that lock was itself written. `replay list`'s ID (from the
+        # filename) and WHEN (from the content) then named two different
+        # instants, seconds apart, for what looked like one row.
+        times = iter(["2026-01-01T00:00:00Z", "2026-01-01T00:00:04Z"])
+        monkeypatch.setattr("boost_cli.core.util.now_iso", lambda: next(times))
+        lockfile.write({"skills": {"a": {}}})            # updated = :00
+        lockfile.write({"skills": {"a": {}, "b": {}}})    # archives it, "now" = :04
+        snaps = list(paths.lock_history_dir().glob("lock-*.json"))
+        assert [s.name for s in snaps] == ["lock-20260101T000000Z.json"]
+        archived = json.loads(snaps[0].read_text(encoding="utf-8"))
+        assert archived["updated"] == "2026-01-01T00:00:00Z"
+
+    def test_history_stamp_falls_back_to_now_without_a_readable_updated(
+            self, sandbox, monkeypatch):
+        paths.ensure_dirs()
+        paths.lockfile_path().write_text(
+            json.dumps({"skills": {}}), encoding="utf-8")  # no "updated" key
+        monkeypatch.setattr("boost_cli.core.util.now_iso",
+                            lambda: "2026-05-05T05:05:05Z")
+        lockfile.write({"skills": {"z": {}}})
+        snaps = list(paths.lock_history_dir().glob("lock-*.json"))
+        assert [s.name for s in snaps] == ["lock-20260505T050505Z.json"]
+
 
 class TestPrune:
     def test_prune_55_keeps_50_newest(self, sandbox):
@@ -413,3 +440,116 @@ class TestKindAgnosticAccessors:
         hist = lockfile.history_list()
         assert hist, "the fourth write must have snapshotted the third state"
         assert hist[-1]["count"] == 3
+
+
+class TestPortable:
+    """lockfile.portable() — strip machine-specific paths before a lock
+    snapshot leaves this machine (``boost onboard`` commits one into a repo).
+    """
+
+    def test_home_rooted_rule_path_is_tildified(self, sandbox):
+        home_path = str(paths.home() / ".claude" / "CLAUDE.md")
+        lock = {"version": 3, "skills": {}, "workflows": {}, "rules": {
+            "house-style": {"kind": "rule", "materializations": [
+                {"agent": "claude-code", "path": home_path, "sha256": "abc"}]}}}
+        projected = lockfile.portable(lock)
+        path = projected["rules"]["house-style"]["materializations"][0]["path"]
+        assert path == "~/.claude/CLAUDE.md"
+        assert "$HOME" not in path
+
+    def test_workflow_materializations_are_also_projected(self, sandbox):
+        home_path = str(paths.home() / ".gemini" / "commands" / "ship.toml")
+        lock = {"version": 3, "skills": {}, "rules": {}, "workflows": {
+            "ship-it": {"kind": "workflow", "materializations": [
+                {"agent": "gemini", "slot": "commands", "path": home_path}]}}}
+        projected = lockfile.portable(lock)
+        path = projected["workflows"]["ship-it"]["materializations"][0]["path"]
+        assert path == "~/.gemini/commands/ship.toml"
+
+    def test_path_outside_home_is_left_alone(self, sandbox):
+        # A project-scope base can sit anywhere; tilde() only contracts a real
+        # $HOME boundary, so an unrelated absolute path passes through as-is.
+        lock = {"version": 3, "skills": {}, "workflows": {}, "rules": {
+            "r": {"kind": "rule", "materializations": [
+                {"agent": "cursor", "path": "/srv/repo/.cursor/rules/r.mdc"}]}}}
+        projected = lockfile.portable(lock)
+        path = projected["rules"]["r"]["materializations"][0]["path"]
+        assert path == "/srv/repo/.cursor/rules/r.mdc"
+
+    def test_entry_without_materializations_passes_through_untouched(self, sandbox):
+        lock = {"version": 3, "workflows": {}, "rules": {},
+                "skills": {"brainstorming": {"version": "1.0.0", "agents": ["claude-code"]}}}
+        projected = lockfile.portable(lock)
+        assert projected["skills"]["brainstorming"] == {
+            "version": "1.0.0", "agents": ["claude-code"]}
+
+    def test_materialization_missing_path_key_is_tolerated(self, sandbox):
+        lock = {"version": 3, "skills": {}, "workflows": {}, "rules": {
+            "r": {"kind": "rule", "materializations": [{"agent": "cursor"}]}}}
+        projected = lockfile.portable(lock)
+        assert projected["rules"]["r"]["materializations"][0] == {"agent": "cursor"}
+
+    def test_does_not_mutate_the_input(self, sandbox):
+        home_path = str(paths.home() / ".claude" / "CLAUDE.md")
+        lock = {"version": 3, "skills": {}, "workflows": {}, "rules": {
+            "r": {"kind": "rule", "materializations": [
+                {"agent": "claude-code", "path": home_path}]}}}
+        lockfile.portable(lock)
+        assert lock["rules"]["r"]["materializations"][0]["path"] == home_path
+
+    def test_multiple_entries_and_sections_all_projected(self, sandbox):
+        home = paths.home()
+        lock = {"version": 3,
+                "skills": {},
+                "rules": {
+                    "a": {"kind": "rule", "materializations": [
+                        {"agent": "cursor", "path": str(home / ".cursor" / "rules" / "a.mdc")}]},
+                    "b": {"kind": "rule", "materializations": [
+                        {"agent": "claude-code", "path": str(home / ".claude" / "CLAUDE.md")}]},
+                },
+                "workflows": {
+                    "c": {"kind": "workflow", "materializations": [
+                        {"agent": "gemini", "path": str(home / ".gemini" / "commands" / "c.toml")}]},
+                }}
+        projected = lockfile.portable(lock)
+        assert projected["rules"]["a"]["materializations"][0]["path"] == "~/.cursor/rules/a.mdc"
+        assert projected["rules"]["b"]["materializations"][0]["path"] == "~/.claude/CLAUDE.md"
+        assert projected["workflows"]["c"]["materializations"][0]["path"] == "~/.gemini/commands/c.toml"
+
+class TestAgentNames:
+    """agent_names() — one sorted agent list for a skill's flat ``agents``
+    and a rule/workflow's per-agent ``materializations``, so `info`/`stats`
+    stop rendering one order for a skill and a different one for a rule."""
+
+    def test_skill_reads_the_flat_agents_list(self):
+        entry = {"agents": ["windsurf", "claude-code", "cursor"]}
+        assert lockfile.agent_names("skill", entry) == \
+            ["claude-code", "cursor", "windsurf"]
+
+    def test_rule_reads_agent_names_out_of_materializations(self):
+        entry = {"materializations": [
+            {"agent": "cursor", "mode": "file"},
+            {"agent": "claude-code", "mode": "claude"}]}
+        assert lockfile.agent_names("rule", entry) == ["claude-code", "cursor"]
+
+    def test_workflow_dedupes_repeated_agent_names(self):
+        # A workflow can materialize more than one file for the same agent
+        # (e.g. a TOML command plus an agents/ doc) — the agent is still
+        # counted once.
+        entry = {"materializations": [
+            {"agent": "gemini"}, {"agent": "gemini"}, {"agent": "cursor"}]}
+        assert lockfile.agent_names("workflow", entry) == ["cursor", "gemini"]
+
+    def test_missing_agent_key_in_a_materialization_is_a_placeholder(self):
+        entry = {"materializations": [{"mode": "file"}]}
+        assert lockfile.agent_names("rule", entry) == ["?"]
+
+    def test_none_entry_is_an_empty_list_for_either_kind(self):
+        assert lockfile.agent_names("skill", None) == []
+        assert lockfile.agent_names("rule", None) == []
+
+    def test_empty_agents_or_materializations_is_an_empty_list(self):
+        assert lockfile.agent_names("skill", {"agents": []}) == []
+        assert lockfile.agent_names("rule", {"materializations": []}) == []
+        assert lockfile.agent_names("skill", {}) == []
+        assert lockfile.agent_names("rule", {}) == []

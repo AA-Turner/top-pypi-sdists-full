@@ -53,22 +53,36 @@ def uuid5(namespace, name):
     return _from_int(uuid_utils.uuid5(namespace, name).int)
 
 
-def uuid6(node=None, timestamp=None):
-    """Generate a version 6 UUID using the given timestamp and a host ID.
-    This is similar to version 1 UUIDs,
-    except that it is lexicographically sortable by timestamp.
+def uuid6(node=None, clock_seq=None):
+    """Similar to `uuid1` but where fields are ordered differently
+    for improved DB locality.
+
+    More precisely, given a 60-bit timestamp value as specified for UUIDv1,
+    for UUIDv6 the first 48 most significant bits are stored first, followed
+    by the 4-bit version (same position), followed by the remaining 12 bits
+    of the original 60-bit timestamp.
     """
-    return _from_int(uuid_utils.uuid6(node, timestamp).int)
+    return _from_int(uuid_utils.uuid6(node, clock_seq).int)
 
 
-def uuid7(timestamp=None, nanos=None):
-    """Generate a version 7 UUID using a time value and random bytes."""
-    return _from_int(_uuid7_int(timestamp, nanos))
+def uuid7(*, nanoseconds=None):
+    """Generate a UUID from a Unix timestamp in milliseconds and random bits.
+
+    UUIDv7 objects feature monotonicity within a millisecond.
+    """
+    return _from_int(_uuid7_int(nanoseconds=nanoseconds))
 
 
-def uuid8(bytes):
-    """Generate a custom UUID comprised almost entirely of user-supplied bytes."""
-    return _from_int(uuid_utils.uuid8(bytes).int)
+def uuid8(a=None, b=None, c=None):
+    """Generate a UUID from three custom blocks.
+
+    * 'a' is the first 48-bit chunk of the UUID (octets 0-5);
+    * 'b' is the mid 12-bit chunk (octets 6-7);
+    * 'c' is the last 62-bit chunk (octets 8-15).
+
+    When a value is not specified, a pseudo-random value is generated.
+    """
+    return _from_int(uuid_utils.uuid8(a, b, c).int)
 
 
 __all__ = [

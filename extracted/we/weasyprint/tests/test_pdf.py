@@ -314,7 +314,7 @@ def test_links():
         p { display: block; height: 90pt; margin: 0 0 10pt 0 }
         img { width: 30pt; vertical-align: top }
       </style>
-      <p><a href="https://weasyprint.org"><img src=pattern.png></a></p>
+      <p><a href=" https://weasy\nprint.org\t"><img src=pattern.png></a></p>
       <p style="padding: 0 10pt"><a
          href="#lipsum"><img style="border: solid 1pt"
                              src=pattern.png></a></p>
@@ -400,19 +400,6 @@ def test_relative_links_missing_base():
 
 
 @assert_no_logs
-def test_relative_links_missing_base_link():
-    # Relative URI reference without a base URI: not supported for -weasy-link
-    with capture_logs() as logs:
-        pdf = FakeHTML(
-            string='<div style="-weasy-link: url(../lipsum)">',
-            base_url=None).write_pdf()
-    assert b'/Annots' not in pdf
-    assert len(logs) == 1
-    assert 'WARNING: Ignored `-weasy-link: url(../lipsum)`' in logs[0]
-    assert 'Relative URI reference without a base URI' in logs[0]
-
-
-@assert_no_logs
 def test_relative_links_internal():
     # Internal URI reference without a base URI: OK
     pdf = FakeHTML(
@@ -432,7 +419,7 @@ def test_relative_links_internal():
 @assert_no_logs
 def test_relative_links_anchors():
     pdf = FakeHTML(
-        string='<div style="-weasy-link: url(#lipsum)" id="lipsum"></div>a',
+        string='<a href="#lipsum" id="lipsum" style="display: block"></a>a',
         base_url=None).write_pdf()
     assert b'/Dest (lipsum)' in pdf
     link = re.search(
@@ -584,7 +571,9 @@ def test_embedded_files_attachments(tmp_path):
           <link
             rel="attachment"
             title="some file attachment äöü"
-            href="data:,hi%20there">
+            href="
+              data:,hi%20there
+            ">
           <link rel="attachment" href="{absolute_url}">
           <link rel="attachment" href="{relative_tmp_path.name}">
           <h1>Heading 1</h1>
@@ -687,14 +676,34 @@ def test_annotations():
       <title>Test document</title>
       <meta charset="utf-8">
       <a
+        download="test.txt"
         rel="attachment"
         href="data:,some data"
-        download>A link that lets you download an attachment</a>
+      >A link that lets you download an attachment</a>
     ''').write_pdf()
 
     assert hashlib.md5(b'some data').hexdigest().encode() in pdf
     assert b'/FileAttachment' in pdf
     assert b'/EmbeddedFiles' not in pdf
+    assert b'test.txt' in pdf
+
+
+@assert_no_logs
+def test_annotations_base64():
+    pdf = FakeHTML(string='''
+      <title>Test document</title>
+      <meta charset="utf-8">
+      <a
+        rel="attachment"
+        href="data:text/plain;base64,c3VwZXI="
+        download>A link that lets you download an attachment</a>
+    ''').write_pdf()
+
+    assert hashlib.md5(b'super').hexdigest().encode() in pdf
+    assert b'/FileAttachment' in pdf
+    assert b'/EmbeddedFiles' not in pdf
+    assert b'c3VwZXI=' not in pdf
+    assert b'attachment.bin' in pdf
 
 
 @pytest.mark.parametrize(('style', 'media', 'bleed', 'trim'), [
@@ -746,6 +755,20 @@ def test_custom_rdf_metadata():
 
 
 @assert_no_logs
+def test_color_spaces_with_icc_output_intent():
+    shading_pdf = FakeHTML(string='''
+      <style>html { background: linear-gradient(red, blue) }</style>
+    ''').write_pdf(output_intent='srgb')
+    group_pdf = FakeHTML(string='''
+      <div style="width: 1px; height: 1px; background: red; opacity: .5"></div>
+    ''').write_pdf(output_intent='srgb')
+
+    profile = rb'\[/ICCBased \d+ 0 R\]'
+    assert re.search(rb'/ShadingType 2/ColorSpace ' + profile, shading_pdf)
+    assert re.search(rb'/Group <<[^>]+/CS ' + profile, group_pdf)
+
+
+@assert_no_logs
 def test_font_descent_ascent():
     pdf = FakeHTML(string='''
       <html style="font-family: weasyprint">abc
@@ -763,8 +786,161 @@ def test_pdf_tags_inline_table():
 
 
 @assert_no_logs
+def test_pdf_tags_anonymous_table_cells():
+    # Regression test for #2726.
+    pdf = FakeHTML(string='''
+      <html lang="en"><table><tr><th>a<div>b</th><td>a<p>b</p>
+    ''').write_pdf(pdf_tags=True)
+    assert pdf.count(b'/TH') == 1
+    assert pdf.count(b'/TD') == 1
+
+
+@assert_no_logs
+def test_pdf_tags_split_table_with_caption():
+    # Regression test for #2761.
+    FakeHTML(string='''
+      <html lang="en" style="font: 2px/1 weasyprint">
+        <style>@page { size: 3px }</style>
+        <table><caption>caption</caption><tr><td>td</td></tr></table>
+      </html>
+    ''').write_pdf(pdf_tags=True)
+
+
+@assert_no_logs
+def test_pdf_tags_nested_lists_order():
+    # Regression test for #2874.
+    pdf = FakeHTML(string='''
+      <html lang=fr><ul>
+        <li>a</li>
+        <li>
+          ba
+          <ul>
+            <li>b1</li>
+            <li>b2</li>
+          </ul>
+          bb
+        </li>
+        <li>c</li>
+      </ul>
+    ''').write_pdf(pdf_tags=True)
+    list_children = re.findall(b'/S ?/L ?/K.*\\[(.*)\\]', pdf)
+    for children in list_children:
+        numbers = [int(number) for number in re.findall(b'[1-9][0-9]*', children)]
+        assert sorted(numbers) == numbers
+
+
+def test_pdf_tags_table_headers():
+    pdf = FakeHTML(string='''
+      <html lang="fr">
+        <table>
+          <thead>
+            <th></th><th>1</th><th>2</th><th>3</th>
+          </thead>
+          <tr>
+            <th scope="row">1</th><td>1-1</td><td>1-2</td>
+          </tr>
+          <tr>
+            <th scope="row">2</th><td>2-1</td><td rowspan="2">2/3-2</td><td>2-3</td>
+          </tr>
+          <tr>
+            <th scope="row">3</th><td>3-1</td><td>3-3</td>
+          </tr>
+          <tr>
+            <th scope="row">4</th><td colspan="3">4-1/2/3</td>
+          </tr>
+        </table>
+      </html>
+    ''').write_pdf(pdf_tags=True, uncompressed_pdf=True)
+    assert pdf.count(b'/RowSpan 2') == 1
+    assert pdf.count(b'/ColSpan 3') == 1
+    id = re.findall(b'(.+) 0 obj\n.*/S /Table', pdf)[0].decode()
+    assert f'[({id}-1-0) ({id}-0-1)]'.encode() in pdf
+    assert f'[({id}-2-0) ({id}-3-0) ({id}-0-2)]'.encode() in pdf
+    assert f'[({id}-4-0) ({id}-0-1) ({id}-0-2) ({id}-0-3)]'.encode() in pdf
+
+
+@pytest.mark.parametrize(('html', 'fields'), [
+    ('<input>', ['/Tx', '/V ()']),
+    ('<input value="">', ['/Tx', '/V ()']),
+    ('<input type="checkbox">', ['/Btn']),
+    ('<input type="radio">',
+     ['/Btn', '/V /Off', '/AS /Off', '/Ff 49152']),
+    ('<input checked type="radio" name="foo" value="value">',
+     ['/Btn', '/T (foo)', '/V /0', '/AS /0']),
+    ('<form><input type="radio" name="foo" value="v0"></form>'
+     '<form><input checked type="radio" name="foo" value="v1"></form>',
+     ['/Btn', '/AS /0', '/V /0', '/AS /Off', '/V /Off']),
+    ('<textarea></textarea>', ['/Tx', '/V ()']),
+    ('<select><option value="a">A</option></select>', ['/Ch', '/Opt']),
+    ('<select>'
+     '<option value="a">A</option>'
+     '<option value="b" selected>B</option>'
+     '</select>', ['/Ch', '/Opt', '/V (b)']),
+    ('<select multiple>'
+     '<option value="a">A</option>'
+     '<option value="b" selected>B</option>'
+     '<option value="c" selected>C</option>'
+     '</select>', ['/Ch', '/Opt', '[(b) (c)]']),
+    ('<form><input name=name>', ['/TU (name)']),
+    ('<form><input name=name id=input>', ['/TU (name)']),
+    ('<form><input name=name placeholder=placeholder>', ['/TU (placeholder)']),
+    ('<form><input placeholder=placeholder title=title>', ['/TU (title)']),
+    ('<form><label for=input>\nLabel\n</label><input id=input>', ['/TU (Label)']),
+    ('<form><label>\nLabel\n<input name=name id=input>', ['/TU (Label)']),
+    ('<form><label><input name=name> Label </label>', ['/TU (Label)']),
+])
+def test_pdf_forms(html, fields):
+    pdf = FakeHTML(string=html).write_pdf(pdf_forms=True, uncompressed_pdf=True)
+    assert b'AcroForm' in pdf
+    for field in fields:
+        assert field.encode() in pdf
+
+
+@assert_no_logs
 def test_pdf_ua_2_namespace_type():
     # Regression test for #2786.
     pdf = FakeHTML(string='<html lang="en"><body>abc').write_pdf(
         pdf_variant='pdf/ua-2', uncompressed_pdf=True)
     assert b'/Type /Namespace' in pdf
+
+
+@assert_no_logs
+def test_svg_gradient_color_ops_before_path():
+    # Regression test for #2762. SVG gradient color-setting operators
+    # (CS/SCN) must appear before path-construction operators (m/l/c/re),
+    # per ISO 32000-1 §8.5.2.1 — color operators are forbidden in the
+    # path object state.
+    pdf = FakeHTML(string='''
+      <svg viewBox="0 0 100 10" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g">
+            <stop stop-color="transparent" offset="0"/>
+            <stop stop-color="#008dd4" offset="1"/>
+          </linearGradient>
+        </defs>
+        <path d="M 0,5 h 100" fill="none" stroke="url(#g)" stroke-width="10"/>
+      </svg>
+    ''').write_pdf()
+    cs_offset = pdf.find(b'/Pattern CS')
+    assert cs_offset != -1
+    lineto_offset = pdf.find(b'100 5 l')
+    assert lineto_offset != -1
+    assert cs_offset < lineto_offset
+
+
+@assert_no_logs
+def test_links_note():
+    pdf = FakeHTML(string='''
+      <style>
+        @page {
+          @note-area {
+            content: element(sidenotes, all-once);
+          }
+        }
+        span {
+          display: block;
+          position: note(sidenotes);
+        }
+      </style>
+      <div>abc<span>de</span>fgh<span>ij</span></div>''').write_pdf()
+    assert b'/Dest (note-1)' in pdf

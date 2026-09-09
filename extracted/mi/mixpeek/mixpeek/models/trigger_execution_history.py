@@ -19,8 +19,8 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,7 +31,7 @@ class TriggerExecutionHistory(BaseModel):
     task_id: StrictStr = Field(description="Task ID")
     triggered_at: datetime = Field(description="When trigger fired")
     status: StrictStr = Field(description="Execution status")
-    execution_time_ms: Optional[StrictInt] = Field(default=None, description="Execution time in milliseconds")
+    execution_time_ms: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Execution time in milliseconds")
     error: Optional[StrictStr] = Field(default=None, description="Error message if failed")
     __properties: ClassVar[List[str]] = ["task_id", "triggered_at", "status", "execution_time_ms", "error"]
 

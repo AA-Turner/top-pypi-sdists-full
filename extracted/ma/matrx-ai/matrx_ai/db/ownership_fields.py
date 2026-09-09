@@ -45,3 +45,25 @@ def stamp_org_id(row: dict[str, Any], organization_id: str | None) -> None:
     """
     if organization_id:
         row.setdefault("organization_id", organization_id)
+
+
+def is_organization_system_actor(owner_id: Any, ctx: Any) -> bool:
+    """Only an explicitly org-owned system run may have no human actor.
+
+    This grants no read authority. Normal chats and malformed nonempty actors
+    still require their real user UUID; callers must authorize the work first.
+    """
+    from uuid import UUID
+
+    if owner_id is not None and (not isinstance(owner_id, str) or owner_id.strip()):
+        return False
+    if ctx is None or getattr(ctx, "system_run", False) is not True:
+        return False
+    org = getattr(ctx, "organization_id", None)
+    if not isinstance(org, str):
+        return False
+    try:
+        UUID(org)
+    except (ValueError, AttributeError):
+        return False
+    return True

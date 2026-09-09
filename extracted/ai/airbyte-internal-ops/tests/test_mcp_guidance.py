@@ -14,8 +14,8 @@ def test_shared_hosted_mcp_mode(
     error = AirbyteNoCloudCredentialsError(_allow_bearer=False)
     if hosted:
         assert error.guidance == (
-            "Provide client credentials via the `X-Airbyte-Cloud-Client-Id` and "
-            "`X-Airbyte-Cloud-Client-Secret` headers."
+            "Provide client credentials via the transport `Client-Id` and "
+            "`Client-Secret` headers."
         )
     else:
         assert error.guidance == (

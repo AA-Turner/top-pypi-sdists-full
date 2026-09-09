@@ -60,7 +60,7 @@ from matrx_utils import detached_task, vcprint
 
 from matrx_ai.agents.conversation_type import derive_conversation_type
 
-from .ownership_fields import stamp_org_id, stamp_row_owner
+from .ownership_fields import is_organization_system_actor, stamp_org_id, stamp_row_owner
 
 
 def _cxm():
@@ -169,6 +169,33 @@ def _require_valid_user_id(user_id: str | None, context: str = "") -> str:
         f"a valid UUID is required. Guest users are assigned a UUID via "
         f"guest_executions at the middleware layer before reaching this point."
     )
+
+
+def _require_persistence_actor(user_id: str | None, context: str) -> str | None:
+    from matrx_ai.context.app_context import try_get_app_context
+
+    if is_organization_system_actor(user_id, try_get_app_context()):
+        return None
+    return _require_valid_user_id(user_id, context)
+
+
+def _verify_system_anchor_owner(rows: list[Any], user_id: str | None) -> None:
+    if user_id is not None or not rows:
+        return
+    from matrx_ai.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    row = rows[0]
+    org = (
+        row.get("organization_id")
+        if isinstance(row, dict)
+        else getattr(row, "organization_id", None)
+    )
+    owner = row.get("created_by") if isinstance(row, dict) else getattr(row, "created_by", None)
+    if owner is not None or str(org or "") != getattr(ctx, "organization_id", None):
+        raise ConversationGateError(
+            "System-run persistence anchor belongs to a different principal"
+        )
 
 
 def _stamp_agent_refs(
@@ -1193,12 +1220,14 @@ async def ensure_conversation_exists(
         )
         return
 
-    safe_user_id = _require_valid_user_id(user_id, "ensure_conversation_exists")
+    safe_user_id = _require_persistence_actor(user_id, "ensure_conversation_exists")
 
     # Memo fast-path — prep already created (or a prior call confirmed) this row.
     # Skip the existence SELECT; still do the cheap tracker registration.
     memo_scope = _known_conversation_ids.get(conversation_id)
-    if memo_scope is _ENSURED_DURABLE or memo_scope == _coord_scope_key():
+    if safe_user_id is not None and (
+        memo_scope is _ENSURED_DURABLE or memo_scope == _coord_scope_key()
+    ):
         _known_conversation_ids.move_to_end(conversation_id)
         tracker = try_get_tracker()
         if tracker:
@@ -1209,6 +1238,7 @@ async def ensure_conversation_exists(
         id=conversation_id,
     )
     if existing:
+        _verify_system_anchor_owner(existing, safe_user_id)
         mark_conversation_known(conversation_id, scope=_ENSURED_DURABLE)
         tracker = try_get_tracker()
         if tracker:
@@ -1328,7 +1358,12 @@ async def ensure_conversation_exists(
             id=conversation_id,
         )
         if recheck:
+            _verify_system_anchor_owner(recheck, safe_user_id)
             return
+        if safe_user_id is None:
+            raise ConversationGateError(
+                "Cannot establish organization system-run conversation anchor"
+            ) from exc
         vcprint(
             f"[ConversationGate] Failed to ensure conversation: {exc}",
             color="yellow",
@@ -1652,7 +1687,7 @@ async def _get_user_request_lock(request_id: str) -> asyncio.Lock:
 async def _create_user_request(
     *,
     request_id: str,
-    user_id: str,
+    user_id: str | None,
 ) -> None:
     """Create (or queue) a single cx_user_request row under ``request_id``.
 
@@ -1669,6 +1704,7 @@ async def _create_user_request(
 
     existing = await _cxm().user_request.filter_user_requests(id=request_id)
     if existing:
+        _verify_system_anchor_owner(existing, user_id)
         tracker = try_get_tracker()
         if tracker:
             tracker.register_existing("matrx", "user_request", request_id)
@@ -1701,7 +1737,7 @@ async def _create_user_request(
         id_key="agent_id",
         version_key="agent_version_id",
     )
-    stamp_row_owner(create_kwargs, user_id)
+    create_kwargs["created_by"] = user_id
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
 
     # Route through the WriteCoordinator when in a request scope.
@@ -1755,9 +1791,14 @@ async def _create_user_request(
     except Exception as exc:
         recheck = await _cxm().user_request.filter_user_requests(id=request_id)
         if recheck:
+            _verify_system_anchor_owner(recheck, user_id)
             # Cross-process race resolved — another worker beat us to the
             # insert.  Silently consume and let the caller proceed.
             return
+        if user_id is None:
+            raise ConversationGateError(
+                "Cannot establish organization system-run request anchor"
+            ) from exc
         vcprint(
             f"[ConversationGate] Failed to ensure request "
             f"(legacy cx_user_request · runtime.global_request): {exc}",
@@ -1802,7 +1843,7 @@ async def ensure_user_request_exists(
         )
         return
 
-    safe_user_id = _require_valid_user_id(user_id, "ensure_user_request_exists")
+    safe_user_id = _require_persistence_actor(user_id, "ensure_user_request_exists")
 
     lock = await _get_user_request_lock(request_id)
     async with lock:
@@ -1815,8 +1856,10 @@ async def ensure_user_request_exists(
         # into its own Session (see the memo doc above: the concurrent
         # podcast-fan-out FK-orphan class).
         memo_scope = _ensured_request_ids.get(request_id)
-        if memo_scope is not None and (
-            memo_scope is _ENSURED_DURABLE or memo_scope == _coord_scope_key()
+        if (
+            safe_user_id is not None
+            and memo_scope is not None
+            and (memo_scope is _ENSURED_DURABLE or memo_scope == _coord_scope_key())
         ):
             _ensured_request_ids.move_to_end(request_id)
             tracker = try_get_tracker()
@@ -1826,6 +1869,7 @@ async def ensure_user_request_exists(
 
         existing = await _cxm().user_request.filter_user_requests(id=request_id)
         if existing:
+            _verify_system_anchor_owner(existing, safe_user_id)
             # Already recorded — normal retry / resume / multi-turn /
             # batch-fan-out path. One row per user action, shared by every
             # cx_request it spawns regardless of conversation.

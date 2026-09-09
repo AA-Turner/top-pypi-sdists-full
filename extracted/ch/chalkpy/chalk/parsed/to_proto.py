@@ -1817,6 +1817,7 @@ class ToProtoConverter:
             time_resolution=time_resolution_proto,
             update_cadence=update_cadence_str,
             observation_sampling_strategy=observation_sampling_strategy,
+            background_compaction=view.background_compaction,
         )
         if view.lower_bound is not None:
             kwargs["lower_bound"] = datetime_to_proto_timestamp(view.lower_bound)

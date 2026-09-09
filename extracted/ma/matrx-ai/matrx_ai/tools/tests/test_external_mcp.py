@@ -171,9 +171,45 @@ async def test_http_tool_call_preserves_structured_content_without_content_block
 
     assert result.success is True
     assert result.error is None
-    assert result.output is not None
-    assert '"title": "Headphones"' in result.output
-    assert result.output != "[]"
+    assert result.output == {
+        "products": [{"id": "product-1", "title": "Headphones"}],
+        "pagination": {"cursor": None},
+    }
+
+
+@pytest.mark.asyncio
+async def test_http_tool_call_prefers_typed_content_over_text_compatibility_block(
+    monkeypatch,
+) -> None:
+    client = ExternalMCPClient()
+
+    async def _send(server_url, payload, auth):
+        return {
+            "jsonrpc": "2.0",
+            "id": payload["id"],
+            "result": {
+                "content": [{"type": "text", "text": "Human-readable compatibility text"}],
+                "structuredContent": {"count": 1, "results": [{"name": "latest"}]},
+            },
+        }
+
+    monkeypatch.setattr(client, "_send", _send)
+    tool_def = ToolDefinition(
+        name="mcp.docker-hub.listRepositoryTags",
+        tool_type=ToolType.EXTERNAL_MCP,
+        mcp_transport="http",
+        mcp_server_url="https://docker.example/mcp",
+        output_schema={"type": "object"},
+    )
+
+    result = await client.call_tool(
+        tool_def,
+        {"namespace": "library", "repository": "python"},
+        SimpleNamespace(call_id="typed-content-test"),
+    )
+
+    assert result.success is True
+    assert result.output == {"count": 1, "results": [{"name": "latest"}]}
 
 
 @pytest.mark.asyncio

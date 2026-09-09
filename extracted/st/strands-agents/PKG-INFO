@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents
-Version: 1.54.0
+Version: 1.55.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -27,7 +27,7 @@ Requires-Dist: botocore<2.0.0,>=1.29.0
 Requires-Dist: docstring-parser<1.0,>=0.15
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: jsonschema<5.0.0,>=4.0.0
-Requires-Dist: mcp<2.0.0,>=1.23.0
+Requires-Dist: mcp<2.2,>=1.23.0
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-instrumentation-threading<1.00b0,>=0.51b0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
@@ -48,6 +48,7 @@ Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: aws-bedrock-token-generator<2.0.0,>=1.1.0; extra == 'all'
 Requires-Dist: aws-sdk-bedrock-runtime[awscrt]<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'all'
+Requires-Dist: beautifulsoup4<5.0.0,>=4.9.0; extra == 'all'
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'all'
 Requires-Dist: cedar-policy-mcp-schema-generator==0.6.0; extra == 'all'
 Requires-Dist: cedarpy==4.8.7; extra == 'all'
@@ -57,13 +58,14 @@ Requires-Dist: google-genai<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
 Requires-Dist: litellm<=1.96.0,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
+Requires-Dist: markdownify<2.0.0,>=1.1.0; extra == 'all'
 Requires-Dist: mistralai<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: numpy<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'all'
-Requires-Dist: pywebrtc-audio<0.2.0,>=0.1.0; extra == 'all'
+Requires-Dist: pywebrtc-audio<0.3.0,>=0.2.0; extra == 'all'
 Requires-Dist: smithy-aws-core<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'all'
 Requires-Dist: smithy-core<0.9.0,>=0.8.0; (python_version >= '3.12') and extra == 'all'
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'all'
@@ -82,7 +84,7 @@ Requires-Dist: smithy-aws-core<0.12.0,>=0.11.0; (python_version >= '3.12') and e
 Requires-Dist: smithy-core<0.9.0,>=0.8.0; (python_version >= '3.12') and extra == 'bidi'
 Provides-Extra: bidi-aec
 Requires-Dist: numpy<3.0.0,>=2.0.0; extra == 'bidi-aec'
-Requires-Dist: pywebrtc-audio<0.2.0,>=0.1.0; extra == 'bidi-aec'
+Requires-Dist: pywebrtc-audio<0.3.0,>=0.2.0; extra == 'bidi-aec'
 Provides-Extra: bidi-all
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'bidi-all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'bidi-all'
@@ -93,7 +95,7 @@ Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'bidi-all'
 Requires-Dist: numpy<3.0.0,>=2.0.0; extra == 'bidi-all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'bidi-all'
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-all'
-Requires-Dist: pywebrtc-audio<0.2.0,>=0.1.0; extra == 'bidi-all'
+Requires-Dist: pywebrtc-audio<0.3.0,>=0.2.0; extra == 'bidi-all'
 Requires-Dist: smithy-aws-core<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'bidi-all'
 Requires-Dist: smithy-core<0.9.0,>=0.8.0; (python_version >= '3.12') and extra == 'bidi-all'
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'bidi-all'
@@ -147,6 +149,9 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == '
 Provides-Extra: sagemaker
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'sagemaker'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'sagemaker'
+Provides-Extra: web-fetch
+Requires-Dist: beautifulsoup4<5.0.0,>=4.9.0; extra == 'web-fetch'
+Requires-Dist: markdownify<2.0.0,>=1.1.0; extra == 'web-fetch'
 Provides-Extra: writer
 Requires-Dist: writer-sdk<4.0.0,>=2.2.0; extra == 'writer'
 Description-Content-Type: text/markdown
@@ -256,7 +261,7 @@ response = agent("Use any tools you find in the tools directory")
 
 ### MCP Support
 
-Seamlessly integrate Model Context Protocol (MCP) servers:
+Connect to Model Context Protocol (MCP) servers:
 
 ```python
 from strands import Agent
@@ -271,6 +276,8 @@ with aws_docs_client:
    agent = Agent(tools=aws_docs_client.list_tools_sync())
    response = agent("Tell me about Amazon Bedrock and how to use it with Python")
 ```
+
+The SDK works with both major versions of the `mcp` package through a built-in compatibility layer, so most code that uses `MCPClient` runs unchanged on either version. A fresh install resolves to mcp 2.x, and pinning `mcp<2` keeps you on 1.x. See [docs/MCP_VERSIONS.md](./docs/MCP_VERSIONS.md) for support status, the behavior differences on 2.x, and migration notes.
 
 ### Multiple Model Providers
 
@@ -357,7 +364,7 @@ It's also available on GitHub via [strands-agents/tools](https://github.com/stra
 Build real-time voice and audio conversations with persistent streaming connections. Unlike traditional request-response patterns, bidirectional streaming maintains long-running conversations where users can interrupt, provide continuous input, and receive real-time audio responses. Get started with your first BidiAgent by following the [Quickstart](https://strandsagents.com/docs/user-guide/concepts/bidirectional-streaming/quickstart/) guide. 
 
 **Supported Model Providers:**
-- Amazon Nova Sonic (v1, v2)
+- Amazon Bedrock Nova Sonic (v1, v2)
 - Google Gemini Live
 - OpenAI Realtime API
 
@@ -374,20 +381,20 @@ pip install strands-agents[bidi-all]
 pip install strands-agents[bidi-pyaudio]
 ```
 
-> **Note**: Amazon Nova Sonic requires Python 3.12+ due to its experimental AWS SDK dependency.
+> **Note**: Bedrock Nova Sonic requires Python 3.12+ due to its experimental AWS SDK dependency.
 
 **Quick Example:**
 
 ```python
 import asyncio
 from strands.experimental.bidi import BidiAgent
-from strands.experimental.bidi.models import BidiNovaSonicModel
+from strands.experimental.bidi.models import BedrockNovaSonicModel
 from strands.experimental.bidi.io import BidiAudioIO, BidiTextIO
 from strands_tools import calculator, stop
 
 async def main():
     # Create bidirectional agent with Nova Sonic v2
-    model = BidiNovaSonicModel()
+    model = BedrockNovaSonicModel()
     agent = BidiAgent(model=model, tools=[calculator, stop])
 
     # Setup audio and text I/O (local audio requires the bidi-pyaudio extra)
@@ -413,24 +420,24 @@ if __name__ == "__main__":
 **Configuration Options:**
 
 ```python
-from strands.experimental.bidi.models import BidiNovaSonicModel
+from strands.experimental.bidi.models import BedrockNovaSonicModel
 
-# Configure audio settings and turn detection (v2 only)
-model = BidiNovaSonicModel(
-    provider_config={
-        "audio": {
-            "input_rate": 16000,
-            "output_rate": 16000,
-            "voice": "matthew"
+# Configure audio streams and Nova Sonic session parameters.
+model = BedrockNovaSonicModel(
+    audio={
+        "input_rate": 16000,
+        "output_rate": 16000,
+        "voice": "matthew",
+    },
+    params={
+        "turnDetectionConfiguration": {
+            "endpointingSensitivity": "MEDIUM"
         },
-        "turn_detection": {
-            "endpointingSensitivity": "MEDIUM"  # HIGH, MEDIUM, or LOW
-        },
-        "inference": {
-            "max_tokens": 2048,
+        "inferenceConfiguration": {
+            "maxTokens": 2048,
             "temperature": 0.7
-        }
-    }
+        },
+    },
 )
 
 # Configure I/O devices

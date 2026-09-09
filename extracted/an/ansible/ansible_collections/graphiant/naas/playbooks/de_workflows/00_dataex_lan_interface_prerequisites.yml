@@ -1,4 +1,10 @@
 ---
+# Usage:
+#   ansible-playbook ansible_collections/graphiant/naas/playbooks/de_workflows/00_dataex_lan_interface_prerequisites.yml
+#
+#   Custom config file:
+#     ansible-playbook ... -e config_file=de_workflows_configs/sample_edge_lan_interfaces_config.yaml
+
 - name: Data Exchange Proxy Tenant Prerequisites
   hosts: localhost
   gather_facts: false
@@ -23,7 +29,7 @@
     - name: Configure LAN interfaces for producer edge devices
       graphiant.naas.graphiant_interfaces:
         <<: *graphiant_client_params
-        interface_config_file: "de_workflows_configs/sample_edge_lan_interfaces_config.yaml"
+        interface_config_file: "{{ config_file | default('de_workflows_configs/sample_edge_lan_interfaces_config.yaml') }}"
         operation: "configure_lan_interfaces"
         detailed_logs: true
         state: present

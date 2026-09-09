@@ -10,8 +10,39 @@ else:  # pragma: <3.11 cover
     import tomli as tomllib
 
 import pytest
+from trove_classifiers import classifiers
 
-from pyproject_fmt.__main__ import runner as run
+from pyproject_fmt import build_parser, run
+
+
+def test_build_parser_uses_program_name() -> None:
+    assert build_parser().prog == "pyproject-fmt"
+
+
+def test_the_default_max_supported_python_names_a_published_classifier() -> None:
+    """PyPI turns away an upload naming a classifier it does not publish, so the default writes none."""
+    major, minor = build_parser().get_default("max_supported_python")
+
+    assert f"Programming Language :: Python :: {major}.{minor}" in classifiers
+
+
+def test_the_default_max_supported_python_trails_the_newest_classifier_by_one() -> None:
+    """
+    A classifier is published while its release is still in beta, so the newest one runs a release
+    ahead of the newest that ships. Two ahead says a release has shipped that the default leaves out,
+    which is what asks for the bump.
+    """
+    major, minor = build_parser().get_default("max_supported_python")
+    published = max(
+        int(held)
+        for name in classifiers
+        if (held := name.removeprefix(f"Programming Language :: Python :: {major}.")).isdigit()
+        and name.startswith(f"Programming Language :: Python :: {major}.")
+    )
+
+    assert published - minor <= 1, (
+        f"Python {major}.{published} has a classifier, so the default may name {major}.{published - 1}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -277,7 +308,7 @@ def test_pyproject_toml_config(tmp_path: Path, capsys: pytest.CaptureFixture[str
     assert not err
 
 
-def test_pyproject_ftm_api_changed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_pyproject_fmt_api_changed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     txt = """
     [project]
     requires-python = "==3.12"
@@ -304,7 +335,7 @@ def test_pyproject_ftm_api_changed(tmp_path: Path, capsys: pytest.CaptureFixture
     assert not err
 
 
-def test_pyproject_ftm_api_no_change(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_pyproject_fmt_api_no_change(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     txt = """\
     [project]
     requires-python = "==3.12"
@@ -630,7 +661,7 @@ def test_every_python_environment_runs_the_tests() -> None:
     ],
 )
 def test_a_setting_is_read_however_the_file_writes_its_table(tmp_path: Path, settings: str) -> None:
-    """TOML gives every spelling of a table the same name, so the settings are read out of each."""
+    """TOML maps dotted and explicit table spellings to one path; settings follow that path."""
     pyproject_toml = tmp_path / "pyproject.toml"
     # a dotted key writes its own table, so it stands before the first header rather than under it
     pyproject_toml.write_text(
@@ -659,7 +690,7 @@ def test_the_first_setting_the_formatter_cannot_hold_is_the_one_reported(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A file with more than one bad setting names the same one every run."""
+    """Report the first invalid setting in source order."""
     pyproject_toml = tmp_path / "pyproject.toml"
     pyproject_toml.write_text('[project]\nname = "x"\n\n[tool.pyproject-fmt]\nz_bad = 1\na_bad = 2\n')
 

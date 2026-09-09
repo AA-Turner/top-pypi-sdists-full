@@ -189,6 +189,10 @@ plugin_routing:
       deprecation:
         removal_version: 7.0.0
         warning_text: Use vmware.vmware.folder instead.
+    vcenter_standard_key_provider:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.key_provider_standard instead.
     vmware_cluster:
       tombstone:
         removal_version: 6.0.0
@@ -237,11 +241,39 @@ plugin_routing:
       deprecation:
         removal_version: 8.0.0
         warning_text: Use vmware.vmware.vm_snapshot instead.
+    vmware_guest_snapshot_info:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.vm_snapshot_info instead.
     vmware_host:
       deprecation:
         removal_version: 7.0.0
         warning_text: Use vmware.vmware.esxi_host and vmware.vmware.esxi_connection instead.
+    vmware_host_facts:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.esxi_info instead.
+    vmware_host_powerstate:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.esxi_powerstate instead.
+    vmware_host_service_info:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.esxi_service_info instead.
+    vmware_host_service_manager:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.esxi_service instead.
     vmware_maintenancemode:
       deprecation:
         removal_version: 7.0.0
         warning_text: Use vmware.vmware.esxi_maintenance_mode instead.
+    vmware_tag:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.tags instead.
+    vmware_tag_manager:
+      deprecation:
+        removal_version: 8.0.0
+        warning_text: Use vmware.vmware.tag_associations instead.

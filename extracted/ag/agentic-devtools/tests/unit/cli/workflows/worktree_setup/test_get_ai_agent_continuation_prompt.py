@@ -90,6 +90,16 @@ class TestGetAiAgentContinuationPrompt:
         assert "--model" in prompt
         assert "gemini-3.7-flash" in prompt
 
+    def test_headless_prompt_preserves_headless_flag(self):
+        """Headless recovery instructions preserve the headless workflow flag."""
+        prompt = get_ai_agent_continuation_prompt(
+            issue_key="PROJECT-1234",
+            workflow_name="work-on-jira-issue",
+            headless=True,
+        )
+
+        assert "--headless" in prompt
+
     def test_other_workflows_still_use_issue_key(self):
         """Test that non-PR workflows still use --issue-key."""
         for workflow in ["work-on-jira-issue", "update-jira-issue", "create-jira-issue"]:

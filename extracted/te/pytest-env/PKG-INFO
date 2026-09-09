@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pytest-env
-Version: 1.7.0
+Version: 1.7.1
 Summary: pytest plugin that allows you to add environment variables.
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-env
 Project-URL: Source, https://github.com/pytest-dev/pytest-env

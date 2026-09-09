@@ -39,6 +39,10 @@ class TestDropTrailingPartialHtmlComment:
         text = "\n".join(["````", "```", "<!-- sample", "````", "suffix"])
         assert _drop_trailing_partial_html_comment(text) == text
 
+    def test_closes_a_markdown_fence_before_an_unclosed_opener(self) -> None:
+        text = "\n".join(["```", "content", "```", "<!-- sample"])
+        assert _drop_trailing_partial_html_comment(text) == "```\ncontent\n```\n"
+
     def test_invalid_backtick_info_string_does_not_start_markdown_fence(self) -> None:
         text = "\n".join(["```python`", "<!-- sample"])
         assert _drop_trailing_partial_html_comment(text) == "```python`\n"

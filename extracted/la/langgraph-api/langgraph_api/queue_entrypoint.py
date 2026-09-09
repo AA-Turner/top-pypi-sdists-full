@@ -36,10 +36,11 @@ def _ensure_port_available(host: str, port: int) -> None:
     # Pin AF_INET6 for IPv6 literals: glibc's getaddrinfo can return EAI_ADDRFAMILY
     # on IPv6-only hosts when the family is unspecified.
     family = socket.AF_INET6 if ":" in host else socket.AF_UNSPEC
+    lookup_host = None if host == "" else host
     last_error: OSError | None = None
     try:
         addrinfos = socket.getaddrinfo(
-            host,
+            lookup_host,
             port,
             family=family,
             type=socket.SOCK_STREAM,
@@ -74,8 +75,9 @@ async def health_and_metrics_server():
     from langgraph_api.api.meta import METRICS_FORMATS, meta_pool_stats  # noqa: PLC0415
 
     port = int(os.getenv("PORT", "8080"))
-    # Not in public docs: LANGGRAPH_SERVER_HOST is internal
-    host = normalize_host(os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0"))
+    # Empty means every interface: asyncio then opens one socket per address
+    # family, so the server answers on IPv4 and IPv6.
+    host = normalize_host(os.getenv("LANGGRAPH_SERVER_HOST", ""))
 
     async def health_endpoint(request: Request):
         check_db = int(request.query_params.get("check_db", "1"))
@@ -180,12 +182,11 @@ async def entrypoint(
 ):
     from langgraph_api import logging as lg_logging  # noqa: PLC0415
     from langgraph_api import timing  # noqa: PLC0415
-    from langgraph_api.api import user_router  # noqa: PLC0415
+    from langgraph_api.api import custom_app_lifespan  # noqa: PLC0415
     from langgraph_api.server import app  # noqa: PLC0415
 
     lg_logging.set_logging_context({"entrypoint": entrypoint_name})
     tasks: set[asyncio.Task] = set()
-    user_lifespan = None if user_router is None else user_router.router.lifespan_context
     wrapped_lifespan = timing.combine_lifespans(
         functools.partial(
             lifespan.lifespan,
@@ -193,7 +194,7 @@ async def entrypoint(
             taskset=tasks,
             cancel_event=cancel_event,
         ),
-        user_lifespan,
+        custom_app_lifespan,
     )
 
     async with wrapped_lifespan(app):

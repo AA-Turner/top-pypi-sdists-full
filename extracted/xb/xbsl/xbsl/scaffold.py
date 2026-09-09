@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-from xbsl import dataset, engine, fixer, metamodel, terms
+from xbsl import dataset, engine, fixer, metamodel, terms, uischema
 
 #: The platform accepts BOTH spellings of the service file names - its converter checks the
 #: pairs itself (`Проект`/`Project`, `Подсистема`/`Subsystem`). The Russian name stays
@@ -193,6 +193,17 @@ def spelled_property(name: str, lang: str) -> str:
 _LINE_KEY_RE = re.compile(rf"^([ \t]*(?:-[ \t]*)?)([{_WORD}]+):(.*)$")
 
 
+def named_in(name: str, lang: str) -> str:
+    """A standard attribute name in the project's language (`Name` in an English one).
+
+    The scaffolding invents these names: they are not in the yaml, and the language pass
+    protects them as the AUTHOR's, so a Russian one used to survive into an English project
+    and its forms (`Name: Наименование`, `Value: =Object.Наименование`). The pair comes from
+    the platform's own dictionary; a name without a pair stays as it is.
+    """
+    return field_forms(name)[-1] if lang == "en" else name
+
+
 def object_module_path(yaml_path: Path, lang: str = "ru") -> Path:
     """The object module next to an element yaml: `<Имя>.Объект.xbsl` / `<Name>.Object.xbsl`.
 
@@ -257,9 +268,42 @@ def spelled_type(value: str, lang: str, keep: frozenset[str] = frozenset()) -> s
         token = match.group(0)
         if token in keep:
             return token
-        return terms.common_english(token) or terms.english(token, "types") or token
+        # The facet dictionary is the last source and the narrowest: after a dot a type
+        # expression names a FACET, and the property vocabulary calls the same word something
+        # else: the same word is `Reference` as a facet and `Link` as a property.
+        return (terms.common_english(token) or terms.english(token, "types")
+                or terms.facet_suffix_english(token) or token)
 
     return _TOKEN_RE.sub(replace, value)
+
+
+def russian_type(value: str, keep: frozenset[str] = frozenset()) -> str:
+    """The mirror of spelled_type: platform names inside a VALUE spelled in Russian.
+
+    Deliberately NARROWER than the forward direction. Going to English a token is looked up
+    in the compiler dictionary first, because there is nothing else to answer for a form slot
+    or a component property; coming back, that same dictionary answers `Table` with the
+    reread command and `Number` with the document-number word - names of another role that
+    would corrupt an author's element spelled like an English type. So only what the platform
+    knows as a TYPE is turned around, and everything else is left as it stands: `Group`
+    arrives as the platform's own name for a group, `Goods` stays `Goods`. `keep` is never
+    translated.
+    """
+    if not value:
+        return value
+
+    def replace(match: re.Match) -> str:
+        token = match.group(0)
+        if token in keep:
+            return token
+        return terms.russian(token, "types") or token
+
+    return _TOKEN_RE.sub(replace, value)
+
+
+def typed_in(value: str, lang: str, keep: frozenset[str] = frozenset()) -> str:
+    """A type expression in the language the project writes its types in - either way."""
+    return spelled_type(value, lang, keep) if lang == "en" else russian_type(value, keep)
 
 
 def spelled_template(lines: list[str], lang: str, keep: frozenset[str] = frozenset()) -> list[str]:
@@ -273,7 +317,13 @@ def spelled_template(lines: list[str], lang: str, keep: frozenset[str] = frozens
             out.append(spelled_type(line, lang, keep) if line.lstrip().startswith("- ") else line)
             continue
         key = m.group(2) if m.group(2) in keep else spelled_property(m.group(2), lang)
-        out.append(f"{m.group(1)}{key}:{spelled_type(m.group(3), lang, keep)}")
+        # A value that is an element of the property's ENUMERATION has its own dictionary:
+        # the term tables know type names, not values, and without this an English project
+        # received lines like `WidthInColumns: Одинарная`.
+        bare = m.group(3).strip()
+        enum = None if bare in keep else uischema.enum_value_english(m.group(2), bare)
+        value = f" {enum}" if enum else spelled_type(m.group(3), lang, keep)
+        out.append(f"{m.group(1)}{key}:{value}")
     return out
 
 
@@ -702,7 +752,54 @@ _FORM_BASES = ("Форма", "ФормаОбъекта", "ФормаСписка
                "ФормаОбработки")
 
 
-def _component_base_lines(base: str) -> list[str]:
+#: The markup escapes a type expression arrives in when the caller speaks through a transport
+#: that escapes brackets. An `&` is not part of any type expression, so undoing these is
+#: unambiguous - and what is left of one afterwards is refused by _type_expression.
+_MARKUP_ESCAPES = (("&lt;", "<"), ("&gt;", ">"))
+
+#: What a type expression is made of: names, the generic brackets and their comma, the
+#: namespace dot, the nullable mark. Nothing else - a stray character means the value did not
+#: arrive as the caller meant it.
+_TYPE_EXPRESSION = re.compile(rf"^[{_WORD}<>,.?: \t]+$")
+
+#: The same for a FIELD type, where the alternative bar is legal too (a composite type
+#: like a string or a number): a base type cannot be composite, so the stricter one
+#: keeps the bar out.
+_FIELD_TYPE_EXPRESSION = re.compile(rf"^[{_WORD}<>,.?:| \t]+$")
+
+
+def unescaped_markup(value: str) -> str:
+    """`&lt;` / `&gt;` back to the brackets they stand for.
+
+    A generic base used to be written into the yaml exactly as it came: `base="Форма&lt;Булево?&gt;"`
+    produced `Тип: Форма&lt;Булево?&gt;`, a file that looks finished and that the compiler
+    only rejects at deploy time. The escaping comes from the CLIENT of the tool, not from a
+    person's hands, so it does not read as a typo either - which is why it is undone here
+    rather than reported.
+    """
+    for escaped, char in _MARKUP_ESCAPES:
+        value = value.replace(escaped, char)
+    return value
+
+
+def _type_expression(value: str, what: str, pattern: re.Pattern = _TYPE_EXPRESSION) -> str:
+    """A type expression as the platform writes it: markup escapes undone, the rest verified.
+
+    The verification is the other half of the unescaping: whatever the transport mangled
+    beyond the two brackets (a leftover `&amp;`, a quote, a newline) has no place in a type
+    name, and the caller has to see that now - not as a rolled-back deploy.
+    """
+    value = unescaped_markup(value).strip()
+    if not value or not pattern.match(value):
+        raise ScaffoldError(
+            f"Недопустимое значение {what}: '{value}' – ожидается тип "
+            "(имя, при необходимости с параметрами в угловых скобках), например "
+            "\"Группа\" или \"ФормаСписка<Неопределено>\""
+        )
+    return value
+
+
+def _component_base_lines(base: str, lang: str = "ru") -> list[str]:
     """The `Inherits` block of an interface component built on `base`.
 
     The scaffold used to write one base for every component - a form with a template wrapper -
@@ -713,17 +810,24 @@ def _component_base_lines(base: str) -> list[str]:
     A form base keeps the template wrapper (`Form.Content` is typed `FormTemplate?`, so a
     group cannot sit there directly); any other base is written as it is - its content is the
     author's business, and inventing it would be inventing markup.
+
+    The base is written in the language the project spells its types in, the same way the
+    header keys around it are: the key is documented in English words, so `base="Group"`
+    is the natural thing to pass, and a `Тип: Group` in a Russian project was fixed by hand
+    every time. Which base is a FORM is decided on the Russian spelling of it, so the
+    template wrapper is not lost when the caller names the base in the other language.
     """
+    base = typed_in(_type_expression(base, "базового типа (base)"), lang)
     head = base.split("<", 1)[0].strip()
-    lines = ["Наследует:", f"    Тип: {base.strip()}"]
-    if head in _FORM_BASES:
-        return lines + [
+    lines = ["Наследует:", f"    Тип: {base}"]
+    if russian_type(head) in _FORM_BASES:
+        return lines + spelled_template([
             "    Содержимое:",
             "        Тип: ПроизвольныйШаблонФормы",
             "        Содержимое:",
             "            Тип: Группа",
             "            Компоновка: Вертикальная",
-        ]
+        ], lang)
     return lines
 
 
@@ -1258,8 +1362,12 @@ def object_info(root: Path, name: str | None = None, yaml_path: Path | None = No
     standard_source = register.get("standard_fields") or _STANDARD_FIELDS.get(hit.kind, [])
     # A standard attribute the object declares itself is not added a second time - in either
     # spelling: an English catalog declares `Name`, and that IS `Наименование`.
+    # The names the tool completes are written in the language of the FILE: an English
+    # catalog gets `Name`, not the Russian spelling - see named_in.
+    info_lang = yaml_language(text, hit.path.parent)
     standard = [
-        f for f in standard_source if not declared.intersection(field_forms(f["name"]))
+        {**f, "name": named_in(f["name"], info_lang), "type": typed_in(f["type"], info_lang)}
+        for f in standard_source if not declared.intersection(field_forms(f["name"]))
     ]
     fields = standard + fields
 
@@ -1294,6 +1402,8 @@ def object_info(root: Path, name: str | None = None, yaml_path: Path | None = No
     return {
         "path": str(hit.path),
         "kind": hit.kind,
+        # The language of the object's own file: the generators write what they invent in it.
+        "lang": info_lang,
         "name": hit.name,
         "subsystem": hit.subsystem,
         "namespace": hit.namespace,
@@ -1797,13 +1907,14 @@ def op_new_object(
             _new_report(yaml_path, name, report or {}, result, scope), yaml_path, presentation
         )
 
+    lang = project_language(directory)
     extra = _expand_extra(spec.extra, name)
     if base:
         if kind != "КомпонентИнтерфейса":
             raise ScaffoldError(
                 f"Базовый тип (base) задаётся только у вида КомпонентИнтерфейса, а не у {kind}"
             )
-        extra = _component_base_lines(base)
+        extra = _component_base_lines(base, lang)
     if environment:
         extra = [line for line in extra if not line.startswith("Окружение:")]
         extra.append(f"Окружение: {environment}")
@@ -1814,7 +1925,7 @@ def op_new_object(
         extra += ["КонтрольДоступа:", f"    {_PERMISSIONS_KEY}:",
                   f"        {ACCESS_DEFAULT_RIGHT}: {access}"]
     content = new_object_yaml(
-        kind, new_uuid(), name, scope or spec.scope, extra, project_language(directory),
+        kind, new_uuid(), name, scope or spec.scope, extra, lang,
         presentation=presentation,
     )
     result.changes.append(FileChange(yaml_path, content, created=True))
@@ -1825,7 +1936,7 @@ def op_new_object(
         )
     if spec.object_module_stub:
         result.changes.append(FileChange(
-            object_module_path(yaml_path, project_language(directory)),
+            object_module_path(yaml_path, lang),
             spec.object_module_stub.format(name=name), created=True,
         ))
     if spec.note:
@@ -2172,6 +2283,12 @@ def _item_type(
     - an open type with no default (`Owner` - the owner is the author's choice) needs an
       explicit type and says so.
     """
+    if type_:
+        # The type arrives from a CLIENT (MCP, the editor), so it can carry markup escapes
+        # and the spelling of another language - the two traps the component base had. The
+        # value of a mapping section (a localized string) never reaches here: that branch
+        # returns earlier, and there `&` and `;` are legal text.
+        type_ = typed_in(_type_expression(type_, "типа элемента", _FIELD_TYPE_EXPRESSION), lang)
     cls = metamodel.item_class(kind, path) if metamodel.available() else None
     if not cls or not metamodel.dispatch_name(cls):
         return type_ or "Строка"
@@ -2575,6 +2692,11 @@ def _survives_bare(value: str) -> bool:
     return isinstance(parsed, dict) and parsed.get("k") == value
 
 
+def _has_mapping_key(body: str, key: str) -> bool:
+    """Is `key` already an entry of this mapping-section body?"""
+    return re.search(rf"^[ \t]+{re.escape(key)}:", body, re.M) is not None
+
+
 def _add_mapping_entry(
     yaml_path: Path, text: str, nl: str, kind: str, field_kind: str,
     map_spec: dict, key: str, value: str,
@@ -2602,7 +2724,7 @@ def _add_mapping_entry(
     if bounds is not None:
         _, header_line_end, body_end = bounds
         body = text[header_line_end:body_end]
-        if re.search(rf"^[ \t]+{re.escape(key)}:", body, re.M):
+        if _has_mapping_key(body, key):
             raise ScaffoldError(f"Ключ '{key}' уже есть в секции {section} файла {yaml_path.name}")
         new_text = text[:body_end] + f"{nl}    {key}: {entry_value}" + text[body_end:]
     else:
@@ -2612,15 +2734,15 @@ def _add_mapping_entry(
     cursor = _cursor_at(new_text, new_text.index(f"{key}: {entry_value}"))
     changes = [FileChange(yaml_path, new_text, created=False, cursor=cursor)]
     notes: list[str] = []
-    _echo_into_translations(yaml_path, section, key, entry_value, nl, changes, notes)
+    _echo_into_translations(yaml_path, section, [(key, entry_value)], nl, changes, notes)
     return ScaffoldResult(changes, notes=notes)
 
 
 def _echo_into_translations(
-    yaml_path: Path, section: str, key: str, entry_value: str, nl: str,
+    yaml_path: Path, section: str, entries: list[tuple[str, str]], nl: str,
     changes: list, notes: list[str],
 ) -> None:
-    """Repeat the new pair in the translation files the element already has.
+    """Repeat the new pairs in the translation files the element already has.
 
     A translation repeats the sections of its element key for key, and a key present in the
     element and missing from a translation is a gap the translator only meets later. The
@@ -2630,6 +2752,10 @@ def _echo_into_translations(
     A translation file carries no element kind of its own (only the two mapping sections), so
     the ordinary add operation refuses it; that is why the echo lives here rather than in a
     second call the caller has to know about.
+
+    Several pairs land in ONE change per file: a change carries the whole new text, so a
+    change per key would compute each of them from the text before all the others and only
+    the last key written would survive.
     """
     for folder in _localization_dirs(yaml_path.parent):
         for target in sorted(folder.glob(f"*/{yaml_path.name}")):
@@ -2641,13 +2767,17 @@ def _echo_into_translations(
             if bounds is None:
                 continue
             _, header_line_end, body_end = bounds
-            if re.search(rf"^[ \t]+{re.escape(key)}:", text[header_line_end:body_end], re.M):
+            body = text[header_line_end:body_end]
+            fresh = [(key, value) for key, value in entries if not _has_mapping_key(body, key)]
+            if not fresh:
                 continue
+            block = "".join(f"{nl}    {key}: {value}" for key, value in fresh)
             changes.append(FileChange(
-                target, text[:body_end] + f"{nl}    {key}: {entry_value}" + text[body_end:],
-                created=False,
+                target, text[:body_end] + block + text[body_end:], created=False,
             ))
-            notes.append(f"Ключ {key} дописан в перевод {target.parent.name}/{target.name} "
+            what = (f"Ключ {fresh[0][0]} дописан" if len(fresh) == 1
+                    else "Ключи " + ", ".join(key for key, _ in fresh) + " дописаны")
+            notes.append(f"{what} в перевод {target.parent.name}/{target.name} "
                          "значением языка по умолчанию – замените его переводом")
 
 
@@ -3678,15 +3808,23 @@ def _is_localized_strings(text: str) -> bool:
     return False
 
 
-def _section_entries(text: str) -> dict[str, str]:
+#: The two sections of a localization dictionary, in both spellings. They share ONE namespace
+#: (the platform refuses a name it sees twice), but a `$Dictionary.Key` reference resolves
+#: against the strings alone - so who declares a key decides whether it can be referenced.
+_STRING_SECTIONS = ("Строки", "Strings")
+_TEMPLATE_SECTIONS = ("Шаблоны", "Templates")
+
+
+def _section_entries(text: str, sections: tuple[str, ...] = ()) -> dict[str, str]:
     """`Rows`/`Templates` of a localization yaml as {key: text}, comments and blanks dropped.
 
     A plain scan rather than a yaml parse: the file is flat by definition (one level of
     `key: value`), and the scan keeps the surrounding quotes off the value the way the platform
-    reads them.
+    reads them. Both sections by default - which is the namespace a new key has to be unique
+    in; `sections` narrows the answer to one of them.
     """
     out: dict[str, str] = {}
-    for section in ("Строки", "Шаблоны", "Strings", "Templates"):
+    for section in sections or (_STRING_SECTIONS + _TEMPLATE_SECTIONS):
         bounds = _section_bounds(text, section, top_level=True)
         if bounds is None:
             continue
@@ -3756,6 +3894,154 @@ def op_add_localization(yaml_path: Path, language: str, *, reader=None) -> Scaff
             "по умолчанию), иначе перевод не подхватится"
         )
     return result
+
+
+#: The mapping sections of a localized-strings element, in the order they are looked into:
+#: Rows holds the plain texts, Templates the ones with substitutions (the "Локализация"
+#: documentation). Named here the way the scaffolding names everything - in Russian, the
+#: spelling the writer falls back to; either spelling is accepted from a caller.
+_LOCALIZATION_SECTIONS = ("Строки", "Шаблоны")
+
+
+def op_set_localization(yaml_path: Path, name: str, values: dict, *,
+                        section: str = "", reader=None) -> ScaffoldResult:
+    """Write one localized STRING - the key and its text in every language at once.
+
+    `op_add_localization` adds a LANGUAGE; a row had nothing. So a new caption was typed into
+    the element and again into its English twin, and the two files drifted apart in silence -
+    nothing but a pair of eyes compares them. Here one call writes the default-language text
+    into the element and each other language into its own translation file, and a language
+    the caller says nothing about still gets the row (with the default text and a note),
+    because a key missing from a translation is a gap the translator meets much later.
+
+    `values` names a language any way the language reasonably holds it (the descriptor
+    spelling in either project language, or the folder code) and maps it to the text.
+    `section` picks Rows or Templates in either spelling; left out, the key keeps the
+    section it already lives in, and a new one goes to Rows.
+    """
+    yaml_path = Path(yaml_path)
+    text, nl = _localized_strings_source(yaml_path, reader)
+    # The key is written bare, the way the files of a live project write theirs, so it has to
+    # survive being written that way: whitespace, a colon or a leading hash would make the
+    # next load read something else - or nothing - where the row was.
+    name = (name or "").strip()
+    if not re.fullmatch(r"[^\s:#]+", name):
+        raise ScaffoldError(
+            f"Имя строки локализации '{name}' не годится в ключ: одно слово без двоеточия"
+        )
+    if not isinstance(values, dict) or not values:
+        raise ScaffoldError(
+            "Нужны значения по языкам: values={\"Русский\": \"Текст\", \"En\": \"Text\"}"
+        )
+    texts = {_language_folder(code): str(value) for code, value in values.items()}
+    lang = yaml_language(text, yaml_path.parent)
+    element_name_ = element_name(text, yaml_path.stem)
+    _languages, declared = _descriptor_languages(yaml_path)
+    default = declared or _language_folder(lang)
+    section = (_localization_section(section) if section
+               else _section_of_key(text, name) or _LOCALIZATION_SECTIONS[0])
+
+    translations = _translation_files(yaml_path, element_name_)
+    unknown = sorted(set(texts) - {default} - set(translations))
+    if unknown:
+        raise ScaffoldError(
+            "Нет файла перевода для языка "
+            + ", ".join(_LANGUAGE_BY_FOLDER.get(code, code) for code in unknown)
+            + " – сначала добавьте язык (add-localization / meta_add_localization)"
+        )
+
+    base = texts.get(default, _section_entries(text).get(name, ""))
+    if not base:
+        raise ScaffoldError(
+            f"Нет значения на языке по умолчанию ({_LANGUAGE_BY_FOLDER.get(default, default)}): "
+            f"элемент несёт сам текст, переводы – только замену"
+        )
+    result = ScaffoldResult()
+    new_text, cursor = _set_localized_row(text, section, name, base, nl, lang)
+    result.changes.append(FileChange(yaml_path, new_text, created=False, cursor=cursor))
+    for code, target in sorted(translations.items()):
+        if code == default:
+            continue  # the default language IS the element; a file of it would be a copy
+        try:
+            other, other_nl = _load_for_edit(target, reader)
+        except ScaffoldError:
+            continue
+        written = texts.get(code)
+        if written is None:
+            # Not named by the caller: the row still has to appear, or the translation is a
+            # key short and the gap surfaces only when somebody reads both files side by side.
+            if name in _section_entries(other):
+                continue
+            written = base
+            result.notes.append(
+                f"Ключ {name} дописан в перевод {target.parent.name}/{target.name} значением "
+                "языка по умолчанию – замените его переводом"
+            )
+        result.changes.append(FileChange(
+            target, _set_localized_row(other, section, name, written, other_nl, lang)[0],
+            created=False,
+        ))
+    return result
+
+
+def _localization_section(section: str) -> str:
+    """The canonical name of a mapping section, from either spelling of it."""
+    for canonical in _LOCALIZATION_SECTIONS:
+        if section in key_forms(canonical):
+            return canonical
+    raise ScaffoldError(
+        f"Секции '{section}' у локализованных строк нет; есть: "
+        + ", ".join(_LOCALIZATION_SECTIONS)
+    )
+
+
+def _section_of_key(text: str, name: str) -> str:
+    """The mapping section this key already lives in, or "" - a key keeps its section."""
+    for section in _LOCALIZATION_SECTIONS:
+        bounds = _section_bounds(text, section, top_level=True)
+        if bounds is None:
+            continue
+        _, header_line_end, body_end = bounds
+        if re.search(rf"^[ \t]+{re.escape(name)}:", text[header_line_end:body_end], re.M):
+            return section
+    return ""
+
+
+def _translation_files(yaml_path: Path, name: str) -> dict[str, Path]:
+    """{folder code: the translation file} the element already has."""
+    return {
+        lang_dir.name: lang_dir / f"{name}.yaml"
+        for base in _localization_dirs(yaml_path.parent)
+        for lang_dir in sorted(base.iterdir())
+        if lang_dir.is_dir() and (lang_dir / f"{name}.yaml").is_file()
+    }
+
+
+def _set_localized_row(text: str, section: str, key: str, value: str, nl: str,
+                       lang: str) -> tuple[str, tuple[int, int]]:
+    """The file text with `key: value` written into `section` - replaced, added or started.
+
+    Quoting is the writer's business, as everywhere else here: a value is written bare while
+    it survives being read back bare, so the generated lines look like the hand-written ones
+    around them.
+    """
+    written = value if _survives_bare(value) else json.dumps(value, ensure_ascii=False)
+    bounds = _section_bounds(text, section, top_level=True)
+    if bounds is None:
+        tail = "" if (not text or text.endswith(("\n", "\r"))) else nl
+        header = spelled_key(section, lang)
+        new_text = f"{text}{tail}{header}:{nl}    {key}: {written}{nl}"
+        return new_text, _cursor_at(new_text, new_text.rindex(f"{key}: {written}"))
+    _, header_line_end, body_end = bounds
+    existing = re.search(rf"^([ \t]+){re.escape(key)}:[ \t]*(.*?)[ \t]*\r?$",
+                         text[header_line_end:body_end], re.M)
+    if existing is None:
+        new_text = text[:body_end] + f"{nl}    {key}: {written}" + text[body_end:]
+        return new_text, _cursor_at(new_text, body_end + len(nl) + 4)
+    start = header_line_end + existing.start()
+    end = header_line_end + existing.end()
+    new_text = text[:start] + f"{existing.group(1)}{key}: {written}" + text[end:]
+    return new_text, _cursor_at(new_text, start)
 
 
 # --- operations: report -------------------------------------------------------------------
@@ -3865,9 +4151,14 @@ def _form_fields(info: dict) -> list[dict]:
     fields = list(info["fields"])
     if info["is_hierarchical"]:
         # The system hierarchy attribute: absent from the object yaml, needed in the form.
+        # Both its name and the facet of its type are the tool's words, so both are written
+        # in the language of the object - see named_in.
         obj = info["name"]
-        after = 1 if fields and fields[0]["name"] == "Наименование" else 0
-        fields.insert(after, {"name": "Родитель", "type": f"{obj}.Ссылка?"})
+        lang = info.get("lang", "ru")
+        titles = field_forms("Наименование")
+        after = 1 if fields and fields[0]["name"] in titles else 0
+        fields.insert(after, {"name": named_in("Родитель", lang),
+                              "type": typed_in(f"{obj}.Ссылка?", lang, frozenset({obj}))})
     return fields
 
 
@@ -4089,9 +4380,11 @@ def processing_form_yaml(info: dict, uid: str) -> str:
 
 def _list_sort_field(info: dict, fields: list[str]) -> str | None:
     """Default list sort field: Дата for a document, otherwise Наименование."""
-    if info["kind"] == "Документ" and "Дата" in fields:
-        return "Дата"
-    return "Наименование" if "Наименование" in fields else None
+    if info["kind"] == "Документ":
+        date = next((f for f in field_forms("Дата") if f in fields), None)
+        if date:
+            return date
+    return next((f for f in field_forms("Наименование") if f in fields), None)
 
 
 def list_form_yaml(info: dict, uid: str) -> str:
@@ -4236,7 +4529,7 @@ def _card_roles(fields: list[dict]) -> dict:
     photo = next((f for f in fields if _is_photo_type(f["type"])), None)
     rest = [f for f in fields if f is not photo]
     title = (
-        next((f for f in rest if f["name"] == "Наименование"), None)
+        next((f for f in rest if f["name"] in field_forms("Наименование")), None)
         or next((f for f in rest if f["type"] in ("Строка", "")), None)
         or (rest[0] if rest else None)
     )
@@ -4573,6 +4866,120 @@ FORM_KINDS = ("object", "list", "list-cards", "record", "report", "processing")
 RECORD_FORM_KINDS = ("РегистрСведений",)
 
 
+# --- captions of a generated form ----------------------------------------------------------
+#
+# The generators write ONE visible property, `Title` - the form's own caption and the caption
+# of every table column; everything else in a generated file is a name, a type or an
+# expression. Written as a literal into a project that localizes, each of them is a finding of
+# conventions/untranslated-visible-literal, and rewriting them by hand was the first thing
+# done after generating (eight findings on one object of a live project).
+#
+# What is written instead was settled by the sources rather than chosen. Dropping the caption
+# is not an option: of 303 table columns of a live project 300 carry one, and the three that
+# do not are picture columns with nothing to caption. Every one of those captions is a
+# `$Dictionary.Key` reference whose key is the field's own name, valued with that same name -
+# so the reference is exactly what a person writes here, and the tool can both write it and
+# fill the dictionary it points at. A reference to a key that does not exist is worse than a
+# literal - the apply fails and the stand rolls back - which is why the entries go in with
+# the reference, in the same operation.
+
+
+def caption_dictionary(directory: Path, reader=None) -> Path | None:
+    """The LocalizedStrings element the forms of `directory` may reference, or None.
+
+    The SAME folder, not the project: a dictionary of another subsystem needs that subsystem
+    in the element's `Import`, and a reference the imports do not cover fails the apply. A
+    project keeps one dictionary per subsystem, which is what makes the folder rule enough.
+
+    None when the project declares fewer than two localization languages (there is nothing to
+    localize, and a reference would be indirection nobody asked for), when the folder holds no
+    dictionary, and when it holds SEVERAL - which of them a caption belongs to is the author's
+    decision, and guessing it would scatter the keys.
+    """
+    directory = Path(directory)
+    read = reader or _read
+    dictionaries = [
+        path for path in sorted(directory.glob("*.yaml"))
+        if _is_localized_strings(read(path))
+    ]
+    if len(dictionaries) != 1:
+        return None
+    languages, _default = _descriptor_languages(dictionaries[0])
+    return dictionaries[0] if len(languages) > 1 else None
+
+
+def _caption_line_re(lang: str) -> re.Pattern:
+    """`Заголовок: Имя` lines - the caption written as a bare name, in the project's key."""
+    key = re.escape(spelled_property("Заголовок", lang))
+    return re.compile(rf"^([ \t]*){key}:[ \t]*([A-Za-zА-Яа-яЁё_][{_WORD}]*)[ \t]*$", re.M)
+
+
+def _captions_through_dictionary(text: str, dictionary: str, lang: str,
+                                 taken: frozenset[str]) -> tuple[str, list[str], list[str]]:
+    """(the text with its captions referenced, the keys to declare, the names left alone).
+
+    Only a caption that is a bare NAME is rewritten, and that is the whole set the generators
+    write: the object's name for the form itself, the field's name for a column. A caption
+    that is an expression (`=Отчет.Представление`), a reference already, or a phrase is left
+    alone - a phrase has no name to key it by, and inventing one would put a word of the
+    tool's own into the project's dictionary.
+
+    `taken` are the names the dictionary spends on TEMPLATES. A reference resolves against
+    the strings alone, so pointing at one of those would fail the apply
+    (yaml/localization-ref-to-template), and the two sections share one namespace, so a
+    string of the same name cannot be added either: such a caption stays a literal.
+    """
+    keys: list[str] = []
+    skipped: list[str] = []
+
+    def replace(match: re.Match) -> str:
+        name = match.group(2)
+        if name in taken:
+            if name not in skipped:
+                skipped.append(name)
+            return match.group(0)
+        if name not in keys:
+            keys.append(name)
+        return f"{match.group(1)}{spelled_property('Заголовок', lang)}: ${dictionary}.{name}"
+
+    return _caption_line_re(lang).sub(replace, text), keys, skipped
+
+
+def _dictionary_entries(dict_path: Path, keys: list[str], reader=None) -> ScaffoldResult:
+    """The dictionary change that makes the caption references resolvable.
+
+    A key the dictionary already declares is REUSED rather than duplicated: both sections
+    share one namespace, and a repeated name is refused by the apply. Its text stays as the
+    project wrote it - the caption of a field named like an existing key is the same word,
+    and a second key for it would be a name of the tool's own invention.
+    """
+    result = ScaffoldResult()
+    text, nl = _load_for_edit(dict_path, reader)
+    declared = _section_entries(text)
+    fresh = [(key, key) for key in keys if key not in declared]
+    if not fresh:
+        return result
+    lang = yaml_language(text, dict_path.parent)
+    section = "Строки"
+    bounds = _section_bounds(text, section, top_level=True)
+    block = "".join(f"{nl}    {key}: {value}" for key, value in fresh)
+    if bounds is not None:
+        _, _header_line_end, body_end = bounds
+        new_text = text[:body_end] + block + text[body_end:]
+    else:
+        tail = "" if (not text or text.endswith("\n")) else nl
+        new_text = text + f"{tail}{spelled_key(section, lang)}:{block}{nl}"
+    changes = [FileChange(dict_path, new_text, created=False)]
+    notes = [
+        f"В словарь {dict_path.name} добавлены ключи заголовков: "
+        + ", ".join(key for key, _ in fresh)
+    ]
+    _echo_into_translations(dict_path, section, fresh, nl, changes, notes)
+    result.changes.extend(changes)
+    result.notes.extend(notes)
+    return result
+
+
 def op_add_form(root: Path, name: str | None = None, yaml_path: Path | None = None,
                 forms: list[str] | None = None, overwrite: bool = False,
                 card_min_width: int | None = None, card_placeholder: str | None = None,
@@ -4586,6 +4993,10 @@ def op_add_form(root: Path, name: str | None = None, yaml_path: Path | None = No
     СтрокаСписка<Объект>. card_min_width sets the grid column width (400 by default,
     250 with a photo), card_placeholder is a placeholder image expression. An existing
     form is not overwritten without overwrite - a note goes into notes instead.
+
+    Captions are written through the subsystem's dictionary where there is one to write
+    through (see _localize_captions and caption_dictionary): the keys the references need
+    join the dictionary in the same operation.
     """
     info = object_info(Path(root), name=name, yaml_path=yaml_path)
     text_of_owner = (reader or _read)(Path(info["path"]))
@@ -4678,6 +5089,7 @@ def op_add_form(root: Path, name: str | None = None, yaml_path: Path | None = No
         made.append(form)
         if form == "list-cards":
             _add_card_row(info, owner_path, overwrite, card_placeholder, result)
+    _localize_captions(result, owner_path, lang, reader)
     if made:
         text, nl = text_of_owner, _dominant_nl(text_of_owner)
         # The card list form is registered like a regular one: the same <Объект>ФормаСписка file.
@@ -4686,6 +5098,49 @@ def op_add_form(root: Path, name: str | None = None, yaml_path: Path | None = No
         if new_text != text:
             result.changes.append(FileChange(owner_path, new_text, created=False))
     return result
+
+
+def _localize_captions(result: ScaffoldResult, owner_path: Path, lang: str, reader=None) -> None:
+    """Captions of the files just generated pointed at the project's dictionary.
+
+    Run over the FINISHED texts, after they have been put into the project's language: a
+    reference is not a platform name and must not go through the spelling pass, which would
+    translate both the dictionary and the key.
+
+    Every change collected so far is a generated file - the owner's own yaml is registered
+    after this - so there is nothing here to tell apart. Without a dictionary in the folder
+    the captions stay literals: that is what the tool has always written, and the linter says
+    so where it matters.
+    """
+    dictionary = caption_dictionary(owner_path.parent, reader)
+    if dictionary is None:
+        return
+    dictionary_text = (reader or _read)(dictionary)
+    name = element_name(dictionary_text, dictionary.stem)
+    taken = frozenset(_section_entries(dictionary_text, _TEMPLATE_SECTIONS))
+    keys: list[str] = []
+    left: list[str] = []
+    rewritten: list[FileChange] = []
+    for change in result.changes:
+        text, found, skipped = _captions_through_dictionary(change.content, name, lang, taken)
+        for key in found:
+            if key not in keys:
+                keys.append(key)
+        for key in skipped:
+            if key not in left:
+                left.append(key)
+        rewritten.append(FileChange(change.path, text, change.created, change.cursor))
+    if left:
+        result.notes.append(
+            f"Заголовки {', '.join(left)} оставлены литералами: в словаре {dictionary.name} "
+            "эти имена заняты шаблонами, а ссылка ищет ключ только среди строк"
+        )
+    if not keys:
+        return
+    result.changes[:] = rewritten
+    entries = _dictionary_entries(dictionary, keys, reader)
+    result.changes.extend(entries.changes)
+    result.notes.extend(entries.notes)
 
 
 def _add_card_row(info: dict, owner_path: Path, overwrite: bool, placeholder: str | None,

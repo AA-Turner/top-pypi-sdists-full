@@ -236,6 +236,11 @@ if HTTP_CONFIG:
                 user_router.router.lifespan_context,
             )
 
+# Keep the reference to user router's lifespan in case it gets combined with other lifespans.
+custom_app_lifespan = (
+    None if user_router is None else user_router.router.lifespan_context
+)
+
 
 if "__inmem" in MIGRATIONS_PATH:
     from langgraph_runtime_inmem.routes import get_internal_routes

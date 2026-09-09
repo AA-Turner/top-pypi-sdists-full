@@ -8,6 +8,7 @@ import traceback
 import importlib.util
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from prompt_toolkit import prompt
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
@@ -15,8 +16,9 @@ from prompt_toolkit.completion import Completer, Completion, PathCompleter, merg
 
 from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk import constants
+from fivetran_connector_sdk.configuration_decryption import decrypt_configuration_values
 from fivetran_connector_sdk.constants import (
-    LOGGING_PREFIX,
+    SDK_LOGGING_PREFIX,
     ROOT_FILENAME,
     MAX_CONFIG_FIELDS,
     MAX_ALLOWED_EDIT_DISTANCE_FROM_VALID_COMMAND,
@@ -172,16 +174,29 @@ def print_library_log(message: str, level: Logging.Level = Logging.Level.INFO, d
     message = add_icon_to_log_message(message, log_icon)
     if indent:
         message = f"  {message}"
-    if constants.DEBUGGING or constants.EXECUTED_VIA_CLI:
+    if constants.DEBUGGING:
+        # Debug mode: verbose format with timestamp
         if dev_log:
             return
         now = datetime.now()
-        current_time = now.strftime("%d-%b %H:%M:%S.") + f"{now.microsecond // 1000:03d}"
-        prefix = f"{current_time} {level.name} {LOGGING_PREFIX}"
-        print(f"{Logging.get_color(level)}{prefix}{message} {Logging.reset_color()}")
+        current_time = now.strftime("%H:%M:%S.") + f"{now.microsecond // 1000:03d}"
+        log_origin = Logging.get_aligned_log_origin(SDK_LOGGING_PREFIX.strip())
+        prefix = f"{current_time} {Logging.get_aligned_level_name(level)} {log_origin} "
+        
+        if "\n" in message:
+            lines = message.split('\n')
+            continuation_indent = Logging.get_display_width(prefix)
+            message = f"\n{' ' * continuation_indent}".join(lines)
+        
+        print(Logging.colorize(f"{prefix}{message}", level))
+    elif constants.EXECUTED_VIA_CLI:
+        # Other CLI commands (deploy, init, etc.): concise format with icons and colors
+        if dev_log:
+            return
+        print(Logging.colorize(message, level))
     else:
         message_origin = "library_dev" if dev_log else "library"
-        escaped_message = json.dumps(LOGGING_PREFIX + message)
+        escaped_message = json.dumps(SDK_LOGGING_PREFIX + message)
         log_message = f'{{"level":"{level.name}", "message": {escaped_message}, "message_origin": "{message_origin}"}}'
         print(log_message)
 
@@ -240,31 +255,30 @@ def find_connector_object(project_path):
             names_str = ', '.join(f"'{n}'" for n in sorted(connector_instances.keys()))
             print_library_log(
                 f"Connector object must be named 'connector', but found: {names_str}\n"
-                f"      rename it to 'connector' in connector.py\n"
-                f"      example: connector = Connector(update=update, schema=schema)\n"
-                f"      reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
+                f"rename it to 'connector' in connector.py\n"
+                f"example: connector = Connector(update=update, schema=schema)\n"
+                f"reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
                 Logging.Level.SEVERE)
             return None
 
     except TypeError as e:
         tb = traceback.extract_tb(e.__traceback__)
         last_frame = tb[-1] if tb else None
-        location = f"      at {last_frame.filename}, line {last_frame.lineno}\n" if last_frame else ""
+        location = f"at {last_frame.filename}, line {last_frame.lineno}\n" if last_frame else ""
         print_library_log(
-            f"error in connector.py:\n"
-            f"      {e}\n"
-            f"{location}"
-            f"      reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
+            f"error in connector.py {location}"
+            f"{e}\n"
+            f"reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
             Logging.Level.SEVERE)
         return None
     except FileNotFoundError:
         print_library_log(
-            f"connector.py not found in {project_path}\n      this file is required to start a sync\n      reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
+            f"connector.py not found in {project_path}\nthis file is required to start a sync\nreference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
             Logging.Level.SEVERE)
         return None
 
     print_library_log(
-        "connector object not found\n      define a Connector object in connector.py\n      reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
+        "connector object not found\ndefine a Connector object in connector.py\nreference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
         Logging.Level.SEVERE)
     return None
 
@@ -382,6 +396,17 @@ def get_input_from_cli(prompt_txt: str, default_value: str, hide_value = False) 
         raise ValueError("Missing required input: Expected a value but received None")
     return os.path.expandvars(value)
 
+def _resolve_existing_project_path(project_path: str) -> str:
+    if project_path is None or not str(project_path).strip():
+        raise ValueError("Invalid project path: path cannot be empty or contain only whitespace.")
+    resolved_project_path = Path(str(project_path).strip()).expanduser().resolve()
+    if not resolved_project_path.is_dir():
+        raise ValueError(
+            f"Invalid project path: '{project_path}' does not exist or is not a directory."
+        )
+    return str(resolved_project_path)
+
+
 def validate_and_load_configuration(project_path, configuration):
     if not configuration:
         print_library_log("no configuration file passed", Logging.Level.INFO)
@@ -419,7 +444,7 @@ def validate_and_load_configuration(project_path, configuration):
             f"Configuration field count exceeds maximum of {MAX_CONFIG_FIELDS}. Reduce the field count."
         )
 
-    return configuration
+    return decrypt_configuration_values(configuration)
 
 
 def validate_and_load_state(args, state):
@@ -475,4 +500,14 @@ def resolve_confirmation(prompt: str, default: bool, prompt_mode: PromptMode) ->
         return default
     # interactive mode
     answer = input(prompt).strip().lower()
-    return answer == "y" if answer else default
+    if answer == "y":
+        return True
+    elif answer == "n":
+        return False
+    else:
+        # Invalid input or empty, return default
+        return default
+
+def enable_debugging_for_verbose_commands(command: str):
+    if command is not None and command.lower() in ("debug", "configuration"):
+        constants.DEBUGGING = True

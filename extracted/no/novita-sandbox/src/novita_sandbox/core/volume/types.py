@@ -11,12 +11,8 @@ class VolumeInfo:
     """Volume name."""
     quota_size_gib: int = 0
     """Capacity quota in GiB."""
-    quota_inodes: int = 0
-    """Inode quota."""
     used_size_bytes: int = 0
     """Used size in bytes."""
-    used_inodes: int = 0
-    """Used inodes."""
 
 
 @dataclass

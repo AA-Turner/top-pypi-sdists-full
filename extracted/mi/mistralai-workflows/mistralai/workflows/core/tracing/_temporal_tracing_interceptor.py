@@ -1,4 +1,5 @@
 import hashlib
+import json
 import time
 from typing import (
     Any,
@@ -33,9 +34,12 @@ from mistralai.workflows.core.tracing.utils import (
     get_span_attributes,
     workflow_execution_span_attributes,
 )
+from mistralai.workflows.exceptions import ErrorCode
 from mistralai.workflows.models import EventAttributes, EventSpanType
 
 logger = structlog.get_logger(__name__)
+
+UNSERIALIZABLE_TRACE_DATA = json.dumps({"error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value})
 
 
 def _non_zero_hex(value: bytes, width: int) -> str:
@@ -229,8 +233,17 @@ class TraceDataSerializer:
         return cls._trace_encoder
 
     def serialize(self, obj: Any) -> str:
-        converted = self._converter.to_payload(obj)
-        serialized = self._get_trace_encoder().encode_trace_data(converted.data.decode())
+        # Every caller feeds a span attribute, so a value we cannot serialize costs an attribute
+        # rather than the activity or workflow that produced it. Arguments and results are typed
+        # Any and serialized by inference, which fails on anything Pydantic cannot infer a
+        # serializer for.
+        try:
+            converted = self._converter.to_payload(obj)
+            serialized = self._get_trace_encoder().encode_trace_data(converted.data.decode())
+        except Exception as e:
+            logger.warning("Failed to serialize trace data", error=str(e))
+            return UNSERIALIZABLE_TRACE_DATA
+
         if len(serialized) > TraceDataSerializer.MAX_ARG_TRACE_SIZE:
             return serialized[: TraceDataSerializer.MAX_ARG_TRACE_SIZE] + "..."
 

@@ -16,7 +16,7 @@ from .util import UNIT, Disposable, Unit, get_enumerator, to_enumerable
 
 
 def distinct[T](xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]) -> IEnumerable_1[T]:
-    def _arrow47(xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
+    def _arrow43(xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
         hash_set: Any = HashSet(Array[Any]([]), comparer)
 
         def predicate(x: T = UNIT) -> bool:
@@ -24,13 +24,13 @@ def distinct[T](xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]) -> IEn
 
         return filter(predicate, xs)
 
-    return delay(_arrow47)
+    return delay(_arrow43)
 
 
 def distinct_by[T, KEY](
     projection: Callable[[T], KEY], xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]
 ) -> IEnumerable_1[T]:
-    def _arrow48(projection: Any = projection, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
+    def _arrow44(projection: Any = projection, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
         hash_set: Any = HashSet(Array[Any]([]), comparer)
 
         def predicate(x: T = UNIT) -> bool:
@@ -38,13 +38,13 @@ def distinct_by[T, KEY](
 
         return filter(predicate, xs)
 
-    return delay(_arrow48)
+    return delay(_arrow44)
 
 
 def except_[T](
     items_to_exclude: IEnumerable_1[T], xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]
 ) -> IEnumerable_1[T]:
-    def _arrow49(items_to_exclude: Any = items_to_exclude, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
+    def _arrow45(items_to_exclude: Any = items_to_exclude, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
         hash_set: Any = HashSet(items_to_exclude, comparer)
 
         def predicate(x: T = UNIT) -> bool:
@@ -52,13 +52,13 @@ def except_[T](
 
         return filter(predicate, xs)
 
-    return delay(_arrow49)
+    return delay(_arrow45)
 
 
 def count_by[T, KEY](
     projection: Callable[[T], KEY], xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]
 ) -> IEnumerable_1[tuple[KEY, int]]:
-    def _arrow53(
+    def _arrow49(
         projection: Any = projection, xs: Any = xs, comparer: Any = comparer
     ) -> IEnumerable_1[tuple[KEY, int]]:
         dict_1: Any = Dictionary(Array[Any]([]), comparer)
@@ -69,14 +69,14 @@ def count_by[T, KEY](
                 match_value: tuple[bool, int]
                 out_arg: int = 0
 
-                def _arrow50(__unit: Unit = UNIT) -> int:
+                def _arrow46(__unit: Unit = UNIT) -> int:
                     return out_arg
 
-                def _arrow51(v: int) -> None:
+                def _arrow47(v: int) -> None:
                     nonlocal out_arg
                     out_arg = v
 
-                match_value = (try_get_value(dict_1, key, FSharpRef(_arrow50, _arrow51)), out_arg)
+                match_value = (try_get_value(dict_1, key, FSharpRef(_arrow46, _arrow47)), out_arg)
                 if match_value[0]:
                     dict_1[key] = (
                         tmp_1 if (-2147483648 <= (tmp_1 := match_value[1] + 1) <= 2147483647) else int32(tmp_1)
@@ -86,18 +86,18 @@ def count_by[T, KEY](
                     dict_1[key] = 1
                     (keys.append(key))
 
-        def _arrow52(key_1: KEY = UNIT) -> tuple[KEY, int]:
+        def _arrow48(key_1: KEY = UNIT) -> tuple[KEY, int]:
             return (key_1, get_item_from_dict(dict_1, key_1))
 
-        return map(_arrow52, to_enumerable(keys))
+        return map(_arrow48, to_enumerable(keys))
 
-    return delay(_arrow53)
+    return delay(_arrow49)
 
 
 def group_by[T, KEY](
     projection: Callable[[T], KEY], xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]
 ) -> IEnumerable_1[tuple[KEY, IEnumerable_1[T]]]:
-    def _arrow57(
+    def _arrow53(
         projection: Any = projection, xs: Any = xs, comparer: Any = comparer
     ) -> IEnumerable_1[tuple[KEY, IEnumerable_1[T]]]:
         dict_1: Any = Dictionary(Array[Any]([]), comparer)
@@ -109,14 +109,14 @@ def group_by[T, KEY](
                 match_value: tuple[bool, list[Any]]
                 out_arg: list[Any] = cast(list[Any], None)
 
-                def _arrow54(__unit: Unit = UNIT) -> list[T]:
+                def _arrow50(__unit: Unit = UNIT) -> list[T]:
                     return out_arg
 
-                def _arrow55(v: list[T]) -> None:
+                def _arrow51(v: list[T]) -> None:
                     nonlocal out_arg
                     out_arg = v
 
-                match_value = (try_get_value(dict_1, key, FSharpRef(_arrow54, _arrow55)), out_arg)
+                match_value = (try_get_value(dict_1, key, FSharpRef(_arrow50, _arrow51)), out_arg)
                 if match_value[0]:
                     (match_value[1].append(x))
 
@@ -124,12 +124,12 @@ def group_by[T, KEY](
                     add_to_dict(dict_1, key, [x])
                     (keys.append(key))
 
-        def _arrow56(key_1: KEY = UNIT) -> tuple[KEY, IEnumerable_1[T]]:
+        def _arrow52(key_1: KEY = UNIT) -> tuple[KEY, IEnumerable_1[T]]:
             return (key_1, to_enumerable(get_item_from_dict(dict_1, key_1)))
 
-        return map(_arrow56, to_enumerable(keys))
+        return map(_arrow52, to_enumerable(keys))
 
-    return delay(_arrow57)
+    return delay(_arrow53)
 
 
 def Array_distinct[T](xs: Array[T], comparer: IEqualityComparer_1[Any]) -> Array[T]:

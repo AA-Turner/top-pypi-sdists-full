@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -24,6 +25,7 @@ from agents import (
     Runner,
     Tool,
     ToolSearchTool,
+    WebSearchTool,
     __version__,
     function_tool,
     handoff,
@@ -114,6 +116,137 @@ async def _run_responses_model_with_official_client(
         await http_client.aclose()
 
     return requests
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+@pytest.mark.parametrize("call_id_fields", [{}, {"call_id": None}], ids=["omitted", "null"])
+@pytest.mark.parametrize("stream", [False, True], ids=["non_streaming", "streaming"])
+async def test_unpaired_function_output_preserved_in_responses_request(
+    call_id_fields: dict[str, None], stream: bool
+) -> None:
+    """Responses keeps external-context output and its source without inventing a call ID."""
+    request_bodies: list[dict[str, Any]] = []
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        request_bodies.append(json.loads(request.content))
+        if stream:
+            event = _response_completed_frame("resp-id", sequence_number=0)
+            return httpx2.Response(
+                200,
+                content=f"event: response.completed\ndata: {event}\n\n",
+                headers={"content-type": "text/event-stream"},
+            )
+        return httpx2.Response(
+            200,
+            content=get_response_obj([]).model_dump_json(),
+            headers={"content-type": "application/json"},
+        )
+
+    expected_input = {
+        "type": "function_call_output",
+        "name": "notifications",
+        "namespace": "slack",
+        "output": [
+            {"type": "input_text", "text": "Alice mentioned you in #deployments."},
+            {"type": "input_image", "image_url": "https://example.com/image.png"},
+        ],
+        **call_id_fields,
+    }
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as http_client:
+        model = OpenAIResponsesModel(
+            model="gpt-4",
+            openai_client=AsyncOpenAI(api_key="test-key", http_client=http_client),
+        )
+        request_kwargs: dict[str, Any] = {
+            "system_instructions": None,
+            "input": [dict(expected_input)],
+            "model_settings": ModelSettings(),
+            "tools": [],
+            "output_schema": None,
+            "handoffs": [],
+            "tracing": ModelTracing.DISABLED,
+        }
+        if stream:
+            async for _ in model.stream_response(**request_kwargs):
+                pass
+        else:
+            await model.get_response(**request_kwargs)
+
+    assert [body["input"] for body in request_bodies] == [[expected_input]]
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True], ids=["non_streaming", "streaming"])
+@pytest.mark.parametrize(
+    "tool_options, expected_include",
+    [
+        ({}, []),
+        ({"search_content_types": ["text"]}, []),
+        (
+            {
+                "search_content_types": ["image", "text"],
+                "image_settings": {"max_results": 3, "caption": False},
+            },
+            ["web_search_call.results"],
+        ),
+    ],
+    ids=["default", "text_only", "image_and_text"],
+)
+async def test_web_search_image_options_reach_responses_request(
+    stream: bool, tool_options: dict[str, Any], expected_include: list[str]
+) -> None:
+    """Inspect the provider wire payload, including fields not yet typed by openai-python."""
+    request_bodies: list[dict[str, Any]] = []
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        request_bodies.append(json.loads(request.content))
+        if stream:
+            event = _response_completed_frame("resp-id", sequence_number=0)
+            return httpx2.Response(
+                200,
+                content=f"event: response.completed\ndata: {event}\n\n",
+                headers={"content-type": "text/event-stream"},
+            )
+        return httpx2.Response(
+            200,
+            content=get_response_obj([]).model_dump_json(),
+            headers={"content-type": "application/json"},
+        )
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as http_client:
+        model = OpenAIResponsesModel(
+            model="gpt-5.6",
+            openai_client=AsyncOpenAI(api_key="test-key", http_client=http_client),
+        )
+        request_kwargs: dict[str, Any] = {
+            "system_instructions": None,
+            "input": "Find images of the Golden Gate Bridge.",
+            "model_settings": ModelSettings(),
+            "tools": [WebSearchTool(**tool_options)],
+            "output_schema": None,
+            "handoffs": [],
+            "tracing": ModelTracing.DISABLED,
+        }
+        if stream:
+            async for _ in model.stream_response(**request_kwargs):
+                pass
+        else:
+            await model.get_response(**request_kwargs)
+
+    assert len(request_bodies) == 1
+    body = request_bodies[0]
+    assert body["tools"] == [
+        {
+            "type": "web_search",
+            "filters": None,
+            "user_location": None,
+            "search_context_size": "medium",
+            **tool_options,
+        }
+    ]
+    assert body.get("include", []) == expected_include
 
 
 class DummyWSConnection:
@@ -748,6 +881,76 @@ async def test_stream_response_close_closes_inner_http_stream_with_async_close(m
     await stream_agen.aclose()
 
     assert inner_stream.close_calls == 1
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_stream_span_records_io_when_consumer_stops_at_completed(monkeypatch):
+    """A consumer that stops at `response.completed` closes the generator.
+
+    The SDK's own run loop does this (it wraps the model stream in `aclosing()` and
+    breaks once it sees the terminal event). Anything recorded only after the yield
+    loop therefore never runs for such a consumer, so the response and input must be
+    attached to the span before the terminal event is yielded, mirroring the existing
+    usage handling and the non-streamed `get_response` path.
+    """
+    client = DummyWSClient()
+    model = OpenAIResponsesModel(model="gpt-4", openai_client=client)  # type: ignore[arg-type]
+
+    class DummyHTTPStream:
+        def __init__(self, response):
+            self._response = response
+            self._yielded = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self._yielded:
+                raise StopAsyncIteration
+            self._yielded = True
+            return ResponseCompletedEvent(
+                type="response.completed",
+                response=self._response,
+                sequence_number=0,
+            )
+
+        async def aclose(self) -> None:
+            return None
+
+    response = get_response_obj(
+        [],
+        response_id="resp-stream-early-close",
+        usage=Usage(requests=1, input_tokens=10, output_tokens=4, total_tokens=14),
+    )
+    inner_stream = DummyHTTPStream(response)
+
+    async def fake_fetch_response(*args: Any, **kwargs: Any) -> DummyHTTPStream:
+        return inner_stream
+
+    monkeypatch.setattr(model, "_fetch_response", fake_fetch_response)
+
+    with trace(workflow_name="test"):
+        stream = model.stream_response(
+            system_instructions=None,
+            input="the user prompt",
+            model_settings=ModelSettings(),
+            tools=[],
+            output_schema=None,
+            handoffs=[],
+            tracing=ModelTracing.ENABLED,
+        )
+        stream_agen = cast(Any, stream)
+        async for event in stream_agen:
+            if event.type == "response.completed":
+                break  # stop consuming, as a caller watching for the terminal event would
+        await stream_agen.aclose()
+
+    response_spans = [span for span in fetch_ordered_spans() if span.span_data.type == "response"]
+    assert len(response_spans) == 1
+    assert response_spans[0].span_data.response is not None
+    assert response_spans[0].span_data.input is not None
+    assert response_spans[0].span_data.usage is not None
 
 
 @pytest.mark.allow_call_model_methods
@@ -1986,6 +2189,7 @@ async def test_websocket_model_passes_keepalive_options_to_connect(monkeypatch):
     assert opened is ws
     assert captured_kwargs["ws_url"] == "wss://example.test/v1/responses"
     assert captured_kwargs["additional_headers"] == {"Authorization": "Bearer test-key"}
+    assert captured_kwargs["logger"].isEnabledFor(logging.DEBUG) is False
     assert captured_kwargs["open_timeout"] == 10.0
     assert captured_kwargs["ping_interval"] == 45.0
     assert captured_kwargs["ping_timeout"] is None

@@ -468,6 +468,9 @@ def test_build_mitmdump_command_records_without_replay_flags(tmp_path: Path) -> 
 
     assert "--server-replay" not in cmd
     assert not [arg for arg in cmd if arg.startswith("server_replay")]
+    # keepserving only matters (and defaults off) when --server-replay is set;
+    # a recording-only run keeps serving regardless.
+    assert "keepserving=true" not in cmd
     assert "--save-stream-file" in cmd
     assert str(tmp_path / "http_traffic.mitm") in cmd
 
@@ -501,6 +504,10 @@ def test_build_mitmdump_command_replays_and_still_records(tmp_path: Path) -> Non
     # request going live rather than truncating the run.
     assert "server_replay_reuse=false" in settings
     assert "server_replay_extra=forward" in settings
+    # Without this, mitmdump's KeepServing addon shuts the proxy down as soon
+    # as the corpus is exhausted, and every later request -- which the
+    # `forward` setting should have sent live -- gets a connection refusal.
+    assert "keepserving=true" in settings
     # A sequence option takes one `--set` per value.
     assert "server_replay_ignore_params=nonce" in settings
     assert "server_replay_ignore_params=ts" in settings

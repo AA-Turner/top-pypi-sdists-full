@@ -30,6 +30,7 @@ from starlette.types import Receive, Scope, Send
 
 import langgraph_api.config as config
 from langgraph_api.api import (
+    custom_app_lifespan,
     middleware_for_protected_routes,
     protected_routes,
     shadowable_meta_routes,
@@ -79,7 +80,7 @@ global_middleware.extend(
             Middleware(
                 CORSMiddleware,
                 allow_origins=config.CORS_ALLOW_ORIGINS,
-                allow_credentials=True,
+                allow_credentials="*" not in config.CORS_ALLOW_ORIGINS,
                 allow_methods=["*"],
                 allow_headers=["*"],
                 expose_headers=[
@@ -234,9 +235,10 @@ if user_router:
     update_openapi_spec(app)
 
     # Merge lifespans (base + user)
-    user_lifespan = app.router.lifespan_context
     validate_router_lifespan_hooks(app.router)
-    app.router.lifespan_context = timing.combine_lifespans(lifespan, user_lifespan)
+    app.router.lifespan_context = timing.combine_lifespans(
+        lifespan, custom_app_lifespan
+    )
 
     # Merge exception handlers (base + user)
     for k, v in exception_handlers.items():

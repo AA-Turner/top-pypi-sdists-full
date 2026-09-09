@@ -9,7 +9,7 @@ import temporalio.activity
 
 from mistralai.workflows.core._events.event_encoder import EventPayloadEncoder, maybe_encode_event
 from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
-from mistralai.workflows.core.config.config import EventsApiVersion
+from mistralai.workflows.core.config.config import DEFAULT_EVENTS_API_VERSION, EventsApiVersion
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.protocol.v1.events import WorkflowEvent
 from mistralai.workflows.worker_client.errors import SDKError
@@ -64,7 +64,7 @@ class EventContext:
         self,
         events_client: Events,
         worker_client: PrivateWorkerClient | None = None,
-        events_api_version: str = "v1",
+        events_api_version: EventsApiVersion = DEFAULT_EVENTS_API_VERSION,
         payload_encoder: PayloadEncoder | None = None,
     ) -> None:
         self.events_client = events_client

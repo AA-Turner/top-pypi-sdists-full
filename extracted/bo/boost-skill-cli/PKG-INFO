@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boost-skill-cli
-Version: 1.2.94
+Version: 1.2.103
 Summary: boost — Homebrew for AI coding skills
 Author: Jonathan Reyes
 License-Expression: Apache-2.0
@@ -421,6 +421,13 @@ at least 95% alike, fold into one badged `×5`, with `^D` to show them again.
 Identity is the description and never the name: `code-reviewer` appears 75 times
 with 42 different descriptions, and those are 42 real skills.
 
+Without a real TTY (a pipe, an IDE run console, a terminal curses can't drive)
+`browse` falls back to a plain, deduped table — name, version, tap, kind — with
+a footer breaking the total down by kind and pointing at `boost search` to
+narrow it. The same fallback covers a curses initialization failure, so a
+terminal that merely *claims* `isatty()` degrades gracefully instead of
+crashing mid-draw.
+
 ## 81 commands, organized into 8 groups
 
 `boost --help` prints the full grouped list. For every flag of every command see
@@ -461,6 +468,7 @@ is the whole setup.
 boost mcp register                 # every installed host (default: --host auto)
 boost mcp register --host gemini   # just one
 boost mcp register --no-seed       # register only; tap nothing
+boost mcp register --dry-run       # print the resolved command per host; change nothing
 boost mcp unregister               # same host selection, in reverse
 ```
 
@@ -472,6 +480,7 @@ purely local operation, for CI images and air-gapped machines.
 |------|-----|---------------|
 | Claude Code | `claude` | `claude mcp add` → its user-scope MCP config |
 | Gemini CLI | `gemini` | `gemini mcp add -s user` → `~/.gemini/settings.json` |
+| Antigravity CLI | `agy` | `agy mcp add` → `~/.gemini/config/mcp_config.json` |
 
 Seven tools are exposed: `boost_search`, `boost_list`, `boost_info`,
 `boost_read`, `boost_install`, `boost_doctor` and

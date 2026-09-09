@@ -1,10 +1,8 @@
 import logging
 import os
 import re
-import sys
-import functools
 import re as regex_module
-
+import sys
 
 from mkdocs.config import config_options
 from mkdocs.exceptions import PluginError
@@ -81,8 +79,8 @@ class PrintSitePlugin(BasePlugin):
             position_offset += len(config.get("hooks"))
 
         if print_site_position != len(plugins) - position_offset:
-            msg = "[mkdocs-print-site] 'print-site' should be defined as the *last* plugin,"
-            msg += "to ensure the print page has any changes other plugins make."
+            msg = "[mkdocs-print-site] 'print-site' should be defined as the *last* plugin, "
+            msg += "to ensure the print page has any changes other plugins make. "
             msg += "Please update the 'plugins:' section in your mkdocs.yml"
             logger.warning(msg)
 
@@ -393,7 +391,7 @@ class PrintSitePlugin(BasePlugin):
                         
                         return f"#{identifier}", title  # Return anyway, might work
                         
-                except Exception as e:
+                except Exception:
                     # Fallback: check if identifier exists as anchor or find fuzzy match
                     if identifier in available_anchors:
                         return f"#{identifier}", identifier

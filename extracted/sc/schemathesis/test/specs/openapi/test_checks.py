@@ -587,6 +587,155 @@ def test_negative_data_rejection_on_additional_properties(response_factory, samp
     )
 
 
+_READ_ONLY_COMPONENTS = {
+    "schemas": {
+        "Item": {
+            "type": "object",
+            "properties": {"id": {"type": "integer", "readOnly": True}, "name": {"type": "string"}},
+            "required": ["id", "name"],
+        },
+        "Fields": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+        "Items": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}},
+        "Widget": {
+            "allOf": [
+                {"$ref": "#/components/schemas/Fields"},
+                {"type": "object", "properties": {"id": {"type": "integer", "readOnly": True}}},
+            ],
+            "required": ["id", "name"],
+        },
+        "Legacy": {
+            "type": "object",
+            "properties": {"legacy": {"not": {}}, "name": {"type": "string"}},
+            "required": ["name"],
+        },
+        "Unreadable": {
+            "type": "object",
+            "properties": {"id": {"type": "integer", "readOnly": True}, "legacy": False},
+        },
+        "Nullable": {
+            "type": "object",
+            "nullable": True,
+            "properties": {"id": {"type": "integer", "readOnly": True}, "name": {"type": "string"}},
+        },
+        "Choice": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {"id": {"type": "integer", "readOnly": True}, "a": {"type": "string"}},
+                    "required": ["a"],
+                },
+                {
+                    "type": "object",
+                    "properties": {"id": {"type": "integer", "readOnly": True}, "b": {"type": "string"}},
+                    "required": ["b"],
+                },
+            ]
+        },
+    }
+}
+
+
+# A server may ignore a read-only property instead of rejecting it, so that alone is not a failure.
+@pytest.mark.parametrize(
+    ("ref", "body", "raises"),
+    [
+        ("Item", {"name": "", "id": {}}, False),
+        ("Widget", {"name": "", "id": {}}, False),
+        ("Item", {"name": 1, "id": {}}, True),
+        ("Item", {"id": {}}, True),
+        ("Items", [{"name": "", "id": {}}], False),
+        ("Items", [{"name": 1, "id": {}}], True),
+        ("Choice", {"a": "x", "id": 1}, False),
+        ("Choice", {"a": 1, "id": 1}, True),
+        ("Legacy", {"name": "x", "legacy": 1}, False),
+        ("Nullable", {"name": "", "id": {}}, False),
+        ("Nullable", {"name": 1, "id": {}}, True),
+        ("Item", {"name": "x"}, True),
+        ("Unreadable", {"id": 1}, True),
+    ],
+    ids=[
+        "flat",
+        "allOf",
+        "other-violation",
+        "missing-required",
+        "array",
+        "array-other-violation",
+        "one-of",
+        "one-of-other-violation",
+        "forbidden-without-read-only",
+        "nullable",
+        "nullable-other-violation",
+        "body-without-read-only-property",
+        "schema-the-validator-rejects",
+    ],
+)
+def test_negative_data_rejection_read_only_property(ctx, response_factory, ref, body, raises):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{ref}"}}},
+                    },
+                    "responses": {"201": {"description": "Created"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        },
+        components=_READ_ONLY_COMPONENTS,
+    )
+    case = schema["/items"]["POST"].Case(
+        body=body,
+        media_type="application/json",
+        _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+    )
+    response = response_factory.requests(status_code=201)
+    if raises:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
+
+
+# Only the alternative matching the case media type decides; an undeclared one leaves the failure standing.
+@pytest.mark.parametrize(
+    ("media_type", "raises"),
+    [("application/xml", False), ("application/yaml", True)],
+    ids=["declared-media-type", "undeclared-media-type"],
+)
+def test_negative_data_rejection_read_only_property_media_types(ctx, response_factory, media_type, raises):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"name": {"type": "string"}}}
+                            },
+                            "application/xml": {"schema": {"$ref": "#/components/schemas/Item"}},
+                        },
+                    },
+                    "responses": {"201": {"description": "Created"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        },
+        components=_READ_ONLY_COMPONENTS,
+    )
+    case = schema["/items"]["POST"].Case(
+        body={"name": "", "id": {}},
+        media_type=media_type,
+        _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+    )
+    response = response_factory.requests(status_code=201)
+    if raises:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
+
+
 @pytest.mark.parametrize(
     ("media_type", "body_mode", "query_mode", "header_mode", "expected"),
     [
@@ -890,6 +1039,7 @@ def test_missing_required_authorization_if_provided_explicitly(ctx, cli, tmp_pat
         (401, False),
         (403, False),
         (406, False),
+        (415, False),
         (422, False),
         (200, True),
         (500, True),

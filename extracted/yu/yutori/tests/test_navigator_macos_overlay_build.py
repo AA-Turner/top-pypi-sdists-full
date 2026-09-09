@@ -125,3 +125,40 @@ def test_stop_item_region_explicitly_converts_cgfloat_arithmetic_to_double():
     region = source.split("private func stopItemRegion", 1)[1].split("private func registerStopHotKey", 1)[0]
     for key in ("x", "y", "width", "height"):
         assert f'"{key}": Double(' in region
+
+
+def test_activity_shell_commands_do_not_inherit_the_phosphor_glow():
+    """Dense command text must stay legible instead of blurring into a green bar."""
+    css = overlay_build._asset_directory().joinpath("navigator-activity.css").read_text(encoding="utf-8")
+    shell_card = css.split(".n2-entry-shell {", 1)[1].split("}", 1)[0]
+    shell_body = css.split(".n2-shell-body {", 1)[1].split("}", 1)[0]
+    shell_command = css.split(".n2-shell-command {", 1)[1].split("}", 1)[0]
+    assert "text-shadow" not in shell_card
+    assert "text-shadow: none" in shell_body
+    assert "flex: 1 1 auto" in shell_command
+
+
+def test_activity_entries_are_not_shrunk_by_the_transcript_flex_column():
+    """A shell panel clips its overflow, so only `flex: none` keeps it at its text's height.
+
+    Without it the panel loses its automatic minimum size and the scrolling column
+    squeezes it flat -- worse the shorter the window -- until only the header shows.
+    """
+    css = overlay_build._asset_directory().joinpath("navigator-activity.css").read_text(encoding="utf-8")
+    entry = css.split(".n2-entry {", 1)[1].split("}", 1)[0]
+    assert "flex: none" in entry
+
+
+def test_the_shell_rail_stands_down_while_the_activity_window_is_open():
+    """One list of commands at a time: the window the operator opened, not the desktop."""
+    css = overlay_build._asset_directory().joinpath("navigator-overlay.css").read_text(encoding="utf-8")
+    hidden = css.split("html[data-n2-activity-open] #n2-shell-rail {", 1)[1].split("}", 1)[0]
+    assert "display: none" in hidden
+
+    source = overlay_build._asset_directory().joinpath("macos-overlay-host.swift").read_text(encoding="utf-8")
+    visibility = source.split("private func railVisibilityScript", 1)[1].split("}", 1)[0]
+    assert "toggleAttribute('data-n2-activity-open', \\(activityShown))" in visibility
+    # Both the show and the hide path, and the close button that bypasses them.
+    assert source.count("        syncRailVisibility()") == 3
+    # A rail page that loads while the window is already open must start hidden.
+    assert "railVisibilityScript()" in source.split("private func railStyleScript", 1)[1].split("}", 1)[0]

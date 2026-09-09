@@ -39,8 +39,8 @@ MAX_DELIVERY_COUNT = 2**63 - 1
 class PelEntry(NamedTuple):
     """Pending Entry List entry: tracks consumer ownership and delivery count
 
-    A `time_read` of 0 marks an entry released by XNACK: it is unowned (empty consumer name) and
-    immediately claimable regardless of idle time.
+    A `time_read` of 0 marks an entry released by XNACK: it is unowned (empty consumer name) and immediately claimable
+    regardless of idle time.
     """
 
     consumer_name: bytes
@@ -131,11 +131,18 @@ class StreamGroup:
         return 1
 
     def del_consumer(self, consumer_name: bytes) -> int:
+        """Drop a consumer and the entries it still owns, returning how many were dropped.
+
+        The count comes from the PEL rather than the cached `pending` counter: entries move between
+        consumers, so the counter can disagree with who actually owns what.
+        """
         if consumer_name not in self.consumers:
             return 0
-        res = self.consumers[consumer_name].pending
+        owned = [key for key, entry in self.pel.items() if entry.consumer_name == consumer_name]
+        for key in owned:
+            del self.pel[key]
         del self.consumers[consumer_name]
-        return res
+        return len(owned)
 
     def consumers_info(self) -> list[dict[str, bytes | int]]:
         return [self.consumers[k].info(current_time()) for k in self.consumers]
@@ -182,11 +189,11 @@ class StreamGroup:
             for k in ids_read:
                 # Initialize with times_delivered=1 for new messages
                 self.pel[k] = PelEntry(consumer_name, _time, 1)
+            self.consumers[consumer_name].pending += len(ids_read)
         if len(ids_read) > 0:
             self.last_delivered_key = max(self.last_delivered_key, ids_read[-1])
             self.entries_read = (self.entries_read or 0) + len(ids_read)
         self.consumers[consumer_name].last_success = _time
-        self.consumers[consumer_name].pending += len(ids_read)
         return [self.stream.format_record(x) for x in ids_read]  # type: ignore[misc]
 
     def _calc_consumer_last_time(self) -> None:
@@ -260,8 +267,10 @@ class StreamGroup:
             except Exception:
                 continue
             if parsed in self.pel:
-                consumer_name = self.pel[parsed].consumer_name
-                self.consumers[consumer_name].pending -= 1
+                # An XNACK-released entry is pending but unowned, so there is nobody to charge the acknowledgement to.
+                consumer = self.consumers.get(self.pel[parsed].consumer_name)
+                if consumer is not None:
+                    consumer.pending -= 1
                 del self.pel[parsed]
                 res += 1
         self._calc_consumer_last_time()
@@ -316,6 +325,28 @@ class StreamGroup:
         ]
         return data
 
+    def _release_pending(self, consumer_name: bytes) -> None:
+        """Drop one entry from a consumer's pending count, if it is still charged to one.
+
+        An XNACK-released entry is unowned (empty consumer name), and XGROUP DELCONSUMER can remove
+        a consumer that still owns entries, so the previous owner is not always a live consumer.
+        """
+        consumer = self.consumers.get(consumer_name)
+        if consumer is not None:
+            consumer.pending -= 1
+
+    @staticmethod
+    def _claimed_delivery_count(previous: int, justid: bool, retrycount: int | None) -> int:
+        """Delivery counter a claim leaves behind, matching XCLAIM's option precedence.
+
+        RETRYCOUNT wins over JUSTID, and redis reads a negative RETRYCOUNT as "not given"
+        (`if (retrycount >= 0) ... else if (!justid)` in t_stream.c), so `XCLAIM ... RETRYCOUNT -1`
+        must still auto-increment. A plain truthiness test would break RETRYCOUNT 0 instead.
+        """
+        if retrycount is not None and retrycount >= 0:
+            return retrycount
+        return previous if justid else previous + 1
+
     def claim(
         self,
         min_idle_ms: int,
@@ -323,11 +354,15 @@ class StreamGroup:
         consumer_name: bytes,
         _time: int | None,
         force: bool,
+        justid: bool = False,
+        retrycount: int | None = None,
     ) -> tuple[list[StreamEntryKey], list[StreamEntryKey]]:
         curr_time = current_time()
         if _time is None:
             _time = curr_time
-        self.consumers.get(consumer_name, StreamConsumerInfo(consumer_name)).last_attempt = curr_time
+        if consumer_name not in self.consumers:
+            self.consumers[consumer_name] = StreamConsumerInfo(consumer_name)
+        self.consumers[consumer_name].last_attempt = curr_time
         claimed_msgs, deleted_msgs = [], []
         for msg in msgs:
             try:
@@ -336,9 +371,11 @@ class StreamGroup:
                 continue
             if key not in self.pel:
                 if force:
-                    # Force claim msg - initialize with times_delivered=1
-                    self.pel[key] = PelEntry(consumer_name, _time, 1)
+                    # FORCE creates the entry with a delivery count of 1, then claims it as usual.
+                    times_delivered = self._claimed_delivery_count(1, justid, retrycount)
+                    self.pel[key] = PelEntry(consumer_name, _time, times_delivered)
                     if key in self.stream:
+                        self.consumers[consumer_name].pending += 1
                         claimed_msgs.append(key)
                     else:
                         deleted_msgs.append(key)
@@ -346,12 +383,18 @@ class StreamGroup:
                 continue
             if curr_time - self.pel[key].time_read < min_idle_ms:
                 continue  # Not idle enough time to be claimed
-            # Increment times_delivered when claiming
+            previous_owner = self.pel[key].consumer_name
             old_times_delivered = self.pel[key].times_delivered
-            self.pel[key] = PelEntry(consumer_name, _time, old_times_delivered + 1)
+            times_delivered = self._claimed_delivery_count(old_times_delivered, justid, retrycount)
+            self.pel[key] = PelEntry(consumer_name, _time, times_delivered)
             if key in self.stream:
+                if previous_owner != consumer_name:
+                    self._release_pending(previous_owner)
+                    self.consumers[consumer_name].pending += 1
                 claimed_msgs.append(key)
             else:
+                # The entry leaves the PEL altogether, so it is charged to nobody afterwards.
+                self._release_pending(previous_owner)
                 deleted_msgs.append(key)
                 del self.pel[key]
         self._calc_consumer_last_time()
@@ -360,9 +403,9 @@ class StreamGroup:
     def claim_for_read(self, min_idle_ms: int, consumer_name: bytes, count: int | None) -> list[list[Any]]:
         """Claim idle pending entries for `XREADGROUP ... CLAIM min-idle-time` (Redis 8.4).
 
-        Entries pending for at least min_idle_ms milliseconds are re-assigned to consumer_name,
-        longest-idle first (XNACK-released entries have a delivery time of 0, so they come first).
-        Each claimed entry is returned as [id, fields, idle-time, previous-delivery-count].
+        Entries pending for at least min_idle_ms milliseconds are re-assigned to consumer_name, longest-idle first
+        (XNACK-released entries have a delivery time of 0, so they come first). Each claimed entry is returned as [id,
+        fields, idle-time, previous-delivery-count].
         """
         curr_time = current_time()
         if consumer_name not in self.consumers:
@@ -388,23 +431,28 @@ class StreamGroup:
             res.append(record)
         return res
 
-    def read_pel_msgs(self, min_idle_ms: int, start: bytes, count: int) -> list[StreamEntryKey]:
+    def read_pel_msgs(
+        self, min_idle_ms: int, start: bytes, count: int
+    ) -> tuple[list[StreamEntryKey], StreamEntryKey | None]:
+        """Claimable PEL entries from `start`, plus the entry XAUTOCLAIM should resume its scan at.
+
+        The second element is None once the scan has reached the end of the PEL. XAUTOCLAIM reports that as the 0-0
+        cursor, which is what ends a caller's `while cursor != "0-0"` loop.
+        """
         start_key = StreamEntryKey.parse_str(start)
         curr_time = current_time()
         msgs = sorted([k for k in self.pel if (curr_time - self.pel[k].time_read >= min_idle_ms) and k >= start_key])
-        count = min(count, len(msgs))
-        return msgs[:count]
+        return msgs[:count], msgs[count] if len(msgs) > count else None
 
 
 class XStream(BaseModel):
     """Class representing stream.
 
     The stream contains entries with keys (timestamp, sequence) and field->value pairs.
-    This implementation has them as a sorted list of tuples, the first value in the tuple
-    is the key (timestamp, sequence).
+    This implementation has them as a sorted list of tuples, the first value in the tuple is the key (timestamp,
+    sequence).
 
-    The structure of _values list is:
-    [
+    The structure of _values list is: [
        ((timestamp, sequence), [field1, value1, field2, value2, ...]),
        ((timestamp, sequence), [field1, value1, field2, value2, ...]),
     ]
@@ -581,8 +629,8 @@ class XStream(BaseModel):
     def record_idmp(self, pid: bytes, iid: bytes, stream_id: bytes) -> None:
         """Record pid/iid -> stream_id mapping for XIDMPRECORD.
 
-        Raises SimpleError if the pid/iid pair already maps to a different stream ID,
-        or if stream_id does not exist in the stream.
+        Raises SimpleError if the pid/iid pair already maps to a different stream ID, or if stream_id does not exist in
+        the stream.
         """
         entry_key = StreamEntryKey.parse_str(stream_id)
         if entry_key not in self._values_dict:
@@ -607,8 +655,7 @@ class XStream(BaseModel):
     ) -> None | bytes:
         """Add entry to a stream.
 
-        If the entry_key cannot be added (because its timestamp is before the last entry, etc.),
-        nothing is added.
+        If the entry_key cannot be added (because its timestamp is before the last entry, etc.), nothing is added.
 
         :param fields: List of fields to add, must [key1, value1, key2, value2, ... ]
         :param entry_key:

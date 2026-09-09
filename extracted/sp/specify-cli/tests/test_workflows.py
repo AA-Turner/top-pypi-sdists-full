@@ -4,7 +4,7 @@ Covers:
 - Step registry & auto-discovery
 - Base classes (StepBase, StepContext, StepResult)
 - Expression engine
-- All 10 built-in step types
+- All 12 built-in step types
 - Workflow definition loading & validation
 - Workflow engine execution & state persistence
 - Workflow catalog & registry
@@ -108,7 +108,7 @@ class TestStepRegistry:
 
         expected = {
             "command", "shell", "prompt", "gate", "if", "switch",
-            "while", "do-while", "fan-out", "fan-in", "init",
+            "while", "do-while", "fan-out", "fan-in", "init", "slot",
         }
         assert expected.issubset(set(STEP_REGISTRY.keys()))
 
@@ -3560,6 +3560,33 @@ class TestWhileStep:
         assert any("missing 'condition'" in e for e in errors)
         # max_iterations is optional (defaults to 10)
 
+    def test_validate_requires_steps_body(self):
+        """A while loop with no body must be rejected, not silently a no-op.
+
+        Without this, ``step:`` written instead of ``steps:`` -- an easy slip,
+        since fan-out's payload key really is the singular ``step:`` -- passed
+        ``specify workflow validate`` with zero errors, and then reported
+        COMPLETED at run time while returning no ``next_steps``, so the loop
+        never ran even once.
+        """
+        from specify_cli.workflows.base import StepContext, StepStatus
+        from specify_cli.workflows.steps.while_loop import WhileStep
+
+        step = WhileStep()
+        config = {
+            "id": "retry",
+            "condition": "true",
+            # The mistype: singular 'step' instead of 'steps'.
+            "step": {"id": "x", "type": "command", "command": "echo"},
+        }
+        errors = step.validate(config)
+        assert errors == ["While step 'retry' is missing 'steps' field."], errors
+
+        # Demonstrates why it matters: execution is a silent no-op.
+        result = step.execute(config, StepContext())
+        assert result.status == StepStatus.COMPLETED
+        assert result.next_steps == []
+
     @pytest.mark.parametrize("bad", [["a", "b"], {"k": "v"}, 5, 1.5])
     def test_validate_rejects_non_string_non_bool_condition(self, bad):
         from specify_cli.workflows.steps.while_loop import WhileStep
@@ -3691,6 +3718,25 @@ class TestDoWhileStep:
         errors = step.validate({"id": "test", "steps": []})
         assert any("missing 'condition'" in e for e in errors)
         # max_iterations is optional (defaults to 10)
+
+    def test_validate_requires_steps_body(self):
+        """A do-while with no body must be rejected, not silently a no-op.
+
+        The step's own docstring promises "The first invocation always returns
+        the nested steps for execution" -- with no body it validated clean and
+        then returned none, so the loop never ran even once.
+        """
+        from specify_cli.workflows.base import StepContext, StepStatus
+        from specify_cli.workflows.steps.do_while import DoWhileStep
+
+        step = DoWhileStep()
+        config = {"id": "refine", "condition": "true", "max_iterations": 3}
+        errors = step.validate(config)
+        assert errors == ["Do-while step 'refine' is missing 'steps' field."], errors
+
+        result = step.execute(config, StepContext())
+        assert result.status == StepStatus.COMPLETED
+        assert result.next_steps == []
 
     @pytest.mark.parametrize("bad", [["a", "b"], {"k": "v"}, 5, 1.5])
     def test_validate_rejects_non_string_non_bool_condition(self, bad):
@@ -10621,6 +10667,79 @@ class TestWorkflowStepAddCLI:
             "responseexceedsthe100-byteworkflowsizelimit"
             in "".join(result.output.split())
         )
+        assert not (
+            project_dir / ".specify" / "workflows" / "steps" / "my-step"
+        ).exists()
+
+    @pytest.mark.parametrize(
+        "step_yml_body", [b"[]", b"false", b"0", b"''", b"null", b"~", b"NULL"]
+    )
+    def test_add_rejects_falsy_non_mapping_step_yml(
+        self, project_dir, monkeypatch, step_yml_body
+    ):
+        """A FALSY non-mapping step.yml document ([], false, 0, '') must be
+        reported as "step.yml must be a YAML mapping", not silently coerced by
+        ``or {}`` into {} and then misreported as the unrelated "missing
+        'step.type_key'" error — matching how a TRUTHY non-mapping document
+        (e.g. a bare string) already reports the mapping-shape error. An
+        explicit null scalar (null/~/NULL) parses to the same ``None`` as a
+        genuinely empty document, so it must be distinguished (via
+        ``yaml.compose``) and rejected too, rather than defaulting to {}."""
+        from typer.testing import CliRunner
+        from specify_cli import app
+        from specify_cli.workflows.catalog import StepCatalog
+        from specify_cli.authentication import http as auth_http
+
+        monkeypatch.chdir(project_dir)
+        monkeypatch.setattr(
+            StepCatalog,
+            "get_step_info",
+            lambda self, step_id: {
+                "id": step_id,
+                "name": "Test Step",
+                "url": "https://example.com/step.yml",
+                "init_url": "https://example.com/__init__.py",
+                "_install_allowed": True,
+            },
+        )
+
+        class _FakeResponse:
+            def __init__(self, url):
+                self.url = url
+                self.body = step_yml_body if url.endswith("step.yml") else b""
+                self.offset = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def getheader(self, name):
+                return None
+
+            def geturl(self):
+                return self.url
+
+            def read(self, size=-1):
+                if size < 0:
+                    size = len(self.body) - self.offset
+                chunk = self.body[self.offset : self.offset + size]
+                self.offset += len(chunk)
+                return chunk
+
+        monkeypatch.setattr(
+            auth_http,
+            "open_url",
+            lambda url, timeout=30, redirect_validator=None: _FakeResponse(url),
+        )
+
+        result = CliRunner().invoke(
+            app, ["workflow", "step", "add", "my-step"]
+        )
+
+        assert result.exit_code != 0
+        assert "step.yml must be a YAML mapping" in result.output
         assert not (
             project_dir / ".specify" / "workflows" / "steps" / "my-step"
         ).exists()

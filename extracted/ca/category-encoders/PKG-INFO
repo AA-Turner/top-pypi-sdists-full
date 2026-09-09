@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: category_encoders
-Version: 2.11.0
+Version: 2.11.1
 Summary: A package for encoding categorical variables for machine learning
 License: BSD-3
 License-File: LICENSE.md

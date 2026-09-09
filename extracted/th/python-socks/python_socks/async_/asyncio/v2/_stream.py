@@ -78,6 +78,10 @@ class AsyncioSocketStream(abc.AsyncSocketStream):
 
     async def close(self) -> None:
         self._writer.close()
+        try:
+            await self._writer.wait_closed()
+        except Exception:  # noqa: BLE001, S110
+            pass
         self._writer.transport.abort()
 
     @property

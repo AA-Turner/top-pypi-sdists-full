@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict
+from datetime import UTC, datetime
 from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
@@ -645,6 +646,11 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
         highest = sorted_group[-1]
         connector_id = highest.get("connector_id", "")
         rc_tag = highest.get("rc_docker_image_tag")
+        started_at = min(
+            (r.get("created_at", "") for r in sorted_group if r.get("created_at", "")),
+            default="",
+        )
+        updated_at = max((r.get("updated_at", "") for r in sorted_group), default="")
         total_pins = max(
             (int(r.get("rc_pin_count", 0)) for r in sorted_group), default=0
         )
@@ -655,6 +661,8 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
                 "connector_id": connector_id,
                 "connector_name": highest.get("connector_name", ""),
                 "rc_docker_image_tag": rc_tag,
+                "started_at_display": _format_date_display(started_at),
+                "updated_at_display": _format_datetime_display(updated_at),
                 **tier_displays,
                 "autopilot_display": _autopilot_display(connector_id, rc_tag),
                 "rc_pin_count_display": f"{total_pins:,}",
@@ -884,6 +892,19 @@ def first_admin_user_email() -> str:
 def _format_date_display(value: str) -> str:
     """Format an ISO datetime string to `yyyy-mm-dd (ddd)`."""
     return _fmt_date(value)
+
+
+def _format_datetime_display(value: str) -> str:
+    """Format an ISO datetime string to `yyyy-mm-dd HH:MM UTC`."""
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def rows_from_dataclasses(rows: Any) -> list[dict[str, Any]]:

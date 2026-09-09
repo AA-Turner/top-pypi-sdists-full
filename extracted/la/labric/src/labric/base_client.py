@@ -14,6 +14,7 @@ from .environment import LabricEnvironment
 if typing.TYPE_CHECKING:
     from .agent.client import AgentClient, AsyncAgentClient
     from .files.client import AsyncFilesClient, FilesClient
+    from .images.client import AsyncImagesClient, ImagesClient
     from .jobs.client import AsyncJobsClient, JobsClient
     from .models.client import AsyncModelsClient, ModelsClient
     from .tools.client import AsyncToolsClient, ToolsClient
@@ -111,6 +112,7 @@ class BaseLabric:
         self._agent: typing.Optional[AgentClient] = None
         self._jobs: typing.Optional[JobsClient] = None
         self._tools: typing.Optional[ToolsClient] = None
+        self._images: typing.Optional[ImagesClient] = None
         self._models: typing.Optional[ModelsClient] = None
 
     @property
@@ -144,6 +146,14 @@ class BaseLabric:
 
             self._tools = ToolsClient(client_wrapper=self._client_wrapper)
         return self._tools
+
+    @property
+    def images(self):
+        if self._images is None:
+            from .images.client import ImagesClient  # noqa: E402
+
+            self._images = ImagesClient(client_wrapper=self._client_wrapper)
+        return self._images
 
     @property
     def models(self):
@@ -267,6 +277,7 @@ class AsyncBaseLabric:
         self._agent: typing.Optional[AsyncAgentClient] = None
         self._jobs: typing.Optional[AsyncJobsClient] = None
         self._tools: typing.Optional[AsyncToolsClient] = None
+        self._images: typing.Optional[AsyncImagesClient] = None
         self._models: typing.Optional[AsyncModelsClient] = None
 
     @property
@@ -300,6 +311,14 @@ class AsyncBaseLabric:
 
             self._tools = AsyncToolsClient(client_wrapper=self._client_wrapper)
         return self._tools
+
+    @property
+    def images(self):
+        if self._images is None:
+            from .images.client import AsyncImagesClient  # noqa: E402
+
+            self._images = AsyncImagesClient(client_wrapper=self._client_wrapper)
+        return self._images
 
     @property
     def models(self):

@@ -25,8 +25,41 @@ def _fake_ca_bundle(tmp_path: Path):
     bundle = tmp_path / ".agdt" / "certs" / "unified-ca-bundle.pem"
     bundle.parent.mkdir(parents=True, exist_ok=True)
     bundle.write_text("-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----\n")
+    provider = tmp_path / ".agdt" / "config" / "llm-providers.yml"
+    provider.parent.mkdir(parents=True, exist_ok=True)
+    provider.write_text(
+        "providers:\n"
+        "  copilot_pr_review:\n"
+        "    type: copilot\n"
+        "    model: gemini-3.7-flash\n"
+        "workflows:\n"
+        "  pr_review:\n"
+        "    default_provider: copilot_pr_review\n"
+        "    nodes:\n"
+        "      review_files:\n"
+        "        provider: copilot_pr_review\n",
+        encoding="utf-8",
+    )
+    from agentic_devtools.cli.setup.provider_configuration import ProviderConfigurationCheck
+
+    provider_result = ProviderConfigurationCheck(
+        found=True,
+        valid=True,
+        reason="ready",
+        provider_id="copilot_pr_review",
+        provider_type="copilot",
+        model="gemini-3.7-flash",
+        auth_status="ready",
+        credential_status="not_required",
+        path=provider,
+    )
     with patch("pathlib.Path.home", return_value=tmp_path):
-        yield
+        with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+            with patch(
+                "agentic_devtools.cli.setup.provider_configuration.check_provider_configuration",
+                return_value=provider_result,
+            ):
+                yield
 
 
 class TestSetupCheckCmd:
@@ -69,6 +102,43 @@ class TestSetupCheckCmd:
         with pytest.raises(SystemExit) as exc_info:
             commands.setup_check_cmd()
         assert exc_info.value.code == 2
+
+    @pytest.mark.parametrize(
+        ("reason", "expected"),
+        [
+            ("authentication_unavailable", "gh auth login"),
+            ("model_unavailable", "pick a supported model"),
+        ],
+    )
+    def test_reports_actionable_provider_remediation(
+        self, monkeypatch, capsys, tmp_path: Path, reason: str, expected: str
+    ):
+        """Readiness failures name the missing prerequisite before reconfiguration guidance."""
+        monkeypatch.setattr(sys, "argv", ["agdt-setup-check"])
+        from agentic_devtools.cli.setup.provider_configuration import ProviderConfigurationCheck
+
+        provider_result = ProviderConfigurationCheck(
+            found=True,
+            valid=False,
+            reason=reason,
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            auth_status="unavailable",
+            credential_status="not_required",
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+        )
+
+        with patch.object(commands, "check_all_dependencies", return_value=_statuses(True)):
+            with patch(
+                "agentic_devtools.cli.setup.provider_configuration.check_provider_configuration",
+                return_value=provider_result,
+            ):
+                with pytest.raises(SystemExit) as exc_info:
+                    commands.setup_check_cmd()
+
+        assert exc_info.value.code == ExitCode.MISSING_REQUIRED_DEP
+        assert expected in capsys.readouterr().out
 
 
 class TestSetupCheckCmdFixFlag:
@@ -390,8 +460,8 @@ class TestSetupCheckCmdCorruptionWarning:
                 commands.setup_check_cmd()
         captured = capsys.readouterr()
         assert "Corrupted install artifacts detected" in captured.err
-        assert "/sp1/" in captured.err
-        assert "/sp2/" in captured.err
+        assert str(Path("/sp1")) in captured.err
+        assert str(Path("/sp2")) in captured.err
         assert "~gentic-devtools" in captured.err
         assert "bad.dist-info" in captured.err
 

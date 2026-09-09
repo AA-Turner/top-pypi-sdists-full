@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from agentic_devtools.cli.setup import commands
+from agentic_devtools.cli.setup.provider_configuration import ProviderConfigurationCheck
 
 
 class TestCaBundleSynthesis:
@@ -104,6 +105,20 @@ class TestCaBundleSynthesis:
         with (
             patch("pathlib.Path.home", return_value=fake_home),
             patch.object(commands, "check_all_dependencies", return_value=[]),
+            patch(
+                "agentic_devtools.cli.setup.provider_configuration.check_provider_configuration",
+                return_value=ProviderConfigurationCheck(
+                    found=True,
+                    valid=True,
+                    reason="ready",
+                    provider_id="copilot_pr_review",
+                    provider_type="copilot",
+                    model="gemini-3.7-flash",
+                    auth_status="ready",
+                    credential_status="not_required",
+                    path=tmp_path / ".agdt/config/llm-providers.yml",
+                ),
+            ),
         ):
             commands.setup_check_cmd()
 

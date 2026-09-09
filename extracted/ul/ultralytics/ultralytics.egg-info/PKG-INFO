@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.143
+Version: 8.4.144
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, instance segmentation, semantic segmentation, depth estimation, classification, pose estimation, oriented object detection, and multi-object tracking.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -66,7 +66,7 @@ Requires-Dist: onnxslim>=0.1.82; extra == "export-base"
 Requires-Dist: onnxruntime<1.20.0; (python_version < "3.11" and (platform_machine != "aarch64" or platform_system != "Linux")) and extra == "export-base"
 Requires-Dist: onnxruntime>=1.20.0; python_version >= "3.11" and extra == "export-base"
 Provides-Extra: export-openvino
-Requires-Dist: nncf<4.0.0,>=2.14.0; python_version >= "3.9" and extra == "export-openvino"
+Requires-Dist: nncf>=2.14.0; python_version >= "3.9" and extra == "export-openvino"
 Requires-Dist: openvino>=2024.0.0; extra == "export-openvino"
 Requires-Dist: packaging>=26.0; (platform_machine == "aarch64" and platform_system == "Linux" and python_version >= "3.9") and extra == "export-openvino"
 Provides-Extra: export-legacy-torch

@@ -12,8 +12,8 @@
 //!
 //! ## Usage
 //!
-//! The caller (typically an axum handler or integration test) detects the
-//! `MCP-Protocol-Version: 2026-07-28` request header, constructs a
+//! The caller validates a body-primary modern claim and matching standard
+//! headers through `dcc_mcp_jsonrpc::classify_protocol_request`, constructs a
 //! [`StatelessMcpService`] with the shared [`ServerState`] and
 //! [`RegistryContext`], and calls [`StatelessMcpService::handle_request`].
 //!
@@ -27,6 +27,8 @@
 //! ```
 
 mod meta;
+mod param_headers;
+mod providers;
 mod service;
 
-pub use service::StatelessMcpService;
+pub use service::{StatelessDispatchOutcome, StatelessMcpService};

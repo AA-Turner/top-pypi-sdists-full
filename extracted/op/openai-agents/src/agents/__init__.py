@@ -111,6 +111,8 @@ from .retry import (
     retry_policies,
 )
 from .run import (
+    OutputGuardrailBlockedMessageArgs,
+    OutputGuardrailBlockedMessageFormatter,
     ReasoningItemIdPolicy,
     RunConfig,
     Runner,
@@ -195,6 +197,7 @@ from .tool import (
     ToolOutputTextDict,
     ToolSearchTool,
     WebSearchTool,
+    WebSearchToolImageSettings,
     default_tool_error_function,
     dispose_resolved_computers,
     function_tool,
@@ -481,6 +484,8 @@ __all__ = [
     "RunResultStreaming",
     "ResponsesWebSocketSession",
     "RunConfig",
+    "OutputGuardrailBlockedMessageArgs",
+    "OutputGuardrailBlockedMessageFormatter",
     "ToolNameCollisionPolicy",
     "ReasoningItemIdPolicy",
     "ToolExecutionConfig",
@@ -541,6 +546,7 @@ __all__ = [
     "Tool",
     "ToolCaller",
     "WebSearchTool",
+    "WebSearchToolImageSettings",
     "HostedMCPTool",
     "MCPToolApprovalFunction",
     "MCPToolApprovalRequest",

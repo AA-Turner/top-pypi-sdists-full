@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from temporalio.service import TLSConfig
 
 from mistralai.workflows.core.config.config_discovery import normalize_temporal_url  # noqa: F401
 from mistralai.workflows.core.temporal.temporal_client import _get_proxy_basic_auth  # noqa: F401
@@ -9,6 +10,7 @@ from mistralai.workflows.core.temporal.temporal_client import _get_proxy_basic_a
 # Import regression — fail at collection time if any internal path moves.
 from mistralai.workflows.core.worker_client import get_worker_client  # noqa: F401
 from mistralai.workflows.scripts.diagnose import (
+    _check_connectivity,
     _check_mistral_api,
     _check_whoami,
     _env_vars_from_models,
@@ -115,3 +117,42 @@ class TestCheckWhoami:
 
         assert result is None
         assert "[FAIL]" in capsys.readouterr().out
+
+
+class TestCheckConnectivityTlsRootCa:
+    @staticmethod
+    async def _run(monkeypatch, ca_path: str, *, whoami_tls: bool, env_tls: str | None):
+        from mistralai.workflows.core.config.config import AppConfig
+
+        monkeypatch.setenv("TEMPORAL_TLS_SERVER_ROOT_CA_CERT_PATH", ca_path)
+        if env_tls is None:
+            monkeypatch.delenv("TEMPORAL_TLS", raising=False)
+        else:
+            monkeypatch.setenv("TEMPORAL_TLS", env_tls)
+
+        whoami = MagicMock(scheduler_url="temporal.example.com:7233", tls=whoami_tls)
+        check_temporal = AsyncMock()
+        with (
+            patch("mistralai.workflows.scripts.diagnose._check_mistral_api", AsyncMock()),
+            patch("mistralai.workflows.scripts.diagnose._check_whoami", AsyncMock(return_value=whoami)),
+            patch("mistralai.workflows.scripts.diagnose._check_temporal", check_temporal),
+        ):
+            await _check_connectivity(AppConfig())
+        return check_temporal
+
+    @pytest.mark.asyncio
+    async def test_local_tls_setting_wins_over_whoami(self, monkeypatch, ca_file):
+        # `adopt_remote_default` keeps an explicit TEMPORAL_TLS, so the worker pins the CA here;
+        # diagnose must report on the same connection the worker would open.
+        check_temporal = await self._run(monkeypatch, ca_file(), whoami_tls=False, env_tls="true")
+
+        assert isinstance(check_temporal.await_args.args[1], TLSConfig)
+
+    @pytest.mark.asyncio
+    async def test_unusable_ca_skips_the_connection_check(self, monkeypatch, ca_file, capsys):
+        check_temporal = await self._run(monkeypatch, ca_file(write=False), whoami_tls=True, env_tls=None)
+
+        output = capsys.readouterr().out
+        assert "[FAIL] Temporal TLS root CA" in output
+        assert "[SKIP]" in output
+        check_temporal.assert_not_awaited()

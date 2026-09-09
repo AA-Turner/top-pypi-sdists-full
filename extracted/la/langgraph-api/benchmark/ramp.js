@@ -1,13 +1,13 @@
 import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-function randomIntBetween(min, max) {
-  return Math.floor(Math.random() * (max - min + 1) + min);
-}
 import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
 import { get_profile } from './benchmark-runners/dist/benchmark_profiles.js';
 
 // Custom metrics
 const runDuration = new Trend('run_duration');
+// Successes only, so the historical series stays comparable to the numbers
+// reported before run_duration started counting failures too.
+const runDurationSuccess = new Trend('run_duration_success');
 const successfulRuns = new Counter('successful_runs');
 const failedRuns = new Counter('failed_runs');
 const timeoutErrors = new Counter('timeout_errors');
@@ -15,6 +15,30 @@ const connectionErrors = new Counter('connection_errors');
 const serverErrors = new Counter('server_errors');
 const missingMessageErrors = new Counter('missing_message_errors');
 const otherErrors = new Counter('other_errors');
+
+// A single `server_errors` bucket cannot tell an application 500 from a gateway
+// 503, and a real run produces both: 500s from a database still resizing, and
+// Envoy-generated 503s during scale-up that never reach the upstream and so
+// appear in no api-server log. Counters must be built in init context, hence
+// the fixed set. Read off result.responses here rather than in each runner's
+// validate(), so every runner gets this without being touched.
+const statusErrors = {
+  500: new Counter('errors_http_500'),
+  502: new Counter('errors_http_502'),
+  503: new Counter('errors_http_503'),
+  504: new Counter('errors_http_504'),
+};
+const otherStatusErrors = new Counter('errors_http_other');
+
+function recordFailureStatuses(result) {
+  const responses = result?.responses;
+  if (!responses) return;
+  for (const response of Object.values(responses)) {
+    const status = response?.status;
+    if (status == null || status < 400) continue;
+    (statusErrors[status] ?? otherStatusErrors).add(1);
+  }
+}
 
 const errorMetrics = {
   timeout_errors: timeoutErrors,
@@ -99,51 +123,69 @@ export let options = {
 const runner = Benchmarks.getRunner(BENCHMARK_TYPE);
 
 const benchmarkGraphOptions = {
-  graph_id: "benchmark",
+  graph_id: __ENV.GRAPH_ID || "benchmark",
   input: {},
   context: EFFECTIVE_CONTEXT,
   stateful: STATEFUL,
   resumable: RESUMABLE,
 }
 
-// Main test function
-export default function() {
-  const startTime = new Date().getTime();
+// Request params are constant for the life of a VU, so build them once rather
+// than per iteration.
+const requestParams = {
+  headers: (() => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (LANGSMITH_API_KEY) headers['x-api-key'] = LANGSMITH_API_KEY;
+    return headers;
+  })(),
+  timeout: '120s', // k6 request timeout slightly longer than the server timeout
+};
 
-  // Prepare the request payload
-  const headers = { 'Content-Type': 'application/json' };
-  if (LANGSMITH_API_KEY) {
-    headers['x-api-key'] = LANGSMITH_API_KEY;
-  }
-  const requestParams = {
-    headers,
-    timeout: '120s',  // k6 request timeout slightly longer than the server timeout
-  };
+/** One measured iteration. Records exactly one outcome per call. */
+function runIteration() {
+  const startTime = new Date().getTime();
 
   let result;
   try {
     result = runner.run(BASE_URL, requestParams, benchmarkGraphOptions);
   } catch (error) {
+    // Return, rather than falling through. validate() dereferences
+    // `result.data`, so calling it with an undefined result threw an uncaught
+    // TypeError and aborted the iteration before it could be counted.
     failedRuns.add(1);
     otherErrors.add(1);
-    console.log(`Unknown error running benchmark: ${error.message}`);
+    runDuration.add(new Date().getTime() - startTime);
+    console.log(`Unknown error running benchmark: ${error.stack || error.message}`);
+    return;
   }
 
   // Don't include verification in the duration of the request
   const duration = new Date().getTime() - startTime;
 
-  let success = runner.validate(result, errorMetrics, benchmarkGraphOptions);
+  const success = runner.validate(result, errorMetrics, benchmarkGraphOptions);
 
+  // Every completed iteration is timed, successful or not. run_duration_success
+  // keeps the successes-only view.
+  runDuration.add(duration);
   if (success) {
-    runDuration.add(duration);
+    runDurationSuccess.add(duration);
     successfulRuns.add(1);
   } else {
-    // Don't log the duration for failed runs
     failedRuns.add(1);
+    recordFailureStatuses(result);
   }
+}
 
-  // Add a small random sleep between iterations to prevent thundering herd
-  sleep(randomIntBetween(0.2, 0.5) / 1.0);
+// Main test function
+export default function () {
+  try {
+    runIteration();
+  } finally {
+    // Think time runs on every path, including the error returns above. An
+    // early return that skipped it turned an unreachable deployment into a
+    // busy loop.
+    sleep(0.2 + Math.random() * 0.3);
+  }
 }
 
 // Setup function
@@ -175,14 +217,35 @@ export function handleSummary(data) {
                   (data.metrics.successful_runs.values.count + (data.metrics.failed_runs?.values?.count || 0)) * 100,
       averageDuration: data.metrics.run_duration.values.avg / 1000,  // in seconds
       p95Duration: data.metrics.run_duration.values["p(95)"] / 1000, // in seconds
+      // Successes only. Explicit null check, not `|| null`: a genuine p95 of 0
+      // is falsy and would otherwise be reported as "not measured".
+      p95SuccessDuration:
+        data.metrics.run_duration_success?.values?.["p(95)"] != null
+          ? data.metrics.run_duration_success.values["p(95)"] / 1000
+          : null,
       errors: {
         timeout: data.metrics.timeout_errors ? data.metrics.timeout_errors.values.count : 0,
         connection: data.metrics.connection_errors ? data.metrics.connection_errors.values.count : 0,
         server: data.metrics.server_errors ? data.metrics.server_errors.values.count : 0,
         missingMessage: data.metrics.missing_message_errors ? data.metrics.missing_message_errors.values.count : 0,
-        other: data.metrics.other_errors ? data.metrics.other_errors.values.count : 0
+        other: data.metrics.other_errors ? data.metrics.other_errors.values.count : 0,
+        byStatus: {
+          500: data.metrics.errors_http_500?.values?.count || 0,
+          502: data.metrics.errors_http_502?.values?.count || 0,
+          503: data.metrics.errors_http_503?.values?.count || 0,
+          504: data.metrics.errors_http_504?.values?.count || 0,
+          other: data.metrics.errors_http_other?.values?.count || 0,
+        }
       }
-    }
+    },
+    // k6's own verdicts, shape `{ "<metric>": { "<expr>": { ok } } }`. Copied
+    // rather than recomputed, so the report can never disagree with the
+    // thresholds actually configured above.
+    thresholds: Object.fromEntries(
+      Object.entries(data.metrics)
+        .filter(([, metric]) => metric.thresholds)
+        .map(([name, metric]) => [name, metric.thresholds])
+    ),
   };
 
   return {

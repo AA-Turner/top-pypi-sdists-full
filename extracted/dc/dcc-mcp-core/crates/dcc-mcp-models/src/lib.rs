@@ -15,6 +15,8 @@ pub mod tool_call_event;
 
 #[cfg(feature = "python-bindings")]
 mod python;
+#[cfg(feature = "python-bindings")]
+mod schema_validation;
 
 pub use action_result::ActionResultModel as ToolResult;
 pub use action_result::{
@@ -38,8 +40,8 @@ pub use skill_metadata::{
     SideEffects, SkillBranding, SkillDependencies, SkillDependency, SkillDependencyType,
     SkillGroup, SkillLinks, SkillMetadata, SkillPolicy, SkillRuntimeDescriptor, SkillRuntimeKind,
     SkillRuntimeReport, SkillRuntimeState, SkillRuntimeSummary, SkillToolAnnotations,
-    SuccessMetrics, ThreadAffinity, ToolDeclaration, ToolRole, resolve_runtime_reports,
-    summarize_runtime_reports,
+    SuccessMetrics, ThreadAffinity, ToolDeclaration, ToolRole, is_valid_progress_token,
+    resolve_runtime_reports, summarize_runtime_reports,
 };
 pub use skill_scope::SkillScope;
 pub use state_delta::{
@@ -55,3 +57,5 @@ pub use python::{
     py_deserialize_result, py_error_result, py_from_exception, py_serialize_result,
     py_success_result, py_validate_action_result,
 };
+#[cfg(feature = "python-bindings")]
+pub use schema_validation::register as register_schema_validation;

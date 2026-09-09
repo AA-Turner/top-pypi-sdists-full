@@ -6,11 +6,21 @@ from pydantic import ValidationError
 from mistralai.workflows.protocol.v1.workflow import (
     WorkerHeartbeatRequest,
     WorkflowRegistrationRef,
+    WorkflowSpecsRegisterRequest,
     WorkflowSpecsRegisterResponse,
 )
 
 WORKFLOW_ID = uuid.uuid4()
 REGISTRATION_ID = uuid.uuid4()
+
+
+def test_workflow_specs_register_request_rejects_empty_definitions() -> None:
+    with pytest.raises(ValidationError):
+        WorkflowSpecsRegisterRequest(
+            definitions=[],
+            deployment_name="test-deployment",
+            worker_name="test-worker",
+        )
 
 
 class TestWorkflowRegistrationRef:

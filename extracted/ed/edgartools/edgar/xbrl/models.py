@@ -18,6 +18,26 @@ PERIOD_END_LABEL = "http://www.xbrl.org/2003/role/periodEndLabel"
 TOTAL_LABEL = "http://www.xbrl.org/2003/role/totalLabel"
 
 
+def is_negated_label_role(role: Optional[str]) -> bool:
+    """
+    Report whether a preferred-label role asks for the value to be negated for display.
+
+    A negated role is identified by its LOCAL NAME — the segment after the final
+    slash — beginning with "negated". That covers the bare form a linkbase may
+    carry ('negatedLabel'), every XBRL International namespace version
+    ('http://www.xbrl.org/2009/role/negatedTotalLabel') and the legacy xbrl.us
+    LRR roles common in 2009-2011 filings
+    ('http://xbrl.us/us-gaap/role/label/negatedLabel'), whose extra path segment
+    defeats a '/role/negated' substring test.
+
+    Matching on the local name rather than anywhere in the URI also keeps a role
+    that merely happens to contain the word from being treated as negated.
+    """
+    if not role:
+        return False
+    return role.rsplit('/', 1)[-1].lower().startswith('negated')
+
+
 def select_display_label(
         labels: Dict[str, str],
         preferred_label: Optional[str] = None,
@@ -284,9 +304,30 @@ class PresentationTree(BaseModel):
     """
     role_uri: str
     definition: str
+    # The first root, kept for the many callers that assume one. A role may
+    # legitimately declare several — see `root_element_ids`, which is the
+    # complete list and the thing to traverse.
     root_element_id: str
+    # Every root the linkbase declares, in the same deterministic sorted order
+    # `root_element_id` is taken from. A presentation role with two roots is
+    # ordinary rather than malformed: Union Pacific's FY2012 10-K has seven,
+    # one of them the consolidated statement of comprehensive income. Walking
+    # from `root_element_id` alone reaches only the first subtree and leaves
+    # the rest sitting in `all_nodes` structurally unreachable (edgartools-0q0d).
+    root_element_ids: List[str] = Field(default_factory=list)
+    # Keyed by element ID, so a concept presented twice in one role has ONE
+    # entry here whose `parent`, `depth` and `order` are the last occurrence's.
+    # Use it for lookup and membership, which is what every caller does; for an
+    # occurrence's real position, walk the tree from the roots and track the
+    # path, which is what `XBRL._generate_line_items` does (edgartools-f07v).
     all_nodes: Dict[str, PresentationNode] = Field(default_factory=dict)
     order: int = 0
+
+    def model_post_init(self, __context) -> None:
+        # A tree built by an older caller that only set the scalar still has a
+        # usable root list.
+        if not self.root_element_ids and self.root_element_id:
+            self.root_element_ids = [self.root_element_id]
 
 
 class CalculationNode(BaseModel):

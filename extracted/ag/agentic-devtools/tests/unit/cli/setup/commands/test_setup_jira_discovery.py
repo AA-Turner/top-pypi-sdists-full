@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from agentic_devtools.cli.setup import commands
 from agentic_devtools.cli.setup.dependency_checker import DependencyStatus
 from agentic_devtools.tools.jira import JiraConfig
@@ -31,6 +33,23 @@ _PROBE_CONFIG = JiraConfig(
 )
 
 
+@pytest.fixture(autouse=True)
+def _disable_live_model_discovery():
+    with patch(
+        "agentic_devtools.cli.setup.provider_configuration.ProviderFactory.preflight",
+        return_value=None,
+    ):
+        with patch.object(commands, "_populate_available_models", return_value=None):
+            with patch.object(commands, "_prompt_copilot_model"):
+                with patch.object(commands, "_query_copilot_models", return_value=["model-a"]):
+                    with patch.object(
+                        commands,
+                        "_query_copilot_model_records",
+                        return_value=[MagicMock(model_id="model-a")],
+                    ):
+                        yield
+
+
 class TestSetupJiraDiscoveryIntegration:
     """Tests for the Jira instance discovery step in _run_file_modifying_steps."""
 
@@ -46,7 +65,7 @@ class TestSetupJiraDiscoveryIntegration:
         mock_result = MagicMock()
         mock_stdin = MagicMock()
         mock_stdin.isatty.return_value = True
-        with patch("sys.argv", ["agdt-setup"]):
+        with patch("sys.argv", ["agdt-setup", "--skip-pr-workflow", "--no-run"]):
             with patch("sys.stdin", mock_stdin):
                 with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
                     with patch.object(commands, "install_copilot_cli", return_value=True):
@@ -181,7 +200,7 @@ class TestSetupJiraDiscoveryIntegration:
         mock_result = MagicMock()
         mock_stdin = MagicMock()
         mock_stdin.isatty.return_value = True
-        with patch("sys.argv", ["agdt-setup"]):
+        with patch("sys.argv", ["agdt-setup", "--skip-pr-workflow", "--no-run"]):
             with patch("sys.stdin", mock_stdin):
                 with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
                     with patch.object(commands, "install_copilot_cli", return_value=True):

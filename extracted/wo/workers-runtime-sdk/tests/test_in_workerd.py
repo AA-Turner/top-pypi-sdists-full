@@ -7,8 +7,7 @@ import pytest
 from conftest import (
     COMPAT_CONFIGS,
     CompatConfig,
-    inject_compat_flags,
-    replace_compat_date,
+    configure_compatibility,
 )
 
 TEST_DIR = Path(__file__).parent
@@ -62,7 +61,7 @@ def bundle_cache_dir(tmp_path_factory):
     ids=[c.python_version for c in COMPAT_CONFIGS],
 )
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
-def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
+def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
     tmp_path,
     test_dir,
     wd_test_file,
@@ -71,12 +70,18 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     bundle_cache_dir,
 ):
     compat_date = compat_config.compat_date
+    python_version = compat_config.python_version
 
     # `wsgi` streams the request body via `pyodide.ffi.run_sync` (JSPI), which
     # is only available in newer Pyodide runtimes.
-    if test_dir.name == "wsgi" and compat_date < "2026-01-01":
+    if test_dir.name == "wsgi" and python_version == "3.12":
         pytest.skip(
             "wsgi requires pyodide.ffi.run_sync (JSPI), unavailable before 2026-01-01"
+        )
+
+    if test_dir.name == "entropy-patches" and python_version == "3.14":
+        pytest.skip(
+            "TODO: enable me after https://github.com/cloudflare/workerd/pull/7200 lands in wrangler"
         )
 
     color = pytestconfig.get_terminal_writer().hasmarkup
@@ -85,8 +90,7 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     shutil.copytree(test_dir, target, ignore=shutil.ignore_patterns(".venv"))
     disk_service_dir.mkdir(exist_ok=True)
 
-    replace_compat_date(target / "wrangler.jsonc", compat_date)
-    inject_compat_flags(target / "wrangler.jsonc", compat_config.extra_compat_flags)
+    configure_compatibility(target / "wrangler.jsonc", compat_config)
 
     pywrangler_cmd = ["uv", "run", "--no-project", "--with", WORKERS_PY, "pywrangler"]
 
@@ -114,7 +118,7 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
         .replace("%COLOR", str(color).lower())
         .replace("%COMPAT_DATE", compat_date)
     )
-    inject_compat_flags(wd_config, compat_config.extra_compat_flags)
+    configure_compatibility(wd_config, compat_config)
 
     subprocess.run(
         ["npm", "i", "workerd"],

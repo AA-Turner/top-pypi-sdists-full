@@ -70,6 +70,28 @@ class TestInitiateBreakDownIssueIntoSubtasksWorkflowBranches:
 
         assert state.get_value("copilot.model_id") == "gpt-4"
 
+    def test_headless_suppresses_terminal_mode(self, temp_state_dir, clear_state_before, capsys):
+        """When headless is enabled, terminal mode is forced off before persistence."""
+        with patch("agentic_devtools.cli.workflows.preflight.check_worktree_and_branch") as mock_pf:
+            from agentic_devtools.cli.workflows.preflight import PreflightResult
+
+            mock_pf.return_value = PreflightResult(
+                folder_valid=False,
+                branch_valid=False,
+                folder_name="wrong",
+                branch_name="main",
+                issue_key="PROJECT-1234",
+            )
+
+            with patch("agentic_devtools.cli.workflows.preflight.perform_auto_setup") as mock_setup:
+                mock_setup.return_value = True
+                commands.initiate_break_down_issue_into_subtasks_workflow(
+                    _argv=["--issue-key", "PROJECT-1234", "--no-vscode", "--terminal"]
+                )
+
+        assert state.get_value("copilot.terminal") is False
+        assert "--terminal" not in mock_setup.call_args.kwargs["auto_execute_command"]
+
     def test_preflight_fails_and_auto_setup_fails(self, temp_state_dir, clear_state_before, capsys):
         """Test when preflight fails and auto-setup also fails."""
         with patch("agentic_devtools.cli.workflows.preflight.check_worktree_and_branch") as mock_pf:

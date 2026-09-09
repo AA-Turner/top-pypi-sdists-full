@@ -155,6 +155,8 @@
 //! - `allocate_launch_timestamp_batch(count: int, base_timestamp: str, after_timestamp: str | None = None) -> list[str]`
 //! - `plan_agent_launch_fanout(prompt: str, launch_kind: str | None = None) -> dict`
 //! - `inline_code_ranges(text: str, masked_ranges: list[tuple[int, int]] | None = None) -> list[tuple[int, int]]`
+//! - `model_alias_shortcut_context(text: str, position: dict) -> dict | None`
+//! - `model_alias_shortcut_edit(text: str, position: dict, entries: list[dict], selected_alias: str) -> dict | None`
 //! - `fenced_block_ranges(text: str) -> list[tuple[int, int]]`
 //! - `fenced_block_details(text: str) -> list[dict]`
 //! - `scan_directive_owned_fences(text: str) -> dict`
@@ -206,6 +208,8 @@
 //! - `fleet_evaluate_attention_precondition(intent: dict, capabilities: dict, observed: dict | None = None) -> dict`
 //! - `fleet_decide_attention_notices(current: list[dict], ledger: list[dict], retention_window_seconds: float, now_unix: float) -> dict`
 //! - `fleet_validate_connection_plan(plan: dict) -> dict`
+//! - `fleet_issue_bootstrap(sase_home: str, request: dict) -> dict`
+//! - `gateway_main(args: list[str]) -> None`
 //! - `federation_worker_main(args: list[str]) -> None`
 //! - `fleet_classify_runtime_duration(request: dict) -> dict`
 //! - `fleet_classify_cache_freshness(request: dict) -> dict`
@@ -235,6 +239,17 @@
 //! - `provider_availability_classify_many(context: dict, facts: list[dict]) -> list[dict]`
 //! - `provider_usage_observation_schema_version() -> int`
 //! - `provider_usage_public_schema_version() -> int`
+//! - `provider_usage_store_schema_version() -> int`
+//! - `provider_usage_state_path(sase_home: str) -> str`
+//! - `provider_usage_load(sase_home: str, now: float, cadence_seconds: float = 300, warn_percent: float = 75, critical_percent: float = 90) -> dict`
+//! - `provider_usage_record_observation(sase_home: str, observation: dict, now: float) -> dict`
+//! - `provider_usage_prepare_account_context(sase_home: str, provider: str, context_id: str, now: float) -> dict`
+//! - `provider_usage_reserve_refresh(sase_home: str, request: dict, now: float) -> dict`
+//! - `provider_usage_release_refresh(sase_home: str, provider: str, context_id: str, account_generation: int, lease_id: str, now: float) -> bool`
+//! - `provider_usage_refresh_due(sase_home: str, request: dict, now: float) -> dict`
+//! - `provider_usage_admit_refresh(sase_home: str, request: dict, now: float) -> dict`
+//! - `provider_usage_mark_refresh_due(sase_home: str, request: dict, now: float) -> dict`
+//! - `provider_usage_record_refresh_attempt(sase_home: str, request: dict, now: float) -> dict`
 //! - `provider_usage_validate_observation(observation: dict, now: float) -> dict`
 //! - `provider_usage_project_snapshot(observations: list[dict], now: float, cadence_seconds: float = 300, warn_percent: float = 75, critical_percent: float = 90) -> dict`
 //! - `provider_usage_remaining_percent(used_percent: float) -> float`
@@ -343,6 +358,9 @@
 //! - `substitute_raw_placeholders(text: str, values: dict[str, str]) -> str`
 //! - `placeholder_input_names(texts: list[str]) -> list[str]`
 //! - `directive_contract() -> list[dict]`
+//! - `collect_queue_fields(occurrences: list[dict]) -> dict`
+//! - `format_queue_directive(fields: dict) -> str | None`
+//! - `queue_directive_flag_key() -> str`
 //! - `code_value_wire_schema_version() -> int`
 //! - `directive_completion_context(text: str, line: int, character: int) -> dict | None`
 //! - `directive_completion_candidates(context: dict, inventories: dict | None = None) -> dict`
@@ -446,6 +464,10 @@
 //! - `artifact_link_canonicalize(value: str) -> str`
 //! - `artifact_link_validate_row(row: dict) -> dict`
 //! - `artifact_link_upsert_row(rows: list[dict], row: dict) -> dict`
+//! - `artifact_link_eligibility_wire_schema_version() -> int`
+//! - `decide_artifact_link_eligibility(request: dict) -> dict`
+//! - `artifact_link_release_evidence(decision: dict, recorded_at: str) -> dict`
+//! - `validate_artifact_link_release_evidence(evidence: dict, expected_run_id: str, expected_agent_id: str) -> None`
 //! - `artifact_relations_builtins() -> list[dict]`
 //! - `artifact_relation_lookup(slug: str) -> dict`
 //! - `artifact_relation_label(slug: str, this_is_source: bool) -> str`
@@ -560,7 +582,7 @@ use sase_core::agent_identity::{
 };
 use sase_core::agent_launch::{
     admission_unit_results as core_admission_unit_results,
-    agent_unit_dispatch_prompt as core_agent_unit_dispatch_prompt,
+    agent_unit_dispatch_prompt_with_flags as core_agent_unit_dispatch_prompt_with_flags,
     allocate_and_claim_workspace_from_content as core_allocate_and_claim_workspace_from_content,
     allocate_launch_timestamp_batch as core_allocate_launch_timestamp_batch,
     build_condition_context as core_build_condition_context,
@@ -575,7 +597,7 @@ use sase_core::agent_launch::{
     plan_agent_launch_fanout as core_plan_agent_launch_fanout,
     plan_claim_workspace_from_content as core_plan_claim_workspace_from_content,
     plan_transfer_workspace_claim_from_content as core_plan_transfer_workspace_claim_from_content,
-    plan_typed_launch_units as core_plan_typed_launch_units,
+    plan_typed_launch_units_with_flags as core_plan_typed_launch_units_with_flags,
     prepare_agent_launch as core_prepare_agent_launch,
     prepare_proc_script as core_prepare_proc_script,
     proc_script_argv as core_proc_script_argv,
@@ -681,6 +703,10 @@ use sase_core::artifact_file::{
     ARTIFACT_FILE_QUERY_WIRE_SCHEMA_VERSION,
 };
 use sase_core::artifact_link::{
+    artifact_link_publication_due as core_artifact_link_publication_due,
+    artifact_link_publication_mark_attempt as core_artifact_link_publication_mark_attempt,
+    artifact_link_publication_record_key as core_artifact_link_publication_record_key,
+    artifact_link_publication_register_pending as core_artifact_link_publication_register_pending,
     artifact_md_path as core_artifact_md_path,
     artifact_row_index_keys as core_artifact_row_index_keys,
     artifact_row_ref_lookup_keys as core_artifact_row_ref_lookup_keys,
@@ -699,11 +725,22 @@ use sase_core::artifact_link::{
     upsert_artifact_link_row as core_upsert_artifact_link_row,
     upsert_links_block as core_upsert_links_block,
     validate_artifact_link_row as core_validate_artifact_link_row,
-    ArtifactLinkError, ArtifactLinkOriginWire, ArtifactLinkRowWire,
+    ArtifactLinkError, ArtifactLinkOriginWire,
+    ArtifactLinkPublicationAttemptWire, ArtifactLinkPublicationObservationWire,
+    ArtifactLinkPublicationRecordWire, ArtifactLinkRowWire,
     ArtifactMdPathRequestWire, ArtifactRowIdentityWire,
     ArtifactRowRefQueryWire, BeadLinkDirectionWire, ManagedTableTableWire,
+    ARTIFACT_LINK_PUBLICATION_STATE_WIRE_SCHEMA_VERSION,
     ARTIFACT_LINK_ROW_SCHEMA_VERSION,
     ARTIFACT_ROW_RESOLUTION_WIRE_SCHEMA_VERSION,
+};
+use sase_core::artifact_link_eligibility::{
+    artifact_link_release_evidence as core_artifact_link_release_evidence,
+    decide_artifact_link_eligibility as core_decide_artifact_link_eligibility,
+    validate_artifact_link_release_evidence as core_validate_artifact_link_release_evidence,
+    ArtifactLinkEligibilityDecisionWire, ArtifactLinkEligibilityError,
+    ArtifactLinkEligibilityRequestWire, ArtifactLinkReleaseEvidenceWire,
+    ARTIFACT_LINK_ELIGIBILITY_WIRE_SCHEMA_VERSION,
 };
 use sase_core::artifact_object_store::{
     artifact_object_prompt_link as core_artifact_object_prompt_link,
@@ -970,6 +1007,11 @@ use sase_core::machine_hood::{
     strip_machine_agent_name as core_strip_machine_agent_name,
     validate_machine_name as core_validate_machine_name,
 };
+use sase_core::managed_origin::{
+    decide_managed_origin_reconciliation as core_decide_managed_origin_reconciliation,
+    ManagedOriginReconciliationRequestWire,
+    MANAGED_ORIGIN_RECONCILIATION_WIRE_SCHEMA_VERSION,
+};
 use sase_core::markdown_link_refs::{
     allocate_markdown_reference_label as core_allocate_markdown_reference_label,
     append_markdown_reference_definitions as core_append_markdown_reference_definitions,
@@ -1105,19 +1147,33 @@ use sase_core::provider_priority::{
     ProviderRoutingContextWire,
 };
 use sase_core::provider_usage::{
+    admit_provider_usage_refresh as core_admit_provider_usage_refresh,
     classify_freshness as core_classify_freshness,
+    evaluate_provider_usage_refresh_due as core_evaluate_provider_usage_refresh_due,
     format_remaining_text as core_format_remaining_text,
+    load_provider_usage_store as core_load_provider_usage_store,
+    mark_provider_usage_refresh_due as core_mark_provider_usage_refresh_due,
+    prepare_provider_usage_account_context as core_prepare_provider_usage_account_context,
     project_usage_snapshot as core_project_usage_snapshot,
+    provider_usage_state_path as core_provider_usage_state_path,
+    record_provider_usage_observation as core_record_provider_usage_observation,
+    record_provider_usage_refresh_attempt as core_record_provider_usage_refresh_attempt,
+    release_provider_usage_refresh as core_release_provider_usage_refresh,
     remaining_percent as core_remaining_percent,
+    reserve_provider_usage_refresh as core_reserve_provider_usage_refresh,
     summarize_usage_windows as core_summarize_usage_windows,
     usage_window_applies as core_usage_window_applies,
     validate_usage_observation as core_validate_usage_observation,
     ProviderUsageError as ProviderUsageDomainError,
-    ProviderUsageObservationWire, UsageApplicabilityWire,
-    UsagePublicWindowWire, DEFAULT_USAGE_CADENCE_SECONDS,
-    DEFAULT_USAGE_CRITICAL_PERCENT, DEFAULT_USAGE_WARN_PERCENT,
-    PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION,
-    PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION,
+    ProviderUsageObservationWire, ProviderUsageRefreshAdmitRequestWire,
+    ProviderUsageRefreshAttemptWire, ProviderUsageRefreshDueRequestWire,
+    ProviderUsageRefreshMarkDueRequestWire,
+    ProviderUsageRefreshReservationRequestWire,
+    ProviderUsageStoreError as ProviderUsageStoreDomainError,
+    UsageApplicabilityWire, UsagePublicWindowWire,
+    DEFAULT_USAGE_CADENCE_SECONDS, DEFAULT_USAGE_CRITICAL_PERCENT,
+    DEFAULT_USAGE_WARN_PERCENT, PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION,
+    PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION, PROVIDER_USAGE_STORE_SCHEMA_VERSION,
 };
 use sase_core::query::types::{QueryErrorWire, QueryExprWire};
 use sase_core::query::{
@@ -1197,10 +1253,18 @@ use sase_core::wire::ChangeSpecWire;
 use sase_core::wire::{CommentWire, HookWire, MentorWire};
 use sase_core::CODE_VALUE_WIRE_SCHEMA_VERSION;
 use sase_core::{
+    collect_queue_fields as core_collect_queue_fields,
+    format_queue_directive as core_format_queue_directive,
+    queue_directive_flag_key as core_queue_directive_flag_key, QueueFieldsWire,
+    QueueOccurrenceWire,
+};
+use sase_core::{
     compose_snippet_catalog as core_compose_snippet_catalog,
+    editor_detect_model_alias_shortcut_context as core_detect_model_alias_shortcut_context,
+    editor_plan_model_alias_shortcut_edit as core_plan_model_alias_shortcut_edit,
     filter_model_completion_entries as core_filter_model_completion_entries,
     load_editor_snippet_catalog as core_load_editor_snippet_catalog,
-    validate_snippet_trigger as core_validate_snippet_trigger,
+    validate_snippet_trigger as core_validate_snippet_trigger, EditorPosition,
     EditorSnippetCatalogRequestWire, ModelCompletionEntryWire,
     XpromptCatalogLoadOptions, MODEL_COMPLETION_ENTRY_WIRE_FIELDS,
 };
@@ -1476,6 +1540,27 @@ fn py_machine_hood_of(
     known_machines: Vec<String>,
 ) -> Option<String> {
     core_machine_hood_of(name, &known_machines)
+}
+
+#[pyfunction]
+#[pyo3(name = "managed_origin_reconciliation_wire_schema_version")]
+fn py_managed_origin_reconciliation_wire_schema_version() -> u32 {
+    MANAGED_ORIGIN_RECONCILIATION_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "decide_managed_origin_reconciliation")]
+fn py_decide_managed_origin_reconciliation<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ManagedOriginReconciliationRequestWire =
+        provider_priority_dict_from_py(
+            request.as_any(),
+            "managed origin request",
+        )?;
+    let decision = core_decide_managed_origin_reconciliation(&request);
+    serialize_to_py(py, &decision)
 }
 
 // The machine-hood bindings above are migration shims. New code should use
@@ -1897,6 +1982,40 @@ fn py_filter_model_completion_entries(
         PyValueError::new_err(format!("internal serialize error: {error}"))
     })?;
     json_value_to_py(py, &value)
+}
+
+#[pyfunction]
+#[pyo3(name = "model_alias_shortcut_context")]
+fn py_model_alias_shortcut_context(
+    py: Python<'_>,
+    text: &str,
+    position: &Bound<'_, PyAny>,
+) -> PyResult<Option<PyObject>> {
+    let position = editor_position_from_py(position)?;
+    core_detect_model_alias_shortcut_context(text, position)
+        .map(|context| serialize_to_py(py, &context))
+        .transpose()
+}
+
+#[pyfunction]
+#[pyo3(name = "model_alias_shortcut_edit")]
+fn py_model_alias_shortcut_edit(
+    py: Python<'_>,
+    text: &str,
+    position: &Bound<'_, PyAny>,
+    entries: &Bound<'_, PyList>,
+    selected_alias: &str,
+) -> PyResult<Option<PyObject>> {
+    let position = editor_position_from_py(position)?;
+    let entries = model_completion_entries_from_py_list(entries)?;
+    core_plan_model_alias_shortcut_edit(
+        text,
+        position,
+        &entries,
+        selected_alias,
+    )
+    .map(|edit| serialize_to_py(py, &edit))
+    .transpose()
 }
 
 /// The nested snippet session engine's single entry point: apply one wire
@@ -5679,6 +5798,36 @@ fn artifact_row_ref_query_from_pydict(
     })
 }
 
+fn artifact_link_publication_observation_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkPublicationObservationWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "observation is not a valid ArtifactLinkPublicationObservationWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_publication_record_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkPublicationRecordWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "record is not a valid ArtifactLinkPublicationRecordWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_publication_attempt_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkPublicationAttemptWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "attempt is not a valid ArtifactLinkPublicationAttemptWire dict: {error}"
+        ))
+    })
+}
+
 /// Return the v2 artifact-link row schema version.
 #[pyfunction]
 #[pyo3(name = "artifact_link_row_schema_version")]
@@ -5691,6 +5840,99 @@ fn py_artifact_link_row_schema_version() -> u64 {
 #[pyo3(name = "artifact_row_resolution_wire_schema_version")]
 fn py_artifact_row_resolution_wire_schema_version() -> u64 {
     ARTIFACT_ROW_RESOLUTION_WIRE_SCHEMA_VERSION
+}
+
+/// Return the artifact-link publication retry state schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_link_publication_state_wire_schema_version")]
+fn py_artifact_link_publication_state_wire_schema_version() -> u64 {
+    u64::from(ARTIFACT_LINK_PUBLICATION_STATE_WIRE_SCHEMA_VERSION)
+}
+
+/// Return the stable state key for one artifact-link publication root.
+#[pyfunction]
+#[pyo3(name = "artifact_link_publication_record_key")]
+fn py_artifact_link_publication_record_key(
+    project_key: &str,
+    role: &str,
+    repo_root: &str,
+    remote_url: &str,
+    upstream: &str,
+) -> PyResult<String> {
+    core_artifact_link_publication_record_key(
+        project_key,
+        role,
+        repo_root,
+        remote_url,
+        upstream,
+    )
+    .map_err(artifact_link_error_to_pyerr)
+}
+
+/// Register or refresh one pending artifact-link publication observation.
+#[pyfunction]
+#[pyo3(
+    name = "artifact_link_publication_register_pending",
+    signature = (observation, now, current=None)
+)]
+fn py_artifact_link_publication_register_pending<'py>(
+    py: Python<'py>,
+    observation: &Bound<'py, PyDict>,
+    now: f64,
+    current: Option<&Bound<'py, PyDict>>,
+) -> PyResult<PyObject> {
+    let current_record = current
+        .map(artifact_link_publication_record_from_pydict)
+        .transpose()?;
+    let observation =
+        artifact_link_publication_observation_from_pydict(observation)?;
+    let record = core_artifact_link_publication_register_pending(
+        current_record.as_ref(),
+        observation,
+        now,
+    )
+    .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(record).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Classify whether a pending artifact-link publication is due and aging.
+#[pyfunction]
+#[pyo3(name = "artifact_link_publication_due")]
+fn py_artifact_link_publication_due<'py>(
+    py: Python<'py>,
+    record: &Bound<'py, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let record = artifact_link_publication_record_from_pydict(record)?;
+    let due = core_artifact_link_publication_due(record, now)
+        .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(due).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Update retry state after a bounded publication worker attempt.
+#[pyfunction]
+#[pyo3(name = "artifact_link_publication_mark_attempt")]
+fn py_artifact_link_publication_mark_attempt<'py>(
+    py: Python<'py>,
+    record: &Bound<'py, PyDict>,
+    attempt: &Bound<'py, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let record = artifact_link_publication_record_from_pydict(record)?;
+    let attempt = artifact_link_publication_attempt_from_pydict(attempt)?;
+    let record =
+        core_artifact_link_publication_mark_attempt(record, attempt, now)
+            .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(record).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
 }
 
 /// Split an artifact-link ref string into canonical kind and payload.
@@ -5829,6 +6071,100 @@ fn py_artifact_link_upsert_row(
         "rows": parsed,
     });
     json_value_to_py(py, &value)
+}
+
+fn artifact_link_eligibility_error_to_pyerr(
+    error: ArtifactLinkEligibilityError,
+) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn artifact_link_eligibility_request_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkEligibilityRequestWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ArtifactLinkEligibilityRequestWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_eligibility_decision_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkEligibilityDecisionWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "decision is not a valid ArtifactLinkEligibilityDecisionWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_release_evidence_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkReleaseEvidenceWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "evidence is not a valid ArtifactLinkReleaseEvidenceWire dict: {error}"
+        ))
+    })
+}
+
+/// Return the artifact-link eligibility wire schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_link_eligibility_wire_schema_version")]
+fn py_artifact_link_eligibility_wire_schema_version() -> u64 {
+    ARTIFACT_LINK_ELIGIBILITY_WIRE_SCHEMA_VERSION
+}
+
+/// Decide whether a run's host-collected change evidence qualifies it to
+/// publish its pending automatic artifact links.
+#[pyfunction]
+#[pyo3(name = "decide_artifact_link_eligibility")]
+fn py_decide_artifact_link_eligibility(
+    py: Python<'_>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request = artifact_link_eligibility_request_from_pydict(request)?;
+    let decision = core_decide_artifact_link_eligibility(&request)
+        .map_err(artifact_link_eligibility_error_to_pyerr)?;
+    let value = serde_json::to_value(decision).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Build the durable release-evidence record for an eligible decision.
+#[pyfunction]
+#[pyo3(name = "artifact_link_release_evidence")]
+fn py_artifact_link_release_evidence(
+    py: Python<'_>,
+    decision: &Bound<'_, PyDict>,
+    recorded_at: &str,
+) -> PyResult<PyObject> {
+    let decision = artifact_link_eligibility_decision_from_pydict(decision)?;
+    let evidence = core_artifact_link_release_evidence(&decision, recorded_at)
+        .map_err(artifact_link_eligibility_error_to_pyerr)?;
+    let value = serde_json::to_value(evidence).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Confirm release evidence is still bound to the run trying to use it.
+#[pyfunction]
+#[pyo3(name = "validate_artifact_link_release_evidence")]
+fn py_validate_artifact_link_release_evidence(
+    evidence: &Bound<'_, PyDict>,
+    expected_run_id: &str,
+    expected_agent_id: &str,
+) -> PyResult<()> {
+    let evidence = artifact_link_release_evidence_from_pydict(evidence)?;
+    core_validate_artifact_link_release_evidence(
+        &evidence,
+        expected_run_id,
+        expected_agent_id,
+    )
+    .map_err(artifact_link_eligibility_error_to_pyerr)
 }
 
 /// Return the compiled-in v1 relation registry.
@@ -9048,6 +9384,16 @@ fn model_completion_entries_from_py_list(
     Ok(values)
 }
 
+fn editor_position_from_py(
+    value: &Bound<'_, PyAny>,
+) -> PyResult<EditorPosition> {
+    serde_json::from_value(py_to_json_value(value)?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "position is not a valid EditorPosition dict with UTF-16 line/character units: {error}"
+        ))
+    })
+}
+
 fn hooks_from_py(list: &Bound<'_, PyList>) -> PyResult<Vec<HookWire>> {
     let mut values = Vec::with_capacity(list.len());
     for (idx, item) in list.iter().enumerate() {
@@ -11366,6 +11712,24 @@ fn provider_usage_error_to_pyerr(err: ProviderUsageDomainError) -> PyErr {
     PyValueError::new_err(err.to_string())
 }
 
+fn provider_usage_store_error_to_pyerr(
+    err: ProviderUsageStoreDomainError,
+) -> PyErr {
+    let message = err.to_string();
+    match err {
+        ProviderUsageStoreDomainError::Validation(_) => {
+            PyValueError::new_err(message)
+        }
+        ProviderUsageStoreDomainError::LockTimeout(_) => {
+            PyTimeoutError::new_err(message)
+        }
+        ProviderUsageStoreDomainError::Io(_)
+        | ProviderUsageStoreDomainError::Json(_) => {
+            PyRuntimeError::new_err(message)
+        }
+    }
+}
+
 #[pyfunction]
 #[pyo3(name = "provider_usage_observation_schema_version")]
 fn py_provider_usage_observation_schema_version() -> u32 {
@@ -11376,6 +11740,209 @@ fn py_provider_usage_observation_schema_version() -> u32 {
 #[pyo3(name = "provider_usage_public_schema_version")]
 fn py_provider_usage_public_schema_version() -> u32 {
     PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_store_schema_version")]
+fn py_provider_usage_store_schema_version() -> u32 {
+    PROVIDER_USAGE_STORE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_state_path")]
+fn py_provider_usage_state_path(sase_home: &str) -> String {
+    core_provider_usage_state_path(&PathBuf::from(sase_home))
+        .to_string_lossy()
+        .into_owned()
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "provider_usage_load",
+    signature = (
+        sase_home,
+        now,
+        cadence_seconds = DEFAULT_USAGE_CADENCE_SECONDS,
+        warn_percent = DEFAULT_USAGE_WARN_PERCENT,
+        critical_percent = DEFAULT_USAGE_CRITICAL_PERCENT,
+    )
+)]
+fn py_provider_usage_load<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    now: f64,
+    cadence_seconds: f64,
+    warn_percent: f64,
+    critical_percent: f64,
+) -> PyResult<PyObject> {
+    let home = PathBuf::from(sase_home);
+    let read = py
+        .allow_threads(|| {
+            core_load_provider_usage_store(
+                &home,
+                now,
+                cadence_seconds,
+                warn_percent,
+                critical_percent,
+            )
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &read)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_record_observation")]
+fn py_provider_usage_record_observation<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    observation: &Bound<'_, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let observation: ProviderUsageObservationWire =
+        provider_priority_dict_from_py(observation.as_any(), "observation")?;
+    let home = PathBuf::from(sase_home);
+    let outcome = py
+        .allow_threads(|| {
+            core_record_provider_usage_observation(&home, observation, now)
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &outcome)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_prepare_account_context")]
+fn py_provider_usage_prepare_account_context<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    provider: &str,
+    context_id: &str,
+    now: f64,
+) -> PyResult<PyObject> {
+    let home = PathBuf::from(sase_home);
+    let context = py
+        .allow_threads(|| {
+            core_prepare_provider_usage_account_context(
+                &home, provider, context_id, now,
+            )
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &context)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_reserve_refresh")]
+fn py_provider_usage_reserve_refresh<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    request: &Bound<'_, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let request: ProviderUsageRefreshReservationRequestWire =
+        provider_priority_dict_from_py(request.as_any(), "request")?;
+    let home = PathBuf::from(sase_home);
+    let outcome = py
+        .allow_threads(|| {
+            core_reserve_provider_usage_refresh(&home, request, now)
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &outcome)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_release_refresh")]
+fn py_provider_usage_release_refresh(
+    sase_home: &str,
+    provider: &str,
+    context_id: &str,
+    account_generation: u64,
+    lease_id: &str,
+    now: f64,
+) -> PyResult<bool> {
+    core_release_provider_usage_refresh(
+        &PathBuf::from(sase_home),
+        provider,
+        context_id,
+        account_generation,
+        lease_id,
+        now,
+    )
+    .map_err(provider_usage_store_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_refresh_due")]
+fn py_provider_usage_refresh_due<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    request: &Bound<'_, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let request: ProviderUsageRefreshDueRequestWire =
+        provider_priority_dict_from_py(request.as_any(), "request")?;
+    let home = PathBuf::from(sase_home);
+    let outcome = py
+        .allow_threads(|| {
+            core_evaluate_provider_usage_refresh_due(&home, request, now)
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &outcome)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_admit_refresh")]
+fn py_provider_usage_admit_refresh<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    request: &Bound<'_, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let request: ProviderUsageRefreshAdmitRequestWire =
+        provider_priority_dict_from_py(request.as_any(), "request")?;
+    let home = PathBuf::from(sase_home);
+    let outcome = py
+        .allow_threads(|| {
+            core_admit_provider_usage_refresh(&home, request, now)
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &outcome)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_mark_refresh_due")]
+fn py_provider_usage_mark_refresh_due<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    request: &Bound<'_, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let request: ProviderUsageRefreshMarkDueRequestWire =
+        provider_priority_dict_from_py(request.as_any(), "request")?;
+    let home = PathBuf::from(sase_home);
+    let outcome = py
+        .allow_threads(|| {
+            core_mark_provider_usage_refresh_due(&home, request, now)
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &outcome)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_record_refresh_attempt")]
+fn py_provider_usage_record_refresh_attempt<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    request: &Bound<'_, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let request: ProviderUsageRefreshAttemptWire =
+        provider_priority_dict_from_py(request.as_any(), "request")?;
+    let home = PathBuf::from(sase_home);
+    let outcome = py
+        .allow_threads(|| {
+            core_record_provider_usage_refresh_attempt(&home, request, now)
+        })
+        .map_err(provider_usage_store_error_to_pyerr)?;
+    serialize_to_py(py, &outcome)
 }
 
 #[pyfunction]
@@ -11554,6 +12121,30 @@ fn fleet_contract_error_to_pyerr(err: FleetContractDomainError) -> PyErr {
         FleetContractDomainError::LockTimeout { .. }
         | FleetContractDomainError::Io { .. }
         | FleetContractDomainError::Json { .. } => {
+            PyRuntimeError::new_err(message)
+        }
+    }
+}
+
+fn fleet_store_error_to_pyerr(err: sase_gateway::FleetStoreError) -> PyErr {
+    let message = err.to_string();
+    match &err {
+        sase_gateway::FleetStoreError::Validation(_)
+        | sase_gateway::FleetStoreError::IncompatibleProtocol
+        | sase_gateway::FleetStoreError::BootstrapExpired
+        | sase_gateway::FleetStoreError::BootstrapConsumed
+        | sase_gateway::FleetStoreError::BootstrapRejected
+        | sase_gateway::FleetStoreError::CredentialExpired
+        | sase_gateway::FleetStoreError::CredentialMissing
+        | sase_gateway::FleetStoreError::CredentialRevoked
+        | sase_gateway::FleetStoreError::ScopeDenied(_)
+        | sase_gateway::FleetStoreError::FleetContract(
+            FleetContractDomainError::Validation(_),
+        ) => PyValueError::new_err(message),
+        sase_gateway::FleetStoreError::LockPoisoned
+        | sase_gateway::FleetStoreError::Io { .. }
+        | sase_gateway::FleetStoreError::Json { .. }
+        | sase_gateway::FleetStoreError::FleetContract(_) => {
             PyRuntimeError::new_err(message)
         }
     }
@@ -12100,6 +12691,32 @@ fn py_fleet_decide_attention_notices<'py>(
 }
 
 #[pyfunction]
+#[pyo3(name = "fleet_issue_bootstrap")]
+fn py_fleet_issue_bootstrap<'py>(
+    py: Python<'py>,
+    sase_home: &str,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: sase_gateway::FleetBootstrapIssueRequestWire =
+        fleet_wire_from_pydict(request, "fleet bootstrap issue request")?;
+    let home = PathBuf::from(sase_home);
+    let result = py
+        .allow_threads(|| {
+            let store = sase_gateway::FleetCredentialStore::new(home);
+            store.issue_bootstrap(request, sase_gateway::current_unix_time())
+        })
+        .map_err(fleet_store_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "gateway_main")]
+fn py_gateway_main(py: Python<'_>, args: Vec<String>) -> PyResult<()> {
+    py.allow_threads(|| sase_gateway::run_gateway_cli(args))
+        .map_err(PyRuntimeError::new_err)
+}
+
+#[pyfunction]
 #[pyo3(name = "federation_worker_main")]
 fn py_federation_worker_main(
     py: Python<'_>,
@@ -12496,16 +13113,22 @@ fn py_plan_agent_launch_fanout<'py>(
 /// Plan a pure typed Agent/Proc launch graph without launching children.
 #[pyfunction]
 #[pyo3(name = "plan_typed_launch_units")]
-#[pyo3(signature = (prompt, launch_kind = None, selected_project = None))]
+#[pyo3(signature = (prompt, launch_kind = None, selected_project = None, enabled_feature_flags = None))]
 fn py_plan_typed_launch_units<'py>(
     py: Python<'py>,
     prompt: &str,
     launch_kind: Option<&str>,
     selected_project: Option<&str>,
+    enabled_feature_flags: Option<Vec<String>>,
 ) -> PyResult<PyObject> {
-    let plan =
-        core_plan_typed_launch_units(prompt, launch_kind, selected_project)
-            .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    let flags = enabled_feature_flags.unwrap_or_default();
+    let plan = core_plan_typed_launch_units_with_flags(
+        prompt,
+        launch_kind,
+        selected_project,
+        &flags,
+    )
+    .map_err(|err| PyValueError::new_err(format!("{err}")))?;
     let value = serde_json::to_value(&plan).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
@@ -12634,12 +13257,54 @@ fn py_dispatch_fingerprint(
 
 #[pyfunction]
 #[pyo3(name = "agent_unit_dispatch_prompt")]
-fn py_agent_unit_dispatch_prompt(agent: &Bound<'_, PyAny>) -> PyResult<String> {
+#[pyo3(signature = (agent, enabled_feature_flags = None))]
+fn py_agent_unit_dispatch_prompt(
+    agent: &Bound<'_, PyAny>,
+    enabled_feature_flags: Option<Vec<String>>,
+) -> PyResult<String> {
     let agent: AgentUnitWire = serde_json::from_value(py_to_json_value(agent)?)
         .map_err(|err| {
             PyValueError::new_err(format!("invalid agent unit: {err}"))
         })?;
-    Ok(core_agent_unit_dispatch_prompt(&agent))
+    let flags = enabled_feature_flags.unwrap_or_default();
+    Ok(core_agent_unit_dispatch_prompt_with_flags(&agent, &flags))
+}
+
+#[pyfunction]
+#[pyo3(name = "collect_queue_fields")]
+fn py_collect_queue_fields<'py>(
+    py: Python<'py>,
+    occurrences: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let occurrences: Vec<QueueOccurrenceWire> = serde_json::from_value(
+        py_to_json_value(occurrences)?,
+    )
+    .map_err(|err| {
+        PyValueError::new_err(format!("invalid queue occurrences: {err}"))
+    })?;
+    let result = core_collect_queue_fields(&occurrences);
+    let value = serde_json::to_value(&result).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+#[pyfunction]
+#[pyo3(name = "format_queue_directive")]
+fn py_format_queue_directive(
+    fields: &Bound<'_, PyAny>,
+) -> PyResult<Option<String>> {
+    let fields: QueueFieldsWire =
+        serde_json::from_value(py_to_json_value(fields)?).map_err(|err| {
+            PyValueError::new_err(format!("invalid queue fields: {err}"))
+        })?;
+    Ok(core_format_queue_directive(&fields))
+}
+
+#[pyfunction]
+#[pyo3(name = "queue_directive_flag_key")]
+fn py_queue_directive_flag_key() -> &'static str {
+    core_queue_directive_flag_key()
 }
 
 #[pyfunction]
@@ -13466,6 +14131,116 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
     });
 }
 
+#[test]
+fn gateway_and_bootstrap_bindings_are_registered() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+        sase_core_rs(py, &module).unwrap();
+
+        assert!(module.getattr("gateway_main").unwrap().is_callable());
+        assert!(module
+            .getattr("fleet_issue_bootstrap")
+            .unwrap()
+            .is_callable());
+    });
+}
+
+#[test]
+fn fleet_issue_bootstrap_binding_delegates_to_store_without_persisting_secret()
+{
+    use serde_json::json;
+
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let home = tempfile::tempdir().unwrap();
+        let request = json!({
+            "schema_version": 1,
+            "requested_scopes": [
+                " fleet.summary.read ",
+                "fleet.hello",
+                "fleet.hello"
+            ],
+            "supported_protocol_versions": [99, 1],
+            "expires_at_unix": null,
+            "installation_pin": null
+        });
+        let request_obj =
+            json_value_to_py(py, &request).unwrap().into_bound(py);
+        let request_dict = request_obj.downcast::<PyDict>().unwrap();
+
+        let before = sase_gateway::current_unix_time();
+        let response = py_fleet_issue_bootstrap(
+            py,
+            home.path().to_str().unwrap(),
+            request_dict,
+        )
+        .unwrap();
+        let after = sase_gateway::current_unix_time();
+        let response = py_to_json_value(response.bind(py)).unwrap();
+
+        assert_eq!(
+            response["schema_version"],
+            json!(sase_gateway::FLEET_API_WIRE_SCHEMA_VERSION)
+        );
+        assert!(response["bootstrap_id"]
+            .as_str()
+            .unwrap()
+            .starts_with("boot_"));
+        let secret = response["bootstrap_secret"].as_str().unwrap();
+        assert!(secret.starts_with("sase_bootstrap_"));
+        assert_eq!(
+            response["allowed_scopes"],
+            json!(["fleet.hello", "fleet.summary.read"])
+        );
+        assert_eq!(
+            response["protocol_versions"],
+            json!([sase_gateway::FLEET_PROTOCOL_VERSION, 99])
+        );
+        assert!(!response["pinned_installation_id"]
+            .as_str()
+            .unwrap()
+            .is_empty());
+        let expires_at = response["expires_at_unix"].as_f64().unwrap();
+        assert!(
+            expires_at >= before + sase_gateway::FLEET_BOOTSTRAP_TTL_SECONDS
+        );
+        assert!(
+            expires_at
+                <= after + sase_gateway::FLEET_BOOTSTRAP_TTL_SECONDS + 1.0
+        );
+
+        let auth_path = home
+            .path()
+            .join(sase_gateway::FLEET_AUTH_DIR)
+            .join(sase_gateway::FLEET_AUTH_FILE);
+        let stored = std::fs::read_to_string(auth_path).unwrap();
+        assert!(!stored.contains(secret));
+        assert!(stored.contains("secret_hash"));
+
+        let pinned_request = json!({
+            "schema_version": 1,
+            "requested_scopes": [],
+            "supported_protocol_versions": [1],
+            "expires_at_unix": null,
+            "installation_pin": "not-the-current-installation"
+        });
+        let pinned_obj = json_value_to_py(py, &pinned_request)
+            .unwrap()
+            .into_bound(py);
+        let pinned_dict = pinned_obj.downcast::<PyDict>().unwrap();
+        let err = py_fleet_issue_bootstrap(
+            py,
+            home.path().to_str().unwrap(),
+            pinned_dict,
+        )
+        .unwrap_err();
+        assert!(err.is_instance_of::<PyValueError>(py));
+        assert!(err.to_string().contains("installation_pin does not match"));
+        assert!(!err.to_string().contains(secret));
+    });
+}
+
 #[cfg(windows)]
 fn configure_detached_process(command: &mut Command) {
     use std::os::windows::process::CommandExt;
@@ -13818,6 +14593,14 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_validate_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_agent_owner, m)?)?;
     m.add_function(wrap_pyfunction!(py_commit_shas_equivalent, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_managed_origin_reconciliation_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_decide_managed_origin_reconciliation,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_normalize_agent_archive_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_normalize_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_globalize_agent_name, m)?)?;
@@ -13838,6 +14621,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_validate_snippet_trigger, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_editor_snippet_catalog, m)?)?;
     m.add_function(wrap_pyfunction!(py_filter_model_completion_entries, m)?)?;
+    m.add_function(wrap_pyfunction!(py_model_alias_shortcut_context, m)?)?;
+    m.add_function(wrap_pyfunction!(py_model_alias_shortcut_edit, m)?)?;
     m.add_function(wrap_pyfunction!(py_apply_snippet_session_event, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_project_bytes, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_patch_project_bytes, m)?)?;
@@ -14185,6 +14970,23 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_artifact_row_resolution_wire_schema_version,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_publication_state_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_publication_record_key,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_publication_register_pending,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_publication_due, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_publication_mark_attempt,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_artifact_link_ref_parts, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_row_index_keys, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_row_ref_lookup_keys, m)?)?;
@@ -14192,6 +14994,16 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_artifact_link_canonicalize, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_link_validate_row, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_link_upsert_row, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_eligibility_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_decide_artifact_link_eligibility, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_release_evidence, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_validate_artifact_link_release_evidence,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_artifact_relations_builtins, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_relation_lookup, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_relation_label, m)?)?;
@@ -14385,6 +15197,9 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_directive_contract, m)?)?;
     m.add_function(wrap_pyfunction!(py_directive_completion_context, m)?)?;
     m.add_function(wrap_pyfunction!(py_directive_completion_candidates, m)?)?;
+    m.add_function(wrap_pyfunction!(py_collect_queue_fields, m)?)?;
+    m.add_function(wrap_pyfunction!(py_format_queue_directive, m)?)?;
+    m.add_function(wrap_pyfunction!(py_queue_directive_flag_key, m)?)?;
     m.add_function(wrap_pyfunction!(py_chop_overrun_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_chop_overrun, m)?)?;
     m.add_function(wrap_pyfunction!(py_axe_status_wire_schema_version, m)?)?;
@@ -14477,6 +15292,26 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
+        py_provider_usage_store_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_state_path, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_load, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_record_observation, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_provider_usage_prepare_account_context,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_reserve_refresh, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_release_refresh, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_refresh_due, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_admit_refresh, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_mark_refresh_due, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_provider_usage_record_refresh_attempt,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
         py_provider_usage_validate_observation,
         m
     )?)?;
@@ -14566,6 +15401,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_fleet_decide_attention_notices, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_issue_bootstrap, m)?)?;
+    m.add_function(wrap_pyfunction!(py_gateway_main, m)?)?;
     m.add_function(wrap_pyfunction!(py_federation_worker_main, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_classify_runtime_duration, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_classify_cache_freshness, m)?)?;
@@ -14671,6 +15508,7 @@ mod tests {
     use std::fs;
     use std::path::Path;
     use std::process::Command;
+    use tempfile::tempdir;
 
     fn append_json<'py>(
         py: Python<'py>,
@@ -15858,6 +16696,57 @@ mod tests {
     }
 
     #[test]
+    fn managed_origin_decision_binding_returns_wire_dict() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            let version: u32 = module
+                .getattr("managed_origin_reconciliation_wire_schema_version")
+                .unwrap()
+                .call0()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(
+                version,
+                MANAGED_ORIGIN_RECONCILIATION_WIRE_SCHEMA_VERSION
+            );
+
+            let request = json_value_to_py(
+                py,
+                &json!({
+                    "managed": true,
+                    "identity_verified": true,
+                    "checkout_dir": "/work/repo_2",
+                    "primary_checkout_dir": "/work/repo",
+                    "canonical_remote_url": "git@github.com:org/repo.git",
+                    "origin_url": "/work/repo",
+                    "origin_points_at_primary": true,
+                    "origin_matches_canonical": false,
+                    "effective_push_urls": ["/work/repo"],
+                    "effective_push_urls_pointing_at_primary": ["/work/repo"]
+                }),
+            )
+            .unwrap();
+            let request = request.bind(py).downcast::<PyDict>().unwrap();
+            let decision = module
+                .getattr("decide_managed_origin_reconciliation")
+                .unwrap()
+                .call1((request,))
+                .unwrap();
+            let decision = py_to_json_value(&decision).unwrap();
+
+            assert_eq!(decision["action"], json!("rewrite"));
+            assert_eq!(
+                decision["rewrite_origin_url"],
+                json!("git@github.com:org/repo.git")
+            );
+            assert_eq!(decision["rewrite_push_urls"], json!([]));
+        });
+    }
+
+    #[test]
     fn agent_identity_bindings_are_exported_and_preserve_shapes() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
@@ -16469,6 +17358,131 @@ mod tests {
                 .to_string();
             assert!(
                 error.contains("missing field"),
+                "unexpected error: {error}"
+            );
+        });
+    }
+
+    #[test]
+    fn model_alias_shortcut_bindings_return_plain_dict_shapes() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            module
+                .add_function(
+                    wrap_pyfunction!(py_model_alias_shortcut_context, &module)
+                        .unwrap(),
+                )
+                .unwrap();
+            module
+                .add_function(
+                    wrap_pyfunction!(py_model_alias_shortcut_edit, &module)
+                        .unwrap(),
+                )
+                .unwrap();
+            let position =
+                json_value_to_py(py, &json!({"line": 0, "character": 6}))
+                    .unwrap();
+            let entries = json_value_to_py(
+                py,
+                &json!([
+                    model_completion_entry_json(
+                        "@large",
+                        "user_alias",
+                        "",
+                        [],
+                        0,
+                    ),
+                    model_completion_entry_json(
+                        "@small",
+                        "implicit_alias",
+                        "",
+                        [],
+                        0,
+                    ),
+                    model_completion_entry_json(
+                        "large-model",
+                        "model",
+                        "openai",
+                        [],
+                        0,
+                    ),
+                ]),
+            )
+            .unwrap();
+
+            let context = module
+                .getattr("model_alias_shortcut_context")
+                .unwrap()
+                .call1(("🙂 *la", position.clone_ref(py)))
+                .unwrap();
+            assert_eq!(
+                py_to_json_value(&context).unwrap(),
+                json!({
+                    "schema_version": 1,
+                    "query": "la",
+                    "token": "*la",
+                    "caret": {"line": 0, "character": 6},
+                    "token_range": {
+                        "start": {"line": 0, "character": 3},
+                        "end": {"line": 0, "character": 6}
+                    },
+                    "replacement_range": {
+                        "start": {"line": 0, "character": 3},
+                        "end": {"line": 0, "character": 6}
+                    }
+                })
+            );
+
+            let edit = module
+                .getattr("model_alias_shortcut_edit")
+                .unwrap()
+                .call1((
+                    "🙂 *la",
+                    position.clone_ref(py),
+                    entries.clone_ref(py),
+                    "@large",
+                ))
+                .unwrap();
+            assert_eq!(
+                py_to_json_value(&edit).unwrap(),
+                json!({
+                    "schema_version": 1,
+                    "alias": "@large",
+                    "replacement": "%m:@large ",
+                    "edit": {
+                        "range": {
+                            "start": {"line": 0, "character": 3},
+                            "end": {"line": 0, "character": 6}
+                        },
+                        "new_text": "%m:@large "
+                    },
+                    "caret": {"line": 0, "character": 13}
+                })
+            );
+
+            let stale = module
+                .getattr("model_alias_shortcut_edit")
+                .unwrap()
+                .call1(("🙂 *la", position, entries, "@small"))
+                .unwrap();
+            assert!(stale.is_none());
+        });
+    }
+
+    #[test]
+    fn model_alias_shortcut_binding_rejects_malformed_position() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let error = py_model_alias_shortcut_context(
+                py,
+                "*",
+                PyDict::new_bound(py).as_any(),
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(
+                error.contains("UTF-16 line/character"),
                 "unexpected error: {error}"
             );
         });
@@ -19046,6 +20060,11 @@ MENTORS:
             for name in [
                 "artifact_link_row_schema_version",
                 "artifact_row_resolution_wire_schema_version",
+                "artifact_link_publication_state_wire_schema_version",
+                "artifact_link_publication_record_key",
+                "artifact_link_publication_register_pending",
+                "artifact_link_publication_due",
+                "artifact_link_publication_mark_attempt",
                 "artifact_link_ref_parts",
                 "artifact_row_index_keys",
                 "artifact_row_ref_lookup_keys",
@@ -19069,6 +20088,70 @@ MENTORS:
             }
             assert_eq!(py_artifact_link_row_schema_version(), 2);
             assert_eq!(py_artifact_row_resolution_wire_schema_version(), 1);
+            assert_eq!(
+                py_artifact_link_publication_state_wire_schema_version(),
+                1
+            );
+            let publication_key = py_artifact_link_publication_record_key(
+                "gh_acme__widget",
+                "plans",
+                "/tmp/plans",
+                "git@example.com:acme/widget--plans.git",
+                "origin/main",
+            )
+            .unwrap();
+            assert!(
+                publication_key.starts_with("artifact-link-publication:v1:")
+            );
+            let observation_value = json!({
+                "version": 1,
+                "project_key": "gh_acme__widget",
+                "role": "plans",
+                "repo_root": "/tmp/plans",
+                "remote_url": "git@example.com:acme/widget--plans.git",
+                "upstream": "origin/main",
+                "head_revision": "abc123",
+                "oldest_unpublished_at": 1_000.0
+            });
+            let observation_object =
+                json_value_to_py(py, &observation_value).unwrap();
+            let observation =
+                observation_object.bind(py).downcast::<PyDict>().unwrap();
+            let record = py_artifact_link_publication_register_pending(
+                py,
+                observation,
+                1_200.0,
+                None,
+            )
+            .unwrap();
+            let record_value = py_to_json_value(record.bind(py)).unwrap();
+            assert_eq!(record_value["key"], json!(publication_key));
+            assert_eq!(record_value["first_pending_at"], json!(1_000.0));
+            assert_eq!(record_value["next_due_at"], json!(3_600.0));
+            let record_dict = record.bind(py).downcast::<PyDict>().unwrap();
+            let due =
+                py_artifact_link_publication_due(py, record_dict, 3_600.0)
+                    .unwrap();
+            let due_value = py_to_json_value(due.bind(py)).unwrap();
+            assert_eq!(due_value["due"], json!(true));
+            let attempt_value = json!({
+                "status": "failed",
+                "error": "network",
+                "log_path": "/tmp/sase-sync.log"
+            });
+            let attempt_object = json_value_to_py(py, &attempt_value).unwrap();
+            let attempt = attempt_object.bind(py).downcast::<PyDict>().unwrap();
+            let failed_record = py_artifact_link_publication_mark_attempt(
+                py,
+                record_dict,
+                attempt,
+                3_600.0,
+            )
+            .unwrap();
+            let failed_value =
+                py_to_json_value(failed_record.bind(py)).unwrap();
+            assert_eq!(failed_value["attempt_count"], json!(1));
+            assert_eq!(failed_value["next_due_at"], json!(7_200.0));
             let ref_parts =
                 py_artifact_link_ref_parts(py, "@plans:202609/a.md#section")
                     .unwrap()
@@ -19322,6 +20405,119 @@ MENTORS:
             .unwrap();
             let aggregate = py_to_json_value(aggregate.bind(py)).unwrap();
             assert_eq!(aggregate["status"], json!("success"));
+        });
+    }
+
+    #[test]
+    fn artifact_link_eligibility_bindings_round_trip_json_shapes() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            for name in [
+                "artifact_link_eligibility_wire_schema_version",
+                "decide_artifact_link_eligibility",
+                "artifact_link_release_evidence",
+                "validate_artifact_link_release_evidence",
+            ] {
+                assert!(module.getattr(name).is_ok(), "missing {name}");
+            }
+
+            assert_eq!(py_artifact_link_eligibility_wire_schema_version(), 1);
+
+            let ineligible_request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "run_id": "run-1",
+                    "agent_id": "agent-1",
+                    "repos": [
+                        {
+                            "repo_id": "sdd:plan",
+                            "kind": "sdd",
+                            "changed_paths": [
+                                {"path": "links/plan/foo.md.json", "role": "bookkeeping"}
+                            ],
+                        }
+                    ],
+                }),
+            )
+            .unwrap();
+            let ineligible_decision_obj = py_decide_artifact_link_eligibility(
+                py,
+                ineligible_request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let ineligible_decision_dict = ineligible_decision_obj
+                .bind(py)
+                .downcast::<PyDict>()
+                .unwrap();
+            let ineligible_decision_value =
+                py_to_json_value(ineligible_decision_obj.bind(py)).unwrap();
+            assert_eq!(ineligible_decision_value["eligible"], json!(false));
+            assert_eq!(
+                ineligible_decision_value["qualifying_repo_ids"],
+                json!([])
+            );
+
+            let eligible_request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "run_id": "run-1",
+                    "agent_id": "agent-1",
+                    "repos": [
+                        {
+                            "repo_id": "main",
+                            "kind": "main",
+                            "changed_paths": [
+                                {"path": "src/lib.rs", "role": "real"}
+                            ],
+                        }
+                    ],
+                }),
+            )
+            .unwrap();
+            let decision = py_decide_artifact_link_eligibility(
+                py,
+                eligible_request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let decision_dict = decision.bind(py).downcast::<PyDict>().unwrap();
+            let decision_value = py_to_json_value(decision.bind(py)).unwrap();
+            assert_eq!(decision_value["eligible"], json!(true));
+            assert_eq!(decision_value["qualifying_repo_ids"], json!(["main"]));
+
+            let evidence = py_artifact_link_release_evidence(
+                py,
+                decision_dict,
+                "2026-09-08T00:00:00Z",
+            )
+            .unwrap();
+            let evidence_dict = evidence.bind(py).downcast::<PyDict>().unwrap();
+            let evidence_value = py_to_json_value(evidence.bind(py)).unwrap();
+            assert_eq!(evidence_value["run_id"], json!("run-1"));
+            assert_eq!(evidence_value["agent_id"], json!("agent-1"));
+
+            py_validate_artifact_link_release_evidence(
+                evidence_dict,
+                "run-1",
+                "agent-1",
+            )
+            .unwrap();
+            assert!(py_validate_artifact_link_release_evidence(
+                evidence_dict,
+                "run-2",
+                "agent-1",
+            )
+            .is_err());
+
+            assert!(py_artifact_link_release_evidence(
+                py,
+                ineligible_decision_dict,
+                "2026-09-08T00:00:00Z",
+            )
+            .is_err());
         });
     }
 
@@ -22880,6 +24076,7 @@ MENTORS:
                     "id",
                     "clan",
                     "wait",
+                    "queue",
                     "dispatch",
                     "if",
                     "proc",
@@ -22890,6 +24087,41 @@ MENTORS:
                     "xprompts_enabled",
                 ]
             );
+            let queue = contract
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|entry| entry["name"] == "queue")
+                .unwrap();
+            assert_eq!(queue["alias"], json!("q"));
+            assert_eq!(queue["feature_flag"], json!("queue_directive"));
+            assert_eq!(py_queue_directive_flag_key(), "queue_directive");
+            let occurrences = json_value_to_py(
+                py,
+                &json!([{
+                    "source": "%q:5",
+                    "source_span": [0, 4],
+                    "args": [{"value": "5"}],
+                    "has_plus_suffix": false
+                }]),
+            )
+            .unwrap();
+            let collected =
+                py_collect_queue_fields(py, occurrences.bind(py)).unwrap();
+            let collected = py_to_json_value(collected.bind(py)).unwrap();
+            assert_eq!(collected["fields"]["runners"], json!(5));
+            assert!(collected["errors"].as_array().unwrap().is_empty());
+            let formatted = py_format_queue_directive(
+                json_value_to_py(py, &json!({"runners": 5, "priority": 20}))
+                    .unwrap()
+                    .bind(py),
+            )
+            .unwrap();
+            assert_eq!(
+                formatted.as_deref(),
+                Some("%queue(runners=5, priority=20)")
+            );
+
             let wait = contract
                 .as_array()
                 .unwrap()
@@ -23125,6 +24357,135 @@ MENTORS:
             )
             .unwrap_err();
             assert!(error.is_instance_of::<PyValueError>(py));
+        });
+    }
+
+    #[test]
+    fn provider_usage_store_bindings_record_load_context_and_reserve() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let now = 1_800_000_000.0;
+            let temp = tempdir().unwrap();
+            let home = temp.path().to_string_lossy().to_string();
+            assert_eq!(py_provider_usage_store_schema_version(), 1);
+            assert!(py_provider_usage_state_path(&home)
+                .ends_with("llm_provider_usage.json"));
+
+            let observation = json!({
+                "schema_version": 1,
+                "provider": "alpha",
+                "context_id": "ctx-alpha",
+                "account_generation": 1,
+                "ordering_token": now - 10.0,
+                "received_at": now - 5.0,
+                "source": "probe",
+                "outcome": "ok",
+                "reason_code": null,
+                "diagnostic": null,
+                "completeness": "complete",
+                "authoritative_empty": false,
+                "account_mode": "subscription",
+                "plan": null,
+                "windows": [{
+                    "key": "week",
+                    "label": "Weekly",
+                    "used_percent": 94.0,
+                    "resets_at": now + 3600.0,
+                    "duration_seconds": null,
+                    "period_start": null,
+                    "applicability": {"kind": "account"},
+                    "observed_at": now - 10.0,
+                    "source": "probe",
+                    "vendor_state": "allowed"
+                }]
+            });
+            let observation_obj = json_value_to_py(py, &observation).unwrap();
+            let observation_dict =
+                observation_obj.bind(py).downcast::<PyDict>().unwrap();
+            let write = py_provider_usage_record_observation(
+                py,
+                &home,
+                observation_dict,
+                now,
+            )
+            .unwrap();
+            let write_value = py_to_json_value(write.bind(py)).unwrap();
+            assert_eq!(write_value["status"], json!("recorded"));
+            assert_eq!(write_value["accepted"], json!(true));
+
+            let read =
+                py_provider_usage_load(py, &home, now, 300.0, 75.0, 90.0)
+                    .unwrap();
+            let read_value = py_to_json_value(read.bind(py)).unwrap();
+            assert_eq!(read_value["version"], json!(1));
+            assert_eq!(
+                read_value["snapshot"]["providers"][0]["windows"][0]
+                    ["remaining_percent"],
+                json!(6.0)
+            );
+
+            let context = py_provider_usage_prepare_account_context(
+                py,
+                &home,
+                "alpha",
+                "ctx-beta",
+                now + 1.0,
+            )
+            .unwrap();
+            let context_value = py_to_json_value(context.bind(py)).unwrap();
+            assert_eq!(context_value["account_generation"], json!(2));
+            assert_eq!(context_value["changed"], json!(true));
+
+            let stale = py_provider_usage_record_observation(
+                py,
+                &home,
+                observation_dict,
+                now + 2.0,
+            )
+            .unwrap();
+            let stale_value = py_to_json_value(stale.bind(py)).unwrap();
+            assert_eq!(stale_value["status"], json!("stale_writer"));
+            assert_eq!(stale_value["accepted"], json!(false));
+
+            let request = json!({
+                "provider": "alpha",
+                "context_id": "ctx-beta",
+                "account_generation": 2,
+                "operation_id": "op-1",
+                "ttl_seconds": 10.0
+            });
+            let request_obj = json_value_to_py(py, &request).unwrap();
+            let request_dict =
+                request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let first = py_provider_usage_reserve_refresh(
+                py,
+                &home,
+                request_dict,
+                now + 2.0,
+            )
+            .unwrap();
+            let first_value = py_to_json_value(first.bind(py)).unwrap();
+            assert_eq!(first_value["status"], json!("reserved"));
+            let joined = py_provider_usage_reserve_refresh(
+                py,
+                &home,
+                request_dict,
+                now + 3.0,
+            )
+            .unwrap();
+            let joined_value = py_to_json_value(joined.bind(py)).unwrap();
+            assert_eq!(joined_value["status"], json!("joined"));
+            let lease_id =
+                first_value["reservation"]["lease_id"].as_str().unwrap();
+            assert!(py_provider_usage_release_refresh(
+                &home,
+                "alpha",
+                "ctx-beta",
+                2,
+                lease_id,
+                now + 4.0,
+            )
+            .unwrap());
         });
     }
 }

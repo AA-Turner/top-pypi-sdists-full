@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: beam-client
-Version: 0.2.207
+Version: 0.2.208
 Summary: 
 Author: beam.cloud
 Author-email: support@beam.cloud
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: beta9 (>=0.1.265,<0.2.0)
+Requires-Dist: beta9 (==0.1.266)
 Requires-Dist: packaging (>=24.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Requires-Dist: websockets (>=13,<16)

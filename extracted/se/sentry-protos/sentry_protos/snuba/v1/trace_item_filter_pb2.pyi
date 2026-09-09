@@ -97,6 +97,8 @@ class ComparisonFilter(google.protobuf.message.Message):
         """array attribute_key type only"""
         OP_HAS_ALL: ComparisonFilter._Op.ValueType  # 12
         """array attribute_key type only"""
+        OP_REGEXP: ComparisonFilter._Op.ValueType  # 13
+        """string only, RE2"""
 
     class Op(_Op, metaclass=_OpEnumTypeWrapper): ...
     OP_UNSPECIFIED: ComparisonFilter.Op.ValueType  # 0
@@ -118,6 +120,8 @@ class ComparisonFilter(google.protobuf.message.Message):
     """array attribute_key type only"""
     OP_HAS_ALL: ComparisonFilter.Op.ValueType  # 12
     """array attribute_key type only"""
+    OP_REGEXP: ComparisonFilter.Op.ValueType  # 13
+    """string only, RE2"""
 
     KEY_FIELD_NUMBER: builtins.int
     OP_FIELD_NUMBER: builtins.int
@@ -181,6 +185,8 @@ class AnyAttributeFilter(google.protobuf.message.Message):
         OP_NOT_LIKE: AnyAttributeFilter._Op.ValueType  # 4
         OP_IN: AnyAttributeFilter._Op.ValueType  # 5
         OP_NOT_IN: AnyAttributeFilter._Op.ValueType  # 6
+        OP_REGEXP: AnyAttributeFilter._Op.ValueType  # 7
+        """string only, RE2"""
 
     class Op(_Op, metaclass=_OpEnumTypeWrapper):
         """Restricted set of operations that make sense for all-attribute search"""
@@ -192,6 +198,8 @@ class AnyAttributeFilter(google.protobuf.message.Message):
     OP_NOT_LIKE: AnyAttributeFilter.Op.ValueType  # 4
     OP_IN: AnyAttributeFilter.Op.ValueType  # 5
     OP_NOT_IN: AnyAttributeFilter.Op.ValueType  # 6
+    OP_REGEXP: AnyAttributeFilter.Op.ValueType  # 7
+    """string only, RE2"""
 
     OP_FIELD_NUMBER: builtins.int
     VALUE_FIELD_NUMBER: builtins.int

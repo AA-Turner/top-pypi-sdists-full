@@ -52,6 +52,7 @@ import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any, Protocol, Union
 
+from .macos.process_lifecycle import race_against_cancellation
 from .macos.sanitize import sanitize_command_preview
 from .macos.types import N2Observation, N2Presentation
 from .models import NAVIGATOR_N2_MODEL, TOOL_SET_COMPUTER_USE_LATEST
@@ -181,6 +182,11 @@ def _format_action_error(error: BaseException) -> str:
     return f"ERROR: {type(error).__name__}: {error}"
 
 
+def _resolved_batch_index(batch_index: Any) -> int:
+    """The action's batch member index, or 0 for a non-batch (or malformed) action."""
+    return batch_index if isinstance(batch_index, int) else 0
+
+
 def _format_batch_result(
     member_names: "list[str]",
     outcomes: "list[str | None]",
@@ -248,6 +254,12 @@ class N2Computer(Protocol):
     error and the run continues. ``screenshot`` may also return a native
     ``N2Observation`` frame (as ``MacOSComputer`` does), which unlocks
     ``wait_for_change``/``poll_after_action`` and skips the settle delay.
+    A caller that passes ``tools=`` to ``N2ComputerAgent`` also needs
+    ``run_custom_tool(name, arguments) -> str``: it dispatches a call to one
+    of those definitions and its returned text becomes the result, carried
+    with the post-action frame like ``computer_batch``. An adapter without
+    it answers such a call with a recoverable "not supported" result instead
+    of failing the run.
     """
 
     async def screenshot(self) -> Any:
@@ -465,10 +477,6 @@ def _shell_tool_name(action_type: str) -> str:
     return "bash" if action_type == "run_bash_command" else "shell_command"
 
 
-def _shell_not_supported_error(action_type: str) -> str:
-    return f"{_shell_tool_name(action_type)} is not supported by this computer environment."
-
-
 def _file_tool_name(action_type: str) -> str:
     return {
         "read_file": "read",
@@ -479,8 +487,17 @@ def _file_tool_name(action_type: str) -> str:
     }.get(action_type, action_type)
 
 
+def _not_supported_by_computer_env(tool_name: str) -> str:
+    """Shared error text for a shell/file tool the current computer handler doesn't implement."""
+    return f"{tool_name} is not supported by this computer environment."
+
+
+def _shell_not_supported_error(action_type: str) -> str:
+    return _not_supported_by_computer_env(_shell_tool_name(action_type))
+
+
 def _file_not_supported_error(action_type: str) -> str:
-    return f"{_file_tool_name(action_type)} is not supported by this computer environment."
+    return _not_supported_by_computer_env(_file_tool_name(action_type))
 
 
 def _browser_not_supported_error(action_type: str) -> str:
@@ -490,6 +507,21 @@ def _browser_not_supported_error(action_type: str) -> str:
 def _custom_tool_not_supported_error(action: dict[str, Any]) -> str:
     name = action.get("tool_name") or "custom tool"
     return f"{name} was declared in tools= but this computer environment implements no run_custom_tool."
+
+
+def _require_action_method(
+    computer: Any, handlers: dict[str, str], action_type: Any, not_supported_error: Callable[[str], str]
+) -> Any:
+    """The bound handler for *action_type* in *handlers*, or raise if *computer* doesn't implement it.
+
+    A defense-in-depth check: ``execute_n2_computer_call``'s preflight loop already screens every
+    action for a missing handler before this dispatch runs, but each of the shell/file/browser
+    branches re-derived this same "getattr or raise" idiom independently.
+    """
+    method = getattr(computer, handlers[action_type], None)
+    if method is None:
+        raise RuntimeError(not_supported_error(str(action_type)))
+    return method
 
 
 @functools.lru_cache(maxsize=None)
@@ -585,25 +617,19 @@ def parse_n2_tool_calls(
             if not isinstance(args, dict):
                 raise N2ActionValidationError(f"{name} arguments must be an object")
 
-            if name in custom_tool_names:
-                # The name travels with the action: one action type serves every custom
-                # tool, and the adapter dispatches on the name it is handed.
-                call_item = _function_call_with_execution(
-                    name,
-                    args,
-                    call_id,
-                    [{"type": CUSTOM_TOOL_ACTION, "tool_name": name, "tool_arguments": args}],
-                    execution_deadline=execution_deadline,
-                )
-                output.append(call_item)
-                continue
-
             def finish(
                 translated: list[dict[str, Any]], *, batch_actions: "list[dict[str, Any]] | None" = None
             ) -> dict[str, Any]:
                 return _function_call_with_execution(
                     name, args, call_id, translated, batch_actions=batch_actions, execution_deadline=execution_deadline
                 )
+
+            if name in custom_tool_names:
+                # The name travels with the action: one action type serves every custom
+                # tool, and the adapter dispatches on the name it is handed.
+                call_item = finish([{"type": CUSTOM_TOOL_ACTION, "tool_name": name, "tool_arguments": args}])
+                output.append(call_item)
+                continue
 
             if name == "computer_batch":
                 if tool_set not in TOOL_SETS_WITH_BATCH:
@@ -714,18 +740,25 @@ async def _await_model_response(computer: Any, awaitable: Awaitable[Any]) -> Any
         if inspect.iscoroutine(awaitable):
             awaitable.close()
         cancellation.raise_if_cancelled()
-    request = asyncio.create_task(awaitable)
-    stopped = asyncio.create_task(cancellation.wait())
+    return await race_against_cancellation(awaitable, cancellation)
+
+
+def _parse_json_arguments(raw: Any) -> Any:
+    """Best-effort JSON-decode a possibly-string "arguments" value.
+
+    Returns ``raw`` unchanged when it is not a string (already a dict, a
+    list, ``None``, etc.). Returns ``{}`` when it is a string that fails to
+    parse as JSON. Does not itself validate that the result is a dict --
+    callers that need that check it themselves, since some care whether a
+    valid-but-non-object payload (e.g. ``"[1, 2]"``) should be treated the
+    same as unparseable input.
+    """
+    if not isinstance(raw, str):
+        return raw
     try:
-        done, _ = await asyncio.wait({request, stopped}, return_when=asyncio.FIRST_COMPLETED)
-        if request in done:
-            return request.result()
-        raise asyncio.CancelledError(stopped.result())
-    finally:
-        for task in (request, stopped):
-            if not task.done():
-                task.cancel()
-        await asyncio.gather(request, stopped, return_exceptions=True)
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
 
 
 def _presentation_text(item: dict[str, Any], field: str) -> str:
@@ -782,6 +815,13 @@ async def execute_n2_computer_call(
     """
     call_id = item.get("call_id")
 
+    async def finish(output: Any, presentation_event: dict[str, Any]) -> list[dict[str, Any]]:
+        """Report this call's result: the function_call_output, then its own presentation event."""
+        result = [{"type": "function_call_output", "call_id": call_id, "output": output}]
+        await callbacks.fire("on_computer_call_end", item, result)
+        await _present(presentation, presentation_event)
+        return result
+
     async def finish_with_error(message: str, observation: Any = None) -> list[dict[str, Any]]:
         output: Any = f"[ERROR] {message}"
         if observation is not None:
@@ -791,16 +831,7 @@ async def execute_n2_computer_call(
                 await callbacks.fire("on_screenshot", raw_base64, "screenshot_after")
             except Exception:
                 output = f"[ERROR] {message}"
-        result = [
-            {
-                "type": "function_call_output",
-                "call_id": call_id,
-                "output": output,
-            }
-        ]
-        await callbacks.fire("on_computer_call_end", item, result)
-        await _present(presentation, {"type": "action_done", "call_id": call_id, "error": message})
-        return result
+        return await finish(output, {"type": "action_done", "call_id": call_id, "error": message})
 
     actions = item.get("_computer_actions") or []
     batch_actions = item.get("_batch_actions")
@@ -840,25 +871,14 @@ async def execute_n2_computer_call(
     except Exception as error:  # noqa: BLE001 - a broken hook must not kill the run
         return await finish_with_error(f"Action confirmation failed: {error}")
     if not confirmed:
-        result = [
-            {
-                "type": "function_call_output",
-                "call_id": call_id,
-                "output": "[ERROR] Action was not confirmed by the user.",
-            }
-        ]
-        await callbacks.fire("on_computer_call_end", item, result)
-        await _present(presentation, {"type": "action_done", "call_id": call_id, "refused": True})
-        return result
+        return await finish(
+            "[ERROR] Action was not confirmed by the user.",
+            {"type": "action_done", "call_id": call_id, "refused": True},
+        )
 
     record_action = getattr(computer, "record_model_action", None)
     if callable(record_action):
-        arguments = item.get("arguments")
-        if isinstance(arguments, str):
-            try:
-                arguments = json.loads(arguments)
-            except json.JSONDecodeError:
-                arguments = {}
+        arguments = _parse_json_arguments(item.get("arguments"))
         record_action(str(item.get("name") or ""), arguments if isinstance(arguments, dict) else {})
 
     action_counts: dict[int, int] = {}
@@ -911,11 +931,7 @@ async def execute_n2_computer_call(
         ]
         batch_presentation = {"id": str(call_id), "members": members}
     elif item.get("name") not in SHELL_COMMAND_TOOL_NAMES and item.get("name") != BASH_TOOL_NAME:
-        arguments = item.get("arguments")
-        try:
-            parsed_arguments = json.loads(arguments) if isinstance(arguments, str) else arguments
-        except json.JSONDecodeError:
-            parsed_arguments = {}
+        parsed_arguments = _parse_json_arguments(item.get("arguments"))
         if isinstance(parsed_arguments, dict):
             await _present(
                 presentation,
@@ -938,7 +954,7 @@ async def execute_n2_computer_call(
         deadline = item.get("_execution_deadline")
         if isinstance(deadline, (int, float)) and time.monotonic() >= deadline:
             stopped_reason = "deadline_reached"
-            failed_index = action.get("batch_index") if isinstance(action.get("batch_index"), int) else 0
+            failed_index = _resolved_batch_index(action.get("batch_index"))
             break
         cancellation = getattr(computer, "cancellation", None)
         if cancellation is not None and cancellation.cancelled:
@@ -951,7 +967,7 @@ async def execute_n2_computer_call(
         action_args = {key: value for key, value in action.items() if key not in {"type", "batch_index"}}
         # The model's own call ({"action": name, **arguments}) for handlers that want
         # the untranslated values (the key expression as spelled, scroll `amount`).
-        model_action = model_actions[batch_index if isinstance(batch_index, int) else 0]
+        model_action = model_actions[_resolved_batch_index(batch_index)]
         try:
             if isinstance(batch_index, int) and batch_index != presented_member and batch_presentation is not None:
                 member = batch_presentation["members"][batch_index]
@@ -982,15 +998,15 @@ async def execute_n2_computer_call(
                     if isinstance(batch_index, int):
                         member_outcomes[batch_index] = _BATCH_SCREENSHOT_MEMBER_TEXT
             elif action_type in SHELL_ACTION_HANDLERS:
-                shell_method = getattr(computer, SHELL_ACTION_HANDLERS[action_type], None)
-                if shell_method is None:
-                    raise RuntimeError(_shell_not_supported_error(str(action_type)))
+                shell_method = _require_action_method(
+                    computer, SHELL_ACTION_HANDLERS, action_type, _shell_not_supported_error
+                )
                 shell_result = await shell_method(**action_args)
                 shell_output_text = _backstop_result_text("" if shell_result is None else str(shell_result))
             elif action_type in FILE_ACTION_HANDLERS:
-                file_method = getattr(computer, FILE_ACTION_HANDLERS[action_type], None)
-                if file_method is None:
-                    raise RuntimeError(_file_not_supported_error(str(action_type)))
+                file_method = _require_action_method(
+                    computer, FILE_ACTION_HANDLERS, action_type, _file_not_supported_error
+                )
                 file_result = await file_method(**action_args)
                 # A file handler may return {"text", "image_url"} so `read` on an
                 # image file shows the model the image as well as the text.
@@ -1004,9 +1020,9 @@ async def execute_n2_computer_call(
                 )
                 custom_output_text = _backstop_result_text("" if custom_result is None else str(custom_result))
             elif action_type in BROWSER_ACTION_HANDLERS:
-                browser_method = getattr(computer, BROWSER_ACTION_HANDLERS[action_type], None)
-                if browser_method is None:
-                    raise RuntimeError(_browser_not_supported_error(str(action_type)))
+                browser_method = _require_action_method(
+                    computer, BROWSER_ACTION_HANDLERS, action_type, _browser_not_supported_error
+                )
                 action_result = await browser_method(**action_args)
                 if isinstance(action_result, dict) and action_result.get("success") is False:
                     raise RuntimeError(str(action_result.get("error") or action_result))
@@ -1043,7 +1059,7 @@ async def execute_n2_computer_call(
                 if cleanup_error is not None:
                     raise RuntimeError(f"Failed to release held key: {cleanup_error}")
 
-            member_index = batch_index if isinstance(batch_index, int) else 0
+            member_index = _resolved_batch_index(batch_index)
             action_counts[member_index] = action_counts.get(member_index, 1) - 1
             if action_counts[member_index] == 0:
                 completed_members.add(member_index)
@@ -1077,7 +1093,7 @@ async def execute_n2_computer_call(
                     except Exception:
                         observation = None
                 return await finish_with_error(str(error), observation)
-            failed_index = batch_index if isinstance(batch_index, int) else 0
+            failed_index = _resolved_batch_index(batch_index)
             stopped_reason = _format_action_error(error)
             break
 
@@ -1119,20 +1135,14 @@ async def execute_n2_computer_call(
         file_output: Any = file_output_text
         if file_output_image:
             file_output = {"type": "input_image", "image_url": file_output_image, "result": file_output_text or None}
-        result = [{"type": "function_call_output", "call_id": call_id, "output": file_output}]
-        await callbacks.fire("on_computer_call_end", item, result)
-        await _present(presentation, {"type": "action_done", "call_id": call_id})
-        return result
+        return await finish(file_output, {"type": "action_done", "call_id": call_id})
 
     # Shell and file results carry no frame: their tools return text and change nothing on
     # screen. Browser tools do change the screen -- a navigation replaces the page -- so they
     # fall through to the post-action screenshot below, as a GUI batch does. Without that the
     # model spends a whole extra turn asking for a frame it should already have.
     if not isinstance(batch_actions, list) and shell_output_text is not None:
-        result = [{"type": "function_call_output", "call_id": call_id, "output": result_text()}]
-        await callbacks.fire("on_computer_call_end", item, result)
-        await _present(presentation, {"type": "action_done", "call_id": call_id})
-        return result
+        return await finish(result_text(), {"type": "action_done", "call_id": call_id})
 
     if screenshot_observation is None:
         try:
@@ -1172,17 +1182,10 @@ async def execute_n2_computer_call(
     # The frame rides with the call's text (a late failure such as the screenshot
     # callback must not discard output from a command that already ran).
     output: dict[str, Any] = {"type": "input_image", "image_url": data_url, "result": result_text()}
-    result = [{"type": "function_call_output", "call_id": call_id, "output": output}]
-    await callbacks.fire("on_computer_call_end", item, result)
-    await _present(
-        presentation,
-        {
-            "type": "action_done",
-            "call_id": call_id,
-            "batch_complete": isinstance(batch_actions, list),
-        },
+    return await finish(
+        output,
+        {"type": "action_done", "call_id": call_id, "batch_complete": isinstance(batch_actions, list)},
     )
-    return result
 
 
 class N2ComputerAgent:
@@ -1250,9 +1253,9 @@ class N2ComputerAgent:
     - ``tools``: caller-owned tool definitions, in the standard OpenAI shape,
       served alongside the tool set. The loop dispatches a call to one of them
       to the computer's ``run_custom_tool(name, arguments)``, whose returned
-      text becomes the tool result — no frame rides with it, as for ``bash``.
-      A computer that does not implement the hook answers with a recoverable
-      "not supported" result instead of failing the run.
+      text becomes the tool result, carried with the post-action frame like
+      ``computer_batch``. A computer that does not implement the hook answers
+      with a recoverable "not supported" result instead of failing the run.
     """
 
     def __init__(

@@ -371,21 +371,6 @@ class PdfDocument:
 
     Provides PDF parsing, text extraction, and format conversion capabilities.
     """
-    def __init__(self, path: Path | str, password: str | None = None) -> None:
-        """
-        Open a PDF file.
-
-        Open a PDF file, optionally with a password for encrypted documents.
-
-        Args:
-        path (str | pathlib.Path): Path to the PDF file
-        password (str, optional): Password for encrypted PDFs
-        """
-
-    @staticmethod
-    def from_bytes(data: bytes, password: str | None = None) -> PdfDocument:
-        """Open a PDF from bytes, optionally with a password."""
-
     def __enter__(self) -> PdfDocument:
         """Context manager support."""
 
@@ -396,9 +381,6 @@ class PdfDocument:
 
     def version(self) -> tuple[int, int]:
         """Get PDF version."""
-
-    def authenticate(self, password: str) -> bool:
-        """Authenticate with a password."""
 
     @property
     def page_count(self) -> _PageCount:
@@ -929,34 +911,6 @@ class PdfDocument:
         linearize (bool): Linearize for fast web view (no-op, reserved). Default ``False``.
         """
 
-    def save_encrypted(
-        self,
-        path: str,
-        user_password: str,
-        owner_password: str | None = None,
-        allow_print: bool = True,
-        allow_copy: bool = True,
-        allow_modify: bool = True,
-        allow_annotate: bool = True,
-    ) -> None:
-        """Save encrypted PDF."""
-
-    def to_bytes_encrypted(
-        self,
-        user_password: str,
-        owner_password: str | None = None,
-        allow_print: bool = True,
-        allow_copy: bool = True,
-        allow_modify: bool = True,
-        allow_annotate: bool = True,
-    ) -> bytes:
-        """
-        Return the (possibly edited) document as encrypted bytes.
-
-        Equivalent to `save_encrypted` but returns bytes instead of writing to disk.
-        Useful for in-memory pipelines where writing a temporary file is undesirable.
-        """
-
     def set_title(self, title: str) -> None:
         """Set document metadata title."""
 
@@ -1413,6 +1367,51 @@ class PdfDocument:
         """
 
     def __repr__(self) -> str: ...
+    def __init__(self, path: Path | str, password: str | None = None) -> None:
+        """
+        Open a PDF file.
+
+        Open a PDF file, optionally with a password for encrypted documents.
+
+        Args:
+        path (str | pathlib.Path): Path to the PDF file
+        password (str, optional): Password for encrypted PDFs
+        """
+
+    @staticmethod
+    def from_bytes(data: bytes, password: str | None = None) -> PdfDocument:
+        """Open a PDF from bytes, optionally with a password."""
+
+    def authenticate(self, password: str) -> bool:
+        """Authenticate with a password."""
+
+    def save_encrypted(
+        self,
+        path: str,
+        user_password: str,
+        owner_password: str | None = None,
+        allow_print: bool = True,
+        allow_copy: bool = True,
+        allow_modify: bool = True,
+        allow_annotate: bool = True,
+    ) -> None:
+        """Save encrypted PDF."""
+
+    def to_bytes_encrypted(
+        self,
+        user_password: str,
+        owner_password: str | None = None,
+        allow_print: bool = True,
+        allow_copy: bool = True,
+        allow_modify: bool = True,
+        allow_annotate: bool = True,
+    ) -> bytes:
+        """
+        Return the (possibly edited) document as encrypted bytes.
+
+        Equivalent to `save_encrypted` but returns bytes instead of writing to disk.
+        Useful for in-memory pipelines where writing a temporary file is undesirable.
+        """
 
 @t.final
 class _PageCount:
@@ -1657,6 +1656,14 @@ class TextSpan:
     def text(self) -> str: ...
     @property
     def bbox(self) -> tuple[float, float, float, float]: ...
+    @property
+    def page_bbox(self) -> tuple[float, float, float, float]:
+        """
+        Where the run physically sits on the page: `bbox` with any text-matrix
+        rotation resolved into an axis-aligned page-space hull. Identical to
+        `bbox` for upright runs.
+        """
+
     @property
     def font_name(self) -> str: ...
     @property
@@ -2561,6 +2568,11 @@ class LineCap:
     def ROUND() -> LineCap: ...
     @staticmethod
     def SQUARE() -> LineCap: ...
+    def __repr__(self) -> str:
+        """
+        `LineCap.Round`-style representation, so a value read back from the
+        editor's settings can be told apart in a REPL.
+        """
 
 @t.final
 class LineJoin:
@@ -2576,6 +2588,11 @@ class LineJoin:
     def ROUND() -> LineJoin: ...
     @staticmethod
     def BEVEL() -> LineJoin: ...
+    def __repr__(self) -> str:
+        """
+        `LineJoin.Round`-style representation, so a value read back from the
+        editor's settings can be told apart in a REPL.
+        """
 
 @t.final
 class PatternPresets:

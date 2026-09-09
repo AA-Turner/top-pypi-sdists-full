@@ -2,13 +2,14 @@ import asyncio
 import base64
 import itertools
 import json
+import logging
 import socket
 import threading
 import time
 import urllib.request
 import uuid
 from collections.abc import AsyncGenerator, Generator
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Optional, cast
@@ -40,6 +41,8 @@ from pymobiledevice3.services.web_protocol.cdp_target import (
 )
 from pymobiledevice3.services.web_protocol.session_protocol import SessionProtocol
 from pymobiledevice3.services.webinspector import SAFARI, Application, AutomationAvailability, Page, WebinspectorService
+from tests.services.test_web_protocol.golden_flow import load_fixture, replay_flat_session, replay_page_session
+from tests.services.test_web_protocol.protocol_inventory import load_spec, validate_editor_event
 
 TIMEOUT = 30
 
@@ -225,6 +228,65 @@ class CdpBrowserWebsocketClient(CdpWebsocketClient):
                     return message
 
         return await asyncio.wait_for(wait_for_response(), TIMEOUT)
+
+
+async def testp_cdp_browser_endpoint_answers_puppeteer_connect(lockdown: LockdownClient) -> None:
+    """Puppeteer's connect() over the browser endpoint calls Target.getBrowserContexts and iterates
+    the result; a bare {} ack made it throw "contextIds is not iterable" before it saw a page. The
+    endpoint must return the (empty) browser-context list Chrome does."""
+    async with cdp_server_with_safari_page(lockdown) as (port, _):
+        version = await http_get_json(port, "/json/version/")
+        browser_id = urlsplit(version["webSocketDebuggerUrl"]).path.rsplit("/", 1)[1]
+        client = CdpBrowserWebsocketClient(port, browser_id)
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        ids = itertools.count(1)
+        try:
+            await client.command(next(ids), "Target.attachToBrowserTarget", {})
+            contexts = await client.command(next(ids), "Target.getBrowserContexts", {})
+            assert isinstance(contexts["result"].get("browserContextIds"), list), (
+                f"Target.getBrowserContexts must return a browserContextIds array: {contexts}"
+            )
+        finally:
+            await client.close()
+
+
+async def testp_cdp_browser_endpoint_announces_targets_after_get_targets(lockdown: LockdownClient) -> None:
+    """
+    VS Code's js-debug builds its target picker by calling Target.getTargets first and then
+    Target.setDiscoverTargets, and waits for the initial Target.targetCreated batch before it will
+    attach. The bridge announced only targets that were *new* since it last listed, so a page
+    already learnt through getTargets produced no targetCreated on setDiscoverTargets and js-debug
+    hung with no targets offered. Chrome reports every existing target when discovery is enabled;
+    the batch must arrive whatever was asked before.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        version = await http_get_json(port, "/json/version/")
+        browser_id = urlsplit(version["webSocketDebuggerUrl"]).path.rsplit("/", 1)[1]
+        page_id = targets[0]["id"]
+        client = CdpBrowserWebsocketClient(port, browser_id)
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        ids = itertools.count(1)
+        try:
+            await client.command(next(ids), "Target.attachToBrowserTarget", {})
+            listed = await client.command(next(ids), "Target.getTargets", {})
+            target_ids = {t["targetId"] for t in listed["result"]["targetInfos"]}
+            assert page_id in target_ids, f"the Safari page must be listed: {target_ids}"
+
+            # Discovery is enabled only now, after getTargets already learnt the page.
+            await client.send({"id": next(ids), "method": "Target.setDiscoverTargets", "params": {"discover": True}})
+
+            async def announced() -> set[str]:
+                seen: set[str] = set()
+                while page_id not in seen:
+                    message = await client.receive()
+                    if message.get("method") == "Target.targetCreated":
+                        seen.add(message["params"]["targetInfo"]["targetId"])
+                return seen
+
+            seen = await asyncio.wait_for(announced(), TIMEOUT)
+            assert page_id in seen, "setDiscoverTargets must announce the page even after getTargets"
+        finally:
+            await client.close()
 
 
 async def testp_cdp_browser_endpoint_attaches_playwright_style(lockdown: LockdownClient) -> None:
@@ -884,6 +946,179 @@ async def testp_cdp_server_makes_child_frames_reachable(lockdown: LockdownClient
             )
             assert typed["result"]["result"]["value"] == "typed", (
                 f"typing must follow the focus into the child frame: {typed}"
+            )
+        finally:
+            await client.close()
+
+
+async def testp_cdp_server_correlates_frames_by_identity_not_document_order(lockdown: LockdownClient) -> None:
+    """
+    An <iframe> element must resolve to the frame it actually hosts, whichever order the frames
+    sit in. iOS 26 orders a document's entries in the frame tree by when each frame was created,
+    not by where its element sits in the document; pairing the nth <iframe> with the nth tree
+    child then mis-mapped every frame whose DOM position differed from its creation order, so a
+    client's frameLocator().fill()/click() drove a different cross-origin frame than the one it
+    addressed. The name a frame was given, or the URL it loaded, identifies it regardless of order.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        try:
+
+            async def command(method: str, params: dict[str, Any]) -> dict[str, Any]:
+                id_ = next(message_ids)
+                await client.send({"id": id_, "method": method, "params": params})
+                while True:
+                    message = await asyncio.wait_for(client.receive(), TIMEOUT)
+                    if message.get("id") == id_:
+                        return message
+
+            await command("Page.enable", {})
+            await command("Runtime.enable", {})
+            await command("Page.navigate", {"url": "https://example.com/"})
+            # Create four named child frames whose document order (d, c, a, b) is deliberately not
+            # the order they were created in (a, b, c, d) - the case that mis-correlated.
+            await command(
+                "Runtime.evaluate",
+                {
+                    "expression": (
+                        "(() => {"
+                        "  const make = (n) => { const f = document.createElement('iframe');"
+                        "    f.name = n; f.src = 'https://example.com/?' + n; return f; };"
+                        "  const a = make('a'), b = make('b');"
+                        "  document.body.append(a, b);"
+                        "  document.body.insertBefore(make('c'), a);"
+                        "  document.body.insertBefore(make('d'), document.body.firstChild);"
+                        "  return 'ok';"
+                        "})()"
+                    ),
+                    "returnByValue": True,
+                },
+            )
+
+            async def child_frame_count() -> int:
+                tree = await command("Page.getFrameTree", {})
+                return len(tree["result"]["frameTree"].get("childFrames") or [])
+
+            for _ in range(TIMEOUT):
+                if await child_frame_count() == 4:
+                    break
+                await asyncio.sleep(0.5)
+            assert await child_frame_count() == 4, "all four child frames must be reported"
+
+            document_order = await command(
+                "Runtime.evaluate",
+                {"expression": "[...document.querySelectorAll('iframe')].map(f => f.name)", "returnByValue": True},
+            )
+            names = document_order["result"]["result"]["value"]
+            assert names == ["d", "c", "a", "b"], names
+
+            for index, name in enumerate(names):
+                element = await command(
+                    "Runtime.evaluate", {"expression": f"document.querySelectorAll('iframe')[{index}]"}
+                )
+                described = await command("DOM.describeNode", {"objectId": element["result"]["result"]["objectId"]})
+                frame_id = described["result"]["node"].get("frameId")
+                assert frame_id, f"the iframe element must resolve to a frame: {described}"
+                # The frame it resolves to must be the one whose document is this element's own
+                # src, proven by reading document.URL inside that frame's own world.
+                world = await command("Page.createIsolatedWorld", {"frameId": frame_id, "worldName": "probe"})
+                url = await command(
+                    "Runtime.evaluate",
+                    {
+                        "expression": "document.URL",
+                        "contextId": world["result"]["executionContextId"],
+                        "returnByValue": True,
+                    },
+                )
+                assert url["result"]["result"]["value"] == f"https://example.com/?{name}", (
+                    f"iframe named {name} must resolve to its own frame, not another's: {url}"
+                )
+        finally:
+            await client.close()
+
+
+async def testp_cdp_server_answers_basic_auth_through_the_fetch_domain(lockdown: LockdownClient) -> None:
+    """
+    A client can answer an HTTP Basic auth challenge with no on-device dialog, through Chrome's
+    Fetch domain translated onto WebKit's request interception: arm it with Fetch.enable, receive
+    each request as Fetch.requestPaused, and inject an Authorization header on Fetch.continueRequest.
+    WebKit surfaces no auth event of its own (the dialog owns the challenge), so answering it means
+    supplying the credentials proactively on the request - which is what this proves end to end.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        credentials = "Basic " + base64.b64encode(b"user:pass").decode()
+        try:
+            # Drive the reads from one place: replies land in a dict, and each paused request is
+            # continued (with the Authorization header for the protected URL) as it arrives.
+            replies: dict[int, dict[str, Any]] = {}
+            paused_urls: list[str] = []
+
+            async def send(method: str, params: dict[str, Any]) -> int:
+                id_ = next(message_ids)
+                await client.send({"id": id_, "method": method, "params": params})
+                return id_
+
+            async def pump(seconds: float) -> None:
+                deadline = asyncio.get_event_loop().time() + seconds
+                while asyncio.get_event_loop().time() < deadline:
+                    try:
+                        message = await asyncio.wait_for(client.receive(), 0.5)
+                    except (asyncio.TimeoutError, TimeoutError):
+                        continue
+                    if message.get("method") == "Fetch.requestPaused":
+                        request = message["params"]
+                        url = request["request"]["url"]
+                        paused_urls.append(url)
+                        if "basic-auth" in url:
+                            headers = [
+                                {"name": name, "value": value}
+                                for name, value in (request["request"].get("headers") or {}).items()
+                            ]
+                            headers.append({"name": "Authorization", "value": credentials})
+                            await send("Fetch.continueRequest", {"requestId": request["requestId"], "headers": headers})
+                        else:
+                            await send("Fetch.continueRequest", {"requestId": request["requestId"]})
+                    elif "id" in message:
+                        replies[message["id"]] = message
+
+            await send("Runtime.enable", {})
+            await send("Page.enable", {})
+            await send("Network.enable", {})
+            await send("Page.navigate", {"url": "https://example.com/"})
+            await pump(4)
+            await send("Fetch.enable", {"patterns": [{"urlPattern": "*"}], "handleAuthRequests": True})
+            await pump(1)
+            await send(
+                "Runtime.evaluate",
+                {
+                    "expression": (
+                        "window.__auth = null;"
+                        " fetch('https://httpbin.org/basic-auth/user/pass', {mode: 'cors'})"
+                        "  .then(r => r.json()).then(j => window.__auth = j)"
+                        "  .catch(e => window.__auth = {error: '' + e});"
+                    ),
+                    "returnByValue": True,
+                },
+            )
+            result: Any = None
+            for _ in range(TIMEOUT):
+                await pump(1)
+                probe = await send("Runtime.evaluate", {"expression": "window.__auth", "returnByValue": True})
+                await pump(0.8)
+                value = replies.get(probe, {}).get("result", {}).get("result", {}).get("value")
+                if value:
+                    result = value
+                    break
+            assert any("basic-auth" in url for url in paused_urls), (
+                f"the protected request must surface as Fetch.requestPaused: {paused_urls}"
+            )
+            assert result == {"authenticated": True, "user": "user"}, (
+                f"the injected Authorization header must answer the Basic auth challenge: {result}"
             )
         finally:
             await client.close()
@@ -2451,6 +2686,583 @@ async def test_a_page_target_takes_over_the_session(monkeypatch: pytest.MonkeyPa
         assert target.output_queue.get_nowait()["method"] == "Target.targetInfoChanged"
 
 
+async def test_call_function_on_without_object_id_targets_the_context_global(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Chrome lets Runtime.callFunctionOn target a bare execution context; WebKit requires an
+    object. Puppeteer's page.evaluate relies on the former. The bridge resolves the context's
+    global object (evaluate `this`) and calls the function on it."""
+    with offline_cdp_target(monkeypatch) as (target, sent):
+        target._flat = True  # a JSContext: the one, default context
+
+        async def fake_result(method: str, params: dict[str, Any], *args: Any, **kwargs: Any) -> dict[str, Any]:
+            assert method == "Runtime.evaluate" and params["expression"] == "this"
+            return {"result": {"result": {"type": "object", "objectId": "GLOBAL"}}}
+
+        monkeypatch.setattr(target, "send_message_with_result", fake_result)
+        await target._runtime_call_function_on({
+            "id": 1,
+            "method": "Runtime.callFunctionOn",
+            "params": {
+                "functionDeclaration": "function () { return 6 * 7; }",
+                "executionContextId": 5,
+                "returnByValue": True,
+            },
+        })
+        forwarded = sent[-1]  # the flat path sends the raw message (no Target envelope)
+        assert forwarded["method"] == "Runtime.callFunctionOn"
+        assert forwarded["params"]["objectId"] == "GLOBAL", "the call targets the resolved global object"
+        assert "executionContextId" not in forwarded["params"], "WebKit takes no execution context here"
+
+
+async def test_user_preference_overrides_are_translated_and_replayed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Chrome's dark-mode emulation - Emulation.setAutoDarkModeOverride and the media features of
+    Emulation.setEmulatedMedia - maps onto WebKit's Page.overrideUserPreference (the command that
+    replaced Page.setForcedAppearance, which iOS 26 no longer knows). A feature dropped from the
+    list is reset, as in Chrome, and the latest override per preference survives a process swap."""
+    with offline_cdp_target(monkeypatch) as (target, sent):
+
+        def device_messages() -> list[dict[str, Any]]:
+            return [json.loads(m["params"]["message"]) for m in sent]
+
+        await target._emulation_set_auto_dark_mode_override({
+            "id": 1,
+            "method": "Emulation.setAutoDarkModeOverride",
+            "params": {"enabled": True},
+        })
+        assert device_messages()[-1] == {
+            "id": 1,
+            "method": "Page.overrideUserPreference",
+            "params": {"name": "PrefersColorScheme", "value": "Dark"},
+        }
+
+        await target._emulation_set_emulated_media({
+            "id": 2,
+            "method": "Emulation.setEmulatedMedia",
+            "params": {
+                "media": "print",
+                "features": [
+                    {"name": "prefers-reduced-motion", "value": "reduce"},
+                    {"name": "prefers-contrast", "value": "less"},
+                    {"name": "color-gamut", "value": "p3"},
+                ],
+            },
+        })
+        methods = [(m["method"], m["params"]) for m in device_messages()[1:]]
+        assert methods == [
+            ("Page.overrideUserPreference", {"name": "PrefersReducedMotion", "value": "Reduce"}),
+            # No WebKit value for "less": the override is cleared rather than guessed.
+            ("Page.overrideUserPreference", {"name": "PrefersContrast"}),
+            ("Page.setEmulatedMedia", {"media": "print"}),
+        ]
+        assert device_messages()[-1]["id"] == 2, "the client's reply must come from setEmulatedMedia"
+
+        # Reduced motion is gone from the list, so it is reset; media is required by WebKit.
+        del sent[:]
+        await target._emulation_set_emulated_media({"id": 3, "method": "Emulation.setEmulatedMedia", "params": {}})
+        assert [(m["method"], m["params"]) for m in device_messages()] == [
+            ("Page.overrideUserPreference", {"name": "PrefersReducedMotion"}),
+            ("Page.setEmulatedMedia", {"media": ""}),
+        ]
+
+        # `enabled` absent means "stop overriding", and replaces the earlier Dark for replay.
+        await target._emulation_set_auto_dark_mode_override({
+            "id": 4,
+            "method": "Emulation.setAutoDarkModeOverride",
+            "params": {},
+        })
+        replayed = {k: v for k, v in target._setup_messages.items() if isinstance(k, tuple)}
+        assert replayed == {
+            ("Page.overrideUserPreference", "PrefersColorScheme"): {"name": "PrefersColorScheme"},
+            ("Page.overrideUserPreference", "PrefersReducedMotion"): {"name": "PrefersReducedMotion"},
+            ("Page.overrideUserPreference", "PrefersContrast"): {"name": "PrefersContrast"},
+        }
+        assert target._setup_messages["Page.setEmulatedMedia"] == {"media": ""}
+
+
+async def test_stepping_gets_a_synthesized_resumed_between_pauses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """WebKit emits no Debugger.resumed when a step resumes then repauses (it sends none at all),
+    so a client would see paused-after-paused; V8 always alternates, and WebStorm's step machine
+    waits for the resumed and will not step again without it. The bridge injects one before a pause
+    the client is not expecting, keeping the paused/resumed alternation."""
+
+    async def a_pause(line: int) -> dict[str, Any]:
+        return {
+            "method": "Debugger.paused",
+            "params": {
+                "reason": "other",
+                "callFrames": [
+                    {
+                        "callFrameId": "cf",
+                        "functionName": "f",
+                        "location": {"scriptId": "9", "lineNumber": line, "columnNumber": 0},
+                    }
+                ],
+            },
+        }
+
+    with offline_cdp_target(monkeypatch) as (target, _):
+        target._script_id_to_url["9"] = "x.js"
+
+        await target._debugger_paused(await a_pause(1))
+        assert target.output_queue.get_nowait()["method"] == "Debugger.paused", "the first pause stands alone"
+        assert target.output_queue.empty()
+
+        # A step: WebKit sends only the next pause. The bridge precedes it with a resumed.
+        await target._debugger_paused(await a_pause(2))
+        assert target.output_queue.get_nowait() == {"method": "Debugger.resumed"}
+        assert target.output_queue.get_nowait()["params"]["callFrames"][0]["location"]["lineNumber"] == 2
+        assert target.output_queue.empty()
+
+        # A real resumed from the device (an explicit resume-to-run) is forwarded once and clears.
+        await target._debugger_resumed({"method": "Debugger.resumed"})
+        assert target.output_queue.get_nowait() == {"method": "Debugger.resumed"}
+        # A stray resumed while the client is already running is dropped (would break alternation).
+        await target._debugger_resumed({"method": "Debugger.resumed"})
+        assert target.output_queue.empty()
+
+
+async def test_a_lost_device_connection_is_handled_gracefully() -> None:
+    """When the device restarts or disconnects, the Web Inspector socket dies. Serving the landing
+    page (get_open_pages) must not raise per request - it once spewed a traceback on every poll -
+    but note the loss, keep the last-known pages, and leave the bridge up to recover."""
+    inspector = WebinspectorService.__new__(WebinspectorService)
+    inspector._connection_lost = False
+    inspector.logger = logging.getLogger("test.webinspector")
+    inspector.connection_id = "CONN"
+    application = Application(
+        "PID:1", "com.example.app", 1, "App", AutomationAvailability.NOT_AVAILABLE, 1, False, True
+    )
+    page = Page.from_page_dictionary({
+        "WIRPageIdentifierKey": 1,
+        "WIRTypeKey": "WIRTypeWeb",
+        "WIRTitleKey": "Example",
+        "WIRURLKey": "https://example.com/",
+    })
+    inspector.connected_application = {"PID:1": application}
+    inspector.application_pages = {"PID:1": {1: page}}
+
+    class DeadService:
+        async def send_plist(self, _: Any) -> None:
+            raise ConnectionResetError("Connection lost")
+
+    inspector._service = DeadService()  # type: ignore[assignment]  # the `service` property returns this
+
+    disconnected: list[bool] = []
+    inspector.on_connection_lost = lambda: disconnected.append(True)
+
+    assert inspector.is_connected
+    pages = await inspector.get_open_pages()  # must not raise
+    assert inspector.is_connected is False, "the loss is noted"
+    assert list(pages) == ["App"] and list(pages["App"]) == [page], "the last-known pages are still served"
+    assert disconnected == [True], "with no reconnect wired, the loss fires on_connection_lost (the bridge fails fast)"
+
+    # A further send while lost is a quiet no-op, not another failure or a repeated callback.
+    await inspector._send_message("_rpc_forwardGetListing:", {"WIRApplicationIdentifierKey": "PID:1"})
+    assert disconnected == [True]
+
+
+async def test_a_paused_stack_drops_webkit_native_frames(monkeypatch: pytest.MonkeyPatch) -> None:
+    """WebKit puts a native entry frame - scriptId "0", lineNumber -1 - at the bottom of a paused
+    call stack. Chrome's protocol has no such frame and js-debug/WebStorm build the stack strictly;
+    the bad frame desynced their step handling, so stepping stopped advancing after one step. The
+    bridge drops it and reshapes the real frames (url filled in, scope types mapped)."""
+    with offline_cdp_target(monkeypatch) as (target, _):
+        target._script_id_to_url["294"] = "jscontext:///294.js"
+        await target._debugger_paused({
+            "method": "Debugger.paused",
+            "params": {
+                "reason": "DebuggerStatement",
+                "callFrames": [
+                    {
+                        "callFrameId": "cf0",
+                        "functionName": "global code",
+                        "location": {"scriptId": "294", "lineNumber": 2, "columnNumber": 0},
+                        "scopeChain": [
+                            {
+                                "type": "global",
+                                "object": {"objectId": "s0"},
+                                "location": {"scriptId": "294", "lineNumber": 0},
+                            }
+                        ],
+                    },
+                    {
+                        "callFrameId": "cf1",
+                        "functionName": "",
+                        "location": {"scriptId": "0", "lineNumber": -1, "columnNumber": -1},
+                        "scopeChain": [],
+                    },
+                ],
+            },
+        })
+        event = target.output_queue.get_nowait()
+        frames = event["params"]["callFrames"]
+        assert [f["callFrameId"] for f in frames] == ["cf0"], "the native scriptId-0 frame must be gone"
+        assert frames[0]["url"] == "jscontext:///294.js", "the real frame gets its url filled in"
+        scope = frames[0]["scopeChain"][0]
+        assert scope["type"] == "global" and "startLocation" in scope and "location" not in scope
+        assert event["params"]["reason"] == "other", "DebuggerStatement maps to Chrome's 'other'"
+
+
+async def test_a_paused_stack_drops_the_injected_script_harness(monkeypatch: pytest.MonkeyPatch) -> None:
+    """WebKit runs a console evaluation through its InjectedScript, so a pause inside it carries
+    that harness beneath the user's frame - `_wrapCall` and an anon frame in a script with no
+    source. V8 shows only the user frame; WebStorm built the stack strictly and stopped stepping
+    after one step. On a JSContext (flat) session the bridge strips those frames, leaving the
+    single user frame node reports. Recognized by the id of a script hidden as internal, or - the
+    JSContext case, where every real script is known - a frame in a script never seen parsed."""
+    with offline_cdp_target(monkeypatch) as (target, _):
+        target._flat = True
+        # The console eval's own script, given a synthetic URL when it was parsed.
+        await target._debugger_script_parsed({
+            "method": "Debugger.scriptParsed",
+            "params": {"scriptId": "675", "url": "", "startLine": 0, "endLine": 0, "endColumn": 3},
+        })
+        # WebKit's InjectedScript, hidden from the client (its source carries the marker).
+        await target._debugger_script_parsed({
+            "method": "Debugger.scriptParsed",
+            "params": {"scriptId": "27", "sourceURL": "__InjectedScript_WebKit.js"},
+        })
+        assert "27" in target._internal_script_ids
+        assert target.output_queue.get_nowait()["method"] == "Debugger.scriptParsed", (
+            "only the user script is forwarded"
+        )
+        assert target.output_queue.empty()
+
+        await target._debugger_paused({
+            "method": "Debugger.paused",
+            "params": {
+                "reason": "DebuggerStatement",
+                "callFrames": [
+                    {
+                        "callFrameId": "cf0",
+                        "functionName": "global code",
+                        "location": {"scriptId": "675", "lineNumber": 1, "columnNumber": 0},
+                    },
+                    {
+                        "callFrameId": "cf1",
+                        "functionName": "",
+                        "location": {"scriptId": "0", "lineNumber": -1, "columnNumber": -1},
+                    },
+                    {
+                        "callFrameId": "cf2",
+                        "functionName": "",
+                        "location": {"scriptId": "27", "lineNumber": 444, "columnNumber": 79},
+                    },
+                    {
+                        "callFrameId": "cf3",
+                        "functionName": "_wrapCall",
+                        "location": {"scriptId": "27", "lineNumber": 451, "columnNumber": 9},
+                    },
+                ],
+            },
+        })
+        frames = target.output_queue.get_nowait()["params"]["callFrames"]
+        assert [f["callFrameId"] for f in frames] == ["cf0"], "only the user's own frame survives"
+        assert frames[0]["url"] == "jscontext:///675.js"
+
+
+async def test_a_paused_stack_keeps_the_top_frame_even_if_it_looks_native(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pause must never be frameless: if every frame failed the real-source test, keep the top one."""
+    with offline_cdp_target(monkeypatch) as (target, _):
+        await target._debugger_paused({
+            "method": "Debugger.paused",
+            "params": {
+                "reason": "other",
+                "callFrames": [
+                    {"callFrameId": "cf0", "functionName": "x", "location": {"scriptId": "0", "lineNumber": -1}}
+                ],
+            },
+        })
+        frames = target.output_queue.get_nowait()["params"]["callFrames"]
+        assert [f["callFrameId"] for f in frames] == ["cf0"]
+
+
+async def test_golden_chrome_remote_interface_stepping_flow() -> None:
+    """Replay a real chrome-remote-interface debugging session - a raw CDP client that speaks the
+    protocol with almost no abstraction - and assert stepping advances with the paused/resumed
+    alternation and every emitted event matches Chrome's schema. A different client than WebStorm
+    or js-debug over the same page path."""
+    emitted = await replay_page_session(load_fixture("chrome_remote_interface_stepping"))
+    methods = [m.get("method", "<reply>") for m in emitted]
+    paused = [m for m in emitted if m.get("method") == "Debugger.paused"]
+    assert [p["params"]["callFrames"][0]["location"]["lineNumber"] for p in paused] == [2, 3, 4], methods
+    paused_at = [i for i, method in enumerate(methods) if method == "Debugger.paused"]
+    for first, second in zip(paused_at, paused_at[1:]):
+        assert "Debugger.resumed" in methods[first + 1 : second], (
+            f"each step must read paused -> resumed -> paused: {methods}"
+        )
+    cdp = load_spec("cdp")
+    problems = [problem for message in emitted for problem in validate_editor_event(cdp, message)]
+    assert problems == [], f"emitted events violate Chrome's schema: {sorted(set(problems))}"
+
+
+async def test_golden_safari_page_stepping_flow() -> None:
+    """Replay a real Safari-page debugging session - the Target-multiplexed path - through the
+    current bridge and assert stepping advances line by line with the paused/resumed alternation
+    editors need, and that every event emitted carries Chrome's required parameters. Guards the
+    page path (most editor use) the way the JSContext golden guards the flat path, without a device."""
+    emitted = await replay_page_session(load_fixture("safari_page_stepping"))
+    methods = [m.get("method", "<reply>") for m in emitted]
+
+    paused = [m for m in emitted if m.get("method") == "Debugger.paused"]
+    assert [p["params"]["callFrames"][0]["location"]["lineNumber"] for p in paused] == [2, 3, 4], (
+        f"the debugger; statement pauses, then two steps advance a line each: {methods}"
+    )
+    for event in paused:
+        for frame in event["params"]["callFrames"]:
+            assert frame["location"]["scriptId"] != "0" and frame["location"]["lineNumber"] >= 0
+
+    paused_at = [i for i, method in enumerate(methods) if method == "Debugger.paused"]
+    for first, second in zip(paused_at, paused_at[1:]):
+        assert "Debugger.resumed" in methods[first + 1 : second], (
+            f"each step must read paused -> resumed -> paused: {methods}"
+        )
+
+    cdp = load_spec("cdp")
+    problems = [problem for message in emitted for problem in validate_editor_event(cdp, message)]
+    assert problems == [], f"emitted events violate Chrome's schema: {sorted(set(problems))}"
+
+
+async def test_golden_webstorm_jscontext_stepping_flow() -> None:
+    """Replay a real WebStorm JSContext debugging session (its editor commands and the device's
+    responses) through the current bridge and assert the editor-visible behavior the step-over bug
+    broke: the paused stack is the single user frame node reports, and a step reads as
+    paused -> resumed -> paused (WebKit sends no resumed of its own). A regression in either
+    breaks this without a device."""
+    emitted = await replay_flat_session(load_fixture("webstorm_jscontext_stepping"))
+    methods = [m.get("method", "<reply>") for m in emitted]
+
+    paused = [m for m in emitted if m.get("method") == "Debugger.paused"]
+    assert len(paused) == 2, f"the debugger; statement and the step each pause: {methods}"
+    for event in paused:
+        frames = event["params"]["callFrames"]
+        assert len(frames) == 1, f"only the user's own frame survives, not WebKit's harness: {frames}"
+        location = frames[0]["location"]
+        assert location["scriptId"] != "0" and location["lineNumber"] >= 0
+    assert paused[0]["params"]["callFrames"][0]["location"]["lineNumber"] == 1
+    assert paused[1]["params"]["callFrames"][0]["location"]["lineNumber"] == 2, "the step advanced a line"
+
+    # The alternation: a resumed between the two pauses (synthesized; WebKit sends none).
+    first, second = (
+        methods.index("Debugger.paused"),
+        methods.index("Debugger.paused", methods.index("Debugger.paused") + 1),
+    )
+    assert "Debugger.resumed" in methods[first + 1 : second], f"a step must read paused -> resumed -> paused: {methods}"
+
+    assert "Runtime.consoleAPICalled" in methods, "console output reaches the editor"
+    assert not any(
+        m.get("method") == "Log.entryAdded" and m["params"]["entry"].get("source") == "javascript" for m in emitted
+    ), "engine errors are Runtime.exceptionThrown, not Log entries"
+
+    # Every event the bridge emitted must carry the required parameters of Chrome's protocol.
+    cdp = load_spec("cdp")
+    problems = [problem for message in emitted for problem in validate_editor_event(cdp, message)]
+    assert problems == [], f"emitted events violate Chrome's schema: {sorted(set(problems))}"
+
+
+async def test_javascript_errors_become_runtime_exception_thrown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """WebKit reports uncaught exceptions, unhandled rejections and parse errors as error console
+    messages of source "javascript"; Chrome reports them as Runtime.exceptionThrown, the only form
+    VS Code's debugger renders. Lines and columns are 1-based in WebKit's message, 0-based in Chrome's."""
+    with offline_cdp_target(monkeypatch) as (target, _):
+        target._script_id_to_url["2308"] = ""
+        await target._console_message_added({
+            "method": "Console.messageAdded",
+            "params": {
+                "message": {
+                    "source": "javascript",
+                    "level": "error",
+                    "text": "TypeError: boom",
+                    "type": "log",
+                    "line": 3,
+                    "column": 23,
+                    "url": "undefined",
+                    "stackTrace": {
+                        "callFrames": [
+                            {
+                                "functionName": "later",
+                                "url": "undefined",
+                                "scriptId": "2308",
+                                "lineNumber": 3,
+                                "columnNumber": 23,
+                            },
+                            {"functionName": "", "url": "", "scriptId": "2308", "lineNumber": 1, "columnNumber": 84},
+                        ]
+                    },
+                }
+            },
+        })
+        event = target.output_queue.get_nowait()
+        assert event["method"] == "Runtime.exceptionThrown"
+        details = event["params"]["exceptionDetails"]
+        assert details["text"] == "Uncaught"
+        assert details["exception"] == {
+            "type": "object",
+            "subtype": "error",
+            "className": "TypeError",
+            "description": "TypeError: boom",
+        }
+        assert (details["lineNumber"], details["columnNumber"], details["url"], details["scriptId"]) == (
+            2,
+            22,
+            "",
+            "2308",
+        )
+        assert details["stackTrace"]["callFrames"][0] == {
+            "functionName": "later",
+            "scriptId": "2308",
+            "url": "",
+            "lineNumber": 2,
+            "columnNumber": 22,
+        }
+        assert target.output_queue.empty(), "the error must not also be reported as a Log entry"
+
+        await target._console_message_added({
+            "method": "Console.messageAdded",
+            "params": {
+                "message": {
+                    "source": "javascript",
+                    "level": "error",
+                    "text": "Unhandled Promise Rejection: Error: nope",
+                    "line": 1,
+                    "column": 15,
+                    "url": "",
+                }
+            },
+        })
+        details = target.output_queue.get_nowait()["params"]["exceptionDetails"]
+        assert details["text"] == "Uncaught (in promise)"
+        assert details["exception"]["description"] == "Error: nope"
+        assert details["exceptionId"] == 2
+
+        # Console output stays console output.
+        await target._console_message_added({
+            "method": "Console.messageAdded",
+            "params": {
+                "message": {
+                    "source": "console-api",
+                    "level": "error",
+                    "text": "plain",
+                    "type": "log",
+                    "parameters": [{"type": "string", "value": "plain"}],
+                }
+            },
+        })
+        assert target.output_queue.get_nowait()["method"] == "Runtime.consoleAPICalled"
+
+
+async def test_bindings_are_installed_per_context_and_calls_come_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Runtime.addBinding defines a page function whose calls surface as Runtime.bindingCalled;
+    it is (re)installed in every main-world context, including ones announced later, and the
+    console message that carries a call never reaches the client as console output."""
+    with offline_cdp_target(monkeypatch) as (target, sent):
+
+        def device_messages() -> list[dict[str, Any]]:
+            return [json.loads(m["params"]["message"]) for m in sent]
+
+        target._frame_execution_ids["page-1"] = 7
+        await target._runtime_add_binding({"id": 1, "method": "Runtime.addBinding", "params": {"name": "hook"}})
+        assert target.output_queue.get_nowait() == {"id": 1, "result": {}}
+        install = device_messages()[-1]
+        assert install["method"] == "Runtime.evaluate" and install["params"]["contextId"] == 7
+        assert 'globalThis["hook"]' in install["params"]["expression"]
+        assert "__pymobiledevice3_binding__" in install["params"]["expression"]
+
+        # A context created later gets the binding too, after its announcement.
+        del sent[:]
+        await target._runtime_execution_context_created({
+            "method": "Runtime.executionContextCreated",
+            "params": {"context": {"id": 9, "type": "normal", "frameId": "page-1", "name": ""}},
+        })
+        assert target.output_queue.get_nowait()["method"] == "Runtime.executionContextCreated"
+        assert device_messages()[-1]["params"]["contextId"] == 9
+
+        await target._console_message_added({
+            "method": "Console.messageAdded",
+            "params": {
+                "message": {
+                    "source": "console-api",
+                    "level": "debug",
+                    "type": "log",
+                    "text": "__pymobiledevice3_binding__",
+                    "parameters": [
+                        {"type": "string", "value": "__pymobiledevice3_binding__"},
+                        {"type": "string", "value": "hook"},
+                        {"type": "string", "value": '{"a":1}'},
+                        {"type": "number", "value": 9},
+                    ],
+                }
+            },
+        })
+        assert target.output_queue.get_nowait() == {
+            "method": "Runtime.bindingCalled",
+            "params": {"name": "hook", "payload": '{"a":1}', "executionContextId": 9},
+        }
+        assert target.output_queue.empty()
+
+        del sent[:]
+        await target._runtime_remove_binding({"id": 2, "method": "Runtime.removeBinding", "params": {"name": "hook"}})
+        assert target.output_queue.get_nowait() == {"id": 2, "result": {}}
+        assert all('delete globalThis["hook"]' in m["params"]["expression"] for m in device_messages())
+        assert "hook" not in target._bindings
+
+
+async def test_context_teardown_and_inspect_are_announced(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Runtime.executionContextDestroyed precedes executionContextsCleared on a reload and follows
+    a frame's detach; the console's inspect() becomes Runtime.inspectRequested."""
+    with offline_cdp_target(monkeypatch) as (target, _):
+        target._frame_execution_ids["page-1"] = 7
+        world = await target._announce_isolated_world("page-1", "utility")
+        target.output_queue.get_nowait()
+        await target._debugger_global_object_cleared({"method": "Debugger.globalObjectCleared", "params": {}})
+        methods = []
+        while not target.output_queue.empty():
+            methods.append(target.output_queue.get_nowait())
+        assert [m["method"] for m in methods] == [
+            "Runtime.executionContextDestroyed",
+            "Runtime.executionContextDestroyed",
+            "Runtime.executionContextsCleared",
+            "DOM.documentUpdated",
+        ]
+        assert methods[0]["params"] == {"executionContextId": world, "executionContextUniqueId": f"page-1.{world}"}
+        assert methods[1]["params"] == {"executionContextId": 7, "executionContextUniqueId": "page-1.7"}
+
+        await target._inspector_inspect({
+            "method": "Inspector.inspect",
+            "params": {"object": {"type": "object", "subtype": "node", "objectId": "x"}, "hints": {}},
+        })
+        assert target.output_queue.get_nowait() == {
+            "method": "Runtime.inspectRequested",
+            "params": {
+                "object": {"type": "object", "subtype": "node", "objectId": "x"},
+                "hints": {},
+                "executionContextId": 0,
+            },
+        }
+
+
+async def test_node_domains_are_acknowledged_with_empty_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An editor attaching "as Node" enables Node's own domains; WebKit has none, and Chrome's
+    protocol defines empty results for commands that return nothing."""
+    with offline_cdp_target(monkeypatch) as (target, sent):
+        for id_, (method, params) in enumerate(
+            [
+                ("NodeWorker.enable", {"waitForDebuggerOnStart": True}),
+                ("NodeRuntime.notifyWhenWaitingForDisconnect", {"enabled": True}),
+                ("Debugger.setAsyncCallStackDepth", {"maxDepth": 32}),
+            ],
+            start=1,
+        ):
+            await target.from_cdp_special_messages_methods[method]({"id": id_, "method": method, "params": params})
+            assert target.output_queue.get_nowait() == {"id": id_, "result": {}}, method
+        await target.from_cdp_special_messages_methods["NodeTracing.getCategories"]({
+            "id": 9,
+            "method": "NodeTracing.getCategories",
+            "params": {},
+        })
+        assert target.output_queue.get_nowait() == {"id": 9, "result": {"categories": []}}
+        assert sent == [], "nothing Node-specific may reach the device"
+
+
 async def test_a_frame_target_does_not_take_over_the_session(monkeypatch: pytest.MonkeyPatch) -> None:
     """WebKit announces site-isolated subframes as "frame" targets. Their backend implements a
     far smaller domain set than a page's - with site isolation off, no domains at all - so a
@@ -2484,6 +3296,7 @@ def _landing_page_app() -> Any:
             self.application_pages: dict[str, dict[str, Page]] = {}
             self.connected_application: dict[str, Application] = {}
             self.indicated: list[tuple[str, int, bool]] = []
+            self.is_connected = True
 
         async def get_open_pages(self) -> None:
             pass
@@ -2651,5 +3464,469 @@ async def testp_cdp_server_handles_editing_keys(lockdown: LockdownClient) -> Non
                 "the page's keydown listener must see every key with its modifiers"
             )
             assert await field_value() == "helloz", "a page that prevents Cmd-A's default must keep its value"
+        finally:
+            await client.close()
+
+
+async def testp_cdp_server_emulates_user_preferences(lockdown: LockdownClient) -> None:
+    """
+    Chrome's rendering emulation (prefers-color-scheme, prefers-reduced-motion, prefers-contrast,
+    print media) must reach the page. The WebKit command the bridge used to send for dark mode no
+    longer exists on iOS 26 ("'Page.setForcedAppearance' was not found"), so the page kept its own
+    scheme while the editor showed the emulation as active.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        ids = itertools.count(1)
+        try:
+            await client.command(next(ids), "Page.enable", {})
+            await client.command(next(ids), "Runtime.enable", {})
+            await client.command(next(ids), "Page.navigate", {"url": "https://example.com/"})
+            await asyncio.sleep(3)
+
+            async def preferences() -> str:
+                reply = await client.command(
+                    next(ids),
+                    "Runtime.evaluate",
+                    {
+                        "expression": "['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', "
+                        "'(prefers-contrast: more)', 'print'].map((m) => matchMedia(m).matches).join('/')",
+                        "returnByValue": True,
+                    },
+                )
+                return reply["result"]["result"]["value"]
+
+            assert await preferences() == "false/false/false/false"
+
+            reply = await client.command(next(ids), "Emulation.setAutoDarkModeOverride", {"enabled": True})
+            assert "error" not in reply, reply
+            assert await preferences() == "true/false/false/false"
+            await client.command(next(ids), "Emulation.setAutoDarkModeOverride", {})
+            assert await preferences() == "false/false/false/false"
+
+            features = [
+                {"name": "prefers-color-scheme", "value": "dark"},
+                {"name": "prefers-reduced-motion", "value": "reduce"},
+                {"name": "prefers-contrast", "value": "more"},
+            ]
+            reply = await client.command(next(ids), "Emulation.setEmulatedMedia", {"media": "", "features": features})
+            assert "error" not in reply, reply
+            assert await preferences() == "true/true/true/false"
+            # Chrome semantics: features left out of the next list are reset.
+            await client.command(next(ids), "Emulation.setEmulatedMedia", {"media": "", "features": features[:1]})
+            assert await preferences() == "true/false/false/false"
+            # WebKit renders an emulated print media type with the light scheme, whatever the
+            # override says (verified on iOS 26 in either order), so print is checked on its own.
+            await client.command(next(ids), "Emulation.setEmulatedMedia", {"media": "print", "features": []})
+            assert await preferences() == "false/false/false/true"
+            await client.command(next(ids), "Emulation.setEmulatedMedia", {"media": "", "features": []})
+            assert await preferences() == "false/false/false/false"
+        finally:
+            await client.close()
+
+
+async def testp_cdp_server_reports_the_node_inspector_events(lockdown: LockdownClient) -> None:
+    """
+    The events a Node.js inspector target emits and Chrome's debugger clients rely on, on a page:
+    an uncaught exception, an unhandled rejection and a parse error arrive as Runtime.exceptionThrown
+    (VS Code renders exceptions from nothing else), a Runtime.addBinding function calls back through
+    Runtime.bindingCalled, the console's inspect() becomes Runtime.inspectRequested, and a navigation
+    destroys the contexts it announced before clearing them.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        ids = itertools.count(1)
+        events: list[dict[str, Any]] = []
+
+        async def command(method: str, params: dict[str, Any]) -> dict[str, Any]:
+            id_ = next(ids)
+            await client.send({"id": id_, "method": method, "params": params})
+
+            async def wait() -> dict[str, Any]:
+                while True:
+                    message = await client.receive()
+                    if message.get("id") == id_:
+                        return message
+                    if "method" in message:
+                        events.append(message)
+
+            return await asyncio.wait_for(wait(), TIMEOUT)
+
+        async def drain(seconds: float) -> None:
+            end = asyncio.get_event_loop().time() + seconds
+            while True:
+                left = end - asyncio.get_event_loop().time()
+                if left <= 0:
+                    return
+                try:
+                    message = await asyncio.wait_for(client.receive(), left)
+                except asyncio.TimeoutError:
+                    return
+                if "method" in message:
+                    events.append(message)
+
+        def named(method: str) -> list[dict[str, Any]]:
+            return [e["params"] for e in events if e["method"] == method]
+
+        try:
+            for method in ("Page.enable", "Runtime.enable", "Debugger.enable", "Log.enable"):
+                await command(method, {})
+            await command("Page.navigate", {"url": "https://example.com/"})
+            await drain(3)
+            events.clear()
+
+            # An uncaught exception thrown on the third line of a timer callback.
+            await command(
+                "Runtime.evaluate",
+                {
+                    "expression": "setTimeout(function later() {\n  const a = 1;\n  throw new RangeError('line3');\n}, 10)"
+                },
+            )
+            await command("Runtime.evaluate", {"expression": "Promise.reject(new Error('nope'))"})
+            await drain(2)
+            thrown = named("Runtime.exceptionThrown")
+            assert len(thrown) == 2, thrown
+            # The rejection is reported before the timer fires; match by text, not order.
+            by_text = {t["exceptionDetails"]["text"]: t for t in thrown}
+            details = by_text["Uncaught"]["exceptionDetails"]
+            assert details["exception"]["description"] == "RangeError: line3"
+            assert details["exception"]["className"] == "RangeError"
+            assert details["lineNumber"] == 2, "Chrome counts lines from 0"
+            assert details["stackTrace"]["callFrames"][0]["functionName"] == "later"
+            assert details["url"] == "", "an evaluation has no URL; WebKit's 'undefined' must not leak"
+            assert by_text["Uncaught (in promise)"]["exceptionDetails"]["exception"]["description"] == "Error: nope"
+            assert not [e for e in named("Log.entryAdded") if e["entry"]["source"] == "javascript"], (
+                "exceptions must not be reported twice"
+            )
+
+            # A binding: install, call from the page, receive the call; survive a reload.
+            events.clear()
+            reply = await command("Runtime.addBinding", {"name": "toEditor"})
+            assert reply == {"id": reply["id"], "result": {}}
+            await drain(0.5)
+            reply = await command(
+                "Runtime.evaluate",
+                {"expression": "toEditor(JSON.stringify({n: 1})); typeof toEditor", "returnByValue": True},
+            )
+            assert reply["result"]["result"]["value"] == "function"
+            await drain(1)
+            calls = named("Runtime.bindingCalled")
+            assert calls and calls[0]["name"] == "toEditor" and calls[0]["payload"] == '{"n":1}', calls
+            assert not named("Runtime.consoleAPICalled"), "the binding's transport must not show as console output"
+
+            events.clear()
+            await command("Page.navigate", {"url": "https://example.com/?again"})
+            await drain(3)
+            methods = [e["method"] for e in events]
+            destroyed = methods.index("Runtime.executionContextDestroyed")
+            assert destroyed < methods.index("Runtime.executionContextsCleared"), methods
+            created = methods.index("Runtime.executionContextCreated", destroyed)
+            assert created > destroyed
+            reply = await command("Runtime.evaluate", {"expression": "typeof toEditor", "returnByValue": True})
+            assert reply["result"]["result"]["value"] == "function", "a binding outlives navigation, as in Chrome"
+
+            # inspect() from the console.
+            events.clear()
+            await command("Runtime.evaluate", {"expression": "inspect(document.body)", "includeCommandLineAPI": True})
+            await drain(1)
+            requested = named("Runtime.inspectRequested")
+            assert requested and requested[0]["object"]["className"] == "HTMLBodyElement", requested
+
+            await command("Runtime.removeBinding", {"name": "toEditor"})
+            await drain(0.5)
+            reply = await command("Runtime.evaluate", {"expression": "typeof toEditor", "returnByValue": True})
+            assert reply["result"]["result"]["value"] == "undefined"
+        finally:
+            await client.close()
+
+
+async def testp_cdp_server_binds_url_breakpoints_set_before_a_jscontext_script(lockdown: LockdownClient) -> None:
+    """
+    An editor sets its breakpoints by URL as soon as it attaches, before the script exists. A
+    JSContext script only gets its (synthetic) URL when it is parsed, so such a breakpoint could
+    not bind; the bridge now keeps it, binds it when the script appears, reports
+    Debugger.breakpointResolved as V8 would - and the breakpoint hits. (A bare JSContext has no
+    timers and reports no unhandled rejection through the console, so the exception path is
+    covered on a page, where WebKit does report them.)
+    """
+    async with cdp_server(lockdown) as (port, _):
+        targets = [target for target in await http_get_json(port, "/json/list") if target["type"] == "node"]
+        if not targets:
+            pytest.skip("no inspectable JSContext on the device")
+        for target in targets:
+            if await evaluate_and_log_in_javascript_context(port, target["id"]):
+                break
+        else:
+            pytest.skip("no listed JSContext answered the inspector")
+        client = CdpWebsocketClient(port, target["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        ids = itertools.count(1)
+        events: list[dict[str, Any]] = []
+
+        async def command(method: str, params: dict[str, Any]) -> dict[str, Any]:
+            id_ = next(ids)
+            await client.send({"id": id_, "method": method, "params": params})
+
+            async def wait() -> dict[str, Any]:
+                while True:
+                    message = await client.receive()
+                    if message.get("id") == id_:
+                        return message
+                    if "method" in message:
+                        events.append(message)
+
+            return await asyncio.wait_for(wait(), TIMEOUT)
+
+        async def until(method: str, seconds: float = 10) -> dict[str, Any]:
+            async def wait() -> dict[str, Any]:
+                while True:
+                    for event in events:
+                        if event["method"] == method:
+                            events.remove(event)
+                            return event["params"]
+                    message = await client.receive()
+                    if "method" in message:
+                        events.append(message)
+
+            return await asyncio.wait_for(wait(), seconds)
+
+        async def drain(seconds: float) -> None:
+            end = asyncio.get_event_loop().time() + seconds
+            while True:
+                left = end - asyncio.get_event_loop().time()
+                if left <= 0:
+                    return
+                try:
+                    message = await asyncio.wait_for(client.receive(), left)
+                except asyncio.TimeoutError:
+                    return
+                if "method" in message:
+                    events.append(message)
+
+        try:
+            await command("Runtime.enable", {})
+            await command("Debugger.enable", {})
+            await command("Debugger.setBreakpointsActive", {"active": True})
+            await drain(1.5)  # the context's existing scripts are announced on enable
+            events.clear()
+            # Learn the next script id from a throwaway evaluation: JSContext scripts are numbered
+            # consecutively, so the editor's breakpoint can target the script that follows.
+            await command("Runtime.evaluate", {"expression": "0"})
+            await drain(1)
+            parsed = [e["params"] for e in events if e["method"] == "Debugger.scriptParsed"]
+            next_id = int(parsed[-1]["scriptId"]) + 1
+            events.clear()
+            url = f"jscontext:///{next_id}.js"
+            reply = await command("Debugger.setBreakpointByUrl", {"url": url, "lineNumber": 1})
+            breakpoint_id = reply["result"]["breakpointId"]
+            assert reply["result"]["locations"] == [], "not bound yet: the script does not exist"
+
+            # The script defines a function; the breakpoint binds as it is parsed and hits when the
+            # function runs later (a one-shot evaluation would have finished before binding).
+            await command("Runtime.evaluate", {"expression": "function bpTarget() {\n  return 41 + 1;\n}\n'defined'"})
+            resolved = await until("Debugger.breakpointResolved")
+            assert resolved["breakpointId"] == breakpoint_id
+            assert resolved["location"]["scriptId"] == str(next_id) and resolved["location"]["lineNumber"] == 1
+            await client.send({"id": next(ids), "method": "Runtime.evaluate", "params": {"expression": "bpTarget()"}})
+            paused = await until("Debugger.paused")
+            location = paused["callFrames"][0]["location"]
+            assert (location["scriptId"], location["lineNumber"]) == (str(next_id), 1), location
+            await command("Debugger.resume", {})
+
+            reply = await command("Debugger.removeBreakpoint", {"breakpointId": breakpoint_id})
+            assert reply == {"id": reply["id"], "result": {}}
+            events.clear()
+            await command("Runtime.evaluate", {"expression": "bpTarget()", "returnByValue": True})
+            await drain(1)
+            assert not [e for e in events if e["method"] == "Debugger.paused"], "removed breakpoints must not hit"
+        finally:
+            await client.close()
+
+
+async def test_a_child_frame_navigation_ends_its_contexts_and_recreates_its_worlds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A child frame committing a new document loses the contexts its old document had, and the
+    worlds a client registered are created afresh for the new one, as Chrome does. WebKit only
+    announces the new main-world context; without the destroy, a client kept using what it built
+    in the old document (Playwright its injected utility script in the synthesized world) and a
+    payment iframe the SDK navigated after the client first touched it was never found (#1919)."""
+    with offline_cdp_target(monkeypatch) as (target, _):
+        await target._page_add_script_to_evaluate_on_new_document({
+            "id": 1,
+            "method": "Page.addScriptToEvaluateOnNewDocument",
+            "params": {"source": "", "worldName": "utility"},
+        })
+        # The top frame commits, then a child frame commits its first document.
+        await target._page_frame_navigated({
+            "method": "Page.frameNavigated",
+            "params": {"frame": {"id": "0.1", "loaderId": "0.2", "url": "https://a/"}},
+        })
+        await target._runtime_execution_context_created({
+            "method": "Runtime.executionContextCreated",
+            "params": {"context": {"id": 5, "type": "normal", "name": "", "frameId": "0.1"}},
+        })
+        child = {"id": "0.26", "loaderId": "0.27", "url": "https://pay/bootstrap", "parentId": "0.1", "name": "card"}
+        await target._page_frame_navigated({"method": "Page.frameNavigated", "params": {"frame": child}})
+        await target._runtime_execution_context_created({
+            "method": "Runtime.executionContextCreated",
+            "params": {"context": {"id": 68, "type": "normal", "name": "", "frameId": "0.26"}},
+        })
+        announced: list[dict[str, Any]] = []
+        while not target.output_queue.empty():
+            announced.append(target.output_queue.get_nowait())
+        worlds = [
+            m["params"]["context"]["id"]
+            for m in announced
+            if m.get("method") == "Runtime.executionContextCreated" and m["params"]["context"]["name"] == "utility"
+        ]
+        first_world = [w for w in worlds if target._isolated_world_frames.get(w) == "0.26"]
+        assert len(first_world) == 1, "the registered world is created in the child frame's first document"
+        assert target._real_context_id(first_world[0]) == 68
+
+        # The payment SDK navigates the frame to the real form; WebKit reports it (didCommitLoad)
+        # and then announces the new document's context.
+        child = {**child, "loaderId": "0.28", "url": "https://pay/form"}
+        await target._page_frame_navigated({"method": "Page.frameNavigated", "params": {"frame": child}})
+        await target._runtime_execution_context_created({
+            "method": "Runtime.executionContextCreated",
+            "params": {"context": {"id": 71, "type": "normal", "name": "", "frameId": "0.26"}},
+        })
+        emitted: list[dict[str, Any]] = []
+        while not target.output_queue.empty():
+            emitted.append(target.output_queue.get_nowait())
+        methods = [m["method"] for m in emitted]
+        assert methods[:3] == [
+            "Runtime.executionContextDestroyed",
+            "Runtime.executionContextDestroyed",
+            "Page.frameNavigated",
+        ], methods
+        assert emitted[0]["params"]["executionContextId"] == first_world[0]
+        assert emitted[1]["params"]["executionContextId"] == 68
+        created = [m["params"]["context"] for m in emitted if m["method"] == "Runtime.executionContextCreated"]
+        assert [c["id"] for c in created if c["name"] == ""] == [71]
+        new_worlds = [c["id"] for c in created if c["name"] == "utility"]
+        assert len(new_worlds) == 1 and new_worlds[0] != first_world[0], "a fresh world for the new document"
+        assert target._real_context_id(new_worlds[0]) == 71
+        # The old world is gone for good: it is no longer resolved to any context of the frame.
+        assert first_world[0] not in target._isolated_world_context_ids
+        assert target._real_context_id(first_world[0]) == first_world[0]
+
+
+async def testp_cdp_server_reaches_a_child_frame_after_it_navigates(lockdown: LockdownClient) -> None:
+    """A world created in a child frame before the frame navigated to a new document is ended,
+    and a fresh one announced, so a client that touched the frame early still reaches the
+    document it shows now (#1919: a payment iframe navigated by its SDK after Playwright's first
+    look at it kept being queried in the old document, and fill() never found the field)."""
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        page_id = targets[0]["id"]
+        client = CdpWebsocketClient(port, page_id)
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        events: list[dict[str, Any]] = []
+        try:
+
+            async def command(method: str, params: dict[str, Any]) -> dict[str, Any]:
+                id_ = next(message_ids)
+                await client.send({"id": id_, "method": method, "params": params})
+
+                async def wait_for_response() -> dict[str, Any]:
+                    while True:
+                        message = await client.receive()
+                        if "id" not in message:
+                            events.append(message)
+                        elif message["id"] == id_:
+                            return message
+
+                return await asyncio.wait_for(wait_for_response(), TIMEOUT)
+
+            async def drain(seconds: float) -> None:
+                deadline = asyncio.get_event_loop().time() + seconds
+                while asyncio.get_event_loop().time() < deadline:
+                    with suppress(asyncio.TimeoutError):
+                        events.append(await asyncio.wait_for(client.receive(), 0.5))
+
+            def child_frame_id() -> Optional[str]:
+                for event in events:
+                    if event.get("method") == "Page.frameNavigated":
+                        frame = event["params"]["frame"]
+                        if frame.get("parentId") == page_id and frame.get("name") == "pmd3-card":
+                            return frame["id"]
+                return None
+
+            await command("Page.enable", {})
+            await command("Runtime.enable", {})
+            await command("Page.navigate", {"url": "https://example.com/"})
+            await drain(2)
+            events.clear()
+            await command(
+                "Runtime.evaluate",
+                {
+                    "expression": (
+                        "const f = document.createElement('iframe'); f.name = 'pmd3-card';"
+                        " f.src = 'https://httpbin.org/html'; document.body.appendChild(f); 'added'"
+                    ),
+                    "returnByValue": True,
+                },
+            )
+            await drain(4)
+            frame_id = child_frame_id()
+            assert frame_id is not None, "the child frame's first document was announced"
+            world = await command(
+                "Page.createIsolatedWorld",
+                {"frameId": frame_id, "worldName": "__pmd3_touch__", "grantUniveralAccess": True},
+            )
+            old_world = world["result"]["executionContextId"]
+            first = await command(
+                "Runtime.evaluate", {"expression": "document.URL", "contextId": old_world, "returnByValue": True}
+            )
+            assert first["result"]["result"]["value"] == "https://httpbin.org/html", (
+                "the world starts in the first document"
+            )
+
+            # The frame's owner (a payment SDK) navigates it to the real form.
+            events.clear()
+            await command(
+                "Runtime.evaluate",
+                {
+                    "expression": "document.querySelector('iframe[name=pmd3-card]').src = 'https://httpbin.org/forms/post'; 'swapped'",
+                    "returnByValue": True,
+                },
+            )
+            await drain(5)
+            destroyed = [
+                e["params"]["executionContextId"]
+                for e in events
+                if e.get("method") == "Runtime.executionContextDestroyed"
+            ]
+            assert old_world in destroyed, "the world of the old document is ended"
+            fresh = [
+                e["params"]["context"]
+                for e in events
+                if e.get("method") == "Runtime.executionContextCreated"
+                and e["params"]["context"].get("auxData", {}).get("frameId") == frame_id
+            ]
+            assert fresh, "the new document's context is announced"
+            new_world = await command(
+                "Page.createIsolatedWorld",
+                {"frameId": frame_id, "worldName": "__pmd3_after__", "grantUniveralAccess": True},
+            )
+            found = await command(
+                "Runtime.evaluate",
+                {
+                    "expression": "[document.URL, !!document.querySelector('input[name=custname]')]",
+                    "contextId": new_world["result"]["executionContextId"],
+                    "returnByValue": True,
+                },
+            )
+            assert found["result"]["result"]["value"] == ["https://httpbin.org/forms/post", True]
+            stale = await command(
+                "Runtime.evaluate", {"expression": "document.URL", "contextId": old_world, "returnByValue": True}
+            )
+            assert (
+                "error" in stale or stale.get("result", {}).get("result", {}).get("value") != "https://example.com/"
+            ), "a world that is gone is refused, not answered from the top frame"
         finally:
             await client.close()

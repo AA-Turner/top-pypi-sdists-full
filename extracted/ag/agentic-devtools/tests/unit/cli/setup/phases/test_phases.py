@@ -26,4 +26,6 @@ class TestPhases:
         assert "cli_installation" in PHASES
         assert "dependency_check" in PHASES
         assert "environment_persistence" in PHASES
+        assert PHASES.index("provider_configuration") == PHASES.index("environment_persistence") + 1
+        assert PHASES.index("provider_configuration") < PHASES.index("file_modifications")
         assert "file_modifications" in PHASES

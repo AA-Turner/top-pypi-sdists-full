@@ -15,6 +15,9 @@ class OperatingSystem(Enum):
     LINUX = "linux"
     WINDOWS = "windows"
     MACOS = "macos"
+    ANDROID = "android"
+    IPHONE = "iphone"
+    IPAD = "ipad"
 
 
 class BrowserConfig(BaseApiConfig):
@@ -27,6 +30,8 @@ class BrowserConfig(BaseApiConfig):
         os: Optional[Union[str, OperatingSystem]] = None,
         session: Optional[str] = None,
         country: Optional[str] = None,
+        lang: Optional[str] = None,
+        languages: Optional[Union[str, List[str]]] = None,
         auto_close: Optional[bool] = None,
         timeout: Optional[int] = None,
         debug: Optional[bool] = None,
@@ -58,16 +63,33 @@ class BrowserConfig(BaseApiConfig):
         if timeout is not None and timeout > 1800:
             raise ValueError('timeout cannot exceed 1800 seconds (30 minutes)')
 
-        if proxy_pool is not None and isinstance(proxy_pool, str):
-            proxy_pool = ProxyPool(proxy_pool)
+        if isinstance(proxy_pool, str):
+            try:
+                proxy_pool = ProxyPool(proxy_pool)
+            except ValueError:
+                pass
 
-        if os is not None and isinstance(os, str):
-            os = OperatingSystem(os)
+        if isinstance(os, str):
+            try:
+                os = OperatingSystem(os)
+            except ValueError:
+                pass
 
         self.proxy_pool = proxy_pool
         self.os = os
         self.session = session
         self.country = country
+        # Browser UI language — the singular navigator.language base tag
+        # (e.g. "en"). When omitted, the server derives it from `country`.
+        self.lang = lang
+        # Ordered language preference list — drives navigator.languages and
+        # the q-weighted Accept-Language header (e.g. ["fr-FR", "fr", "en-US"]).
+        # Capped server-side at 3 entries; accept a list or a comma-separated
+        # string and normalize to a comma-separated string on the wire (the
+        # same shape `extensions` uses), so the API can split it back.
+        if isinstance(languages, list):
+            languages = ','.join(s.strip() for s in languages if s and s.strip())
+        self.languages = languages or None
         self.auto_close = auto_close
         self.timeout = timeout
         self.debug = debug
@@ -93,7 +115,7 @@ class BrowserConfig(BaseApiConfig):
         # https://scrapfly.io/docs/cloud-browser-api/byop
         self.byop_proxy = byop_proxy
         self.enable_mcp = enable_mcp
-        # SolveCaptcha: arm Scrapium's built-in captcha detector + solver on
+        # SolveCaptcha: arm the Cloud Browser's built-in captcha detector + solver on
         # the first page attach. Turnstile, DataDome slider, reCAPTCHA,
         # GeeTest, PerimeterX hold, and puzzle captchas are handled
         # automatically. Billed per solve; failures cost nothing.
@@ -122,10 +144,24 @@ class BrowserConfig(BaseApiConfig):
     @staticmethod
     def project_salt(api_key: str) -> str:
         """Return the deterministic project salt for an api_key:
-        sha256(api_key)[:8]. The server exposes the same value via the
-        X-Browser-Project-Salt response header on a successful WS upgrade.
+        sha256(api_key)[:8]. The server returns the same value via the
+        X-Browser-Project-Salt response header on VNC-enabled upgrades, where
+        the salt is also the VNC password prefix (<salt>-<password>).
         """
         return hashlib.sha256(api_key.encode('utf-8')).hexdigest()[:8]
+
+    def vnc_client_password(self, api_key: str) -> str:
+        """Return the password a native VNC client must type to attach to a
+        session created with this config: "<project_salt>-<vnc_password>".
+
+        Required by the VNC TCP endpoint (port 5901), which the server salts
+        at allocation. The WebSocket endpoint /run/<run_id>/vnc takes the raw
+        vnc_password instead.
+        """
+        if not self.enable_vnc or not self.vnc_password:
+            raise ValueError('enable_vnc and vnc_password must both be set on this BrowserConfig')
+
+        return f'{self.project_salt(api_key)}-{self.vnc_password}'
 
     def websocket_url(self, api_key: str, host: Optional[str] = None) -> str:
         params = {'api_key': api_key}
@@ -141,6 +177,12 @@ class BrowserConfig(BaseApiConfig):
 
         if self.country is not None:
             params['country'] = self.country
+
+        if self.lang is not None:
+            params['lang'] = self.lang
+
+        if self.languages is not None:
+            params['languages'] = self.languages
 
         if self.auto_close is not None:
             params['auto_close'] = self._bool_to_http(self.auto_close)
@@ -232,6 +274,8 @@ class BrowserConfig(BaseApiConfig):
             'os': self.os.value if isinstance(self.os, OperatingSystem) else self.os,
             'session': self.session,
             'country': self.country,
+            'lang': self.lang,
+            'languages': self.languages,
             'auto_close': self.auto_close,
             'timeout': self.timeout,
             'debug': self.debug,
@@ -263,19 +307,13 @@ class BrowserConfig(BaseApiConfig):
 
     @staticmethod
     def from_dict(browser_config_dict: Dict) -> 'BrowserConfig':
-        proxy_pool = browser_config_dict.get('proxy_pool', None)
-        if proxy_pool is not None:
-            proxy_pool = ProxyPool(proxy_pool)
-
-        os = browser_config_dict.get('os', None)
-        if os is not None:
-            os = OperatingSystem(os)
-
         return BrowserConfig(
-            proxy_pool=proxy_pool,
-            os=os,
+            proxy_pool=browser_config_dict.get('proxy_pool', None),
+            os=browser_config_dict.get('os', None),
             session=browser_config_dict.get('session', None),
             country=browser_config_dict.get('country', None),
+            lang=browser_config_dict.get('lang', None),
+            languages=browser_config_dict.get('languages', None),
             auto_close=browser_config_dict.get('auto_close', None),
             timeout=browser_config_dict.get('timeout', None),
             debug=browser_config_dict.get('debug', None),

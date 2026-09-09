@@ -43,6 +43,7 @@ LARAVEL_BYTES_RE = re.compile(
 )
 GWT_PLURAL_RE = re.compile(r"^[^#!\s][^:=\n]*\[[a-zA-Z_]+\]\s*[:=]", re.MULTILINE)
 FORMAT_SNIFF_MAX_BYTES = 1024 * 1024
+CSV_DIALECT_SNIFF_MAX_CHARS = 1024
 CSV_SAMPLE_ROWS = 100
 SIMPLE_CSV_COLUMNS = 2
 YAML_INSPECTION_MAX_DEPTH = 128
@@ -235,7 +236,9 @@ def _read_csv_rows(finder: Finder, path: PurePath) -> list[list[str]] | None:
         return None
 
     try:
-        dialect = csv.Sniffer().sniff(text, delimiters=",;\t")
+        dialect = csv.Sniffer().sniff(
+            text[:CSV_DIALECT_SNIFF_MAX_CHARS], delimiters=",;\t"
+        )
     except csv.Error:
         dialect = csv.excel
 
@@ -706,6 +709,17 @@ class AppStoreDiscovery(EnglishVariantsDiscovery):
             candidate_suffixes=(".txt",),
         ):
             yield path.parent.parent
+
+    def get_masks(
+        self, *, eager: bool = False, hint: str | None = None
+    ) -> Generator[ResultDict]:
+        """
+        Return all file masks found in the directory.
+
+        App store metadata is represented by language directories, so eager
+        discovery should keep the regular directory mask behavior.
+        """
+        yield from super().get_masks(eager=False, hint=hint)
 
     def has_storage(self, name: str) -> bool:
         """Check whether finder has a storage."""

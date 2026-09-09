@@ -3,9 +3,10 @@ __all__ = ["DistributedConfig", "BaseModel"]
 
 import inspect
 import math
+import os
 import random
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
@@ -110,6 +111,26 @@ def _resolve_cat_emb_dim(strategy: Union[str, int], cardinality: int) -> int:
         f"Unknown cat_emb_dim strategy '{strategy}'. "
         "Use one of 'fastai', 'sqrt', 'half', or an integer."
     )
+
+
+@contextmanager
+def _local_rendezvous_addr():
+    """Pin the torchrun rendezvous address to loopback for local-mode training.
+
+    ``torchrun`` resolves the rendezvous host with ``socket.getfqdn()``, which on
+    some machines (macOS in particular) returns an IPv6 reverse-DNS name that
+    cannot be resolved back to an address. The TCPStore client then retries until
+    it times out (300s, twice) and training fails. In local mode every process
+    runs on this machine, so loopback is always the right address.
+    """
+    if "PET_LOCAL_ADDR" in os.environ:
+        yield
+        return
+    os.environ["PET_LOCAL_ADDR"] = "127.0.0.1"
+    try:
+        yield
+    finally:
+        os.environ.pop("PET_LOCAL_ADDR", None)
 
 
 class BaseModel(pl.LightningModule):
@@ -694,21 +715,23 @@ class BaseModel(pl.LightningModule):
             num_proc_per_task = 1  # number of GPUs per task
         num_proc = num_tasks * num_proc_per_task
         use_gpu = is_gpu_accelerator(self.trainer_kwargs["accelerator"])
-        model = TorchDistributor(
+        distributor = TorchDistributor(
             num_processes=num_proc,
             local_mode=local_mode,
             use_gpu=use_gpu,
-        ).run(
-            train_fn,
-            model_cls=type(self),
-            model_params=self.hparams,
-            datamodule=datamodule,
-            trainer_kwargs=self.trainer_kwargs,
-            num_tasks=num_tasks,
-            num_proc_per_task=num_proc_per_task,
-            val_size=val_size,
-            test_size=test_size,
         )
+        with _local_rendezvous_addr() if local_mode else nullcontext():
+            model = distributor.run(
+                train_fn,
+                model_cls=type(self),
+                model_params=self.hparams,
+                datamodule=datamodule,
+                trainer_kwargs=self.trainer_kwargs,
+                num_tasks=num_tasks,
+                num_proc_per_task=num_proc_per_task,
+                val_size=val_size,
+                test_size=test_size,
+            )
         return model
 
     def _fit(
@@ -842,6 +865,17 @@ class BaseModel(pl.LightningModule):
         totals = self.all_gather(stacked.sum(dim=0)).reshape(-1, 2).sum(dim=0)
         loss_sum, count = totals.tolist()
         avg_loss = loss_sum / count
+        if not math.isfinite(avg_loss):
+            # `ptl/val_loss` is the metric hyperparameter search ranks trials on.
+            # A diverged model must rank worst, so report +inf: nan does not
+            # order reliably (`nan < x` is always False), which would let a
+            # broken trial win the search.
+            warnings.warn(
+                f"Validation loss is not finite ({avg_loss}), reporting inf instead. "
+                "The model likely diverged; check the learning rate, the scaler "
+                "and the input data for extreme values."
+            )
+            avg_loss = float("inf")
         self.log(
             "ptl/val_loss",
             avg_loss,
@@ -2056,6 +2090,16 @@ class BaseModel(pl.LightningModule):
             print("outsample_y", torch.isnan(outsample_y).sum())
             raise Exception("Loss is NaN, training stopped.")
 
+        if torch.isinf(loss):
+            # Under mixed precision an overflowed loss is
+            # expected and GradScaler recovers by skipping the step. Without it
+            # the parameters turn to NaN and the check above stops training.
+            warnings.warn(
+                f"Training loss is infinite ({loss.item()}). The model is "
+                "diverging; check the learning rate, the scaler and the input "
+                "data for extreme values."
+            )
+
         train_loss_log = loss.detach().item()
         self.log(
             "train_loss",
@@ -2162,9 +2206,8 @@ class BaseModel(pl.LightningModule):
         valid_loss_sum = torch.sum(valid_loss * batch_sizes)
         valid_loss = valid_loss_sum / batch_size
 
-        if torch.isnan(valid_loss):
-            raise Exception("Loss is NaN, training stopped.")
-
+        # `on_validation_epoch_end`reports it as inf so a diverged trial scores worst instead of
+        # erroring out the whole hyperparameter search.
         valid_loss_log = valid_loss.detach()
         self.log(
             "valid_loss",

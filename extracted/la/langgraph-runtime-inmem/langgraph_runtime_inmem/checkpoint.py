@@ -157,7 +157,9 @@ class InMemorySaver(InMemorySaverBase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    async def _decrypt_json(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def _decrypt_json(
+        self, data: dict[str, Any], model: str, field: str
+    ) -> dict[str, Any]:
         """Decrypt a dict if custom encryption is configured."""
         from langgraph_api import config as api_config  # noqa: PLC0415
 
@@ -168,7 +170,7 @@ class InMemorySaver(InMemorySaverBase):
             decrypt_json_if_needed,
         )
 
-        result = await decrypt_json_if_needed(data, get_encryption(), "checkpoint")
+        result = await decrypt_json_if_needed(data, get_encryption(), model, field)
         if result is None:
             raise ValueError("decrypt_json_if_needed returned None for non-None input")
         return result
@@ -180,7 +182,9 @@ class InMemorySaver(InMemorySaverBase):
             return None
 
         # Decrypt metadata if encryption is enabled
-        decrypted_metadata = await self._decrypt_json(tuple_.metadata)
+        decrypted_metadata = await self._decrypt_json(
+            tuple_.metadata, "run", "metadata"
+        )
 
         from langgraph.checkpoint.base import (  # noqa: PLC0415
             CheckpointTuple as CPTuple,
@@ -209,7 +213,9 @@ class InMemorySaver(InMemorySaverBase):
 
         for tuple_ in self.list(config, filter=filter, before=before, limit=limit):
             # Decrypt metadata if encryption is enabled
-            decrypted_metadata = await self._decrypt_json(tuple_.metadata)
+            decrypted_metadata = await self._decrypt_json(
+                tuple_.metadata, "run", "metadata"
+            )
 
             yield CPTuple(
                 config=tuple_.config,

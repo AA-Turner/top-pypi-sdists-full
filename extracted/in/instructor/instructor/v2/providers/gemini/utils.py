@@ -315,6 +315,14 @@ def update_genai_kwargs(
             if field_value is not None and field not in base_config:
                 base_config[field] = field_value
 
+    cached_content = new_kwargs.pop("cached_content", None)
+    if cached_content is not None and "cached_content" not in base_config:
+        base_config["cached_content"] = cached_content
+    if base_config.get("cached_content") is not None:
+        # Cached resources own these fields; sending them again is invalid.
+        for field in ("system_instruction", "tools", "tool_config"):
+            base_config.pop(field, None)
+
     return base_config
 
 
@@ -339,7 +347,7 @@ def update_gemini_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
         result.setdefault("safety_settings", {})
         return result
 
-    safety_settings = result.get("safety_settings", {})
+    safety_settings = result.get("safety_settings", {}).copy()
     result["safety_settings"] = safety_settings
 
     for category, threshold in default_safety_thresholds.items():

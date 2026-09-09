@@ -7,9 +7,17 @@ import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from mistralai.extra.workflows import WorkflowEncodingConfig
 from mistralai.extra.workflows.encoding.config import PayloadEncryptionConfig, PayloadEncryptionMode
+from mistralai.extra.workflows.encoding.models import EncodedPayloadOptions
 from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
+from pydantic import BaseModel
 
-from mistralai.workflows.core._events.event_encoder import ENCRYPTED_PATCH_TYPE, EventPayloadEncoder
+from mistralai.workflows.core._events.event_encoder import (
+    ENCRYPTED_PATCH_TYPE,
+    EventPayloadEncoder,
+    _strip_unserializable_payloads,
+    maybe_encode_event,
+)
+from mistralai.workflows.exceptions import ErrorCode
 from mistralai.workflows.models import EncryptedStrField
 from mistralai.workflows.protocol.v1.events import (
     ActivityTaskCompleted,
@@ -453,3 +461,70 @@ class TestJsonPointerEscaping:
             "Parent path /credentials should be marked for encryption because it contains "
             f"nested encrypted field. Got encrypted_paths: {encrypted_paths}"
         )
+
+
+class _NeverBuilt(BaseModel):
+    """Forward reference that is never resolved, so Pydantic leaves the serializer mocked.
+
+    Payload values are typed ``Any`` and serialized by inference, which reads this class's
+    placeholder serializer and raises.
+    """
+
+    later: "_DefinedAfterwards"
+
+
+class _DefinedAfterwards(BaseModel):
+    value: int = 1
+
+
+def _unserializable() -> _NeverBuilt:
+    return _NeverBuilt.model_construct(later=_DefinedAfterwards())
+
+
+class TestUnserializablePayloads:
+    """A payload the encoder cannot serialize must not fail the activity that produced it."""
+
+    @pytest.fixture
+    def event_encoder(self):
+        return EventPayloadEncoder(_create_payload_encoder())
+
+    def test_strip_replaces_only_the_failing_payload(self):
+        event = ActivityTaskStarted(
+            **_create_base_event_fields(),
+            attributes=ActivityTaskStartedAttributes(
+                task_id="act-1", activity_name="test-activity", input=JSONPayload(value=[_unserializable()])
+            ),
+        )
+
+        stripped = _strip_unserializable_payloads(event)
+
+        assert stripped.attributes.input.value == {"error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value}
+        assert stripped.attributes.task_id == "act-1"
+        assert stripped.attributes.activity_name == "test-activity"
+        assert stripped.model_dump(mode="json")
+
+    def test_strip_leaves_serializable_events_untouched(self):
+        event = _activity_task_started()
+
+        assert _strip_unserializable_payloads(event) is event
+
+    async def test_encode_falls_back_to_a_stripped_payload(self, event_encoder):
+        event = ActivityTaskCompleted(
+            **_create_base_event_fields(),
+            attributes=ActivityTaskCompletedAttributes(
+                task_id="act-1", activity_name="test-activity", result=JSONPayload(value=_unserializable())
+            ),
+        )
+
+        encoded = await maybe_encode_event(event, event_encoder)
+
+        # Still encrypted, and what round-trips out is the marker rather than the payload.
+        assert encoded.attributes.result.encoding_options == [EncodedPayloadOptions.ENCRYPTED.value]
+        assert _decrypt_value(encoded.attributes.result.value) == {
+            "error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value
+        }
+
+    async def test_encode_still_encrypts_serializable_payloads(self, event_encoder):
+        encoded = await maybe_encode_event(_activity_task_started(), event_encoder)
+
+        assert _decrypt_value(encoded.attributes.input.value) == SECRET_DATA

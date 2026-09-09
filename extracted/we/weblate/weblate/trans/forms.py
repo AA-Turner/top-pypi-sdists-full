@@ -93,8 +93,8 @@ from weblate.trans.models import (
 from weblate.trans.specialchars import RTL_CHARS_DATA, get_special_chars
 from weblate.trans.util import check_upload_method_permissions, is_repo_link
 from weblate.trans.validators import (
-    get_translation_text_max_length,
     validate_check_flags,
+    validate_translation_text_length,
 )
 from weblate.trans.workspace_move import (
     PROJECT_MOVE_WORKSPACE_SELECT_LIMIT,
@@ -397,6 +397,7 @@ class PluralTextarea(forms.Textarea):
     """Text-area extension which possibly handles plurals."""
 
     profile: Profile
+    unit: Unit
 
     def __init__(self, *args, **kwargs) -> None:
         self.is_source_plural: Literal[True] | None = None
@@ -514,7 +515,7 @@ class PluralTextarea(forms.Textarea):
 
     def render(self, name, value, attrs=None, renderer=None, **kwargs):
         """Render all textareas with correct plural labels."""
-        unit = value
+        unit = self.unit if isinstance(value, list) else value
         translation = unit.translation
         lang_label = lang = translation.language
         if self.is_source_plural:
@@ -523,6 +524,10 @@ class PluralTextarea(forms.Textarea):
         else:
             plurals = unit.get_source_plurals()
             values = unit.get_target_plurals()
+        if isinstance(value, list):
+            values = [
+                value[idx] if idx < len(value) else "" for idx in range(len(values))
+            ]
         if "zen-mode" in self.attrs:
             lang_label = format_html(
                 '<a class="language" href="{}" tabindex="-1">{}</a>',
@@ -631,10 +636,12 @@ class PluralField(forms.CharField):
 class ChecksumForm(forms.Form):
     """Form for handling checksum IDs for translation."""
 
+    unit_id = forms.IntegerField(required=False, min_value=1, widget=forms.HiddenInput)
     checksum = ChecksumField(required=True)
 
-    def __init__(self, unit_set, *args, **kwargs) -> None:
+    def __init__(self, unit_set, *args, require_unique: bool = False, **kwargs) -> None:
         self.unit_set = unit_set
+        self.require_unique = require_unique
         super().__init__(*args, **kwargs)
 
     def clean_checksum(self) -> str | None:
@@ -643,14 +650,24 @@ class ChecksumForm(forms.Form):
             return None
 
         unit_set = self.unit_set
+        if unit_id := self.cleaned_data.get("unit_id"):
+            unit_set = unit_set.filter(pk=unit_id)
 
         checksum = self.cleaned_data["checksum"]
-        try:
-            self.cleaned_data["unit"] = unit_set.filter(id_hash=checksum)[0]
-        except (Unit.DoesNotExist, IndexError) as error:
+        units = list(
+            unit_set.filter(id_hash=checksum)[: 2 if self.require_unique else 1]
+        )
+        if not units:
             raise ValidationError(
                 gettext("The string you wanted to translate is no longer available.")
-            ) from error
+            )
+        if len(units) > 1:
+            raise ValidationError(
+                gettext(
+                    "The string you wanted to translate could not be identified. Please reopen it and try again."
+                )
+            )
+        self.cleaned_data["unit"] = units[0]
         return checksum
 
 
@@ -676,6 +693,7 @@ class FuzzyField(forms.BooleanField):
 class TranslationForm(UnitForm):
     """Form used for translation of single string."""
 
+    unit_id = forms.IntegerField(required=False, min_value=1, widget=forms.HiddenInput)
     checksum = ChecksumField(required=True)
     contentsum = ChecksumField(required=True)
     translationsum = ChecksumField(required=True)
@@ -705,6 +723,7 @@ class TranslationForm(UnitForm):
         translation = unit.translation
         component = translation.component
         kwargs["initial"] = {
+            "unit_id": unit.pk,
             "checksum": unit.checksum,
             "contentsum": hash_to_checksum(unit.content_hash),
             "translationsum": hash_to_checksum(unit.get_target_hash()),
@@ -755,6 +774,7 @@ class TranslationForm(UnitForm):
         self.user_can_edit = user_can_edit
         self.user = user
         self.fields["target"].widget.profile = user.profile
+        self.fields["target"].widget.unit = unit
         # Avoid failing validation on untranslated string
         if args:
             self.fields["review"].choices.append((STATE_EMPTY, ""))
@@ -765,6 +785,7 @@ class TranslationForm(UnitForm):
         self.helper.layout = Layout(
             Field("target"),
             Field("fuzzy"),
+            Field("unit_id"),
             Field("checksum"),
             Field("contentsum"),
             Field("translationsum"),
@@ -783,7 +804,10 @@ class TranslationForm(UnitForm):
         else:
             self.fields["explanation"].widget = forms.HiddenInput()
 
-        if component.project.commit_policy:
+        if component.project.commit_policy and (
+            component.project.commit_policy != CommitPolicyChoices.APPROVED_ONLY
+            or translation.enable_review
+        ):
             commit_policy = f" {component.project.get_commit_policy_description()}"
             self.fields["review"].help_text += commit_policy
             self.fields["fuzzy"].help_text += commit_policy
@@ -819,10 +843,7 @@ class TranslationForm(UnitForm):
 
         fuzzy_state = unit.state if unit.state in FUZZY_STATES else STATE_FUZZY
 
-        max_length = get_translation_text_max_length(unit)
-        for text in self.cleaned_data["target"]:
-            if len(text) > max_length:
-                raise ValidationError(gettext("Translation text too long!"))
+        validate_translation_text_length(unit, self.cleaned_data["target"])
         if self.user.has_perm(
             "unit.review", unit.translation
         ) and self.cleaned_data.get("review"):
@@ -3531,6 +3552,7 @@ class ProjectSettingsForm(
             "inherit_secondary_language",
             "secondary_language",
             "access_control",
+            "public_sharing",
             "enforced_2fa",
             "translation_review",
             "source_review",
@@ -3578,12 +3600,24 @@ class ProjectSettingsForm(
         access = data["access_control"]
 
         self.changed_access = access != self.instance.access_control
+        self.changed_public_sharing = (
+            data.get("public_sharing", self.instance.public_sharing)
+            != self.instance.public_sharing
+        )
 
         if self.changed_access and not self.user_can_change_access:
             raise ValidationError(
                 {
                     "access_control": gettext(
                         "You do not have permission to change project access control."
+                    )
+                }
+            )
+        if self.changed_public_sharing and not self.user_can_change_access:
+            raise ValidationError(
+                {
+                    "public_sharing": gettext(
+                        "You do not have permission to change project access settings."
                     )
                 }
             )
@@ -3657,6 +3691,7 @@ class ProjectSettingsForm(
             "billing:project.permissions", self.instance
         )
         self.changed_access = False
+        self.changed_public_sharing = False
         self.helper.form_tag = False
         if not self.user_can_change_access:
             disabled = {"disabled": True}
@@ -3664,6 +3699,7 @@ class ProjectSettingsForm(
             self.fields["access_control"].help_text = gettext(
                 "You do not have permission to change project access control."
             )
+            self.fields["public_sharing"].disabled = True
         else:
             disabled = {}
         self.helper.layout = Layout(
@@ -3694,6 +3730,7 @@ class ProjectSettingsForm(
                         template="%s/layout/radioselect_access.html",
                         **disabled,
                     ),
+                    "public_sharing",
                     "enforced_2fa",
                     css_id="access",
                 ),

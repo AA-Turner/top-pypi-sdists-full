@@ -391,3 +391,29 @@ async def test_normal_run_still_persists_messages(system_run_harness, monkeypatc
     )
     assert calls["conversation_update"], "normal runs must still backfill the conversation"
     assert calls["request_create"], "cost rows always land"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("actor", [None, "", "   "])
+async def test_organization_system_run_keeps_cost_without_user(
+    system_run_harness, monkeypatch, actor
+):
+    persistence_mod, calls = system_run_harness
+    import matrx_ai.context.app_context as app_ctx_mod
+
+    class GuestCtx(_SystemRunCtx):
+        user_id = actor
+        organization_id = "66666666-6666-4666-8666-666666666666"
+
+    ctx = GuestCtx()
+    monkeypatch.setattr(app_ctx_mod, "get_app_context", lambda: ctx)
+    monkeypatch.setattr(app_ctx_mod, "try_get_app_context", lambda: ctx)
+    result = await persistence_mod.persist_completed_request(
+        _build_completed(), conversation_id=CONVERSATION_ID
+    )
+    assert len(calls["request_create"]) == 1
+    assert calls["request_create"][0]["created_by"] is None
+    assert calls["request_create"][0]["organization_id"] == ctx.organization_id
+    assert calls["user_request_update"]
+    assert calls["message_create"] == []
+    assert result["request_ids"]

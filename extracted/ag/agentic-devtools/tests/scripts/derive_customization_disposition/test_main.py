@@ -19,7 +19,20 @@ def test_verify_partition_passes_against_the_published_table() -> None:
     assert derive.main(["--verify-partition"]) == 0
 
 
-def test_verify_authored_passes_before_anything_is_authored() -> None:
+def test_verify_authored_passes_before_anything_is_authored(tmp_path: Path) -> None:
+    """Nothing authored yet means nothing unexpected, so the mode succeeds."""
+    published = tmp_path / "map.md"
+    published.write_text(
+        f"# Map\n\n{derive.ROWS_HEADING}\n"
+        "| Legacy path | Slug | Disposition | Group | Target slug | Retirement batch |\n"
+        "|---|---|---|---|---|---|\n"
+        "| `.github/agents/agdt.legacy.agent.md` | `agdt.legacy` | delete | singleton-a | - | residue |\n",
+        encoding="utf-8",
+    )
+    assert derive.main(["--verify-authored", "--repo-root", str(tmp_path), "--out", str(published)]) == 0
+
+
+def test_verify_authored_passes_against_published_map() -> None:
     """The authored customization set matches its published disposition map."""
     assert derive.main(["--verify-authored"]) == 0
 

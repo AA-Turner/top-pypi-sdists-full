@@ -76,7 +76,7 @@ class DeploymentLocation(BaseModel):
 
 
 class WorkflowSpecsRegisterRequest(BaseModel):
-    definitions: List[WorkflowSpecWithTaskQueue] = Field(description="List of workflow specs to register")
+    definitions: List[WorkflowSpecWithTaskQueue] = Field(min_length=1, description="List of workflow specs to register")
     deployment_name: Annotated[str, BeforeValidator(_validate_deployment_name)] = Field(
         description="Name of the deployment this worker belongs to"
     )

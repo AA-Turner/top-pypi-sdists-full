@@ -58,7 +58,8 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: GetGithubAppTokenJsonBody,
 ) -> Response[GetGithubAppTokenResponse200]:
-    """get github app token
+    """get the git credential for a git-sync job (GitHub App token, or the credential stored for the
+    repository)
 
     Args:
         workspace (str):
@@ -90,7 +91,8 @@ def sync(
     client: Union[AuthenticatedClient, Client],
     json_body: GetGithubAppTokenJsonBody,
 ) -> Optional[GetGithubAppTokenResponse200]:
-    """get github app token
+    """get the git credential for a git-sync job (GitHub App token, or the credential stored for the
+    repository)
 
     Args:
         workspace (str):
@@ -117,7 +119,8 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: GetGithubAppTokenJsonBody,
 ) -> Response[GetGithubAppTokenResponse200]:
-    """get github app token
+    """get the git credential for a git-sync job (GitHub App token, or the credential stored for the
+    repository)
 
     Args:
         workspace (str):
@@ -147,7 +150,8 @@ async def asyncio(
     client: Union[AuthenticatedClient, Client],
     json_body: GetGithubAppTokenJsonBody,
 ) -> Optional[GetGithubAppTokenResponse200]:
-    """get github app token
+    """get the git credential for a git-sync job (GitHub App token, or the credential stored for the
+    repository)
 
     Args:
         workspace (str):

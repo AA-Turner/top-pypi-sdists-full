@@ -24,11 +24,14 @@ class ServerDetails:
     redis_version: VersionType
     valkey_version: VersionType | None
     dragonfly_version: VersionType | None
+    kividb_version: VersionType | None
 
     @property
     def server_version(self) -> VersionType:
-        if self.server_type == "dragonfly":
-            return self.dragonfly_version or self.redis_version
+        if self.server_type in ("dragonfly", "kividb"):
+            # Dragonfly and KiviDB number their own releases (1.x) unrelated to the Redis version they emulate, so
+            # FakeServer must be built with the Redis-compatible version they report rather than their own.
+            return self.redis_version
         elif self.server_type == "valkey":
             return self.valkey_version or self.redis_version
         return self.redis_version
@@ -56,7 +59,12 @@ def real_server_details(real_server_address: tuple[str, int]) -> ServerDetails:
     try:
         client = redis.Redis(real_server_address[0], port=real_server_address[1], db=2)
         client_info = client.info()
-        server_type: ServerType = "dragonfly" if "dragonfly_version" in client_info else "redis"
+        server_type: ServerType = "redis"
+        if "dragonfly_version" in client_info:
+            server_type = "dragonfly"
+        elif "kividb_version" in client_info:
+            # KiviDB reports both redis_version and its own kividb_version, and no server_name.
+            server_type = "kividb"
         if "server_name" in client_info:
             server_type = client_info["server_name"]
         redis_version = _create_version(client_info["redis_version"]) or (7,)
@@ -64,7 +72,8 @@ def real_server_details(real_server_address: tuple[str, int]) -> ServerDetails:
         dragonfly_version = (
             _create_version(client_info["dragonfly_version"][4:]) if "dragonfly_version" in client_info else None
         )
-        return ServerDetails(server_type, redis_version, valkey_version, dragonfly_version)
+        kividb_version = _create_version(client_info["kividb_version"]) if "kividb_version" in client_info else None
+        return ServerDetails(server_type, redis_version, valkey_version, dragonfly_version, kividb_version)
     except redis.ConnectionError as e:
         pytest.exit(f"Real server is not running {e}")
         return "redis", (6,)
@@ -83,9 +92,13 @@ def _fake_server(request, real_server_details: ServerDetails) -> fakeredis.FakeS
 
 
 @pytest_asyncio.fixture(name="tcp_server_address")
-def _tcp_fake_server() -> Generator[tuple[str, int], Any, None]:
+def _tcp_fake_server(real_server_details: ServerDetails) -> Generator[tuple[str, int], Any, None]:
     server_address = ("127.0.0.1", TCP_SERVER_TEST_PORT)
-    server = TcpFakeServer(server_address)
+    server = TcpFakeServer(
+        server_address,
+        server_type=real_server_details.server_type,
+        server_version=real_server_details.server_version,
+    )
     t = Thread(target=server.serve_forever, daemon=True)
     t.start()
     time.sleep(0.1)

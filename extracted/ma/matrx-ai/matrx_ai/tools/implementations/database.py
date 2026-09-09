@@ -294,18 +294,41 @@ async def _stamp_auto_fields(schema: str, name: str, rows: list[Any], ctx: ToolC
             stamp_row_owner(row, owner_id, table_columns=columns)
 
 
+def match_filters(match: dict[str, Any]) -> tuple[Any, ...]:
+    """Translate the ``sql`` tool's ``match`` object into typed ORM filters.
+
+    * scalar value → ``eq``
+    * ``None``     → ``isnull``
+    * list / tuple → ``in`` (one query for many ids — the shape that lets an
+      agent read "the offerings for THESE models" in one call instead of one
+      call per model, or an unfiltered dump of the whole table).
+
+    Shared by the super-admin path here and the host's RLS runner
+    (``aidream/db/scoped_sql.py``) so both paths accept the same ``match``.
+    """
+    from matrx_orm.operations.dynamic_crud import DynamicFilter
+
+    filters: list[Any] = []
+    for field, value in match.items():
+        if isinstance(value, (list, tuple)):
+            filters.append(DynamicFilter(field=field, operator="in", value=list(value)))
+        elif value is None:
+            filters.append(DynamicFilter(field=field, operator="isnull", value=True))
+        else:
+            filters.append(DynamicFilter(field=field, value=value))
+    return tuple(filters)
+
+
 async def db_query(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = DbQueryArgs(**args)
 
     try:
-        from matrx_orm.operations.dynamic_crud import DynamicFilter, dynamic_select
+        from matrx_orm.operations.dynamic_crud import dynamic_select
 
         rows = await dynamic_select(
             parsed.table,
-            filters=tuple(
-                DynamicFilter(field=field, value=value) for field, value in parsed.match.items()
-            ),
+            filters=match_filters(parsed.match),
             columns=tuple(parsed.fields),
             order_by=tuple(parsed.order_by),
             limit=parsed.limit,

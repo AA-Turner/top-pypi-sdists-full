@@ -4,7 +4,8 @@ import { check } from 'k6';
 import http from 'k6/http';
 import type { BenchmarkResult, BenchmarkGraphOptions } from './types.js';
 import { parseSSE } from './types.js';
-import { addResponse, okResult } from './types.js';
+import { addResponse, okResult, failResult } from './types.js';
+import { classifyError, recordError } from './classify-error.js';
 import { logFailure } from './log-failure.js';
 import { getExpectedEvents } from './benchmark_profiles.js';
 
@@ -36,13 +37,21 @@ export class StreamWrite extends BenchmarkRunner {
     if (benchmarkGraphOptions.stateful) {
       const thread = http.post(`${baseUrl}/threads`, '{}', requestParams);
       addResponse(responses, 'create_thread', thread);
+      // Check before parsing. `thread.json()` on a failed create throws, and the
+      // throw surfaced as a generic other_error instead of the real cause.
+      if (thread.status !== 200) {
+        return failResult('create_thread', responses) as BenchmarkResult<StreamWriteData>;
+      }
       const threadId = (thread.json() as { thread_id: string }).thread_id;
       url = `${baseUrl}/threads/${threadId}/runs/stream`;
     }
 
     const response = http.post(url, payload, requestParams);
     addResponse(responses, 'stream', response);
-    const events = parseSSE(response.body as string);
+    // Guarded: on a connection failure k6 returns a response whose body is null,
+    // and parseSSE would throw out of run(), discarding the responses map that
+    // the error classifier needs to see the failure for what it was.
+    const events = typeof response.body === 'string' ? parseSSE(response.body) : [];
     return okResult(responses, { events, rawResponse: response });
   }
 
@@ -75,17 +84,13 @@ export class StreamWrite extends BenchmarkRunner {
       logFailure(StreamWrite.toString(), result, {
         extra: `events.length=${events.length} expected_events=${expected_events} expected_steps=${expected_steps} hasExpectedCounter=${hasExpectedCounter}`,
       });
-      const status = result.data?.rawResponse?.status;
-      if (status != null && status >= 500) {
-        errorMetrics.server_errors.add(1);
-      } else if (status === 408) {
-        errorMetrics.timeout_errors.add(1);
-      } else if (!hasExpectedCounter) {
-        if (errorMetrics.missing_message_errors) errorMetrics.missing_message_errors.add(1);
-        else errorMetrics.other_errors.add(1);
-      } else {
-        errorMetrics.other_errors.add(1);
-      }
+      recordError(
+        classifyError({
+          response: result.responses?.stream ?? result.responses?.create_thread ?? null,
+          missingMessage: !hasExpectedCounter,
+        }),
+        errorMetrics
+      );
     }
     return success;
   }

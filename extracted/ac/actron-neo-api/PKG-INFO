@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: actron-neo-api
-Version: 0.5.14
+Version: 0.5.16
 Summary: Python API wrapper for the Actron Air API, supporting Neo and Que systems.
 Project-URL: Homepage, https://github.com/kclif9/actronneoapi
 Project-URL: Issues, https://github.com/kclif9/actronneoapi/issues

@@ -18,6 +18,16 @@ from midealan.message import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# A decoded B5 capability value. Most tags decode to a bool/int flag, but some
+# tags decode to a nested map. The temperature tag yields a per-mode setpoint
+# limit map, keyed "cool"/"auto"/"heat" with "min"/"max" floats plus a
+# "decimals" bool. The mode tag yields a supported-modes map, keyed
+# "heat"/"cool"/"dry"/"auto" with bool values. The wind_swing tag yields a
+# supported-swing map, keyed "horizontal"/"vertical" with bool values. The
+# wind_speed tag yields a supported-fan-speed map, keyed
+# "silent"/"low"/"medium"/"high"/"auto"/"custom" with bool values.
+CapabilityValue = bool | int | list[str] | dict[str, dict[str, float] | bool]
+
 A1_MIN_BODY_LENGTH = 18
 
 BB_AC_MODES = [0, 3, 1, 2, 4, 5]
@@ -123,6 +133,19 @@ B5_IECO_END_VALUES = frozenset({1, 2, 3, 8})
 IECO_SET_PADDING = 10
 B5_TURBO_HEAT_VALUES = frozenset({1, 3})
 B5_DISPLAY_VALUES = frozenset({1, 2, 100})
+# Temperature capability (0x0225). The value holds per-mode setpoint limits in
+# 0.5 C units: six raw bytes are cool then auto then heat, each a min then a
+# max, followed by a decimals flag byte.
+B5_TEMPERATURE_HALF_DEGREE = 2
+B5_TEMPERATURE_COOL_MIN_INDEX = 0
+B5_TEMPERATURE_COOL_MAX_INDEX = 1
+B5_TEMPERATURE_AUTO_MIN_INDEX = 2
+B5_TEMPERATURE_AUTO_MAX_INDEX = 3
+B5_TEMPERATURE_HEAT_MIN_INDEX = 4
+B5_TEMPERATURE_HEAT_MAX_INDEX = 5
+B5_TEMPERATURE_DECIMALS_INDEX_LONG = 6
+B5_TEMPERATURE_DECIMALS_INDEX_SHORT = 2
+B5_TEMPERATURE_DECIMALS_SIZE_THRESHOLD = 6
 
 # A B5 capability body ends with a trailing [flag, message_id, crc] block. The
 # device sets the flag byte non-zero to signal that a second (additional)
@@ -495,7 +518,7 @@ class PropertiesQuery(MessageACBase):
         },
     )
 
-    _default_query_params: tuple[int, ...] = (
+    _default_properties: tuple[int, ...] = (
         CapabilityTag.indirect_wind,
         CapabilityTag.breezeless,
         CapabilityTag.indoor_humidity,
@@ -506,11 +529,20 @@ class PropertiesQuery(MessageACBase):
         CapabilityTag.wind_ud_angle,
     )
 
+    _capability_properties: tuple[int, ...] = (
+        CapabilityTag.self_clean,
+        CapabilityTag.rate_select,
+        CapabilityTag.out_silent,
+        CapabilityTag.ieco,
+        CapabilityTag.sound,
+        CapabilityTag.error_code,
+    )
+
     def __init__(
         self,
         protocol_version: int,
         *,
-        capabilities: dict[str, bool | int] | None = None,
+        capabilities: dict[str, CapabilityValue] | None = None,
     ) -> None:
         """Initialize AC message new protocol query.
 
@@ -532,14 +564,16 @@ class PropertiesQuery(MessageACBase):
 
     @property
     def _body(self) -> bytearray:
-        params = list(self._default_query_params)
-        default_tags = frozenset(self._default_query_params)
+        params = list(self._default_properties)
+        default_tags = frozenset(self._default_properties)
+        properties_tags = frozenset(self._capability_properties)
 
         # Auto-append tags from the merged capabilities map. A capability key is
         # queried only when it names a CapabilityTag member and its value is
         # truthy, so a device that never advertised a feature (or that a user
         # disabled via customize) is not asked for it. Tags are sorted by value
         # so the produced body is deterministic.
+        properties_query: list[CapabilityTag] = []
         additional_tags: list[CapabilityTag] = []
         for key, value in self._capabilities.items():
             if not value:
@@ -552,15 +586,25 @@ class PropertiesQuery(MessageACBase):
                 continue
             if tag in self._CAPABILITY_ONLY_TAGS:
                 continue  # B5-advertisement-only; never valid as a B1 query tag.
-            additional_tags.append(tag)
+            if tag in properties_tags:
+                properties_query.append(tag)
+            else:
+                additional_tags.append(tag)
+        # Sort each list, then extend params with both in sorted order
+        properties_query.sort()
         additional_tags.sort()
-        params.extend(additional_tags)
+        # Merge both lists and sort together to maintain overall tag value order
+        appended_tags = properties_query + additional_tags
+        appended_tags.sort()
+        params.extend(appended_tags)
         if not self._build_logged:
             self._build_logged = True
             _LOGGER.debug(
-                "PropertiesQuery build: appended=%s query_tags=%s capabilities=%s",
+                "PropertiesQuery build: default_properties=%s "
+                "capability_properties=%s additional_tags=%s capabilities=%s",
+                [CapabilityTag(tag).name for tag in default_tags],
+                [tag.name for tag in properties_query],
                 [tag.name for tag in additional_tags],
-                [CapabilityTag(param).name for param in params],
                 self._capabilities,
             )
 
@@ -1278,17 +1322,6 @@ class CapabilityBody(NewProtocolMessageBody):
         super().__init__(body)
 
         params = self.parse()
-        # Parse temperature capability for min/max setpoint limits
-        if CapabilityTag.temperature in params:
-            temp_data = params[CapabilityTag.temperature]
-            # per-mode setpoint limits in 0.5 C units. the six raw bytes are
-            # cool then auto then heat, each a min then a max, plus a flag byte.
-            # keyed by mode value: auto is 1, cool 2, dry 3, heat 4, fan 5
-            # (dry and fan reuse the cool range).
-            cool = (temp_data[0] / 2, temp_data[1] / 2)
-            auto = (temp_data[2] / 2, temp_data[3] / 2)
-            heat = (temp_data[4] / 2, temp_data[5] / 2)
-            self.temperature_limits = {1: auto, 2: cool, 3: cool, 4: heat, 5: cool}
         self._parse_capabilities(params)
         self.additional_capabilities = self._detect_additional_capabilities()
 
@@ -1306,7 +1339,10 @@ class CapabilityBody(NewProtocolMessageBody):
             return False
         return bool(remaining[-B5_ADDITIONAL_CAPABILITIES_TRAILER_LENGTH])
 
-    def _parse_capabilities(self, params: dict[int, bytearray]) -> None:
+    def _parse_capabilities(  # noqa: C901
+        self,
+        params: dict[int, bytearray],
+    ) -> None:
         """Decode capability values into feature flags.
 
         Parse capabilities using two strategies:
@@ -1315,39 +1351,92 @@ class CapabilityBody(NewProtocolMessageBody):
 
         Logs warnings for unknown tags not in CapabilityTag enum.
         """
-        caps: dict[str, bool | int] = {}
+        caps: dict[str, CapabilityValue] = {}
+
+        # Temperature capability carries per-mode setpoint limits rather than a
+        # flag. Decode the six raw half-degree bytes (cool/auto/heat, each a
+        # min then a max) into a nested map keyed by mode name so the device
+        # layer can resolve the min/max for the active mode. Dry and fan reuse
+        # the cool range, so they are not stored separately. The decimals flag
+        # indicates whether the device supports 0.5°C increments.
+        if CapabilityTag.temperature in params:
+            temp_data = params[CapabilityTag.temperature]
+            # Skip temperature capability if data is too short to safely decode
+            # all range and decimals fields (requires indices 0-5, plus decimals)
+            if len(temp_data) < B5_TEMPERATURE_HEAT_MAX_INDEX + 1:
+                _LOGGER.warning(
+                    "Temperature capability data too short (%d bytes), skipping",
+                    len(temp_data),
+                )
+            else:
+                size = len(temp_data)
+                decimals_index = (
+                    B5_TEMPERATURE_DECIMALS_INDEX_LONG
+                    if size > B5_TEMPERATURE_DECIMALS_SIZE_THRESHOLD
+                    else B5_TEMPERATURE_DECIMALS_INDEX_SHORT
+                )
+                caps["temperature"] = {
+                    "cool": {
+                        "min": temp_data[B5_TEMPERATURE_COOL_MIN_INDEX]
+                        / B5_TEMPERATURE_HALF_DEGREE,
+                        "max": temp_data[B5_TEMPERATURE_COOL_MAX_INDEX]
+                        / B5_TEMPERATURE_HALF_DEGREE,
+                    },
+                    "auto": {
+                        "min": temp_data[B5_TEMPERATURE_AUTO_MIN_INDEX]
+                        / B5_TEMPERATURE_HALF_DEGREE,
+                        "max": temp_data[B5_TEMPERATURE_AUTO_MAX_INDEX]
+                        / B5_TEMPERATURE_HALF_DEGREE,
+                    },
+                    "heat": {
+                        "min": temp_data[B5_TEMPERATURE_HEAT_MIN_INDEX]
+                        / B5_TEMPERATURE_HALF_DEGREE,
+                        "max": temp_data[B5_TEMPERATURE_HEAT_MAX_INDEX]
+                        / B5_TEMPERATURE_HALF_DEGREE,
+                    },
+                    "decimals": temp_data[decimals_index] != 0,
+                }
 
         # Manual parsing for tags with complex/special logic
         if CapabilityTag.mode in params:
             value = params[CapabilityTag.mode][0]
-            caps["heat_mode"] = value in B5_HEAT_MODE_VALUES
-            caps["cool_mode"] = value not in B5_NO_COOL_MODE_VALUES
-            caps["dry_mode"] = value in B5_DRY_MODE_VALUES
-            caps["auto_mode"] = value in B5_AUTO_MODE_VALUES
+            modes = []
+            if value in B5_HEAT_MODE_VALUES:
+                modes.append("heat")
+            if value not in B5_NO_COOL_MODE_VALUES:
+                modes.append("cool")
+            if value in B5_DRY_MODE_VALUES:
+                modes.append("dry")
+            if value in B5_AUTO_MODE_VALUES:
+                modes.append("auto")
+            caps["modes"] = modes
 
         if CapabilityTag.wind_swing in params:
             value = params[CapabilityTag.wind_swing][0]
-            caps["swing_horizontal"] = value in B5_SWING_HORIZONTAL_VALUES
-            caps["swing_vertical"] = value < B5_LOW_VALUE_MAX
+            swing_modes = []
+            if value in B5_SWING_HORIZONTAL_VALUES:
+                swing_modes.append("horizontal")
+            if value < B5_LOW_VALUE_MAX:
+                swing_modes.append("vertical")
+            caps["swing_modes"] = swing_modes
 
         if CapabilityTag.wind_speed in params:
             value = params[CapabilityTag.wind_speed][0]
-            caps["fan_silent"] = (
-                value == B5_FAN_CUSTOM_VALUE or value in B5_FAN_SILENT_VALUES
-            )
-            caps["fan_low"] = (
-                value == B5_FAN_CUSTOM_VALUE or value in B5_FAN_LOW_HIGH_VALUES
-            )
-            caps["fan_medium"] = (
-                value == B5_FAN_CUSTOM_VALUE or value in B5_FAN_MEDIUM_VALUES
-            )
-            caps["fan_high"] = (
-                value == B5_FAN_CUSTOM_VALUE or value in B5_FAN_LOW_HIGH_VALUES
-            )
-            caps["fan_auto"] = (
-                value == B5_FAN_CUSTOM_VALUE or value in B5_FAN_AUTO_VALUES
-            )
-            caps["fan_custom"] = value == B5_FAN_CUSTOM_VALUE
+            custom = value == B5_FAN_CUSTOM_VALUE
+            fan_speeds = []
+            if custom or value in B5_FAN_SILENT_VALUES:
+                fan_speeds.append("silent")
+            if custom or value in B5_FAN_LOW_HIGH_VALUES:
+                fan_speeds.append("low")
+            if custom or value in B5_FAN_MEDIUM_VALUES:
+                fan_speeds.append("medium")
+            if custom or value in B5_FAN_LOW_HIGH_VALUES:
+                fan_speeds.append("high")
+            if custom or value in B5_FAN_AUTO_VALUES:
+                fan_speeds.append("auto")
+            if custom:
+                fan_speeds.append("custom")
+            caps["fan_speeds"] = fan_speeds
 
         if CapabilityTag.eco in params:
             caps["eco"] = params[CapabilityTag.eco][0] in B5_ECO_VALUES
@@ -1386,6 +1475,7 @@ class CapabilityBody(NewProtocolMessageBody):
         # Tags with special parsing logic (handled above).
         manually_parsed_tags = frozenset(
             {
+                CapabilityTag.temperature,
                 CapabilityTag.mode,
                 CapabilityTag.wind_swing,
                 CapabilityTag.wind_speed,
@@ -1422,7 +1512,7 @@ class CapabilityBody(NewProtocolMessageBody):
             # value (0 -> falsy, >=1 -> truthy).
             caps[tag_name] = raw[0] if len(raw) > 0 else 0
 
-        self.capabilities = caps
+        self.capabilities: dict[str, CapabilityValue] = caps
 
 
 class StateBody(XMessageBody):

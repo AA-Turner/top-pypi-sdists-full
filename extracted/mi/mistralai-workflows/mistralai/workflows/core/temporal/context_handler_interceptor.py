@@ -12,6 +12,7 @@ from pydantic import TypeAdapter
 from pydantic_core import to_json
 from temporalio import workflow
 
+from mistralai.workflows.constants import OBO_PARALLEL_EXECUTION_WORKFLOW_NAME, PARALLEL_EXECUTION_WORKFLOW_NAME
 from mistralai.workflows.core.execution.child_start_budget import ChildStartBudget, child_start_budget_var
 from mistralai.workflows.core.temporal.utils import TEMPORAL_SCHEDULE_ID_SEARCH_KEY
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
@@ -161,7 +162,7 @@ class WorkflowContextWorkflowOutboundInterceptor(temporalio.worker.WorkflowOutbo
             contextualized_args = []
             for arg in args:
                 if isinstance(arg, PayloadWithContext):
-                    contextualized_args.append(arg)
+                    contextualized_args.append(arg.model_copy(update={"context": workflow_context}))
                 else:
                     contextualized_args.append(PayloadWithContext(payload=to_json(arg), context=workflow_context))
             if len(contextualized_args) == 0:
@@ -236,6 +237,14 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
                 updates["extensions"] = incoming_context.extensions
             if incoming_context.on_behalf_of is not None:
                 updates["on_behalf_of"] = incoming_context.on_behalf_of
+            # Trust this worker-only data only for an actual SDK fan-out child.
+            if (
+                incoming_context.trusted_extensions
+                and workflow_context.parent_workflow_exec_id is not None
+                and workflow.info().workflow_type
+                in {PARALLEL_EXECUTION_WORKFLOW_NAME, OBO_PARALLEL_EXECUTION_WORKFLOW_NAME}
+            ):
+                updates["trusted_extensions"] = incoming_context.trusted_extensions
             if updates:
                 workflow_context = workflow_context.model_copy(update=updates)
 

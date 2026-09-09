@@ -27,13 +27,24 @@ def _search(**overrides):
         exclude_domains=OMIT,
         from_date=OMIT,
         to_date=OMIT,
+        tier=OMIT,
+        fields=OMIT,
     )
     args.update(overrides)
     return _build_search_request(**SEARCH, **args)
 
 
 @pytest.mark.parametrize(
-    "field", ["scope", "include_domains", "exclude_domains", "from_date", "to_date"]
+    "field",
+    [
+        "scope",
+        "include_domains",
+        "exclude_domains",
+        "from_date",
+        "to_date",
+        "tier",
+        "fields",
+    ],
 )
 def test_search_treats_none_and_omit_alike(field: str) -> None:
     """Nothing on search is clearable, so the two must agree byte for byte."""

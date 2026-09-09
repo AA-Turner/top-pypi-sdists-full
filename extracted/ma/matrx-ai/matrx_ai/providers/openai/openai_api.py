@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+import openai as openai_sdk
 import rich
 from matrx_connect.context.events import CitationPayload
 from matrx_utils import vcprint
@@ -45,7 +46,7 @@ class OpenAIChat:
         "OPENAI_API_KEY",
         factory=lambda api_key: AsyncOpenAI(
             api_key=api_key,
-            http_client=make_capture_http_client(),
+            http_client=make_capture_http_client(sdk=openai_sdk),
         ),
     )
 

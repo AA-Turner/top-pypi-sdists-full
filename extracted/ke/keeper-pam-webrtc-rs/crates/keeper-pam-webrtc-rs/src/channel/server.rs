@@ -29,7 +29,23 @@ impl Channel {
             .parse::<SocketAddr>()
             .map_err(|e| anyhow!("Invalid server address '{}': {}", addr_str, e))?;
 
-        // Create the TCP listener with SO_REUSEADDR for immediate reuse after shutdown
+        // Create the TCP listener.
+        //
+        // On Unix the default + SO_REUSEADDR/SO_REUSEPORT semantics let us
+        // rebind quickly after a clean shutdown without sacrificing
+        // single-binder exclusivity (two `bind` calls on the same
+        // host:port still fail with EADDRINUSE).
+        //
+        // On Windows, SO_REUSEADDR is *much* more permissive — it lets
+        // a second listener bind the same host:port without error, and
+        // the kernel then dispatches incoming connections to one of the
+        // listeners non-deterministically. That's actively wrong for
+        // pam-tunnel: two `pam tunnel start` invocations could both
+        // claim `127.0.0.1:49152` and silently race for mstsc traffic.
+        // SO_EXCLUSIVEADDRUSE restores the expected fail-fast behavior
+        // (second bind returns WSAEADDRINUSE). It's mutually exclusive
+        // with SO_REUSEADDR, so we set only one of the two depending on
+        // platform.
         let domain = if parsed_addr.is_ipv6() {
             Domain::IPV6
         } else {
@@ -39,15 +55,53 @@ impl Channel {
         let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
             .map_err(|e| anyhow!("Failed to create socket: {}", e))?;
 
-        socket
-            .set_reuse_address(true)
-            .map_err(|e| anyhow!("Failed to set SO_REUSEADDR: {}", e))?;
-
-        // On Unix systems, also set SO_REUSEPORT for more immediate reuse
         #[cfg(unix)]
-        socket
-            .set_reuse_port(true)
-            .map_err(|e| anyhow!("Failed to set SO_REUSEPORT: {}", e))?;
+        {
+            socket
+                .set_reuse_address(true)
+                .map_err(|e| anyhow!("Failed to set SO_REUSEADDR: {}", e))?;
+            socket
+                .set_reuse_port(true)
+                .map_err(|e| anyhow!("Failed to set SO_REUSEPORT: {}", e))?;
+        }
+
+        #[cfg(windows)]
+        {
+            // socket2 0.6 doesn't expose SO_EXCLUSIVEADDRUSE, so call
+            // setsockopt directly. ws2_32 is already linked transitively
+            // via socket2, so no extra link directive is needed.
+            use std::os::windows::io::AsRawSocket;
+            #[link(name = "ws2_32")]
+            extern "system" {
+                fn setsockopt(
+                    s: usize,
+                    level: i32,
+                    optname: i32,
+                    optval: *const std::ffi::c_void,
+                    optlen: i32,
+                ) -> i32;
+            }
+            const SOL_SOCKET: i32 = 0xFFFF;
+            // SO_EXCLUSIVEADDRUSE = !SO_REUSEADDR; SO_REUSEADDR = 4, so this is -5.
+            const SO_EXCLUSIVEADDRUSE: i32 = -5;
+            let val: i32 = 1;
+            let raw = socket.as_raw_socket() as usize;
+            let rc = unsafe {
+                setsockopt(
+                    raw,
+                    SOL_SOCKET,
+                    SO_EXCLUSIVEADDRUSE,
+                    (&val as *const i32) as *const _,
+                    std::mem::size_of::<i32>() as i32,
+                )
+            };
+            if rc != 0 {
+                return Err(anyhow!(
+                    "Failed to set SO_EXCLUSIVEADDRUSE: {}",
+                    std::io::Error::last_os_error()
+                ));
+            }
+        }
 
         socket
             .set_nonblocking(true)
@@ -484,10 +538,25 @@ async fn handle_tunnel_server_connection(
                 }
                 Ok(_) => {}
                 Err(e) => {
-                    error!(
-                        "Channel({}): Error reading from client on server port (conn_no {}): {} (conversation_id: {})",
-                        channel_id_clone, conn_no, e, conversation_id_clone
-                    );
+                    if matches!(
+                        e.kind(),
+                        std::io::ErrorKind::ConnectionReset
+                            | std::io::ErrorKind::ConnectionAborted
+                            | std::io::ErrorKind::BrokenPipe
+                            | std::io::ErrorKind::UnexpectedEof
+                    ) {
+                        if unlikely!(crate::logger::is_verbose_logging()) {
+                            debug!(
+                                "Channel({}): Client on server port (conn_no {}) closed connection: {} (conversation_id: {})",
+                                channel_id_clone, conn_no, e, conversation_id_clone
+                            );
+                        }
+                    } else {
+                        error!(
+                            "Channel({}): Error reading from client on server port (conn_no {}): {} (conversation_id: {})",
+                            channel_id_clone, conn_no, e, conversation_id_clone
+                        );
+                    }
                     break;
                 }
             }

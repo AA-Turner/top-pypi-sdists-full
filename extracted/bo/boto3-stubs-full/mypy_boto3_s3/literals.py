@@ -77,6 +77,7 @@ __all__ = (
     "ObjectCannedACLType",
     "ObjectExistsWaiterName",
     "ObjectLockEnabledType",
+    "ObjectLockEventHoldType",
     "ObjectLockLegalHoldStatusType",
     "ObjectLockModeType",
     "ObjectLockRetentionModeType",
@@ -213,6 +214,7 @@ EventType = Literal[
     "s3:ObjectRestore:Completed",
     "s3:ObjectRestore:Delete",
     "s3:ObjectRestore:Post",
+    "s3:ObjectRetention:Put",
     "s3:ObjectTagging:*",
     "s3:ObjectTagging:Delete",
     "s3:ObjectTagging:Put",
@@ -245,6 +247,8 @@ InventoryOptionalFieldType = Literal[
     "LastModifiedDate",
     "LifecycleExpirationDate",
     "ObjectAccessControlList",
+    "ObjectLockEventHoldDuration",
+    "ObjectLockEventHoldStatus",
     "ObjectLockLegalHoldStatus",
     "ObjectLockMode",
     "ObjectLockRetainUntilDate",
@@ -279,6 +283,7 @@ ObjectCannedACLType = Literal[
 ]
 ObjectExistsWaiterName = Literal["object_exists"]
 ObjectLockEnabledType = Literal["Enabled"]
+ObjectLockEventHoldType = Literal["OFF", "ON"]
 ObjectLockLegalHoldStatusType = Literal["OFF", "ON"]
 ObjectLockModeType = Literal["COMPLIANCE", "GOVERNANCE"]
 ObjectLockRetentionModeType = Literal["COMPLIANCE", "GOVERNANCE"]

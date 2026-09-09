@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import codecs
+import json
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 import yaml
+from pydantic import ValidationError
 
-from datamodel_code_generator import InputFileType
+from datamodel_code_generator import DataModelType, InputFileType
 from datamodel_code_generator.__main__ import Exit
+from datamodel_code_generator.format import Formatter, PythonVersion
 from datamodel_code_generator.parser import xmlschema as xmlschema_parser
 from datamodel_code_generator.parser.xmlschema import (
     _clear_xml_schema_data_cache,
@@ -24,6 +28,9 @@ from tests.main.conftest import (
     DATA_PATH,
     EXPECTED_XML_SCHEMA_PATH,
     XML_SCHEMA_DATA_PATH,
+    _generated_model,
+    _model_json_validator,
+    assert_generated_model_json_validation,
     assert_path_cache_evicts_lru_entries,
     run_generate_file_and_assert,
     run_main_and_assert,
@@ -279,6 +286,39 @@ def test_main_xmlschema_boolean_whitespace_defaults(output_file: Path) -> None:
         input_file_type="xmlschema",
         assert_func=assert_file_content,
         expected_file="boolean_whitespace_defaults.py",
+    )
+
+
+def test_generate_xmlschema_nillable_boolean_api(output_file: Path) -> None:
+    """Generate XSD nillable lexical values through the public Python API."""
+    run_generate_file_and_assert(
+        input_path=XML_SCHEMA_DATA_PATH / "nillable_boolean.xsd",
+        output_path=output_file,
+        input_file_type=InputFileType.XMLSchema,
+        assert_func=assert_file_content,
+        expected_file="nillable_boolean.py",
+    )
+
+
+def test_main_xmlschema_nillable_boolean(output_file: Path) -> None:
+    """Treat XML Schema nillable true and 1 lexical values equivalently."""
+    run_main_and_assert(
+        input_path=XML_SCHEMA_DATA_PATH / "nillable_boolean.xsd",
+        output_path=output_file,
+        input_file_type="xmlschema",
+        assert_func=assert_file_content,
+        expected_file="nillable_boolean.py",
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="generated_xmlschema_nillable_boolean",
+        model_name="Root",
+        valid_json='{"nillableTrue":null,"nillableOne":null,"nillableFalse":"false","nillableZero":"zero","unspecified":"value"}',
+        invalid_json='{"nillableTrue":null,"nillableOne":null,"nillableFalse":"false","nillableZero":null,"unspecified":"value"}',
+        expected_error_type="string_type",
+        expected_attribute_path=("nillableOne",),
+        expected_attribute_value=None,
     )
 
 
@@ -942,3 +982,70 @@ def test_main_xmlschema_auto_wrong_root_error(capsys: pytest.CaptureFixture[str]
         expected_stderr_contains="Can't infer input file type",
         output_should_not_exist=True,
     )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+@pytest.mark.parametrize("fixture", ["pattern_alternatives", "pattern_alternatives_simple", "pattern_controls"])
+@pytest.mark.parametrize(
+    ("backend", "suffix", "field_constraints"),
+    [
+        ("pydantic_v2.BaseModel", "pydantic", True),
+        ("pydantic_v2.BaseModel", "pydantic_constrained", False),
+        ("pydantic_v2.dataclass", "pydantic_dataclass", True),
+        ("msgspec.Struct", "msgspec", True),
+    ],
+)
+def test_xmlschema_pattern_alternatives(
+    output_file: Path, entrypoint: str, fixture: str, backend: str, suffix: str, *, field_constraints: bool
+) -> None:
+    """Match the XSD oracle for sibling alternatives and intersect inherited constraints."""
+    input_path = XML_SCHEMA_DATA_PATH / f"{fixture}.xsd"
+    expected_file = f"{fixture}_{suffix}.py"
+    # Keep the deep regex fixture on its selected formatter; the compact fixture checks default parity.
+    explicit_builtin = fixture == "pattern_alternatives"
+    if entrypoint == "cli":
+        extra_args = ["--output-model-type", backend, "--target-python-version", "3.10", "--disable-timestamp"]
+        if field_constraints:
+            extra_args.append("--field-constraints")
+        if explicit_builtin:
+            extra_args.extend(["--formatters", "builtin"])
+        run_main_and_assert(
+            input_path=input_path,
+            output_path=output_file,
+            input_file_type="xmlschema",
+            extra_args=extra_args,
+            assert_func=assert_file_content,
+            expected_file=expected_file,
+        )
+    else:
+        run_generate_file_and_assert(
+            input_path=input_path,
+            output_path=output_file,
+            input_file_type=InputFileType.XMLSchema,
+            output_model_type=DataModelType(backend),
+            target_python_version=PythonVersion.PY_310,
+            field_constraints=field_constraints,
+            use_annotated=backend == "msgspec.Struct",
+            disable_timestamp=True,
+            **({"formatters": [Formatter.BUILTIN]} if explicit_builtin else {}),
+            assert_func=assert_file_content,
+            expected_file=expected_file,
+        )
+    if fixture == "pattern_controls":
+        return
+    cases = json.loads((XML_SCHEMA_DATA_PATH / f"{fixture}.cases.json").read_text())
+    results = []
+    with _generated_model(output_file, f"generated_{fixture}_{suffix}_{entrypoint}", "Root") as model:
+        validate = (
+            msgspec.json.Decoder(type=model).decode if backend == "msgspec.Struct" else _model_json_validator(model)
+        )
+        for field, values in cases["values"].items():
+            for value in values:
+                try:
+                    validate(json.dumps(cases["base"] | {field: value}))
+                except (ValidationError, msgspec.ValidationError):
+                    valid = False
+                else:
+                    valid = True
+                results.append({"field": field, "value": value, "valid": valid})
+    assert_output(json.dumps(results, indent=2) + "\n", EXPECTED_XML_SCHEMA_PATH / f"{fixture}.validation.txt")

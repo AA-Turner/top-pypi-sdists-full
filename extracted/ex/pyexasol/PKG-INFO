@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyexasol
-Version: 2.3.2
+Version: 2.4.0
 Summary: Exasol python driver with extra features
 License-Expression: MIT
 License-File: LICENSE.txt
@@ -39,12 +39,13 @@ Requires-Dist: pproxy ; extra == "all"
 Requires-Dist: pproxy ; extra == "examples"
 Requires-Dist: pyarrow (>=21.0.0) ; extra == "all"
 Requires-Dist: pyarrow (>=21.0.0) ; extra == "pyarrow"
+Requires-Dist: pydantic (>=2.13.4,<3.0.0)
 Requires-Dist: pytest-benchmark[histogram] (>=5.1.0,<6) ; extra == "performance"
 Requires-Dist: python-rapidjson (>=1.21.0,<2.0.0) ; extra == "all"
 Requires-Dist: python-rapidjson (>=1.21.0,<2.0.0) ; extra == "rapidjson"
 Requires-Dist: ujson (>=5.10.0,<6.0.0) ; extra == "all"
 Requires-Dist: ujson (>=5.10.0,<6.0.0) ; extra == "ujson"
-Requires-Dist: websocket-client (>=1.0.1,<2)
+Requires-Dist: websocket-client (>=1.0.1,<=1.9.0)
 Project-URL: Changelog, https://exasol.github.io/pyexasol/master/changes/changelog.html
 Project-URL: Documentation, https://github.com/exasol/pyexasol/
 Project-URL: Homepage, https://www.exasol.com/

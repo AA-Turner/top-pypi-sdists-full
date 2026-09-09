@@ -13,7 +13,8 @@ import subprocess
 import sys
 import traceback
 import typing
-from os.path import basename, exists, join, relpath
+from os.path import basename, exists, isdir, join, relpath
+from pathlib import PurePath
 from typing import Optional, Sequence, cast
 from warnings import warn
 
@@ -39,7 +40,7 @@ from .bundle import (
 from .environment import Environment
 from .environment_r import REnvironment
 from .exception import RSConnectException
-from .log import VERBOSE, logger
+from .log import VERBOSE, console_logger, logger
 from .models import AppMode, AppModes
 
 line_width = 45
@@ -58,6 +59,12 @@ def cli_feedback(label: str, stderr: bool = False):
     vs. internal errors (prefixed with 'Internal Error'). In verbose mode,
     tracebacks will be emitted for internal errors.
     """
+    if logger.quiet:
+        # Quiet mode: suppress the step label and [OK] line so stdout stays
+        # reserved for the content URL; errors are routed to stderr.
+        label = ""
+        stderr = True
+
     if label:
         pad = line_width - len(label)
         click.secho(label + "... " + " " * pad, nl=False, err=stderr)
@@ -85,17 +92,36 @@ def cli_feedback(label: str, stderr: bool = False):
         logger.set_in_feedback(False)
 
 
-def set_verbosity(verbose: int):
-    """Set the verbosity level based on a passed flag
+# Maps a verbosity level to the (RSLogger level, console_logger level) it sets.
+# Level -1 is quiet: RSLogger drops its diagnostic lines below WARNING and
+# console_logger drops the @cls_logged step labels and [OK] lines (emitted at
+# INFO/DEBUG) below WARNING, while still letting its warnings (e.g. credential
+# overlap) through to stderr, so only warnings/errors and the final content URL
+# survive. Levels 0/1/2 are normal/verbose/debug; anything above 2 clamps to debug.
+_VERBOSITY_LEVELS = {
+    -1: (logging.WARNING, logging.WARNING),
+    0: (logging.INFO, logging.DEBUG),
+    1: (VERBOSE, logging.DEBUG),
+    2: (logging.DEBUG, logging.DEBUG),
+}
 
-    :param verbose: boolean specifying verbose or not
+
+def set_verbosity(verbose: int, quiet: bool = False):
+    """Set the verbosity level based on the passed flags
+
+    :param verbose: verbosity count (0 = normal, 1 = verbose, 2+ = debug)
+    :param quiet: emit only the final content URL on stdout; warnings and errors still go to stderr
     """
-    if verbose == 0:
-        logger.setLevel(logging.INFO)
-    elif verbose == 1:
-        logger.setLevel(VERBOSE)
-    else:
-        logger.setLevel(logging.DEBUG)
+    level = -1 if quiet else min(verbose, 2)
+    logger_level, console_level = _VERBOSITY_LEVELS[level]
+    # Set quiet state (also undoing any left over from an earlier invocation in
+    # the same process) before validating the flags so that even the
+    # flag-conflict error below lands on stderr, not stdout.
+    logger.set_quiet(quiet)
+    logger.setLevel(logger_level)
+    console_logger.setLevel(console_level)
+    if quiet and verbose:
+        raise RSConnectException("--quiet cannot be used together with -v/--verbose.")
 
 
 def _verify_server(connect_server: api.RSConnectServer):
@@ -238,10 +264,15 @@ class QuartoInspectResultConfig(TypedDict):
     project: QuartoInspectResultConfigProject
 
 
+class QuartoInspectResultFiles(TypedDict):
+    input: list[str]
+
+
 class QuartoInspectResult(TypedDict):
     quarto: QuartoInspectResultQuarto
     engines: list[str]
     config: NotRequired[QuartoInspectResultConfig]
+    files: NotRequired[QuartoInspectResultFiles]
 
 
 def quarto_inspect(
@@ -275,6 +306,17 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
     if unsupported:
         raise RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
     return engines
+
+
+def quarto_inputs_from_inspect(file_or_directory: str, inspect: QuartoInspectResult) -> list[str]:
+    """The project's render inputs relative to its root, in Quarto's render order.
+
+    Empty for a standalone document; its inspect output has no files section.
+    """
+    if not isdir(file_or_directory):
+        return []
+    inputs = inspect.get("files", {}).get("input", [])
+    return [PurePath(relpath(each, file_or_directory)).as_posix() for each in inputs]
 
 
 # ===============================================================================

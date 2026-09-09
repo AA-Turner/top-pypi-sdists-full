@@ -1,42 +1,10 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Polynomial machine learning potential interface."""
-
-# Copyright (C) 2024 Atsushi Togo
-# All rights reserved.
-#
-# This file is part of phonopy.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in
-#   the documentation and/or other materials provided with the
-#   distribution.
-#
-# * Neither the name of the phonopy project nor the names of its
-#   contributors may be used to endorse or promote products derived
-#   from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import annotations
 
 import os
+import pathlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar
@@ -44,7 +12,11 @@ from typing import Any, Literal, TypeVar
 import numpy as np
 from numpy.typing import NDArray
 
-from phonopy.exception import PypolymlpDevelopmentError, PypolymlpRelaxationError
+from phonopy.exception import (
+    PypolymlpDevelopmentError,
+    PypolymlpRelaxationError,
+    PypolymlpVersionError,
+)
 from phonopy.file_IO import get_io_module_to_decompress
 from phonopy.harmonic.displacement import Type2DisplacementDataset
 from phonopy.physical_units import get_physical_units
@@ -56,6 +28,53 @@ except ImportError:
     Pypolymlp = Any
 
 _DatasetT = TypeVar("_DatasetT", "PypolymlpData", "PypolymlpStructureData")
+
+_IndexLike = slice | Sequence[int] | NDArray[np.integer] | NDArray[np.bool_]
+
+
+def _normalize_index(index: _IndexLike, n: int) -> slice | NDArray[np.intp]:
+    """Return the index as a slice or as positions into n entries.
+
+    A slice passes through unchanged. A sequence of integers or a boolean
+    mask of length n becomes an array of positions, which indexes both the
+    ndarray and the list attributes of a dataset. A bare integer is
+    rejected: these datasets have no single-entry type, and data[i : i + 1]
+    or data[[i]] gives the one-entry dataset instead.
+
+    """
+    if isinstance(index, slice):
+        return index
+    if isinstance(index, (int, np.integer)):
+        raise TypeError(
+            f"Indexing by a single integer is not supported; use "
+            f"[{index}:{index + 1}] or [[{index}]] for a dataset of one entry."
+        )
+
+    positions = np.asarray(index)
+    if positions.size == 0:
+        return np.zeros(0, dtype=np.intp)
+    if positions.ndim != 1:
+        raise TypeError("Only one-dimensional index sequences are supported.")
+    if positions.dtype == np.bool_:
+        if len(positions) != n:
+            raise IndexError(
+                f"Boolean mask of length {len(positions)} does not match {n} entries."
+            )
+        return np.flatnonzero(positions).astype(np.intp)
+    if not np.issubdtype(positions.dtype, np.integer):
+        raise TypeError(
+            "Only slices, sequences of integers and boolean masks are supported."
+        )
+    if np.any(positions < -n) or np.any(positions >= n):
+        raise IndexError(f"Index out of range for a dataset of {n} entries.")
+    return positions.astype(np.intp)
+
+
+def _take(items: list, index: slice | NDArray[np.intp]) -> list:
+    """Return the selected entries of a list attribute."""
+    if isinstance(index, slice):
+        return items[index]
+    return [items[i] for i in index]
 
 
 @dataclass
@@ -88,6 +107,24 @@ class PypolymlpParams:
         Atomic energies specified by dictionary, e.g., {'Si': -0.35864636, 'O':
         -0.95743902}, where the order is irrelevant. Default is None, which
         gives zero energies for all atoms.
+    reg_alpha_params : Sequence[float, float, int], optional
+        Ridge penalties to try, as np.linspace(p[0], p[1], p[2]) of the
+        base-10 logarithm, so the default (-3.0, 1.0, 5) means alpha = 1e-3,
+        1e-2, 1e-1, 1e0, 1e1. pypolymlp fits all of them -- the cost is one
+        Cholesky solve each against building the design matrix once -- and
+        keeps the one with the smallest test RMSE.
+
+        Set the three values equal in count 1, e.g. (-1.0, -1.0, 1), to pin
+        alpha instead of selecting it. That is worth doing when the potential
+        is judged by something other than its own force error: selecting on
+        test RMSE picks the least regularized model, whose weakly determined
+        directions are free to differ between separately trained potentials.
+    optimal : bool, optional
+        Whether to keep only the MLP with the smallest test RMSE when the MLP
+        is written to file. With False, every ridge penalty of
+        reg_alpha_params that pypolymlp fitted is written, which is how one
+        fit yields the whole ladder. This parameter does not reach pypolymlp's
+        fit; it is read when the MLP is saved. Default is True.
 
     """
 
@@ -101,6 +138,8 @@ class PypolymlpParams:
     atom_energies: dict[str, float] | None = None
     ntrain: int | None = None
     ntest: int | None = None
+    reg_alpha_params: tuple[float, float, int] = (-3.0, 1.0, 5)
+    optimal: bool = True
 
 
 @dataclass
@@ -152,14 +191,19 @@ class PypolymlpData:
         """Return number of snapshots."""
         return len(self.displacements)
 
-    def __getitem__(self, index: slice) -> PypolymlpData:
-        """Return the sliced snapshots, sharing the reference supercell."""
-        if not isinstance(index, slice):
-            raise TypeError("Only slices are supported.")
+    def __getitem__(self, index: _IndexLike) -> PypolymlpData:
+        """Return the selected snapshots, sharing the reference supercell.
+
+        The index is a slice, a sequence of integers or a boolean mask, so
+        that scattered snapshots can be selected as well as a contiguous
+        block.
+
+        """
+        idx = _normalize_index(index, len(self))
         return PypolymlpData(
-            displacements=self.displacements[index],
-            forces=self.forces[index],
-            supercell_energies=self.supercell_energies[index],
+            displacements=self.displacements[idx],
+            forces=self.forces[idx],
+            supercell_energies=self.supercell_energies[idx],
             supercell=self.supercell,
         )
 
@@ -254,6 +298,7 @@ def develop_pypolymlp(
         gtinv_order=_params.gtinv_order,
         gtinv_maxl=_params.gtinv_maxl,
         gaussian_params2=_params.gaussian_params2,
+        reg_alpha_params=_params.reg_alpha_params,
         atomic_energy=tuple(elements_energies.values()),
     )
     if isinstance(train_data, PypolymlpData):
@@ -325,15 +370,21 @@ class PypolymlpStructureData:
         """Return number of structures."""
         return len(self.structures)
 
-    def __getitem__(self, index: slice) -> PypolymlpStructureData:
-        """Return the sliced structures and their properties."""
-        if not isinstance(index, slice):
-            raise TypeError("Only slices are supported.")
+    def __getitem__(self, index: _IndexLike) -> PypolymlpStructureData:
+        """Return the selected structures and their properties.
+
+        The index is a slice, a sequence of integers or a boolean mask. An
+        integer sequence is what an even draw across lattice points needs:
+        a contiguous block of a dataset built lattice point by lattice point
+        would omit most of them.
+
+        """
+        idx = _normalize_index(index, len(self))
         return PypolymlpStructureData(
-            structures=self.structures[index],
-            energies=self.energies[index],
-            forces=self.forces[index],
-            stresses=None if self.stresses is None else self.stresses[index],
+            structures=_take(self.structures, idx),
+            energies=self.energies[idx],
+            forces=_take(self.forces, idx),
+            stresses=None if self.stresses is None else self.stresses[idx],
         )
 
 
@@ -355,8 +406,9 @@ def split_pypolymlp_dataset(
 
     The dataset is not shuffled: the first `1 - test_size` fraction becomes
     the training dataset and the rest becomes the test dataset. Datasets
-    also slice directly, e.g. `data[:20]`, which is what a series over
-    training-set sizes needs.
+    also index directly, e.g. `data[:20]` for a series over training-set
+    sizes, or `data[indices]` with a sequence of integers or a boolean mask
+    to select scattered entries.
 
     Parameters
     ----------
@@ -591,6 +643,8 @@ def parse_mlp_params(params: str | dict | PypolymlpParams) -> PypolymlpParams:
     atom_energies: Optional[dict[str, float]] = None
     ntrain: Optional[int] = None
     ntest: Optional[int] = None
+    reg_alpha_params: Sequence[float, float, int] = (-3.0, 1.0, 5)
+    optimal: bool = True
 
     Parameters
     ----------
@@ -603,7 +657,11 @@ def parse_mlp_params(params: str | dict | PypolymlpParams) -> PypolymlpParams:
 
         "cutoff = 10.0, gtinv_maxl = 8 8"
         "atom_energies = Si -0.35864636 O -0.95743902"
+        "reg_alpha_params = -1.0 -1.0 1"
+        "optimal = .false."
 
+    An unrecognized key is ignored without a warning, so a misspelt parameter
+    silently leaves its default in place.
 
     """
     if isinstance(params, dict):
@@ -619,7 +677,11 @@ def parse_mlp_params(params: str | dict | PypolymlpParams) -> PypolymlpParams:
             key, val = key_val
             if key == "gtinv_maxl":
                 params_dict[key] = tuple(map(int, val.split()))
-            elif key == "gaussian_params1" or key == "gaussian_params2":
+            elif key in (
+                "gaussian_params1",
+                "gaussian_params2",
+                "reg_alpha_params",
+            ):
                 vals = val.split()
                 params_dict[key] = (float(vals[0]), float(vals[1]), int(vals[2]))
             elif key == "atom_energies":
@@ -628,11 +690,23 @@ def parse_mlp_params(params: str | dict | PypolymlpParams) -> PypolymlpParams:
                     raise ValueError(
                         "The input list must have an even number of elements."
                     )
+                # The values were lower-cased above, so the symbols are put
+                # back into the spelling of an element: Na, not na.
                 params_dict[key] = {
-                    vals[i]: float(vals[i + 1]) for i in range(0, len(vals), 2)
+                    vals[i].capitalize(): float(vals[i + 1])
+                    for i in range(0, len(vals), 2)
                 }
             elif key == "cutoff":
                 params_dict[key] = float(val)
+            elif key == "optimal":
+                # val is lower-cased above, and both the conf-file style and
+                # the bare word are accepted.
+                if val in (".true.", "true"):
+                    params_dict[key] = True
+                elif val in (".false.", "false"):
+                    params_dict[key] = False
+                else:
+                    raise ValueError(f'"optimal" must be true or false, not "{val}".')
             else:
                 if key in ("model_type", "max_p", "gtinv_order", "ntrain", "ntest"):
                     params_dict[key] = int(val)
@@ -641,9 +715,50 @@ def parse_mlp_params(params: str | dict | PypolymlpParams) -> PypolymlpParams:
         raise RuntimeError("params has to be dict, str, or PypolymlpParams.")
 
 
-def save_pypolymlp(mlp: Pypolymlp, filename: str) -> None:  # type: ignore
-    """Save MLP data to file."""
-    mlp.save_mlp(filename=filename)
+def save_pypolymlp(  # type: ignore
+    mlp: Pypolymlp, filename: str | os.PathLike, optimal: bool = True
+) -> None:
+    """Save MLP data to file.
+
+    Parameters
+    ----------
+    mlp : Pypolymlp
+        Developed MLP.
+    filename : str or os.PathLike
+        File name to write the MLP into.
+    optimal : bool, optional
+        With True, only the MLP with the lowest prediction error is written.
+        With False, every MLP that pypolymlp fitted over its regularization
+        parameters is written, as `filename`.v01, `filename`.v02, ...,
+        accompanied by a log file listing their regularization parameters and
+        test errors. The number is the position in the regularization ladder
+        rather than a count of the files written, so a fit that pypolymlp
+        discarded leaves a gap. The log is written beside `filename` with its
+        suffix
+        replaced by ".log", since pypolymlp would otherwise put it in the
+        current directory whatever `filename` says. This requires
+        pypolymlp>=0.21.0. Default is True.
+
+    """
+    # pypolymlp builds the versioned names by concatenating strings, so a
+    # PathLike must be converted here rather than passed through.
+    path = pathlib.Path(filename)
+    if optimal:
+        mlp.save_mlp(filename=str(path))
+        return
+
+    # pypolymlp<0.21.0 has no `optimal` parameter. The TypeError it raises is
+    # chained so that one raised inside save_mlp remains visible.
+    try:
+        mlp.save_mlp(
+            filename=str(path),
+            filename_log=str(path.with_suffix(".log")),
+            optimal=False,
+        )
+    except TypeError as e:
+        raise PypolymlpVersionError(
+            "Writing all MLPs requires pypolymlp>=0.21.0."
+        ) from e
 
 
 def load_pypolymlp(filename: str | os.PathLike | None) -> Pypolymlp:  # type: ignore

@@ -104,8 +104,7 @@ def test_sdiffstore(r: ClientType):
     r.sadd("bar", "member3")
     assert r.sdiffstore("baz", "foo", "bar") == 1
 
-    # Catch instances where we store bytes and strings inconsistently
-    # and thus baz = {'member1', b'member1'}
+    # Catch instances where we store bytes and strings inconsistently and thus baz = {'member1', b'member1'}
     r.sadd("baz", "member1")
     assert r.scard("baz") == 1
 
@@ -149,8 +148,7 @@ def test_sinterstore(r: ClientType):
     r.sadd("bar", "member3")
     assert r.sinterstore("baz", "foo", "bar") == 1
 
-    # Catch instances where we store bytes and strings inconsistently
-    # and thus baz = {'member2', b'member2'}
+    # Catch instances where we store bytes and strings inconsistently and thus baz = {'member2', b'member2'}
     r.sadd("baz", "member2")
     assert r.scard("baz") == 1
 
@@ -338,8 +336,8 @@ def test_sunionstore(r: ClientType):
     assert r.sunionstore("baz", "foo", "bar") == 3
     assert set(r.smembers("baz")) == {b"member1", b"member2", b"member3"}
 
-    # Catch instances where we store bytes and strings inconsistently
-    # and thus baz = {b'member1', b'member2', b'member3', 'member3'}
+    # Catch instances where we store bytes and strings inconsistently and thus baz = {b'member1', b'member2',
+    # b'member3', 'member3'}
     r.sadd("baz", "member3")
     assert r.scard("baz") == 3
 
@@ -424,13 +422,17 @@ def test_sintercard_bytes_keys(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
-def test_sintercard_negative_limit(r: ClientType):
+def test_sintercard_negative_limit(r: ClientType, real_server_details):
     r.sadd("foo", "member1", "member2")
     r.sadd("bar", "member2", "member3")
     with pytest.raises(Exception) as ctx:
         r.sintercard(2, ["foo", "bar"], limit=-1)
     assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
-    assert "LIMIT can't be negative" in str(ctx.value)
+    # Dragonfly lower-cases the same complaint.
+    expected = (
+        "limit can't be negative" if real_server_details.server_type == "dragonfly" else "LIMIT can't be negative"
+    )
+    assert expected in str(ctx.value)
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
@@ -532,25 +534,43 @@ def test_psetex_expire_value_using_timedelta(r: ClientType):
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
-def test_sintercard_numkeys_not_positive(r: ClientType):
+def test_sintercard_numkeys_not_positive(r: ClientType, real_server_details):
     r.sadd("foo", "member1")
+    is_dragonfly = real_server_details.server_type == "dragonfly"
     for numkeys in (0, -1):
-        with pytest.raises(Exception, match="numkeys should be greater than 0") as ctx:
+        # Dragonfly reads numkeys as unsigned, so -1 fails to decode before the key check.
+        if is_dragonfly:
+            expected = "at least 1 input key is needed" if numkeys == 0 else "value is not an integer or out of range"
+        else:
+            expected = "numkeys should be greater than 0"
+        with pytest.raises(Exception, match=expected) as ctx:
             testtools.raw_command(r, "sintercard", numkeys, "foo")
         assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
 
 
 @pytest.mark.supported_server_versions(min_redis_ver="7")
-def test_sintercard_numkeys_greater_than_keys(r: ClientType):
+def test_sintercard_numkeys_greater_than_keys(r: ClientType, real_server_details):
     r.sadd("foo", "member1")
-    with pytest.raises(Exception, match="Number of keys can't be greater than number of args") as ctx:
+    # Dragonfly reports a numkeys that overruns the key list as a plain syntax error.
+    expected = (
+        "syntax error"
+        if real_server_details.server_type == "dragonfly"
+        else "Number of keys can't be greater than number of args"
+    )
+    with pytest.raises(Exception, match=expected) as ctx:
         testtools.raw_command(r, "sintercard", 9, "foo")
     assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
 
 
-def test_spop_negative_count(r: ClientType):
+def test_spop_negative_count(r: ClientType, real_server_details):
     r.sadd("foo", "member1")
-    with pytest.raises(Exception, match="value is out of range, must be positive") as ctx:
+    # Dragonfly fails while decoding the count, so it gives the generic integer error.
+    expected = (
+        "value is not an integer or out of range"
+        if real_server_details.server_type == "dragonfly"
+        else "value is out of range, must be positive"
+    )
+    with pytest.raises(Exception, match=expected) as ctx:
         r.spop("foo", -1)
     assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
     assert r.scard("foo") == 1

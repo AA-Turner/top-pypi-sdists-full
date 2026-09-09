@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <xgrammar/xgrammar.h>
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 #include "test_utils.h"
 
@@ -77,6 +79,40 @@ TEST(LarkConverterTest, NamedGrammarSources) {
   );
 }
 
+TEST(LarkConverterTest, GrammarCompilerCachesLarkSources) {
+  TokenizerInfo tokenizer_info(std::vector<std::string>{});
+  GrammarCompiler compiler(tokenizer_info, /*max_threads=*/1, /*cache_enabled=*/true);
+
+  auto first = compiler.CompileLark(R"(start: "a")");
+  auto repeated = compiler.CompileLark(R"(start: "a")");
+  EXPECT_EQ(first.ImplPtr(), repeated.ImplPtr());
+
+  std::vector<NamedGrammar> named_grammars = {
+      {"left", std::string(R"(start: "a")")}, {"right", std::string(R"(start: "b")")}
+  };
+  auto with_named_grammars = compiler.CompileLark("start: @left @right", named_grammars);
+  std::reverse(named_grammars.begin(), named_grammars.end());
+  auto with_reordered_named_grammars = compiler.CompileLark("start: @left @right", named_grammars);
+  EXPECT_EQ(with_named_grammars.ImplPtr(), with_reordered_named_grammars.ImplPtr());
+
+  auto with_different_named_grammar = compiler.CompileLark(
+      "start: @left @right",
+      {{"left", std::string(R"(start: "a")")}, {"right", std::string(R"(start: "c")")}}
+  );
+  EXPECT_NE(with_named_grammars.ImplPtr(), with_different_named_grammar.ImplPtr());
+
+  auto with_grammar_object =
+      compiler.CompileLark("start: @item", {{"item", Grammar::FromLark(R"(start: "item")")}});
+  auto with_equivalent_grammar_object =
+      compiler.CompileLark("start: @item", {{"item", Grammar::FromLark(R"(start: "item")")}});
+  EXPECT_EQ(with_grammar_object.ImplPtr(), with_equivalent_grammar_object.ImplPtr());
+
+  GrammarCompiler uncached_compiler(tokenizer_info, /*max_threads=*/1, /*cache_enabled=*/false);
+  auto uncached_first = uncached_compiler.CompileLark(R"(start: "a")");
+  auto uncached_second = uncached_compiler.CompileLark(R"(start: "a")");
+  EXPECT_NE(uncached_first.ImplPtr(), uncached_second.ImplPtr());
+}
+
 TEST(LarkConverterTest, DynamicToolCallLowersToTagDispatch) {
   auto grammar = Grammar::FromLark(R"(
     start: (foo | bar)* tail
@@ -105,11 +141,18 @@ TEST(LarkConverterTest, NumericAndNamedSpecialTokens) {
 }
 
 TEST(LarkConverterTest, StringAndRegexFlags) {
+  // The i flag folds ASCII letters; non-ASCII characters in the regex are matched literally.
   auto grammar = Grammar::FromLark(R"(
-    start: "Ab-1"i /a.b/s
+    start: "Case"i /Σ[^k].x/isu
   )");
   std::string printed = grammar.ToString();
   EXPECT_NE(printed.find("root"), std::string::npos);
+
+  XGRAMMAR_EXPECT_THROW(
+      Grammar::FromLark("start: \"Żółw\"i"),
+      XGrammarError,
+      "case-insensitive string literals currently support ASCII characters only"
+  );
 }
 
 TEST(LarkConverterTest, DynamicRegexSuffixAndSuffixAttribute) {
@@ -144,9 +187,14 @@ TEST(LarkConverterTest, ErrorsContainSourceLocations) {
       "circular reference in terminal"
   );
   XGRAMMAR_EXPECT_THROW(
-      Grammar::FromLark("start[capture]: \"a\""),
+      Grammar::FromLark("start[budget=10]: \"a\""),
       XGrammarError,
-      "attribute 'capture' is not supported"
+      "attribute 'budget' is not supported"
+  );
+  XGRAMMAR_EXPECT_THROW(
+      Grammar::FromLark("start[capture=\"a b\"]: \"a\""),
+      XGrammarError,
+      "capture name must only contain letters, digits"
   );
   XGRAMMAR_EXPECT_THROW(
       Grammar::FromLark("start: A & B\nA: \"a\"\nB: \"b\""),
@@ -154,14 +202,9 @@ TEST(LarkConverterTest, ErrorsContainSourceLocations) {
       "intersection '&' is not supported"
   );
   XGRAMMAR_EXPECT_THROW(
-      Grammar::FromLark("start: /abc/i"),
+      Grammar::FromLark("start: /abc/m"),
       XGrammarError,
-      "only the regular-expression flag 's' is currently supported"
-  );
-  XGRAMMAR_EXPECT_THROW(
-      Grammar::FromLark("start: \"\\u00c4\"i"),
-      XGrammarError,
-      "currently support ASCII characters only"
+      "regular-expression flag 'm' is not supported"
   );
   XGRAMMAR_EXPECT_THROW(
       Grammar::FromLark("start: TOKEN\nTOKEN: %json {}"),

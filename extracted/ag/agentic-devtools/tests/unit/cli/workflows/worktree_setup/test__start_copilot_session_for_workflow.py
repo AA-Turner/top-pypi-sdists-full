@@ -40,6 +40,132 @@ def _patch_no_tty(monkeypatch):
 class TestStartCopilotSessionForWorkflow:
     """Tests for the generic _start_copilot_session_for_workflow helper."""
 
+    @patch("agentic_devtools.cli.workflows.worktree_setup._open_log_in_vscode")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._cleanup_stale_auto_start_task_for_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_vscode_available")
+    @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file", return_value=True)
+    def test_headless_starts_background_session_without_vscode_side_effects(
+        self,
+        mock_wait,
+        mock_copilot,
+        mock_vscode_available,
+        mock_open_vscode,
+        mock_cleanup,
+        mock_open_log,
+        tmp_path,
+        capsys,
+    ):
+        """Headless mode skips VS Code operations and reports session monitoring details."""
+        session_result = MagicMock(session_id="session-123", pid=1234, log_file="/tmp/copilot.log", process=object())
+        mock_copilot.return_value = session_result
+        prompt_file = _setup_prompt_file(tmp_path)
+
+        with patch("agentic_devtools.state.get_state_dir", return_value=tmp_path):
+            result = _start_copilot_session_for_workflow(
+                worktree_path=str(tmp_path),
+                prompt_file_relative_path=str(prompt_file.relative_to(tmp_path)),
+                workflow_name=_CUSTOM_WORKFLOW_NAME,
+                interactive=True,
+                headless=True,
+            )
+
+        assert result is True
+        mock_wait.assert_called_once()
+        mock_copilot.assert_called_once_with(
+            prompt=_build_session_start_prompt(str(prompt_file.relative_to(tmp_path))),
+            working_directory=str(tmp_path),
+            interactive=False,
+            model=None,
+        )
+        mock_vscode_available.assert_not_called()
+        mock_open_vscode.assert_not_called()
+        mock_cleanup.assert_not_called()
+        mock_open_log.assert_not_called()
+        assert "session-123" in capsys.readouterr().out
+
+    @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file", return_value=True)
+    def test_headless_manual_fallback_returns_false(
+        self,
+        mock_wait,
+        mock_copilot,
+        tmp_path,
+        capsys,
+    ):
+        """Headless mode returns False when no live session was started."""
+        session_result = MagicMock(session_id="session-123", pid=None, log_file=None)
+        mock_copilot.return_value = session_result
+        prompt_file = _setup_prompt_file(tmp_path)
+
+        with patch("agentic_devtools.state.get_state_dir", return_value=tmp_path):
+            result = _start_copilot_session_for_workflow(
+                worktree_path=str(tmp_path),
+                prompt_file_relative_path=str(prompt_file.relative_to(tmp_path)),
+                workflow_name=_CUSTOM_WORKFLOW_NAME,
+                headless=True,
+            )
+
+        assert result is False
+        mock_wait.assert_called_once()
+        captured = capsys.readouterr()
+        assert "could not be started automatically" in captured.out
+
+    @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file", return_value=True)
+    def test_headless_reused_session_reports_log_path(
+        self,
+        mock_wait,
+        mock_copilot,
+        tmp_path,
+        capsys,
+    ):
+        """Headless mode surfaces the persisted log path for reused live sessions."""
+        session_result = MagicMock(session_id="session-123", pid=1234, log_file="/tmp/copilot.log", process=None)
+        mock_copilot.return_value = session_result
+        prompt_file = _setup_prompt_file(tmp_path)
+
+        with patch("agentic_devtools.state.get_state_dir", return_value=tmp_path):
+            result = _start_copilot_session_for_workflow(
+                worktree_path=str(tmp_path),
+                prompt_file_relative_path=str(prompt_file.relative_to(tmp_path)),
+                workflow_name=_CUSTOM_WORKFLOW_NAME,
+                headless=True,
+            )
+
+        assert result is True
+        mock_wait.assert_called_once()
+        captured = capsys.readouterr().out
+        assert "already running" in captured
+        assert "/tmp/copilot.log" in captured
+
+    @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file", return_value=True)
+    def test_headless_reused_session_without_log_path_reports_existing_session(
+        self,
+        mock_wait,
+        mock_copilot,
+        tmp_path,
+        capsys,
+    ):
+        """Headless mode still reports a reused session when no persisted log path exists."""
+        session_result = MagicMock(session_id="session-123", pid=1234, log_file=None, process=None)
+        mock_copilot.return_value = session_result
+        prompt_file = _setup_prompt_file(tmp_path)
+
+        with patch("agentic_devtools.state.get_state_dir", return_value=tmp_path):
+            result = _start_copilot_session_for_workflow(
+                worktree_path=str(tmp_path),
+                prompt_file_relative_path=str(prompt_file.relative_to(tmp_path)),
+                workflow_name=_CUSTOM_WORKFLOW_NAME,
+                headless=True,
+            )
+
+        assert result is True
+        mock_wait.assert_called_once()
+        assert "already running" in capsys.readouterr().out
+
     @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
     @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file")
     def test_recovery_prompt_skips_prompt_file_wait(
@@ -65,6 +191,85 @@ class TestStartCopilotSessionForWorkflow:
             interactive=False,
             model=None,
         )
+
+    @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_vscode_available")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._cleanup_stale_auto_start_task_for_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file", return_value=True)
+    def test_terminal_mode_skips_vscode_and_forwards_terminal_flag(
+        self,
+        mock_wait,
+        mock_cleanup,
+        mock_vscode_available,
+        mock_copilot,
+        tmp_path,
+    ):
+        """Dedicated terminal mode bypasses VS Code and forwards the launch mode."""
+        prompt_file = _setup_prompt_file(tmp_path)
+        mock_copilot.return_value = MagicMock(log_file=None)
+
+        with patch("agentic_devtools.state.get_state_dir", return_value=tmp_path):
+            result = _start_copilot_session_for_workflow(
+                worktree_path=str(tmp_path),
+                prompt_file_relative_path=str(prompt_file.relative_to(tmp_path)),
+                workflow_name=_CUSTOM_WORKFLOW_NAME,
+                terminal=True,
+            )
+
+        assert result is True
+        mock_wait.assert_called_once()
+        mock_vscode_available.assert_not_called()
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+        mock_copilot.assert_called_once_with(
+            prompt=_build_session_start_prompt(str(prompt_file.relative_to(tmp_path))),
+            working_directory=str(tmp_path),
+            interactive=False,
+            model=None,
+            terminal=True,
+        )
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup._open_log_in_vscode")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._cleanup_stale_auto_start_task_for_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_vscode_available")
+    @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file", return_value=True)
+    def test_headless_overrides_terminal_mode(
+        self,
+        mock_wait,
+        mock_copilot,
+        mock_vscode_available,
+        mock_open_vscode,
+        mock_cleanup,
+        mock_open_log,
+        tmp_path,
+    ):
+        """Headless mode suppresses terminal launches even if terminal=True was passed."""
+        session_result = MagicMock(session_id="session-123", pid=1234, log_file="/tmp/copilot.log", process=object())
+        mock_copilot.return_value = session_result
+        prompt_file = _setup_prompt_file(tmp_path)
+
+        with patch("agentic_devtools.state.get_state_dir", return_value=tmp_path):
+            result = _start_copilot_session_for_workflow(
+                worktree_path=str(tmp_path),
+                prompt_file_relative_path=str(prompt_file.relative_to(tmp_path)),
+                workflow_name=_CUSTOM_WORKFLOW_NAME,
+                headless=True,
+                terminal=True,
+            )
+
+        assert result is True
+        mock_wait.assert_called_once()
+        mock_copilot.assert_called_once_with(
+            prompt=_build_session_start_prompt(str(prompt_file.relative_to(tmp_path))),
+            working_directory=str(tmp_path),
+            interactive=False,
+            model=None,
+        )
+        mock_vscode_available.assert_not_called()
+        mock_open_vscode.assert_not_called()
+        mock_cleanup.assert_not_called()
+        mock_open_log.assert_not_called()
 
     @patch("agentic_devtools.cli.copilot.session.start_copilot_session")
     @patch("agentic_devtools.cli.workflows.worktree_setup._wait_for_prompt_file")

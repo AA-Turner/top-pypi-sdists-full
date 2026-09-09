@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2025, Ansible Cloud Team (@ansible-collections)
+# Copyright: (c) 2025, Ansible Eco Content Team (github.com/eco-ansible-content)
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -16,7 +16,7 @@ short_description: Manages power states of virtual machines in vCenter
 description:
     - Manages power states of virtual machines in vCenter, e.g., Power on / Power off / Restart.
 author:
-    - Ansible Cloud Team (@ansible-collections)
+    - Mike Morency (@mikemorency)
 
 options:
     datacenter:
@@ -261,7 +261,7 @@ class VmPowerstateModule(ModulePyvmomiBase):
         self.vm = vm_list[0]
         state = self.params['state']
         self.desired_state = state.replace('_', '').replace('-', '').lower()
-        self.current_state = self.vm.summary.runtime.powerState.lower()
+        self.current_state = self.vm.runtime.powerState.lower()
         self.result["vm"]['moid'] = self.vm._GetMoId()
         self.result["vm"]['name'] = self.vm.name
 
@@ -287,7 +287,7 @@ class VmPowerstateModule(ModulePyvmomiBase):
 
         end_time = datetime.now() + timedelta(seconds=timeout)
         while datetime.now() < end_time:
-            if self.vm.summary.runtime.powerState.lower() == 'poweredoff':
+            if self.vm.runtime.powerState.lower() == 'poweredoff':
                 break
             time.sleep(5)
 

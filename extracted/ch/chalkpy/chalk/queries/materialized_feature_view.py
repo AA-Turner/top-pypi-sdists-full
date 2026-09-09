@@ -73,6 +73,10 @@ class MaterializedFeatureView:
             table acceleration are not aware of them. When both retention parameters
             are set, the later lower bound applies. Defaults to ``None``, which applies
             no moving retention window, and therefore retains data indefinitely.
+        background_compaction: Whether to include this view in automatic background
+            compaction. Compaction combines multiple rows into a summary row when
+            possible, making the table smaller and reads cheaper. Defaults to ``True``.
+            Another option is manual compaction, which can be triggered via the UI.
     """
 
     def __init__(
@@ -83,6 +87,7 @@ class MaterializedFeatureView:
         update_cadence: "CronTab | Duration",
         lower_bound: datetime | None = None,
         lookback_retention_period: Duration | None = None,
+        background_compaction: bool = True,
     ):
         super().__init__()
 
@@ -135,6 +140,7 @@ class MaterializedFeatureView:
         self.update_cadence = update_cadence
         self.lower_bound = lower_bound
         self.lookback_retention_period = lookback_retention_period
+        self.background_compaction = background_compaction
         self.filename = caller_filename
         self.source_line_start = source_line_start
         self.source_line_end = source_line_end
@@ -151,7 +157,8 @@ class MaterializedFeatureView:
             f"MaterializedFeatureView("
             f"namespace={self.namespace!r}, "
             f"time_resolution={self.time_resolution!r}, "
-            f"update_cadence={self.update_cadence!r}"
+            f"update_cadence={self.update_cadence!r}, "
+            f"background_compaction={self.background_compaction!r}"
             f")"
         )
 
@@ -164,6 +171,7 @@ class MaterializedFeatureView:
             and self.update_cadence == other.update_cadence
             and self.lower_bound == other.lower_bound
             and self.lookback_retention_period == other.lookback_retention_period
+            and self.background_compaction == other.background_compaction
         )
 
 

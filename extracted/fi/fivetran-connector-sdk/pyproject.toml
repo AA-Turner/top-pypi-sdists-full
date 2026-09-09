@@ -13,13 +13,14 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "grpcio==1.80.0",
-  "grpcio-tools==1.80.0",
+  "grpcio==1.83.0",
+  "grpcio-tools==1.83.0",
   "requests==2.34.2",
   "pipreqs-fivetran==1.1.2",
-  "prompt-toolkit==3.0.52",
+  "prompt-toolkit==3.0.53",
   "pathspec==1.1.1",
-  "tqdm==4.67.1"
+  "tqdm==4.70.0",
+  "cryptography==49.0.0"
 ]
 
 [project.scripts]

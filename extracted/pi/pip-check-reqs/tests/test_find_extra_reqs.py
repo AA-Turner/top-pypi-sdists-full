@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import re
+import sys
 import textwrap
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pip  # This happens to be installed in the test environment.
@@ -12,7 +15,7 @@ import pytest
 from pip_check_reqs import common, find_extra_reqs
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from .conftest import EditableInstall, NestedInstall
 
 
 def test_find_extra_reqs(tmp_path: Path) -> None:
@@ -47,16 +50,54 @@ def test_find_extra_reqs(tmp_path: Path) -> None:
     result = find_extra_reqs.find_extra_reqs(
         requirements_filename=fake_requirements_file,
         paths=[source_dir],
-        ignore_files_function=common.ignorer(ignore_cfg=[]),
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
         ignore_modules_function=common.ignorer(ignore_cfg=[]),
         ignore_requirements_function=common.ignorer(ignore_cfg=[]),
         skip_incompatible=False,
+        use_gitignore=False,
     )
-    expected_result = [
-        "not-installed-package-12345",
-        installed_not_imported_required_package.__name__,
-    ]
-    assert sorted(result) == sorted(expected_result)
+    expected_result = [installed_not_imported_required_package.__name__]
+    assert result == expected_result
+
+
+def test_uninstalled_requirement_is_not_extra(
+    *,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """An uninstalled requirement is reported as unchecked, not as extra.
+
+    We tell which modules a requirement provides from the files of the
+    installed distribution, so we cannot tell whether an uninstalled
+    requirement is used, even when the code imports it.
+    """
+    fake_requirements_file = tmp_path / "requirements.txt"
+    fake_requirements_file.write_text("not_installed_package_12345==1\n")
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+
+    source_file = source_dir / "source.py"
+    source_file.write_text("import not_installed_package_12345\n")
+
+    caplog.set_level(logging.WARNING)
+
+    result = find_extra_reqs.find_extra_reqs(
+        requirements_filename=fake_requirements_file,
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        ignore_requirements_function=common.ignorer(ignore_cfg=[]),
+        skip_incompatible=False,
+        use_gitignore=False,
+    )
+
+    assert not result
+    expected_message = (
+        "not-installed-package-12345 is not installed, so we cannot tell "
+        "whether it is used"
+    )
+    assert [record.message for record in caplog.records] == [expected_message]
 
 
 def test_main_failure(
@@ -64,8 +105,12 @@ def test_main_failure(
     caplog: pytest.LogCaptureFixture,
     tmp_path: Path,
 ) -> None:
+    installed_not_imported_required_package = pytest
+
     requirements_file = tmp_path / "requirements.txt"
-    requirements_file.write_text("extra")
+    requirements_file.write_text(
+        installed_not_imported_required_package.__name__,
+    )
 
     source_dir = tmp_path / "source"
     source_dir.mkdir()
@@ -84,7 +129,173 @@ def test_main_failure(
     assert excinfo.value.code == 1
 
     assert caplog.records[0].message == "Extra requirements:"
-    assert caplog.records[1].message == f"extra in {requirements_file}"
+    expected_message = (
+        f"{installed_not_imported_required_package.__name__} in "
+        f"{requirements_file}"
+    )
+    assert caplog.records[1].message == expected_message
+
+
+def test_main_pyproject_requirements_file(
+    *,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """A ``pyproject.toml`` file given as the requirements file is read."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        data='[project]\nname = "spam"\ndependencies = ["pip", "pytest"]\n',
+    )
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "source.py").write_text("import pip\n")
+
+    caplog.set_level(logging.WARNING)
+
+    with pytest.raises(SystemExit) as excinfo:
+        find_extra_reqs.main(
+            arguments=[
+                "--requirements-file",
+                str(pyproject),
+                str(source_dir),
+            ],
+        )
+
+    assert excinfo.value.code == 1
+    assert [record.message for record in caplog.records] == [
+        "Extra requirements:",
+        f"pytest in {pyproject}",
+    ]
+
+
+def test_main_ignore_requirement(
+    *,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """A requirement given to ``--ignore-requirement`` is not reported.
+
+    A project may need a requirement which its code never imports, such as
+    a server which runs it, so the option lets a user exclude it by name.
+    """
+    ignored_package = pytest
+    reported_package = pip
+
+    requirements_file = tmp_path / "requirements.txt"
+    requirements_file.write_text(
+        textwrap.dedent(
+            f"""\
+            {ignored_package.__name__}
+            {reported_package.__name__}
+            """,
+        ),
+    )
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+
+    caplog.set_level(logging.WARNING)
+
+    with pytest.raises(SystemExit) as excinfo:
+        find_extra_reqs.main(
+            arguments=[
+                "--requirements",
+                str(requirements_file),
+                "--ignore-requirement",
+                ignored_package.__name__,
+                str(source_dir),
+            ],
+        )
+
+    assert excinfo.value.code == 1
+    expected_messages = [
+        "Extra requirements:",
+        f"{reported_package.__name__} in {requirements_file}",
+    ]
+    assert [record.message for record in caplog.records] == expected_messages
+
+
+def test_main_ignore_requirement_glob(
+    *,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """A glob given to ``--ignore-requirement`` matches requirement names."""
+    ignored_package = pytest
+
+    requirements_file = tmp_path / "requirements.txt"
+    requirements_file.write_text(f"{ignored_package.__name__}\n")
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+
+    caplog.set_level(logging.WARNING)
+
+    find_extra_reqs.main(
+        arguments=[
+            "--requirements",
+            str(requirements_file),
+            "--ignore-requirement",
+            ignored_package.__name__[:2] + "*",
+            str(source_dir),
+        ],
+    )
+
+    assert not caplog.records
+
+
+def test_main_use_gitignore(
+    *,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """With ``--use-gitignore``, a file a ``.gitignore`` ignores is skipped.
+
+    A requirement which only an ignored file imports is then reported as
+    extra.
+    """
+    # We need to import something which is installed.
+    # We choose `pytest` because we know it is installed.
+    imported_package = pytest
+
+    requirements_file = tmp_path / "requirements.txt"
+    requirements_file.write_text(f"{imported_package.__name__}\n")
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / ".gitignore").write_text("ignored.py\n", encoding="utf-8")
+    (source_dir / "ignored.py").write_text(
+        f"import {imported_package.__name__}",
+    )
+
+    caplog.set_level(logging.WARNING)
+
+    find_extra_reqs.main(
+        arguments=[
+            "--requirements",
+            str(requirements_file),
+            str(source_dir),
+        ],
+    )
+
+    assert caplog.records == []
+
+    with pytest.raises(SystemExit) as excinfo:
+        find_extra_reqs.main(
+            arguments=[
+                "--requirements",
+                str(requirements_file),
+                "--use-gitignore",
+                str(source_dir),
+            ],
+        )
+
+    assert excinfo.value.code == 1
+    assert [record.message for record in caplog.records] == [
+        "Extra requirements:",
+        f"{imported_package.__name__} in {requirements_file}",
+    ]
 
 
 def test_main_no_spec(capsys: pytest.CaptureFixture[str]) -> None:
@@ -95,6 +306,101 @@ def test_main_no_spec(capsys: pytest.CaptureFixture[str]) -> None:
     assert excinfo.value.code == expected_code
     err = capsys.readouterr().err
     assert err.endswith("error: no source files or directories specified\n")
+
+
+def test_main_missing_requirements_file(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    requirements_file = tmp_path / "missing-requirements.txt"
+
+    with pytest.raises(SystemExit) as excinfo:
+        find_extra_reqs.main(
+            arguments=[
+                "--requirements",
+                str(requirements_file),
+                str(source_dir),
+            ],
+        )
+
+    expected_code = 2
+    assert excinfo.value.code == expected_code
+    err = capsys.readouterr().err
+    assert err.endswith(
+        f"error: requirements file not found: {requirements_file}\n",
+    )
+
+
+def test_main_missing_source_path(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    requirements_file = tmp_path / "requirements.txt"
+    requirements_file.touch()
+    source_dir = tmp_path / "missing-source"
+
+    with pytest.raises(SystemExit) as excinfo:
+        find_extra_reqs.main(
+            arguments=[
+                "--requirements",
+                str(requirements_file),
+                str(source_dir),
+            ],
+        )
+
+    expected_code = 2
+    assert excinfo.value.code == expected_code
+    err = capsys.readouterr().err
+    assert err.endswith(f"error: source path not found: {source_dir}\n")
+
+
+def test_main_source_file_parse_error(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    requirements_file = tmp_path / "requirements.txt"
+    requirements_file.touch()
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    source_file = source_dir / "spam.py"
+    source_file.write_text(data="def (\n")
+
+    with pytest.raises(SystemExit) as excinfo:
+        find_extra_reqs.main(
+            arguments=[
+                "--requirements",
+                str(requirements_file),
+                str(source_dir),
+            ],
+        )
+
+    expected_code = 2
+    assert excinfo.value.code == expected_code
+    err = capsys.readouterr().err
+    assert err.endswith(
+        f"error: could not parse {source_file}:1: invalid syntax\n",
+    )
+
+
+def test_main_debug_reraises_input_error(tmp_path: Path) -> None:
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    requirements_file = tmp_path / "missing-requirements.txt"
+
+    with pytest.raises(
+        FileNotFoundError,
+        match=re.escape(f"requirements file not found: {requirements_file}"),
+    ):
+        find_extra_reqs.main(
+            arguments=[
+                "--debug",
+                "--requirements",
+                str(requirements_file),
+                str(source_dir),
+            ],
+        )
 
 
 @pytest.mark.parametrize(
@@ -144,3 +450,162 @@ def test_main_version(capsys: pytest.CaptureFixture[str]) -> None:
         find_extra_reqs.main(arguments=["--version"])
 
     assert capsys.readouterr().out == common.version_info() + "\n"
+
+
+def test_main_warns_when_run_from_another_environment(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    requirements_file = tmp_path / "requirements.txt"
+    requirements_file.touch()
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "source.py").write_text("import pprint")
+
+    # We resolve the path as the warning shows resolved paths, and a
+    # temporary directory is reached through a symbolic link on some hosts.
+    active_prefix = (tmp_path / "active").resolve()
+    monkeypatch.setenv("VIRTUAL_ENV", str(active_prefix))
+
+    find_extra_reqs.main(
+        arguments=[
+            "--requirements-file",
+            str(requirements_file),
+            str(source_dir),
+        ],
+    )
+
+    running_prefix = Path(sys.prefix).resolve()
+    expected_stderr = (
+        f"WARNING: Running from {running_prefix}, but the active "
+        f"virtual environment is {active_prefix}. "
+        "Results describe the environment pip-check-reqs is installed in. "
+        "Install pip-check-reqs in the active virtual environment, and "
+        'run "hash -r" ("rehash" in zsh), to check that environment.\n'
+    )
+    assert capsys.readouterr().err == expected_stderr
+
+
+def test_main_does_not_warn_when_run_from_the_active_environment(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    requirements_file = tmp_path / "requirements.txt"
+    requirements_file.touch()
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    (source_dir / "source.py").write_text("import pprint")
+
+    monkeypatch.setenv("VIRTUAL_ENV", sys.prefix)
+
+    find_extra_reqs.main(
+        arguments=[
+            "--requirements-file",
+            str(requirements_file),
+            str(source_dir),
+        ],
+    )
+
+    assert capsys.readouterr().err == ""
+
+
+def test_editable_requirement_is_not_extra(
+    *,
+    editable_install: EditableInstall,
+    tmp_path: Path,
+) -> None:
+    """A requirement installed in editable mode and imported is not extra.
+
+    The files of an editable install are an import hook rather than the
+    modules of the distribution, so the modules it provides are only found by
+    looking at the project directory which it is installed from.
+    """
+    fake_requirements_file = tmp_path / "requirements.txt"
+    fake_requirements_file.write_text(
+        editable_install.distribution_name + "\n",
+    )
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    source_file = source_dir / "source.py"
+    source_file.write_text(f"import {editable_install.module_name}\n")
+
+    result = find_extra_reqs.find_extra_reqs(
+        requirements_filename=fake_requirements_file,
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        ignore_requirements_function=common.ignorer(ignore_cfg=[]),
+        skip_incompatible=False,
+        use_gitignore=False,
+    )
+
+    assert not result
+
+
+def test_editable_requirement_not_imported_is_extra(
+    *,
+    editable_install: EditableInstall,
+    tmp_path: Path,
+) -> None:
+    """A requirement installed in editable mode is extra when not imported."""
+    fake_requirements_file = tmp_path / "requirements.txt"
+    fake_requirements_file.write_text(
+        editable_install.distribution_name + "\n",
+    )
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    source_file = source_dir / "source.py"
+    source_file.write_text("import pprint\n")
+
+    result = find_extra_reqs.find_extra_reqs(
+        requirements_filename=fake_requirements_file,
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        ignore_requirements_function=common.ignorer(ignore_cfg=[]),
+        skip_incompatible=False,
+        use_gitignore=False,
+    )
+
+    assert result == [editable_install.distribution_name]
+
+
+def test_requirement_installed_within_working_directory_is_not_extra(
+    *,
+    nested_install: NestedInstall,
+    tmp_path: Path,
+) -> None:
+    """A requirement imported from a nested environment is not extra.
+
+    The environment is inside the working directory, as when it is created
+    with ``python -m venv env`` in the project directory.
+
+    See https://github.com/adamtheturtle/pip-check-reqs/issues/75.
+    """
+    fake_requirements_file = tmp_path / "requirements.txt"
+    fake_requirements_file.write_text(
+        nested_install.distribution_name + "\n",
+    )
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    source_file = source_dir / "source.py"
+    source_file.write_text(f"import {nested_install.module_name}\n")
+
+    result = find_extra_reqs.find_extra_reqs(
+        requirements_filename=fake_requirements_file,
+        paths=[source_dir],
+        ignore_files_function=common.file_ignorer(ignore_cfg=[]),
+        ignore_modules_function=common.ignorer(ignore_cfg=[]),
+        ignore_requirements_function=common.ignorer(ignore_cfg=[]),
+        skip_incompatible=False,
+        use_gitignore=False,
+    )
+
+    assert not result

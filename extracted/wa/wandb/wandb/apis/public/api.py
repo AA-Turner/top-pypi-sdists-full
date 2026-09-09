@@ -44,7 +44,6 @@ from wandb.proto import wandb_internal_pb2 as pb
 from wandb.proto.wandb_telemetry_pb2 import Deprecated
 from wandb.sdk import wandb_login, wandb_setup
 from wandb.sdk.artifacts._gqlutils import resolve_org_entity_name
-from wandb.sdk.internal.internal_api import Api as InternalApi
 from wandb.sdk.launch.utils import LAUNCH_DEFAULT_PROJECT
 from wandb.sdk.lib import json_util, runid, wbauth
 from wandb.sdk.lib.deprecation import warn_and_record_deprecation
@@ -130,7 +129,13 @@ class Api:
                 Prompts for an API key if none is provided
                 or configured in the environment.
         """
-        self.settings = InternalApi().settings()
+        global_settings = wandb_setup.singleton().settings
+        self.settings: dict[str, Any] = {
+            "base_url": env.get_base_url(global_settings.base_url),
+            "entity": env.get_entity(global_settings.entity),
+            "project": env.get_project(global_settings.project),
+            "organization": env.get_organization(global_settings.organization),
+        }
         self.settings.update(overrides or {})
         self.settings["base_url"] = self.settings["base_url"].rstrip("/")
 
@@ -183,9 +188,6 @@ class Api:
         if isinstance(self._auth, wbauth.AuthApiKey):
             wandb_login._verify_login(self._auth, service_api=self._service_api)
 
-        self._sentry = wandb.analytics.sentry.Sentry(pid=os.getpid())
-        self._configure_analytics()
-
     def _load_auth(self, base_url: str) -> wbauth.Auth:
         """Load or prompt for authentication credentials."""
         auth = wbauth.authenticate_session(
@@ -201,26 +203,6 @@ class Api:
             )
 
         return auth
-
-    def _configure_analytics(self) -> None:
-        if not env.error_reporting_enabled():
-            return
-
-        try:
-            viewer = self.viewer
-        except (ValueError, WandbApiFailedError):
-            # we need the viewer to configure the entity, and user email
-            return
-
-        email = viewer.email if viewer else None
-        entity = self.default_entity
-
-        self._sentry.configure_scope(
-            tags={
-                "entity": entity,
-                "email": email,
-            },
-        )
 
     def _resolve_org_entity_name(
         self,
@@ -281,7 +263,6 @@ class Api:
         entity: str | None = None,
         state: Literal["running", "pending"] = "running",
     ) -> public.Run:
-        self._sentry.message("Invoking Run.create", level="info")
         run_id = run_id or runid.generate_id()
         project = project or self.settings.get("project") or "uncategorized"
         mutation = """
@@ -2043,7 +2024,7 @@ class Api:
             )
 
         organization = organization or fetch_org_from_settings_or_entity(
-            self.settings, self.default_entity
+            self._service_api, self.settings, self.default_entity
         )
         return Registries(
             self._service_api,
@@ -2088,7 +2069,7 @@ class Api:
                 + " at support@wandb.com."
             )
         organization = organization or fetch_org_from_settings_or_entity(
-            self.settings, self.default_entity
+            self._service_api, self.settings, self.default_entity
         )
         registry = Registry(
             self._service_api,
@@ -2153,7 +2134,7 @@ class Api:
             )
 
         organization = organization or fetch_org_from_settings_or_entity(
-            self.settings, self.default_entity
+            self._service_api, self.settings, self.default_entity
         )
 
         try:

@@ -111,7 +111,7 @@ def fetch(fs, args):
     try:
         core.setup()
     except RuntimeError as e:
-        logger.error("Failed to fetch '{}': {}".format(core.name, str(e)))
+        logger.error(f"Failed to fetch '{core.name}': {str(e)}")
         exit(1)
 
 
@@ -152,7 +152,15 @@ def add_library(fs, args):
         location = os.path.abspath(sync_uri)
 
     auto_sync = not args.no_auto_sync
-    library = Library(name, location, sync_type, sync_uri, sync_version, auto_sync)
+    library = Library(
+        name,
+        location,
+        sync_type,
+        sync_uri,
+        sync_version,
+        auto_sync,
+        args.sync_submodules,
+    )
 
     effective_config = _effective_config_path(args.config)
     if effective_config:
@@ -206,11 +214,11 @@ def list_cores(fs, args):
     cores = fs.get_cores()
     trustfile = fs.config.ssh_trustfile or args.ssh_trustfile
     if not trustfile:
-        logger.warn(
+        logger.warning(
             "No trustfile configured (ssh-trustfile in fusesoc.conf), signatures will not be checked."
         )
     elif not os.path.isfile(trustfile):
-        logger.warn(
+        logger.warning(
             "The trustfile configured in fusesoc.conf does not exist, signatures will not be checked."
         )
     print("\nAvailable cores:\n")
@@ -246,7 +254,7 @@ def list_tools(fs, args):
     for tool_name in _tp:
         try:
             tool_class = get_edatool(tool_name)
-            desc = tool_class.get_doc(0)["description"]
+            desc = tool_class.get_doc(0)["description"]  # type: ignore[attr-defined, ty:unresolved-attribute]
             print(f"{tool_name:{maxlen}} : {desc}")
         # Ignore any misbehaving backends
         except Exception:
@@ -411,14 +419,14 @@ def run(fs, args):
         try:
             backend.build()
         except RuntimeError as e:
-            logger.error("Failed to build {} : {}".format(str(core.name), str(e)))
+            logger.error(f"Failed to build {str(core.name)} : {str(e)}")
             exit(1)
 
     if do_run:
         try:
             backend.run()
         except RuntimeError as e:
-            logger.error("Failed to run {} : {}".format(str(core.name), str(e)))
+            logger.error(f"Failed to run {str(core.name)} : {str(e)}")
             exit(1)
 
 
@@ -476,7 +484,7 @@ class ToolCompleter:
         for tool_name in _tp:
             try:
                 tool_class = get_edatool(tool_name)
-                if tool_class.get_doc(0)["description"]:
+                if tool_class.get_doc(0)["description"]:  # type: ignore[attr-defined, ty:unresolved-attribute]
                     tools += [tool_name]
             # Ignore any misbehaving backends
             except Exception:
@@ -550,17 +558,19 @@ def get_parser():
     parser_core_show = core_subparsers.add_parser(
         "show", help="Show information about a core"
     )
-    parser_core_show.add_argument(
+    core_show_arg = parser_core_show.add_argument(
         "core", help="Name of the core to show"
-    ).completer = CoreCompleter()
+    )
+    core_show_arg.completer = CoreCompleter()  # type: ignore[attr-defined, ty:unresolved-attribute]
     parser_core_show.set_defaults(func=core_info)
 
     parser_core_sign = core_subparsers.add_parser(
         "sign", help="Create user signature for a core"
     )
-    parser_core_sign.add_argument(
+    core_sign_arg = parser_core_sign.add_argument(
         "core", help="Name of the core to sign"
-    ).completer = CoreCompleter()
+    )
+    core_sign_arg.completer = CoreCompleter()  # type: ignore[attr-defined, ty:unresolved-attribute]
     parser_core_sign.add_argument("keyfile", help="File containing ssh private key")
     parser_core_sign.set_defaults(func=core_sign)
 
@@ -583,7 +593,7 @@ def get_parser():
     parser_core_info = subparsers.add_parser(
         "core-info", help="Display details about a core"
     )
-    parser_core_info.add_argument("core").completer = CoreCompleter()
+    parser_core_info.add_argument("core").completer = CoreCompleter()  # type: ignore[attr-defined, ty:unresolved-attribute]
     parser_core_info.set_defaults(func=core_info)
 
     # gen subparser
@@ -605,7 +615,7 @@ def get_parser():
     )
     parser_gen_show.add_argument(
         "generator", help="Name of the generator to show"
-    ).completer = GenCompleter()
+    ).completer = GenCompleter()  # type: ignore[attr-defined, ty:unresolved-attribute]
     parser_gen_show.set_defaults(func=gen_show)
 
     # gen clean subparser
@@ -658,6 +668,11 @@ def get_parser():
         "--no-auto-sync",
         action="store_true",
         help="Disable automatic updates of the library",
+    )
+    parser_library_add.add_argument(
+        "--sync-submodules",
+        action="store_true",
+        help="Also clone/update git submodules, for providers that support it",
     )
     parser_library_add.add_argument(
         "--global",
@@ -713,7 +728,7 @@ def get_parser():
     parser_run.add_argument("--target", help="Override default target")
     parser_run.add_argument(
         "--tool", help="Override default tool for target"
-    ).completer = ToolCompleter()
+    ).completer = ToolCompleter()  # type: ignore[attr-defined, ty:unresolved-attribute]
     parser_run.add_argument(
         "--flag",
         help="Set custom use flags. Can be specified multiple times",
@@ -735,7 +750,7 @@ def get_parser():
     )
     parser_run.add_argument(
         "system", help="Select a system to operate on"
-    ).completer = CoreCompleter()
+    ).completer = CoreCompleter()  # type: ignore[attr-defined, ty:unresolved-attribute]
     parser_run.add_argument(
         "backendargs", nargs=argparse.REMAINDER, help="arguments to be sent to backend"
     )

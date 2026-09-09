@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -31,7 +32,7 @@ use uv_test::archive::write_tar_gz;
 #[cfg(feature = "test-git")]
 use uv_test::decode_token;
 use uv_test::find_links::FindLinksServer;
-use uv_test::packse::PackseServer;
+use uv_test::packse::{PackseServer, generate_wheel};
 use uv_test::{
     DEFAULT_PYTHON_VERSION, TestContext, apply_filters, download_to_disk, get_bin, uv_snapshot,
     venv_bin_path,
@@ -4189,6 +4190,106 @@ fn no_deps() {
     );
 
     context.assert_command("import flask").failure();
+}
+
+/// Ignore unsatisfied dependencies when checking an installed package with `--no-deps`, while
+/// retaining diagnostics in strict mode.
+#[test]
+fn no_deps_installed() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let wheel = indoc! {"
+        Wheel-Version: 1.0
+        Root-Is-Purelib: true
+        Tag: py3-none-any
+    "};
+    let parent = context.site_packages().join("parent-1.0.0.dist-info");
+    fs::create_dir_all(&parent)?;
+    fs::write(parent.join("WHEEL"), wheel)?;
+    fs::write(
+        parent.join("METADATA"),
+        indoc! {"
+            Metadata-Version: 2.1
+            Name: parent
+            Version: 1.0.0
+            Requires-Dist: child>=2
+        "},
+    )?;
+
+    // The missing dependency should not cause resolution when dependencies are disabled.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("parent")
+        .arg("--no-deps")
+        .arg("--no-index"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Checked 1 package in [TIME]
+    ");
+
+    // Strict mode must still report missing dependencies after the installation check.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("parent")
+        .arg("--no-deps")
+        .arg("--no-index")
+        .arg("--strict"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Checked 1 package in [TIME]
+    warning: The package `parent` requires `child>=2`, but it's not installed
+    ");
+
+    // Without `--no-deps`, the missing dependency must still trigger resolution.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("parent")
+        .arg("--no-index"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because child was not found in the provided package locations and parent==1.0.0 depends on child>=2, we can conclude that parent==1.0.0 cannot be used.
+          And because parent was not found in the provided package locations and you require parent, we can conclude that your requirements are unsatisfiable.
+
+    hint: Packages were unavailable because index lookups were disabled and no additional package locations were provided (try: `--find-links <uri>`)
+    ");
+
+    let child = context.site_packages().join("child-1.0.0.dist-info");
+    fs::create_dir_all(&child)?;
+    fs::write(child.join("WHEEL"), wheel)?;
+    fs::write(
+        child.join("METADATA"),
+        indoc! {"
+            Metadata-Version: 2.1
+            Name: child
+            Version: 1.0.0
+        "},
+    )?;
+
+    // Incompatible installed dependencies should likewise be diagnosed without resolution.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("parent")
+        .arg("--no-deps")
+        .arg("--no-index")
+        .arg("--strict"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Checked 1 package in [TIME]
+    warning: The package `parent` requires `child>=2`, but `1.0.0` is installed
+    ");
+
+    // Constraints on direct requirements must still be checked with dependencies disabled.
+    let constraints_txt = context.temp_dir.child("constraints.txt");
+    constraints_txt.write_str("parent==2.0.0")?;
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("parent==1.0.0")
+        .arg("--no-deps")
+        .arg("--no-index")
+        .arg("--constraint")
+        .arg("constraints.txt"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because you require parent==1.0.0 and parent==2.0.0, we can conclude that your requirements are unsatisfiable.
+    ");
+
+    Ok(())
 }
 
 /// Install an editable package from the command line into a virtual environment, ignoring its
@@ -9075,6 +9176,123 @@ fn verify_hashes_mismatch() -> Result<()> {
     Ok(())
 }
 
+/// Verify hashes on arbitrary-equality pins in both checking modes.
+#[test]
+fn verify_hashes_exact_equal() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str(
+        "ok===1.0.0 --hash=sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    )?;
+
+    allow_duplicates! {
+        for hash_mode in ["--verify-hashes", "--require-hashes"] {
+            uv_snapshot!(context.filters(), context.pip_install()
+                .arg("-r")
+                .arg("requirements.txt")
+                .arg("--no-index")
+                .arg("--find-links")
+                .arg(context.workspace_root.join("test/links/"))
+                .arg(hash_mode), @"
+            exit_code: 1 (failure)
+            ----- stderr -----
+            Resolved 1 package in [TIME]
+              × Failed to download `ok==1.0.0`
+              ╰─▶ Hash mismatch for `ok==1.0.0`
+
+                  Expected:
+                    sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+                  Computed:
+                    sha256:79f0b33e6ce1e09eaa1784c8eee275dfe84d215d9c65c652f07c18e85fdaac5f
+            ");
+        }
+    }
+
+    Ok(())
+}
+
+/// A public version pin's hash must also protect a selected local version.
+#[test]
+fn verify_hashes_public_pin_local_version() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let name = "hash-probe".parse()?;
+    let public_version = "1.0.0".parse()?;
+    let local_version = "1.0.0+local".parse()?;
+    let (_, public_wheel) = generate_wheel(
+        &name,
+        &public_version,
+        &[],
+        &BTreeMap::default(),
+        None,
+        "py3-none-any",
+    );
+    let (local_wheel_filename, local_wheel) = generate_wheel(
+        &name,
+        &local_version,
+        &[],
+        &BTreeMap::default(),
+        None,
+        "py3-none-any",
+    );
+    let public_hash = hex::encode(Sha256::digest(&public_wheel));
+    let local_hash = hex::encode(Sha256::digest(&local_wheel));
+    let context = context
+        .with_filter((public_hash.clone(), "[PUBLIC_HASH]"))
+        .with_filter((local_hash.clone(), "[LOCAL_HASH]"));
+
+    let links = context.temp_dir.child("links");
+    links.create_dir_all()?;
+    fs::write(links.child(local_wheel_filename).path(), local_wheel)?;
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str(&format!("hash-probe==1.0.0 --hash=sha256:{public_hash}"))?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--no-index")
+        .arg("--find-links")
+        .arg(links.path())
+        .arg("--verify-hashes"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+      × Failed to download `hash-probe==1.0.0+local`
+      ╰─▶ Hash mismatch for `hash-probe==1.0.0+local`
+
+          Expected:
+            sha256:[PUBLIC_HASH]
+
+          Computed:
+            sha256:[LOCAL_HASH]
+    ");
+
+    // A hash for `==1.0.0+local` takes precedence over the hash for `==1.0.0`.
+    let constraints_txt = context.temp_dir.child("constraints.txt");
+    constraints_txt.write_str(&format!(
+        "hash-probe==1.0.0+local --hash=sha256:{local_hash}"
+    ))?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("-c")
+        .arg("constraints.txt")
+        .arg("--no-index")
+        .arg("--find-links")
+        .arg(links.path())
+        .arg("--verify-hashes"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + hash-probe==1.0.0+local
+    ");
+
+    Ok(())
+}
+
 /// Provide the correct hash with `--verify-hashes`.
 #[test]
 fn verify_hashes_match() -> Result<()> {
@@ -13223,6 +13441,173 @@ fn pep_751_install_path_sdist() -> Result<()> {
 }
 
 #[test]
+fn pep_751_empty_hashes() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pylock_toml = context.temp_dir.child("pylock.toml");
+
+    allow_duplicates! {
+        for (table, filename) in [
+            ("[packages.archive]", "iniconfig-2.0.0.tar.gz"),
+            ("[packages.sdist]", "iniconfig-2.0.0.tar.gz"),
+            ("[[packages.wheels]]", "iniconfig-2.0.0-py3-none-any.whl"),
+        ] {
+            pylock_toml.write_str(&formatdoc! {r#"
+                lock-version = "1.0"
+                created-by = "uv"
+
+                [[packages]]
+                name = "iniconfig"
+                version = "2.0.0"
+                {table}
+                url = "https://example.com/{filename}"
+                hashes = {{}}
+            "#})?;
+
+            // Requiring hashes should still reject artifacts with empty hash tables.
+            uv_snapshot!(context.filters(), context.pip_install()
+                .arg("--preview")
+                .arg("--offline")
+                .arg("--dry-run")
+                .arg("--require-hashes")
+                .arg("-r")
+                .arg("pylock.toml"), @"
+            exit_code: 2 (failure)
+            ----- stderr -----
+            warning: Empty hash tables in `pylock.toml` will be rejected in a future uv version. Rerun the original `uv export` or `uv pip compile` command to regenerate the file.
+            error: In `--require-hashes` mode, all requirements must have a hash, but none were provided for: iniconfig
+            ");
+        }
+        Ok::<(), anyhow::Error>(())
+    }?;
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_missing_hashes() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context.temp_dir.child("pylock.toml").write_str(indoc! {r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "iniconfig"
+        version = "2.0.0"
+        wheels = [{ url = "https://example.com/iniconfig-2.0.0-py3-none-any.whl" }]
+    "#})?;
+
+    // Omitting the required hashes field should fail even with verification disabled.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("--dry-run")
+        .arg("--no-verify-hashes")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Not a valid `pylock.toml` file: pylock.toml
+      Caused by: TOML parse error at line 7, column 11
+          |
+        7 | wheels = [{ url = "https://example.com/iniconfig-2.0.0-py3-none-any.whl" }]
+          |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        missing field `hashes`
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_empty_hashes_unselected_artifacts() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    fs::copy(
+        context
+            .workspace_root
+            .join("test/links/ok-1.0.0-py3-none-any.whl"),
+        context.temp_dir.child("ok-1.0.0-py3-none-any.whl"),
+    )?;
+    context.temp_dir.child("pylock.toml").write_str(indoc! {r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "ok"
+        version = "1.0.0"
+        sdist = { url = "https://example.com/ok-1.0.0.tar.gz", hashes = {} }
+        wheels = [
+            { url = "https://example.com/ok-1.0.0-cp311-cp311-win32.whl", hashes = { sha3_256 = "0000000000000000000000000000000000000000000000000000000000000000" } },
+            { path = "ok-1.0.0-py3-none-any.whl", hashes = { sha256 = "79f0b33e6ce1e09eaa1784c8eee275dfe84d215d9c65c652f07c18e85fdaac5f" } },
+        ]
+
+        [[packages]]
+        name = "unused"
+        version = "1.0.0"
+        marker = "python_version < '3'"
+        archive = { url = "https://example.com/unused-1.0.0.tar.gz", hashes = {} }
+    "#})?;
+
+    // Empty tables on unselected artifacts should warn once without preventing installation.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("-r")
+        .arg("pylock.toml"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Empty hash tables in `pylock.toml` will be rejected in a future uv version. Rerun the original `uv export` or `uv pip compile` command to regenerate the file.
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + ok==1.0.0
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_unsupported_hashes() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context.temp_dir.child("pylock.toml").write_str(indoc! {r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "iniconfig"
+        version = "2.0.0"
+        wheels = [{ url = "https://example.com/iniconfig-2.0.0-py3-none-any.whl", hashes = { sha3_256 = "0000000000000000000000000000000000000000000000000000000000000000" } }]
+    "#})?;
+
+    // Unsupported algorithms should remain valid when parsing a pylock file.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("--dry-run")
+        .arg("--no-verify-hashes")
+        .arg("-r")
+        .arg("pylock.toml"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Would download 1 package
+    Would install 1 package
+     + iniconfig==2.0.0
+    ");
+
+    // Requiring hashes should reject artifacts with only unsupported algorithms.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("--dry-run")
+        .arg("--require-hashes")
+        .arg("-r")
+        .arg("pylock.toml"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: In `--require-hashes` mode, all requirements must have a hash, but none were provided for: iniconfig
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn pep_751_hash_mismatch() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
@@ -13244,9 +13629,10 @@ fn pep_751_hash_mismatch() -> Result<()> {
         [[packages]]
         name = "iniconfig"
         version = "2.0.0"
-        archive = { path = "iniconfig-2.0.0-py3-none-any.whl", hashes = { sha256 = "c5185871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374" } }
+        archive = { path = "iniconfig-2.0.0-py3-none-any.whl", hashes = { sha256 = "c5185871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374", sha3_256 = "0000000000000000000000000000000000000000000000000000000000000000" } }
     "#)?;
 
+    // An unsupported algorithm should not prevent verification of a supported hash.
     uv_snapshot!(context.filters(), context.pip_install()
         .arg("--preview")
         .arg("-r")
@@ -13263,6 +13649,22 @@ fn pep_751_hash_mismatch() -> Result<()> {
             sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374
     "
     );
+
+    pylock_toml.write_str(&fs::read_to_string(&pylock_toml)?.replace(
+        "c5185871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
+        "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
+    ))?;
+
+    // A matching supported hash should permit installation alongside an unsupported algorithm.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0 (from file://[TEMP_DIR]/iniconfig-2.0.0-py3-none-any.whl)
+    ");
 
     Ok(())
 }

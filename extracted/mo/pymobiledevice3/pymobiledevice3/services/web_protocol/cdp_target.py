@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import itertools
 import json
@@ -90,7 +91,7 @@ MOUSEMOVE_MIN_INTERVAL = 0.08
 
 # CDP domains WebKit does not implement at all. Any method in these that isn't specially
 # translated is acknowledged with an empty response instead of being forwarded (and erroring).
-NOOP_ABSENT_DOMAINS = frozenset({"Input", "Overlay"})
+NOOP_ABSENT_DOMAINS = frozenset({"Input", "Overlay", "Performance"})
 
 # Events WebKit's Web Inspector emits that have no counterpart in Chrome's protocol. Forwarding
 # them is at best noise (Chrome ignores unknown events) and at worst fatal: an unrecognized event
@@ -116,6 +117,32 @@ _ISOLATED_WORLD_IDS = itertools.count(0x50000000)
 JS_CONTEXT_EXECUTION_ID = 1
 JS_CONTEXT_UNIQUE_ID = "jscontext.1"
 
+# WebKit reports the engine's own errors - uncaught exceptions, unhandled rejections, parse errors
+# - as console messages of this source; Chrome reports them as Runtime.exceptionThrown, which is
+# the only form VS Code's debugger renders (it has no handler for Log.entryAdded at all).
+JAVASCRIPT_ERROR_SOURCE = "javascript"
+UNHANDLED_REJECTION_PREFIX = "Unhandled Promise Rejection: "
+
+# A binding installed by Runtime.addBinding reports its calls through console.debug with this
+# marker as the first argument; the bridge turns those into Runtime.bindingCalled and never
+# forwards them as console output. WebKit has no binding mechanism of its own.
+BINDING_MARKER = "__pymobiledevice3_binding__"
+
+# The domains a Node.js inspector target adds on top of Chrome's. Editors attaching "as Node"
+# (VS Code's node attach, WebStorm) send these to a JSContext; WebKit has none of them, so they
+# are acknowledged here the way an idle Node process would (no workers, nothing traced).
+NODE_ACKNOWLEDGED_METHODS = (
+    "NodeRuntime.enable",
+    "NodeRuntime.disable",
+    "NodeRuntime.notifyWhenWaitingForDisconnect",
+    "NodeWorker.enable",
+    "NodeWorker.disable",
+    "NodeWorker.detach",
+    "NodeWorker.sendMessageToWorker",
+    "NodeTracing.start",
+    "NodeTracing.stop",
+)
+
 # Target.TargetInfo.type of the targets this bridge debugs. WebKit announces "frame", "worker"
 # and "service-worker" ones too - see _target_created.
 PAGE_TARGET_TYPE = "page"
@@ -129,7 +156,6 @@ TARGET_CLOSED_ERROR: dict[str, Any] = {"code": -32000, "message": "Inspected tar
 REPLAYED_SETUP_METHODS = frozenset({
     "Network.setResourceCachingDisabled",
     "Page.setEmulatedMedia",
-    "Page.setForcedAppearance",
     "Debugger.setBreakpointsActive",
     "Debugger.setPauseOnExceptions",
     "Debugger.setAsyncStackTraceDepth",
@@ -142,6 +168,20 @@ REPLAYED_MULTI_SETUP_METHODS = frozenset({
     "Debugger.setBreakpointByUrl",
     "Debugger.setShouldBlackboxURL",
 })
+
+# Replayed setup methods whose latest params are kept per value of one parameter: the user
+# preference overrides are independent per preference name, and a later clear must replace (not
+# join) the override it clears.
+REPLAYED_KEYED_SETUP_METHODS: dict[str, str] = {"Page.overrideUserPreference": "name"}
+
+# Chrome's Emulation.setEmulatedMedia features -> WebKit's Page.overrideUserPreference
+# (Page.UserPreferenceName, Page.UserPreferenceValue). A feature value with no WebKit counterpart
+# ("" is Chrome's reset; "less"/"custom" contrast has no WebKit value) clears that override.
+USER_PREFERENCE_FEATURES: dict[str, tuple[str, dict[str, str]]] = {
+    "prefers-color-scheme": ("PrefersColorScheme", {"dark": "Dark", "light": "Light"}),
+    "prefers-reduced-motion": ("PrefersReducedMotion", {"reduce": "Reduce", "no-preference": "NoPreference"}),
+    "prefers-contrast": ("PrefersContrast", {"more": "More", "no-preference": "NoPreference"}),
+}
 
 NETWORK_RESOURCE_TYPES = [
     "Document",
@@ -421,6 +461,7 @@ class CdpTarget:
         # Synthetic isolated world -> the frame it was created for, so its evaluations reach that
         # frame's real context rather than whichever one happened to be announced last.
         self._isolated_world_frames: dict[int, str] = {}
+        self._isolated_world_names: dict[int, str] = {}
         # Frame -> the id of the main-world execution context WebKit announced for it. A page with
         # subframes announces one per frame, and they are not interchangeable.
         self._frame_execution_ids: dict[str, int] = {}
@@ -486,7 +527,8 @@ class CdpTarget:
             "Emulation.setEmulatedVisionDeficiency": partial(self._simple_response, value=None),
             "Emulation.setAutoDarkModeOverride": self._emulation_set_auto_dark_mode_override,
             "Emulation.setEmitTouchEventsForMouse": partial(self._simple_response, value=None),
-            "Debugger.setAsyncCallStackDepth": partial(self._simple_response, value=True),
+            "Debugger.setAsyncCallStackDepth": partial(self._simple_response, value=None),
+            "Debugger.removeBreakpoint": self._debugger_remove_breakpoint,
             "Debugger.enable": self._debugger_enable,
             "Debugger.setSkipAllPauses": self._debugger_set_skip_all_pauses,
             "Debugger.setBreakpointsActive": self._debugger_set_breakpoints_active,
@@ -498,6 +540,13 @@ class CdpTarget:
             "Network.loadNetworkResource": self._network_load_network_resource,
             "Network.setAttachDebugStack": partial(self._simple_response, value=None),
             "Network.clearAcceptedEncodingsOverride": partial(self._simple_response, value=None),
+            "Fetch.enable": self._fetch_enable,
+            "Fetch.disable": self._fetch_disable,
+            "Fetch.continueRequest": self._fetch_continue_request,
+            "Fetch.continueResponse": self._fetch_continue_response,
+            "Fetch.continueWithAuth": self._fetch_continue_with_auth,
+            "Fetch.fulfillRequest": self._fetch_fulfill_request,
+            "Fetch.failRequest": self._fetch_fail_request,
             "ServiceWorker.enable": self._service_worker_enable,
             "HeapProfiler.enable": partial(self._simple_response, value=None),
             # Overlay is absent in WebKit; only highlightNode is worth translating, the rest are
@@ -541,7 +590,10 @@ class CdpTarget:
             "Accessibility.enable": partial(self._simple_response, value=None),
             "Autofill.enable": partial(self._simple_response, value=None),
             "Autofill.setAddresses": partial(self._simple_response, value=None),
-            "Runtime.addBinding": partial(self._simple_response, value=None),
+            "Runtime.addBinding": self._runtime_add_binding,
+            "Runtime.removeBinding": self._runtime_remove_binding,
+            "NodeTracing.getCategories": partial(self._result_response, result={"categories": []}),
+            **{method: partial(self._simple_response, value=None) for method in NODE_ACKNOWLEDGED_METHODS},
             "Runtime.globalLexicalScopeNames": self._runtime_global_lexical_scope_names,
             "Runtime.getProperties": self._runtime_get_properties,
             "Network.setBlockedURLs": partial(self._simple_response, value=None),
@@ -579,12 +631,16 @@ class CdpTarget:
             "Debugger.scriptParsed": self._debugger_script_parsed,
             "Debugger.scriptFailedToParse": self._debugger_script_failed_to_parse,
             "Debugger.paused": self._debugger_paused,
+            "Debugger.resumed": self._debugger_resumed,
             "Debugger.globalObjectCleared": self._debugger_global_object_cleared,
-            "Page.defaultAppearanceDidChange": self._page_default_appearance_did_change,
             "Runtime.executionContextCreated": self._runtime_execution_context_created,
             "Console.messageAdded": self._console_message_added,
+            "Inspector.inspect": self._inspector_inspect,
             "Network.responseReceived": self._network_response_received,
             "Network.loadingFinished": self._network_loading_finished,
+            "Network.requestWillBeSent": self._network_request_will_be_sent,
+            "Network.requestIntercepted": self._network_request_intercepted,
+            "Network.responseIntercepted": self._network_response_intercepted,
             # WebKit reports a load's progress with the pre-lifecycle events Chrome has long since
             # replaced; each is also turned into the Page.lifecycleEvent modern clients wait on.
             "Page.frameNavigated": self._page_frame_navigated,
@@ -607,10 +663,26 @@ class CdpTarget:
         # scriptId -> url, from Debugger.scriptParsed; used to fill the `url` WebKit omits from the
         # callFrames of Debugger.paused (Chrome's CallFrame requires it).
         self._script_id_to_url: dict[str, str] = {}
+        # Scripts WebKit reports that are its own inspector machinery (the InjectedScript that runs
+        # console evaluations), not the debuggee's. Their frames are stripped from a paused stack.
+        self._internal_script_ids: set[str] = set()
+        # Whether the client currently believes execution is paused. WebKit emits no
+        # Debugger.resumed when a step resumes-then-repauses (verified: it sends zero of them),
+        # so the client would see paused-after-paused; V8 always alternates paused/resumed, and
+        # WebStorm's step machine waits for the resumed and will not step again without it.
+        self._client_debugger_paused = False
         # For a flat JSContext: the synthetic URL handed to the frontend for a URL-less script ->
         # the script's id. Lets a URL breakpoint (how editors set breakpoints) be turned into a
         # scriptId-location breakpoint, the only kind that binds on a URL-less script.
         self._flat_script_url_to_id: dict[str, str] = {}
+        # URL breakpoints a JSContext client set before their script existed: the bridge's own
+        # breakpoint id -> the request, plus the device breakpoint ids it produced once bound.
+        self._flat_pending_url_breakpoints: dict[str, dict[str, Any]] = {}
+        self._flat_bound_url_breakpoints: dict[str, list[str]] = {}
+        # Runtime.addBinding: name -> the executionContextName it is scoped to (None = every main
+        # world). Re-installed into every context created later, as Chrome does.
+        self._bindings: dict[str, Optional[str]] = {}
+        self._exception_ids = itertools.count(1)
         self._eval_side_effect_id = 0
         self._default_execution_id = 0
         self._last_console_api_call: Optional[dict[str, Any]] = None
@@ -624,6 +696,16 @@ class CdpTarget:
         # and the execution context its keydown was dispatched in (see _input_dispatch_key_event).
         self._key_default_prevented = False
         self._key_context: Optional[int] = None
+        # Chrome's Fetch domain, translated onto WebKit's Network request-interception. When
+        # armed, WebKit pauses each matching request as Network.requestIntercepted, which the
+        # bridge presents to the client as Fetch.requestPaused and answers through
+        # Network.intercept* on the client's continue/fulfill/fail. Injecting an Authorization
+        # header on continueRequest answers HTTP Basic auth without the on-device dialog.
+        self._fetch_enabled = False
+        self._fetch_handle_auth = False
+        # requestId -> {frameId (client), type}, from Network.requestWillBeSent: the fields
+        # Network.requestIntercepted omits but Fetch.requestPaused must carry.
+        self._request_meta: dict[str, dict[str, Any]] = {}
         # execution-context uniqueIds already announced to the frontend, to drop duplicate
         # Runtime.executionContextCreated events (WebKit re-announces contexts) that would
         # otherwise corrupt Chrome's RuntimeModel.
@@ -645,6 +727,8 @@ class CdpTarget:
         self._unresponsive_last_probe: dict[str, float] = {}
         # setup (domain enables & co.) the frontend established, replayed onto new targets
         self._setup_messages: dict[Any, dict[str, Any]] = {}
+        # WebKit user preferences currently overridden through Emulation.setEmulatedMedia features.
+        self._emulated_preferences: set[str] = set()
         self._setup_sent_targets: set[str] = {target_id}
         # Targets announced as pages - the only kind this session talks to (see _target_created).
         self._page_targets: set[str] = {target_id}
@@ -1135,6 +1219,8 @@ class CdpTarget:
             self._setup_messages[method] = params
         elif method in REPLAYED_MULTI_SETUP_METHODS:
             self._setup_messages[(method, json.dumps(params, sort_keys=True))] = params
+        elif method in REPLAYED_KEYED_SETUP_METHODS:
+            self._setup_messages[(method, str(params.get(REPLAYED_KEYED_SETUP_METHODS[method])))] = params
 
     async def _send_setup_to_target(self, target_id: str):
         """Replay the frontend's recorded setup onto a new target (once per target)."""
@@ -1150,7 +1236,10 @@ class CdpTarget:
             )
 
     async def _simple_response(self, message: dict[str, Any], value: Any):
-        await self.output_queue.put({"id": message["id"], "result": {"result": value}})
+        """Acknowledge a request the bridge answers itself: an empty result, as Chrome's protocol
+        defines for commands that return nothing, or {"result": value} for the few that do."""
+        result: dict[str, Any] = {} if value is None else {"result": value}
+        await self.output_queue.put({"id": message["id"], "result": result})
 
     async def _result_response(self, message: dict[str, Any], result: dict[str, Any]):
         """Respond with an exact result body, for methods whose response fields the frontend reads."""
@@ -1343,9 +1432,23 @@ class CdpTarget:
             self._top_frame_commits += 1
         # This handler bypasses the pass-through path, so map the frame ids here.
         self._map_frame_ids_outbound(message)
+        # Chrome requires Page.frameNavigated.type; WebKit omits it. Every navigation the bridge
+        # sees is an ordinary one (WebKit reports no back/forward-cache restore).
+        message.get("params", {}).setdefault("type", "Navigation")
         mapped = message.get("params", {}).get("frame", {})
         client_frame_id = mapped.get("id")
         client_parent_id = mapped.get("parentId")
+        if client_parent_id is not None and isinstance(client_frame_id, str):
+            # WebKit reports a child frame's navigation only when a new document commits (the
+            # hook is didCommitLoad; a same-document navigation reports nothing), so every context
+            # the frame's previous document had is gone. Chrome announces their end; a client keeps
+            # what it built in them until it is told - Playwright its injected utility script, in
+            # an isolated world the bridge synthesizes - and would keep querying the old, detached
+            # document: a field in a payment iframe the SDK navigated after the client first
+            # touched it was never found, and fill() timed out (#1919). Announce the end, and let
+            # the worlds the client registered be re-created for the new document.
+            await self._destroy_frame_contexts(client_frame_id)
+            self._announced_worlds = {world for world in self._announced_worlds if world[0] != client_frame_id}
         if (
             client_parent_id is not None
             and isinstance(client_frame_id, str)
@@ -1374,6 +1477,7 @@ class CdpTarget:
         self._map_frame_ids_outbound(message)
         frame_id = message.get("params", {}).get("frameId")
         if isinstance(frame_id, str):
+            await self._destroy_frame_contexts(frame_id)
             self._announced_frames.discard(frame_id)
             self._frame_execution_ids.pop(frame_id, None)
         await self.output_queue.put(message)
@@ -1875,17 +1979,22 @@ class CdpTarget:
             tree = await self.send_message_with_result("Page.getResourceTree", {})
             frame_tree = tree.get("result", {}).get("frameTree")
             self._map_frame_tree_ids(frame_tree)
-            owner = self._frame_of_object(cast(str, object_id))
-            index = info.get("index")
-            frame_id: Optional[str] = None
-            if owner is not None and isinstance(index, int):
-                frame_id = self._child_frame_at(frame_tree, owner, index)
+            # Correlate the element with the frame it hosts. Prefer the name it was given or the
+            # URL it loaded, which identify the frame outright: iOS 26 orders a document's entries
+            # in the frame tree by when each frame was created, not by where its <iframe> sits in
+            # the document, so pairing the nth <iframe> with the nth tree child (the positional
+            # fallback below) mis-maps every frame whose DOM position differs from its creation
+            # order - which is what left fill()/click() acting on the wrong cross-origin frame.
+            # Positional matching stays as the last resort, for a frame that a unique name or URL
+            # cannot pick out: a srcdoc or about:blank frame, or several sharing a URL.
+            frame_id: Optional[str] = self._find_frame_in_tree(
+                frame_tree, cast(str, info.get("name") or ""), cast(str, info.get("url") or "")
+            )
             if frame_id is None:
-                # Nothing to position against (an object from a context we never saw); fall back
-                # to whatever the element itself identifies the frame by.
-                frame_id = self._find_frame_in_tree(
-                    frame_tree, cast(str, info.get("name") or ""), cast(str, info.get("url") or "")
-                )
+                owner = self._frame_of_object(cast(str, object_id))
+                index = info.get("index")
+                if owner is not None and isinstance(index, int):
+                    frame_id = self._child_frame_at(frame_tree, owner, index)
             if frame_id is not None:
                 node["frameId"] = frame_id
         await self.output_queue.put({"id": message["id"], "result": {"node": node}})
@@ -2000,6 +2109,7 @@ class CdpTarget:
         _page_create_isolated_world for why these are synthesized at all."""
         context_id = next(_ISOLATED_WORLD_IDS)
         self._isolated_world_context_ids.add(context_id)
+        self._isolated_world_names[context_id] = world_name
         if isinstance(frame_id, str):
             self._isolated_world_frames[context_id] = frame_id
             self._announced_worlds.add((frame_id, world_name))
@@ -2015,6 +2125,7 @@ class CdpTarget:
                 }
             },
         })
+        await self._install_bindings_for_context(context_id, world_name)
         return context_id
 
     async def _dom_get_box_model(self, message: dict[str, Any]):
@@ -2272,17 +2383,47 @@ class CdpTarget:
         for child in cast(list[Any], tree.get("childFrames") or []):
             self._remember_frame_tree(child)
 
+    async def _override_user_preference(self, name: str, value: Optional[str]) -> None:
+        """Page.overrideUserPreference: `value` absent clears the override (WebKit main and iOS 26)."""
+        params: dict[str, Any] = {"name": name}
+        if value is not None:
+            params["value"] = value
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Page.overrideUserPreference",
+            "params": params,
+        })
+
     async def _emulation_set_emulated_media(self, message: dict[str, Any]):
+        # Chrome carries the media type and the media features in one command; WebKit takes the
+        # type (Page.setEmulatedMedia, `media` required) and each feature as a separate user
+        # preference override. Features absent from the list are reset, as in Chrome.
+        params: dict[str, Any] = message.get("params") or {}
+        features: list[dict[str, Any]] = params.get("features") or []
+        wanted: dict[str, Optional[str]] = {}
+        for feature in features:
+            mapping = USER_PREFERENCE_FEATURES.get(str(feature.get("name", "")))
+            if mapping is None:
+                continue
+            name, values = mapping
+            wanted[name] = values.get(str(feature.get("value", "")))
+        for name in sorted(self._emulated_preferences - set(wanted)):
+            wanted[name] = None
+        for name, value in wanted.items():
+            await self._override_user_preference(name, value)
+        self._emulated_preferences = {name for name, value in wanted.items() if value is not None}
         message["method"] = "Page.setEmulatedMedia"
+        message["params"] = {"media": params.get("media") or ""}
         await self._send_message_to_target(message)
 
     async def _emulation_set_auto_dark_mode_override(self, message: dict[str, Any]):
-        message["method"] = "Page.setForcedAppearance"
-        params = message["params"]
-        if not params:
-            await self._simple_response(message, None)
-            return
-        message["params"] = {"appearance": "Dark" if params["enabled"] else "Light"}
+        # `enabled` absent restores the page's own color scheme; so does a valueless override.
+        params: dict[str, Any] = message.get("params") or {}
+        enabled: Optional[bool] = params.get("enabled")
+        message["method"] = "Page.overrideUserPreference"
+        message["params"] = {"name": "PrefersColorScheme"}
+        if enabled is not None:
+            message["params"]["value"] = "Dark" if enabled else "Light"
         await self._send_message_to_target(message)
 
     async def _debugger_enable(self, message: dict[str, Any]):
@@ -2375,6 +2516,13 @@ class CdpTarget:
                 locations = [result["actualLocation"]] if "actualLocation" in result else []
                 await self._result_response(message, {"breakpointId": breakpoint_id, "locations": locations})
                 return
+            # No such script yet. Its synthetic URL cannot bind on the device (see
+            # _debugger_script_parsed), so keep the request and bind it when the script appears,
+            # reporting Debugger.breakpointResolved then - what V8 does for a not-yet-loaded file.
+            breakpoint_id = f"{params.get('url') or params.get('urlRegex') or ''}:{params.get('lineNumber', 0)}:{params.get('columnNumber', 0)}"
+            self._flat_pending_url_breakpoints[breakpoint_id] = dict(params)
+            await self._result_response(message, {"breakpointId": breakpoint_id, "locations": []})
+            return
         condition = params.pop("condition", "")
         if condition:
             params["options"]["condition"] = condition
@@ -2436,6 +2584,9 @@ class CdpTarget:
 
     async def _runtime_enable(self, message: dict[str, Any]):
         await self._send_message_to_target(message)
+        # WebKit only reports the console's inspect() through Inspector.inspect once the Inspector
+        # domain is enabled - something no Chrome client sends, as V8 has no such domain.
+        await self._send_message_to_target({"id": self.next_internal_id(), "method": "Inspector.enable", "params": {}})
         if not self._flat:
             return
         # Chrome's frontend expects console output to follow from Runtime.enable alone (V8 emits
@@ -2556,8 +2707,38 @@ class CdpTarget:
             params["emulateUserGesture"] = bool(params.pop("userGesture"))
 
     async def _runtime_call_function_on(self, message: dict[str, Any]):
-        self._translate_user_gesture(message.setdefault("params", {}))
+        params = message.setdefault("params", {})
+        self._translate_user_gesture(params)
+        if "objectId" not in params:
+            # Chrome lets callFunctionOn target a bare execution context (executionContextId /
+            # uniqueContextId); WebKit requires an object to call the function on. Resolve the
+            # context's global object and call on it - what Chrome does under the hood, and what
+            # Puppeteer's page.evaluate relies on.
+            object_id = await self._context_global_object_id(params.get("executionContextId"))
+            params.pop("executionContextId", None)
+            params.pop("uniqueContextId", None)
+            if object_id is not None:
+                params["objectId"] = object_id
+            else:
+                await self._error_response(
+                    message, {"code": -32000, "message": "callFunctionOn needs an object or a known execution context"}
+                )
+                return
         await self._send_message_to_target(message)
+
+    async def _context_global_object_id(self, context_id: Optional[int]) -> Optional[str]:
+        """The objectId of the global object of an execution context, for calling a function on it.
+
+        `context_id` absent, or the flat JSContext, means the one/default context."""
+        evaluate: dict[str, Any] = {"expression": "this"}
+        if isinstance(context_id, int):
+            real = self._real_context_id(context_id)
+            if real is not None:
+                evaluate["contextId"] = real
+        response = await self.send_message_with_result("Runtime.evaluate", evaluate)
+        result = response.get("result", {}).get("result", {})
+        object_id = result.get("objectId")
+        return object_id if isinstance(object_id, str) else None
 
     async def _runtime_compile_script(self, message: dict[str, Any]):
         self._script_source_to_context_id[message["params"]["expression"]] = message["params"]["executionContextId"]
@@ -3187,6 +3368,9 @@ class CdpTarget:
         params = message.get("params", {})
         source = params.get("sourceURL", "") or params.get("url", "")
         if any(marker in source for marker in WEBKIT_INTERNAL_SCRIPT_MARKERS):
+            internal_id = params.get("scriptId")
+            if internal_id is not None:
+                self._internal_script_ids.add(str(internal_id))
             return
         script_id = params.get("scriptId")
         if not source and self._flat and script_id is not None:
@@ -3199,7 +3383,63 @@ class CdpTarget:
             self._flat_script_url_to_id[source] = script_id
         if script_id is not None:
             self._script_id_to_url[script_id] = source
+        # Chrome requires `hash` and `executionContextId` on Debugger.scriptParsed (verified: node
+        # sends both); WebKit omits them. Fill a stable per-script hash and the context the script
+        # belongs to - the one context on a JSContext, the page's default otherwise - so a client
+        # keying scripts on either does not choke. `buildId` is newer and node omits it too.
+        if "hash" not in params:
+            params["hash"] = hashlib.sha1(f"{script_id}:{source}".encode()).hexdigest()
+        if "executionContextId" not in params:
+            params["executionContextId"] = self._default_execution_id or JS_CONTEXT_EXECUTION_ID
         await self.output_queue.put(message)
+        if self._flat and script_id is not None:
+            await self._bind_pending_url_breakpoints(str(script_id))
+
+    async def _bind_pending_url_breakpoints(self, script_id: str) -> None:
+        """Bind the URL breakpoints waiting for this JSContext script and announce each as resolved.
+
+        Runs in the receive loop (scriptParsed is an event), so the binding request is forwarded
+        with a reply translator rather than awaited here."""
+        for breakpoint_id, request in list(self._flat_pending_url_breakpoints.items()):
+            if self._flat_breakpoint_script(request) != script_id:
+                continue
+            location: dict[str, Any] = {"scriptId": script_id, "lineNumber": request.get("lineNumber", 0)}
+            if "columnNumber" in request:
+                location["columnNumber"] = request["columnNumber"]
+            set_params: dict[str, Any] = {"location": location}
+            if request.get("condition"):
+                set_params["options"] = {"condition": request["condition"]}
+
+            async def resolved(
+                reply: dict[str, Any], breakpoint_id: str = breakpoint_id, location: dict[str, Any] = location
+            ) -> None:
+                result = reply.get("result", {})
+                if "breakpointId" not in result:
+                    logger.warning(f"URL breakpoint {breakpoint_id} did not bind: {reply.get('error')}")
+                    return
+                self._flat_bound_url_breakpoints.setdefault(breakpoint_id, []).append(result["breakpointId"])
+                await self.output_queue.put({
+                    "method": "Debugger.breakpointResolved",
+                    "params": {"breakpointId": breakpoint_id, "location": result.get("actualLocation", location)},
+                })
+
+            await self._forward_and_translate(
+                {"id": self.next_internal_id()}, {"method": "Debugger.setBreakpoint", "params": set_params}, resolved
+            )
+
+    async def _debugger_remove_breakpoint(self, message: dict[str, Any]) -> None:
+        breakpoint_id = message.get("params", {}).get("breakpointId")
+        if breakpoint_id in self._flat_pending_url_breakpoints or breakpoint_id in self._flat_bound_url_breakpoints:
+            self._flat_pending_url_breakpoints.pop(breakpoint_id, None)
+            for device_id in self._flat_bound_url_breakpoints.pop(breakpoint_id, []):
+                await self._send_message_to_target({
+                    "id": self.next_internal_id(),
+                    "method": "Debugger.removeBreakpoint",
+                    "params": {"breakpointId": device_id},
+                })
+            await self._result_response(message, {})
+            return
+        await self._send_message_to_target(message)
 
     async def _debugger_script_failed_to_parse(self, message: dict[str, Any]):
         # The failing source is only known from Runtime.compileScript; parse failures of other
@@ -3219,15 +3459,54 @@ class CdpTarget:
         }
         await self.output_queue.put(message)
 
+    @staticmethod
+    def _is_real_call_frame(frame: dict[str, Any]) -> bool:
+        """Whether a WebKit call frame denotes real source Chrome can locate.
+
+        WebKit puts a native entry frame at the bottom of a stack - scriptId "0", lineNumber -1 -
+        for the global/native code beneath the script. Chrome's protocol has no such frame (a
+        Location must name a real script at a non-negative line), and js-debug and WebStorm build
+        the stack strictly: the bad frame desynced their step handling, so after one step the
+        session stopped advancing. V8 never emits it; verified against `node --inspect`, whose
+        stacks carry only real script frames.
+        """
+        location: dict[str, Any] = frame.get("location") or {}
+        script_id = location.get("scriptId")
+        line_number: int = location.get("lineNumber", -1)
+        return bool(script_id) and script_id != "0" and line_number >= 0
+
+    def _is_inspector_frame(self, frame: dict[str, Any]) -> bool:
+        """Whether a call frame belongs to WebKit's own InjectedScript, not the debuggee.
+
+        WebKit runs a console evaluation *through* its InjectedScript (JavaScript), so a pause
+        inside the evaluation carries that harness at the bottom of the stack - `_wrapCall` and an
+        anonymous frame in a script with no source URL. V8 evaluates natively and shows only the
+        user's frame; WebStorm builds the stack strictly and, given the phantom frames, stopped
+        advancing after the first step (a `debugger;` typed in its console). A real breakpoint in
+        the debuggee's own code has no such frame. Recognized by the id of a script the bridge
+        already hides as internal, or - on a JSContext, whose scripts the bridge has all seen and
+        given synthetic URLs - any frame in a script it never saw parsed.
+        """
+        location: dict[str, Any] = frame.get("location") or {}
+        script_id = location.get("scriptId")
+        if script_id in self._internal_script_ids:
+            return True
+        return bool(self._flat) and script_id is not None and script_id not in self._script_id_to_url
+
     async def _debugger_paused(self, message: dict[str, Any]):
         params = message["params"]
         params["reason"] = DEBUGGER_PAUSED_REASON.get(params["reason"], "other")
         if "breakpointId" in params.get("data", {}):
             params["hitBreakpoints"] = [params["data"]["breakpointId"]]
-        # WebKit's CallFrame differs from Chrome's: it omits the required `url` and uses scope-type
-        # enum values Chrome rejects. Untranslated, Chrome's SDK throws while building the paused
-        # state and the Sources panel never shows the pause. Reshape each frame in place.
-        for frame in params.get("callFrames", []):
+        # WebKit's CallFrame differs from Chrome's: it carries a bottom native frame Chrome never
+        # has (see _is_real_call_frame), omits the required `url`, and uses scope-type enum values
+        # Chrome rejects. Untranslated, Chrome's SDK throws while building the paused state and the
+        # Sources panel never shows the pause. Drop the native frame and reshape the rest in place.
+        all_frames: list[dict[str, Any]] = params.get("callFrames", [])
+        frames = [f for f in all_frames if self._is_real_call_frame(f) and not self._is_inspector_frame(f)]
+        # Keep the top frame even if it somehow fails the tests, so a pause is never frameless.
+        params["callFrames"] = frames or all_frames[:1]
+        for frame in params["callFrames"]:
             if "url" not in frame:
                 script_id = frame.get("location", {}).get("scriptId")
                 frame["url"] = self._script_id_to_url.get(script_id, "")
@@ -3236,18 +3515,222 @@ class CdpTarget:
                 # WebKit names the defining position `location`; Chrome calls it `startLocation`.
                 if "location" in scope:
                     scope["startLocation"] = scope.pop("location")
+        if self._client_debugger_paused:
+            # A step resumed then repaused without WebKit announcing the resume; keep the client's
+            # paused/resumed alternation intact so its stepping does not stall.
+            await self.output_queue.put({"method": "Debugger.resumed"})
+        self._client_debugger_paused = True
         await self.output_queue.put(message)
+
+    async def _debugger_resumed(self, message: dict[str, Any]):
+        # Only meaningful when the client thinks it is paused; a stray resumed otherwise would
+        # break the alternation the synthesized one (see _debugger_paused) maintains.
+        if self._client_debugger_paused:
+            self._client_debugger_paused = False
+            await self.output_queue.put(message)
 
     async def _debugger_global_object_cleared(self, message: dict[str, Any]):
         # Contexts are gone; allow their uniqueIds to be re-announced after the reload.
+        self._client_debugger_paused = False
+        for frame_id in list(self._frame_execution_ids):
+            await self._destroy_frame_contexts(frame_id)
         self._emitted_context_unique_ids.clear()
         self._frame_execution_ids.clear()
         self._announced_worlds.clear()
         await self.output_queue.put({"method": "Runtime.executionContextsCleared"})
         await self.output_queue.put({"method": "DOM.documentUpdated"})
 
-    async def _page_default_appearance_did_change(self, message: dict[str, Any]):
-        pass
+    @staticmethod
+    def _is_binding_call(console_message: dict[str, Any]) -> bool:
+        parameters: list[dict[str, Any]] = console_message.get("parameters") or []
+        return (
+            console_message.get("source") == "console-api"
+            and len(parameters) == 4
+            and parameters[0].get("value") == BINDING_MARKER
+        )
+
+    async def _binding_called(self, console_message: dict[str, Any]) -> None:
+        """A call of a function installed by Runtime.addBinding (see _install_binding)."""
+        parameters: list[dict[str, Any]] = console_message["parameters"]
+        context_id = parameters[3].get("value")
+        await self.output_queue.put({
+            "method": "Runtime.bindingCalled",
+            "params": {
+                "name": str(parameters[1].get("value", "")),
+                "payload": str(parameters[2].get("value", "")),
+                "executionContextId": context_id if isinstance(context_id, int) else self._default_execution_id,
+            },
+        })
+
+    def _error_script_url(self, script_id: Any, url: Any) -> str:
+        """The URL of the script an error came from. WebKit stringifies a missing one as
+        "undefined"; the script's announced URL (empty for an evaluation) is what Chrome reports."""
+        if isinstance(script_id, str) and script_id in self._script_id_to_url:
+            return self._script_id_to_url[script_id]
+        return "" if not isinstance(url, str) or url == "undefined" else url
+
+    async def _exception_thrown(self, console_message: dict[str, Any]) -> None:
+        """Runtime.exceptionThrown from WebKit's error console message.
+
+        WebKit numbers lines and columns from 1 in these messages (a throw on the third line of a
+        script reports line 3); Chrome's ExceptionDetails and StackTrace count from 0. Chrome
+        describes the exception through a RemoteObject whose description is the "Name: message"
+        text, with `text` reduced to "Uncaught" (or "Uncaught (in promise)"); editors format the
+        two together.
+        """
+        text = str(console_message.get("text", ""))
+        summary = "Uncaught"
+        if text.startswith(UNHANDLED_REJECTION_PREFIX):
+            text = text[len(UNHANDLED_REJECTION_PREFIX) :]
+            summary = "Uncaught (in promise)"
+        class_name = text.split(":", 1)[0].strip() if ":" in text else "Error"
+        frames: list[dict[str, Any]] = []
+        stack: dict[str, Any] = console_message.get("stackTrace") or {}
+        call_frames: list[dict[str, Any]] = stack.get("callFrames") or []
+        for frame in call_frames:
+            frames.append({
+                "functionName": frame.get("functionName", ""),
+                "scriptId": str(frame.get("scriptId", "")),
+                "url": self._error_script_url(frame.get("scriptId"), frame.get("url")),
+                "lineNumber": max(int(frame.get("lineNumber", 1)) - 1, 0),
+                "columnNumber": max(int(frame.get("columnNumber", 1)) - 1, 0),
+            })
+        top = frames[0] if frames else {}
+        details: dict[str, Any] = {
+            "exceptionId": next(self._exception_ids),
+            "text": summary,
+            "lineNumber": top.get("lineNumber", max(int(console_message.get("line", 1)) - 1, 0)),
+            "columnNumber": top.get("columnNumber", max(int(console_message.get("column", 1)) - 1, 0)),
+            "url": top.get("url", self._error_script_url(None, console_message.get("url"))),
+            "executionContextId": self._default_execution_id,
+            "exception": {"type": "object", "subtype": "error", "className": class_name, "description": text},
+        }
+        if top.get("scriptId"):
+            details["scriptId"] = top["scriptId"]
+        if frames:
+            details["stackTrace"] = {"callFrames": frames}
+        await self.output_queue.put({
+            "method": "Runtime.exceptionThrown",
+            "params": {"timestamp": datetime.now().timestamp() * 1000, "exceptionDetails": details},
+        })
+
+    async def _inspector_inspect(self, message: dict[str, Any]) -> None:
+        """The console's inspect(object): WebKit's Inspector.inspect is Chrome's Runtime.inspectRequested."""
+        params = message.get("params", {})
+        await self.output_queue.put({
+            "method": "Runtime.inspectRequested",
+            "params": {
+                "object": params.get("object", {}),
+                "hints": params.get("hints") or {},
+                "executionContextId": self._default_execution_id,
+            },
+        })
+
+    async def _emit_execution_context_destroyed(self, context_id: int, frame_id: Any) -> None:
+        await self.output_queue.put({
+            "method": "Runtime.executionContextDestroyed",
+            "params": {"executionContextId": context_id, "executionContextUniqueId": f"{frame_id}.{context_id}"},
+        })
+
+    async def _destroy_frame_contexts(self, frame_id: str) -> None:
+        """Announce the end of a frame's contexts - its main world and the isolated worlds
+        synthesized for it - before the frame itself goes; Chrome does the same on navigation."""
+        for context_id, world_frame in list(self._isolated_world_frames.items()):
+            if world_frame == frame_id:
+                await self._emit_execution_context_destroyed(context_id, frame_id)
+                del self._isolated_world_frames[context_id]
+                self._isolated_world_names.pop(context_id, None)
+                # A world that is gone must not be resolved any more: a client that keeps using it
+                # would otherwise be answered from the top frame's context, silently. Forgotten,
+                # the id is forwarded as-is and the device refuses it, the way Chrome refuses a
+                # destroyed context.
+                self._isolated_world_context_ids.discard(context_id)
+        main_context = self._frame_execution_ids.get(frame_id)
+        if main_context is not None:
+            await self._emit_execution_context_destroyed(main_context, frame_id)
+
+    def _binding_install_script(self, name: str, context_id: int) -> str:
+        return (
+            f"globalThis[{json.dumps(name)}] = function (payload) {{ "
+            f"console.debug({json.dumps(BINDING_MARKER)}, {json.dumps(name)}, String(payload), {context_id}); }};"
+        )
+
+    async def _install_binding(self, name: str, context_id: int) -> None:
+        """Define the binding function in one execution context, without waiting for the reply."""
+        params: dict[str, Any] = {"expression": self._tag_internal(self._binding_install_script(name, context_id))}
+        real_context = self._real_context_id(context_id)
+        if real_context is not None:
+            params["contextId"] = real_context
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Runtime.evaluate",
+            "params": params,
+        })
+
+    def _real_context_id(self, context_id: int) -> Optional[int]:
+        """The device's context for one the client knows: a synthesized isolated world runs in the
+        real main world of its frame; a JSContext has a single, unaddressed context."""
+        if self._flat:
+            return None
+        if context_id in self._isolated_world_context_ids:
+            world_frame = self._isolated_world_frames.get(context_id, self.frame_id)
+            return self._frame_execution_ids.get(world_frame) or self._default_execution_id or None
+        return context_id
+
+    def _binding_contexts(self, world_name: Optional[str]) -> list[int]:
+        """The client-visible contexts a binding scoped to `world_name` belongs in right now."""
+        if world_name is None:
+            if self._flat:
+                return [JS_CONTEXT_EXECUTION_ID]
+            return sorted(set(self._frame_execution_ids.values()))
+        return sorted(cid for cid, name in self._isolated_world_names.items() if name == world_name)
+
+    async def _install_bindings_for_context(self, context_id: int, world_name: Optional[str]) -> None:
+        """A context was just announced: give it every binding registered for its kind."""
+        for name, scope in self._bindings.items():
+            if scope == world_name:
+                await self._install_binding(name, context_id)
+
+    async def _runtime_add_binding(self, message: dict[str, Any]) -> None:
+        """
+        Runtime.addBinding: expose `name` in the page as a function whose calls reach the client as
+        Runtime.bindingCalled. Chrome's semantics: no context given = every main world, now and
+        after reloads; executionContextName = every isolated world of that name, now and later;
+        executionContextId = that one context only. Playwright's exposeFunction/exposeBinding and
+        its init-script plumbing are built on this.
+        """
+        params = message.get("params", {})
+        name = str(params.get("name", ""))
+        if not name:
+            await self._error_response(message, {"code": -32602, "message": "Runtime.addBinding needs a name"})
+            return
+        if isinstance(params.get("executionContextId"), int):
+            await self._install_binding(name, params["executionContextId"])
+        else:
+            world_name = params.get("executionContextName")
+            scope = world_name if isinstance(world_name, str) and world_name else None
+            self._bindings[name] = scope
+            for context_id in self._binding_contexts(scope):
+                await self._install_binding(name, context_id)
+        await self._result_response(message, {})
+
+    async def _runtime_remove_binding(self, message: dict[str, Any]) -> None:
+        name = str(message.get("params", {}).get("name", ""))
+        scope = self._bindings.pop(name, None)
+        contexts = self._binding_contexts(scope) if name else []
+        if scope is None:
+            contexts = sorted(set(contexts) | set(self._isolated_world_names))
+        for context_id in contexts:
+            params: dict[str, Any] = {"expression": self._tag_internal(f"delete globalThis[{json.dumps(name)}];")}
+            real_context = self._real_context_id(context_id)
+            if real_context is not None:
+                params["contextId"] = real_context
+            await self._send_message_to_target({
+                "id": self.next_internal_id(),
+                "method": "Runtime.evaluate",
+                "params": params,
+            })
+        await self._result_response(message, {})
 
     async def _runtime_execution_context_created(self, message: dict[str, Any]):
         context = message["params"]["context"]
@@ -3290,6 +3773,7 @@ class CdpTarget:
             }
         }
         await self.output_queue.put(message)
+        await self._install_bindings_for_context(context["id"], None)
 
     async def _announce_registered_worlds(self, frame_id: str) -> None:
         """Give a freshly loaded document the isolated worlds the client registered by name."""
@@ -3310,6 +3794,12 @@ class CdpTarget:
 
     async def _console_message_added(self, message: dict[str, Any]):
         console_message = message["params"]["message"]
+        if self._is_binding_call(console_message):
+            await self._binding_called(console_message)
+            return
+        if console_message["source"] == JAVASCRIPT_ERROR_SOURCE and console_message.get("level") == "error":
+            await self._exception_thrown(console_message)
+            return
         # Chrome renders console-API output (console.log & friends) from Runtime.consoleAPICalled,
         # complete with the argument objects; Log.entryAdded is only for browser-generated logs.
         if console_message["source"] == "console-api":
@@ -3381,3 +3871,206 @@ class CdpTarget:
             "timestamp": params["timestamp"],
         }
         await self.output_queue.put(message)
+
+    # --- Fetch domain (Chrome) over Network interception (WebKit) --------------------------------
+
+    @staticmethod
+    def _fetch_headers_to_object(headers: Any) -> dict[str, str]:
+        """Chrome carries headers as a [{name, value}] list; WebKit's intercept* want an object."""
+        result: dict[str, str] = {}
+        if isinstance(headers, list):
+            for entry in cast(list[Any], headers):
+                if isinstance(entry, dict):
+                    name = cast(dict[str, Any], entry).get("name")
+                    value = cast(dict[str, Any], entry).get("value")
+                    if isinstance(name, str):
+                        result[name] = "" if value is None else str(value)
+        elif isinstance(headers, dict):
+            for name, value in cast(dict[str, Any], headers).items():
+                result[str(name)] = "" if value is None else str(value)
+        return result
+
+    @staticmethod
+    def _fetch_pattern_to_regex(url_pattern: str) -> str:
+        """Chrome's Fetch urlPattern is a glob (``*`` any run, ``?`` any char); WebKit takes a regex."""
+        escaped = re.escape(url_pattern)
+        return "^" + escaped.replace("\\*", ".*").replace("\\?", ".") + "$"
+
+    async def _fetch_enable(self, message: dict[str, Any]) -> None:
+        params = message.get("params", {})
+        patterns = params.get("patterns") or [{"urlPattern": "*"}]
+        self._fetch_handle_auth = bool(params.get("handleAuthRequests", False))
+        for pattern in patterns:
+            if not isinstance(pattern, dict):
+                continue
+            spec = cast(dict[str, Any], pattern)
+            url = self._fetch_pattern_to_regex(cast(str, spec.get("urlPattern") or "*"))
+            stage = "response" if str(spec.get("requestStage", "Request")).lower() == "response" else "request"
+            await self._send_message_to_target({
+                "id": self.next_internal_id(),
+                "method": "Network.addInterception",
+                "params": {"url": url, "stage": stage, "isRegex": True},
+            })
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Network.setInterceptionEnabled",
+            "params": {"enabled": True},
+        })
+        self._fetch_enabled = True
+        await self._result_response(message, {})
+
+    async def _fetch_disable(self, message: dict[str, Any]) -> None:
+        self._fetch_enabled = False
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Network.setInterceptionEnabled",
+            "params": {"enabled": False},
+        })
+        await self._result_response(message, {})
+
+    async def _fetch_continue_request(self, message: dict[str, Any]) -> None:
+        params = message.get("params", {})
+        request_id = params.get("requestId")
+        overrides: dict[str, Any] = {"requestId": request_id}
+        changed = False
+        for key in ("url", "method"):
+            if params.get(key) is not None:
+                overrides[key] = params[key]
+                changed = True
+        if params.get("postData") is not None:
+            overrides["postData"] = params["postData"]
+            changed = True
+        if params.get("headers") is not None:
+            overrides["headers"] = self._fetch_headers_to_object(params["headers"])
+            changed = True
+        if changed:
+            await self._send_message_to_target({
+                "id": self.next_internal_id(),
+                "method": "Network.interceptWithRequest",
+                "params": overrides,
+            })
+        else:
+            await self._send_message_to_target({
+                "id": self.next_internal_id(),
+                "method": "Network.interceptContinue",
+                "params": {"requestId": request_id, "stage": "request"},
+            })
+        await self._result_response(message, {})
+
+    async def _fetch_continue_response(self, message: dict[str, Any]) -> None:
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Network.interceptContinue",
+            "params": {"requestId": message.get("params", {}).get("requestId"), "stage": "response"},
+        })
+        await self._result_response(message, {})
+
+    async def _fetch_continue_with_auth(self, message: dict[str, Any]) -> None:
+        # WebKit surfaces no auth-challenge event of its own (the on-device dialog owns it), so this
+        # reactive path is a best effort: with credentials, inject an Authorization header and let
+        # the request go; otherwise just continue it. The reliable way to answer Basic auth here is
+        # proactive - continueRequest with an Authorization header on the matching request.
+        params = message.get("params", {})
+        request_id = params.get("requestId")
+        challenge = cast(dict[str, Any], params.get("authChallengeResponse") or {})
+        if challenge.get("response") == "ProvideCredentials":
+            token = base64.b64encode(
+                f"{challenge.get('username', '')}:{challenge.get('password', '')}".encode()
+            ).decode()
+            await self._send_message_to_target({
+                "id": self.next_internal_id(),
+                "method": "Network.interceptWithRequest",
+                "params": {"requestId": request_id, "headers": {"Authorization": f"Basic {token}"}},
+            })
+        else:
+            await self._send_message_to_target({
+                "id": self.next_internal_id(),
+                "method": "Network.interceptContinue",
+                "params": {"requestId": request_id, "stage": "request"},
+            })
+        await self._result_response(message, {})
+
+    async def _fetch_fulfill_request(self, message: dict[str, Any]) -> None:
+        params = message.get("params", {})
+        headers = self._fetch_headers_to_object(params.get("responseHeaders"))
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Network.interceptRequestWithResponse",
+            "params": {
+                "requestId": params.get("requestId"),
+                "content": params.get("body", ""),
+                "base64Encoded": True,
+                "mimeType": headers.get("Content-Type") or headers.get("content-type") or "text/plain",
+                "status": params.get("responseCode", 200),
+                "statusText": params.get("responsePhrase", ""),
+                "headers": headers,
+            },
+        })
+        await self._result_response(message, {})
+
+    async def _fetch_fail_request(self, message: dict[str, Any]) -> None:
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Network.interceptRequestWithError",
+            "params": {"requestId": message.get("params", {}).get("requestId"), "errorType": "General"},
+        })
+        await self._result_response(message, {})
+
+    async def _network_request_will_be_sent(self, message: dict[str, Any]) -> None:
+        # Cache what Network.requestIntercepted omits but Fetch.requestPaused needs, then forward
+        # the event as the raw path would have. Bound the cache so a long-lived page cannot grow it.
+        params = message["params"]
+        request_id = params.get("requestId")
+        if isinstance(request_id, str):
+            if len(self._request_meta) > 512:
+                self._request_meta.clear()
+            self._request_meta[request_id] = {
+                "frameId": self._to_client_frame_id(params.get("frameId")),
+                "type": params.get("type"),
+            }
+        self._map_frame_ids_outbound(message)
+        await self.output_queue.put(message)
+
+    async def _network_request_intercepted(self, message: dict[str, Any]) -> None:
+        params = message["params"]
+        if not self._fetch_enabled:
+            # A client driving WebKit's Network interception directly; leave its event untouched.
+            await self.output_queue.put(message)
+            return
+        request_id = params.get("requestId")
+        meta = self._request_meta.get(request_id, {}) if isinstance(request_id, str) else {}
+        resource_type = meta.get("type")
+        await self.output_queue.put({
+            "method": "Fetch.requestPaused",
+            "params": {
+                "requestId": request_id,
+                "request": params.get("request", {}),
+                "frameId": meta.get("frameId") or self.frame_id,
+                "resourceType": resource_type if resource_type in NETWORK_RESOURCE_TYPES else "Other",
+                "networkId": request_id,
+            },
+        })
+
+    async def _network_response_intercepted(self, message: dict[str, Any]) -> None:
+        params = message["params"]
+        if not self._fetch_enabled:
+            await self.output_queue.put(message)
+            return
+        request_id = params.get("requestId")
+        response = params.get("response", {})
+        meta = self._request_meta.get(request_id, {}) if isinstance(request_id, str) else {}
+        resource_type = meta.get("type")
+        headers = response.get("headers", {})
+        await self.output_queue.put({
+            "method": "Fetch.requestPaused",
+            "params": {
+                "requestId": request_id,
+                "request": {"url": response.get("url", ""), "method": "GET", "headers": {}},
+                "frameId": meta.get("frameId") or self.frame_id,
+                "resourceType": resource_type if resource_type in NETWORK_RESOURCE_TYPES else "Other",
+                "networkId": request_id,
+                "responseStatusCode": response.get("status"),
+                "responseStatusText": response.get("statusText", ""),
+                "responseHeaders": [{"name": str(k), "value": str(v)} for k, v in headers.items()],
+            },
+        })

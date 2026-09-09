@@ -107,12 +107,19 @@ class TestAiPrLoopMainWorkflow:
         assert dispatch_step is not None
         assert (dispatch_step.get("if") or "").strip() == "always()"
 
-    def test_redispatch_uses_writer_pat_after_gate_or_rate_limit_pause(self) -> None:
-        """Redispatch falls back to the writer PAT when the PR token should not be reused."""
+    def test_redispatch_uses_pr_token_with_workflow_token_fallback(self) -> None:
+        """Redispatch keeps the writer PAT out of workflow dispatch credentials."""
         content = AI_PR_LOOP.read_text(encoding="utf-8")
-        assert "COOLDOWN_ACTIVE: ${{ steps.cooldown-gate.outputs.cooldown_active }}" in content
-        assert "LOOP_EXIT_CODE: ${{ steps.run-loop.outputs.exit_code }}" in content
-        assert 'export GH_TOKEN="${REPO_VARIABLE_WRITER_PAT}"' in content
+        dispatch_step = content[content.index("- name: Dispatch AI PR Loop Redispatch") :]
+        assert "GH_TOKEN: ${{ secrets.SPECKIT_PR_TOKEN }}" in dispatch_step
+        assert "FALLBACK_GH_TOKEN: ${{ github.token }}" in dispatch_step
+        assert "REPO_VARIABLE_WRITER_PAT" not in dispatch_step
+        assert 'mode="redispatch-dispatch-redispatch"' in dispatch_step
+        assert (
+            'gh api --method POST "/repos/$GITHUB_REPOSITORY/actions/workflows/ai-pr-loop-redispatch.yml/dispatches"'
+            in dispatch_step
+        )
+        assert 'GH_TOKEN="${FALLBACK_GH_TOKEN:-$GH_TOKEN}" gh api --method POST' in dispatch_step
 
     def test_loop_concurrency_is_scoped_to_the_selected_pr(self) -> None:
         """A loop run for one PR must not replace a pending run for another PR."""

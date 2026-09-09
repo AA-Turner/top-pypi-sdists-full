@@ -305,6 +305,10 @@ COMMAND_MAP = {
         "agentic_devtools.cli.workflows",
         "setup_worktree_background_cmd",
     ),
+    "agdt-setup-worktree": (
+        "agentic_devtools.cli.workflows",
+        "setup_worktree_cmd",
+    ),
     # GitHub PR actions
     "agdt-gh-reply-to-review-comments": (
         "agentic_devtools.cli.github.review_reply",

@@ -424,7 +424,7 @@ fn parse_wtd_payload(data: &[u8]) -> Result<Vec<DataStreamItem5250>, Tn5250Error
                     });
                 }
                 let soh_data = data[pos..pos + soh_len].to_vec();
-                trace!("SOH: len={}, data={:02X?}", soh_len, &soh_data);
+                trace!("SOH: len={}, data={:02X?}", soh_len, soh_data);
                 items.push(DataStreamItem5250::Order(Order::Soh(SohData {
                     length: soh_len as u8,
                     data: soh_data,
@@ -506,7 +506,7 @@ fn parse_wtd_payload(data: &[u8]) -> Result<Vec<DataStreamItem5250>, Tn5250Error
                     });
                 }
                 let td_bytes = data[pos..pos + td_len].to_vec();
-                trace!("TD: len={}, data={:02X?}", td_len, &td_bytes);
+                trace!("TD: len={}, data={:02X?}", td_len, td_bytes);
                 items.push(DataStreamItem5250::Order(Order::Td(td_bytes)));
                 pos += td_len;
             }

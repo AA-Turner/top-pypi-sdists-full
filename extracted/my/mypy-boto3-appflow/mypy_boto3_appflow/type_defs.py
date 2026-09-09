@@ -425,6 +425,7 @@ class ZendeskMetadataTypeDef(TypedDict):
 class ConnectorOAuthRequestTypeDef(TypedDict):
     authCode: NotRequired[str]
     redirectUri: NotRequired[str]
+    codeVerifier: NotRequired[str]
 
 
 class ConnectorOperatorTypeDef(TypedDict):
@@ -474,7 +475,8 @@ class SingularConnectorProfileCredentialsTypeDef(TypedDict):
 
 class SnowflakeConnectorProfileCredentialsTypeDef(TypedDict):
     username: str
-    password: str
+    password: NotRequired[str]
+    privateKey: NotRequired[str]
 
 
 class TrendmicroConnectorProfileCredentialsTypeDef(TypedDict):

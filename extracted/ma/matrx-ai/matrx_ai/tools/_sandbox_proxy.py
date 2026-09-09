@@ -46,7 +46,8 @@ import asyncio
 import base64
 import binascii
 import logging
-from dataclasses import dataclass
+from contextvars import ContextVar
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 import httpx
@@ -67,13 +68,13 @@ DEFAULT_TIMEOUT_SECONDS = 60.0
 # tool call waits the migration out and lands on the new container, rather than
 # giving up mid-swap. ~50 attempts x up to 5s ≈ several minutes of headroom.
 _MIGRATING_MAX_ATTEMPTS = 50
-_MIGRATING_MAX_DELAY = 5.0        # cap any single Retry-After backoff
+_MIGRATING_MAX_DELAY = 5.0  # cap any single Retry-After backoff
 
 
 @dataclass(frozen=True)
 class SandboxBinding:
     sandbox_id: str
-    base_url: str          # ends WITHOUT trailing slash
+    base_url: str  # ends WITHOUT trailing slash
     access_token: str
     root_path: str = "/home/agent"
     target_kind: Literal["sandbox", "local_machine"] = "sandbox"
@@ -119,9 +120,7 @@ def get_active_sandbox() -> SandboxBinding | None:
         return None
     target_kind = "local_machine" if raw.get("target_kind") == "local_machine" else "sandbox"
     root_path = raw.get("root_path")
-    if target_kind == "local_machine" and (
-        not isinstance(root_path, str) or not root_path.strip()
-    ):
+    if target_kind == "local_machine" and (not isinstance(root_path, str) or not root_path.strip()):
         # Never reinterpret a Windows/Linux/macOS desktop through the cloud
         # server's default POSIX sandbox root.
         return None
@@ -130,24 +129,41 @@ def get_active_sandbox() -> SandboxBinding | None:
         sandbox_id=sandbox_id,
         base_url=base_url,
         access_token=access_token,
-        root_path=root_path.strip() if isinstance(root_path, str) and root_path.strip() else "/home/agent",
+        root_path=root_path.strip()
+        if isinstance(root_path, str) and root_path.strip()
+        else "/home/agent",
         target_kind=target_kind,
     )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-# Fresh tokens re-minted mid-loop, keyed by orchestrator sandbox_id. A sandbox
-# access token is short-lived (≤15 min); when one expires mid-loop we re-mint via
-# the host seam and cache it here so EVERY subsequent tool call in the loop uses
-# the fresh token, not just the retried one. Keyed by sandbox_id (a token is
-# valid for the box regardless of which conversation/request drives it).
-_TOKEN_OVERRIDES: dict[str, str] = {}
+# Renewals belong to one actor/run and exact endpoint, never the process fleet.
+_TOKEN_OVERRIDES: ContextVar[dict[tuple[str, ...], str] | None] = ContextVar(
+    "sandbox_token_overrides", default=None
+)
+
+
+def _token_cache_key(binding: SandboxBinding) -> tuple[str, ...] | None:
+    from matrx_connect import try_get_app_context
+
+    ctx = try_get_app_context()
+    if ctx is None or not ctx.user_id or not (ctx.request_id or ctx.execution_id):
+        return None
+    return (
+        ctx.user_id,
+        ctx.request_id or ctx.execution_id,
+        binding.target_kind,
+        binding.base_url,
+        binding.sandbox_id,
+    )
 
 
 def _headers(binding: SandboxBinding) -> dict[str, str]:
+    key = _token_cache_key(binding)
+    cached = (_TOKEN_OVERRIDES.get() or {}).get(key) if key is not None else None
     return {
-        "X-Sandbox-Access-Token": _TOKEN_OVERRIDES.get(binding.sandbox_id) or binding.access_token,
+        "X-Sandbox-Access-Token": cached or binding.access_token,
         "Content-Type": "application/json",
     }
 
@@ -162,6 +178,8 @@ async def _remint_token(binding: SandboxBinding) -> str | None:
     """
     from matrx_ai._ext import get_sandbox_token_minter
 
+    if binding.target_kind != "sandbox":
+        return None
     minter = get_sandbox_token_minter()
     if minter is None:
         logger.warning(
@@ -176,7 +194,9 @@ async def _remint_token(binding: SandboxBinding) -> str | None:
         logger.warning("sandbox %s token re-mint raised: %s", binding.sandbox_id, exc)
         return None
     if fresh:
-        _TOKEN_OVERRIDES[binding.sandbox_id] = fresh
+        key = _token_cache_key(binding)
+        if key is not None:
+            _TOKEN_OVERRIDES.set({**(_TOKEN_OVERRIDES.get() or {}), key: fresh})
         logger.info("sandbox %s token re-minted mid-loop after 401/403", binding.sandbox_id)
         return fresh
     logger.warning(
@@ -195,7 +215,9 @@ class SandboxProxyError(RuntimeError):
     ``ToolError`` without re-parsing the HTTP layer.
     """
 
-    def __init__(self, message: str, *, status: int | None = None, error_type: str = "sandbox_error"):
+    def __init__(
+        self, message: str, *, status: int | None = None, error_type: str = "sandbox_error"
+    ):
         super().__init__(message)
         self.status = status
         self.error_type = error_type
@@ -239,7 +261,9 @@ async def _request(
         attempt += 1
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.request(method, url, params=params, json=json, headers=_headers(binding))
+                resp = await client.request(
+                    method, url, params=params, json=json, headers=_headers(binding)
+                )
         except httpx.TimeoutException as exc:
             raise SandboxProxyError(
                 f"Sandbox call timed out after {timeout}s",
@@ -256,7 +280,9 @@ async def _request(
         # container with no agent-visible error.
         if resp.status_code == 503 and _is_migrating(resp) and attempt < _MIGRATING_MAX_ATTEMPTS:
             delay = min(_retry_after_seconds(resp, default=3.0), _MIGRATING_MAX_DELAY)
-            logger.info("sandbox %s migrating — retry %d in %.1fs", binding.sandbox_id, attempt, delay)
+            logger.info(
+                "sandbox %s migrating — retry %d in %.1fs", binding.sandbox_id, attempt, delay
+            )
             await asyncio.sleep(delay)
             continue
 
@@ -266,7 +292,9 @@ async def _request(
         # The re-minted token is cached for every subsequent call this loop.
         if resp.status_code in (401, 403) and not reminted:
             reminted = True
-            if await _remint_token(binding) is not None:
+            fresh = await _remint_token(binding)
+            if fresh is not None:
+                binding = replace(binding, access_token=fresh)
                 continue
         break
 
@@ -292,6 +320,7 @@ async def _request(
 
 
 # ── Filesystem operations ──────────────────────────────────────────────────
+
 
 async def fs_list(
     binding: SandboxBinding,
@@ -461,7 +490,9 @@ async def fs_patch(
     order — identical semantics to the tool's local implementation.
     """
     resp = await _request(
-        binding, "POST", "/fs/patch",
+        binding,
+        "POST",
+        "/fs/patch",
         json={"path": path, "edits": edits, "create_if_missing": create_if_missing},
     )
     return resp.json()
@@ -514,6 +545,7 @@ async def fs_search(
 
 
 # ── Shell ──────────────────────────────────────────────────────────────────
+
 
 async def exec_command(
     binding: SandboxBinding,

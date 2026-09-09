@@ -92,6 +92,26 @@ class CreateObjectRequest(betterproto.Message):
     size: int = betterproto.int64_field(3)
     overwrite: bool = betterproto.bool_field(4)
     supports_put_headers: bool = betterproto.bool_field(5)
+    multipart_part_size: int = betterproto.int64_field(6)
+    """
+    When > 0 the client can upload the object as concurrent parts of this
+     many bytes; the gateway answers with upload_parts instead of a single
+     presigned_url for objects larger than one part.
+    """
+
+    multipart_total_size: int = betterproto.int64_field(7)
+    """
+    Byte length of the archive the parts cover (size is the manifest's
+     uncompressed total, which is what the object record stores).
+    """
+
+
+@dataclass(eq=False, repr=False)
+class ObjectUploadPart(betterproto.Message):
+    number: int = betterproto.uint32_field(1)
+    start: int = betterproto.int64_field(2)
+    end: int = betterproto.int64_field(3)
+    url: str = betterproto.string_field(4)
 
 
 @dataclass(eq=False, repr=False)
@@ -103,6 +123,27 @@ class CreateObjectResponse(betterproto.Message):
     put_headers: Dict[str, str] = betterproto.map_field(
         5, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
+    upload_id: str = betterproto.string_field(6)
+    upload_parts: List["ObjectUploadPart"] = betterproto.message_field(7)
+
+
+@dataclass(eq=False, repr=False)
+class ObjectUploadedPart(betterproto.Message):
+    number: int = betterproto.uint32_field(1)
+    etag: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CompleteObjectUploadRequest(betterproto.Message):
+    object_id: str = betterproto.string_field(1)
+    upload_id: str = betterproto.string_field(2)
+    parts: List["ObjectUploadedPart"] = betterproto.message_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class CompleteObjectUploadResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    error_msg: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -118,6 +159,48 @@ class PutObjectResponse(betterproto.Message):
     ok: bool = betterproto.bool_field(1)
     object_id: str = betterproto.string_field(2)
     error_msg: str = betterproto.string_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class CreateObjectDeltaRequest(betterproto.Message):
+    """
+    Incremental sync: instead of re-uploading a whole workspace archive when a
+     few files changed, the client uploads an archive holding only the added and
+     modified files (the delta) and the gateway merges it with the archive of a
+     previous object of the same workspace into the new object.
+    """
+
+    hash: str = betterproto.string_field(1)
+    size: int = betterproto.int64_field(2)
+    base_object_id: str = betterproto.string_field(3)
+    delta_size: int = betterproto.int64_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class CreateObjectDeltaResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    object_id: str = betterproto.string_field(2)
+    presigned_url: str = betterproto.string_field(3)
+    put_headers: Dict[str, str] = betterproto.map_field(
+        4, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    error_msg: str = betterproto.string_field(5)
+    base_missing: bool = betterproto.bool_field(6)
+
+
+@dataclass(eq=False, repr=False)
+class CommitObjectDeltaRequest(betterproto.Message):
+    object_id: str = betterproto.string_field(1)
+    base_object_id: str = betterproto.string_field(2)
+    removed_paths: List[str] = betterproto.string_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class CommitObjectDeltaResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    object_id: str = betterproto.string_field(2)
+    size: int = betterproto.int64_field(3)
+    error_msg: str = betterproto.string_field(4)
 
 
 @dataclass(eq=False, repr=False)
@@ -331,6 +414,29 @@ class DurableDisk(betterproto.Message):
     filesystem: str = betterproto.string_field(4)
     driver: str = betterproto.string_field(5)
     read_only: bool = betterproto.bool_field(6)
+    source_snapshot_id: str = betterproto.string_field(7)
+    """Snapshot used to initialize a disk with no snapshot history."""
+
+
+@dataclass(eq=False, repr=False)
+class PersistentRoot(betterproto.Message):
+    """
+    A durable machine-root disk. The container's entire root filesystem delta
+     lives on a qcow-backed volume mounted at "/", so disk snapshots capture the
+     whole machine state. Shorthand for a DurableDisk with mount_path "/" and
+     the qcow driver.
+    """
+
+    size: str = betterproto.string_field(1)
+    source_snapshot_id: str = betterproto.string_field(2)
+    """Snapshot used to initialize the root with no snapshot history."""
+
+    name: str = betterproto.string_field(3)
+    """
+    Disk name backing the root. Disk snapshot history is keyed by this name
+     within the workspace, so each machine wanting its own root lineage must
+     use a distinct name (e.g. the machine id). Defaults to "root".
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -400,6 +506,10 @@ class GetOrCreateStubRequest(betterproto.Message):
     disks: List["DurableDisk"] = betterproto.message_field(44)
     allow_marketplace: bool = betterproto.bool_field(45)
     checkpoint_trigger: "_types__.CheckpointTrigger" = betterproto.message_field(46)
+    hostname: str = betterproto.string_field(47)
+    """Hostname to set inside the container."""
+
+    persistent_root: "PersistentRoot" = betterproto.message_field(48)
 
 
 @dataclass(eq=False, repr=False)
@@ -568,6 +678,8 @@ class PoolConfig(betterproto.Message):
     fallback: str = betterproto.string_field(12)
     priority: int = betterproto.int32_field(13)
     offer_id: str = betterproto.string_field(14)
+    container_runtime: str = betterproto.string_field(15)
+    """Runtime for workers in this pool."""
 
 
 @dataclass(eq=False, repr=False)
@@ -1209,6 +1321,8 @@ class JoinAgentRequest(betterproto.Message):
      future image tag changes while manually edited values remain pinned.
     """
 
+    capabilities: List[str] = betterproto.string_field(18)
+
 
 @dataclass(eq=False, repr=False)
 class JoinAgentResponse(betterproto.Message):
@@ -1262,6 +1376,29 @@ class RequestAgentTransportCredentialResponse(betterproto.Message):
     control_url: str = betterproto.string_field(4)
     hostname: str = betterproto.string_field(5)
     ephemeral: bool = betterproto.bool_field(6)
+
+
+@dataclass(eq=False, repr=False)
+class CreateNodeEnrollmentRequest(betterproto.Message):
+    agent_token: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class CreateNodeEnrollmentResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    error_msg: str = betterproto.string_field(2)
+    enrollment_token: str = betterproto.string_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class DeleteNodeEnrollmentRequest(betterproto.Message):
+    agent_token: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class DeleteNodeEnrollmentResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    error_msg: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -1341,6 +1478,7 @@ class AgentWorkerSlot(betterproto.Message):
     """Deterministic identity of the restart-relevant slot specification."""
 
     cpu_affinity_enforced: bool = betterproto.bool_field(26)
+    pool_config: "AgentPoolRuntimeConfig" = betterproto.message_field(27)
 
 
 @dataclass(eq=False, repr=False)
@@ -1354,6 +1492,7 @@ class StreamAgentResponse(betterproto.Message):
     err_msg: str = betterproto.string_field(2)
     routes: List["AgentRoute"] = betterproto.message_field(3)
     slots: List["AgentWorkerSlot"] = betterproto.message_field(4)
+    ssh: "AgentSshConfig" = betterproto.message_field(5)
 
 
 @dataclass(eq=False, repr=False)
@@ -1427,6 +1566,7 @@ class Machine(betterproto.Message):
     agent_version: str = betterproto.string_field(14)
     machine_metrics: "MachineMetrics" = betterproto.message_field(15)
     user_data: str = betterproto.string_field(16)
+    ssh: "MachineSshAccess" = betterproto.message_field(17)
 
 
 @dataclass(eq=False, repr=False)
@@ -1486,6 +1626,14 @@ class ListMachinesResponse(betterproto.Message):
     supported_gpus reports pool-config-based serverless support per GPU
      type: true when a pool could serve the GPU even if scaled to zero.
     """
+
+    max_cpu_millicores: int = betterproto.uint32_field(6)
+    """
+    Resource ceilings enforced when creating a serverless stub. Private
+     on-demand pools own their machine and do not use these limits.
+    """
+
+    max_memory_mb: int = betterproto.uint32_field(7)
 
 
 @dataclass(eq=False, repr=False)
@@ -1673,6 +1821,150 @@ class UpdateAgentAvailabilityResponse(betterproto.Message):
     err_msg: str = betterproto.string_field(2)
 
 
+@dataclass(eq=False, repr=False)
+class DownloadMachineSshKeyRequest(betterproto.Message):
+    """
+    Managed SSH messages live at the end of this file so adding the feature
+     does not renumber every existing generated message implementation.
+    """
+
+    pool_name: str = betterproto.string_field(1)
+    machine_id: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class DownloadMachineSshKeyResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    err_msg: str = betterproto.string_field(2)
+    private_key: str = betterproto.string_field(3)
+    filename: str = betterproto.string_field(4)
+    generation: int = betterproto.uint64_field(5)
+    fingerprint: str = betterproto.string_field(6)
+    activation_required: bool = betterproto.bool_field(7)
+
+
+@dataclass(eq=False, repr=False)
+class RotateMachineSshKeyRequest(betterproto.Message):
+    pool_name: str = betterproto.string_field(1)
+    machine_id: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class RotateMachineSshKeyResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    err_msg: str = betterproto.string_field(2)
+    ssh: "MachineSshAccess" = betterproto.message_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class ActivateMachineSshKeyRequest(betterproto.Message):
+    pool_name: str = betterproto.string_field(1)
+    machine_id: str = betterproto.string_field(2)
+    generation: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class ActivateMachineSshKeyResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    err_msg: str = betterproto.string_field(2)
+    ssh: "MachineSshAccess" = betterproto.message_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class AgentSshConfig(betterproto.Message):
+    enabled: bool = betterproto.bool_field(1)
+    username: str = betterproto.string_field(2)
+    public_key: str = betterproto.string_field(3)
+    key_fingerprint: str = betterproto.string_field(4)
+    generation: int = betterproto.uint64_field(5)
+
+
+@dataclass(eq=False, repr=False)
+class UpdateAgentSshStatusRequest(betterproto.Message):
+    agent_token: str = betterproto.string_field(1)
+    generation: int = betterproto.uint64_field(2)
+    status: str = betterproto.string_field(3)
+    public_ip: str = betterproto.string_field(4)
+    host_key_fingerprint: str = betterproto.string_field(5)
+    error: str = betterproto.string_field(6)
+    listen_port: int = betterproto.uint32_field(7)
+
+
+@dataclass(eq=False, repr=False)
+class UpdateAgentSshStatusResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    err_msg: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class MachineSshAccess(betterproto.Message):
+    supported: bool = betterproto.bool_field(1)
+    status: str = betterproto.string_field(2)
+    public_ip: str = betterproto.string_field(3)
+    host: str = betterproto.string_field(4)
+    port: int = betterproto.uint32_field(5)
+    username: str = betterproto.string_field(6)
+    active_generation: int = betterproto.uint64_field(7)
+    applied_generation: int = betterproto.uint64_field(8)
+    key_fingerprint: str = betterproto.string_field(9)
+    host_key_fingerprint: str = betterproto.string_field(10)
+    private_key_available: bool = betterproto.bool_field(11)
+    pending_rotation: bool = betterproto.bool_field(12)
+    pending_generation: int = betterproto.uint64_field(13)
+    pending_fingerprint: str = betterproto.string_field(14)
+    pending_key_available: bool = betterproto.bool_field(15)
+    pending_key_downloaded: bool = betterproto.bool_field(16)
+    error: str = betterproto.string_field(17)
+    updated_at: datetime = betterproto.message_field(18)
+
+
+@dataclass(eq=False, repr=False)
+class AgentPoolCacheDiskConfig(betterproto.Message):
+    """
+    Host-backed runtime settings for an agent worker. Presence of this message
+     means the managed pool configuration is authoritative; older gateways omit
+     it and agents retain their installer-level state/cache defaults.
+    """
+
+    enabled: bool = betterproto.bool_field(1)
+    host_path: str = betterproto.string_field(2)
+    mount_path: str = betterproto.string_field(3)
+    max_usage_pct: float = betterproto.double_field(4)
+    min_free_bytes: int = betterproto.int64_field(5)
+
+
+@dataclass(eq=False, repr=False)
+class AgentPoolCacheConfig(betterproto.Message):
+    enabled: bool = betterproto.bool_field(1)
+    disk: "AgentPoolCacheDiskConfig" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class AgentPoolRuntimeConfig(betterproto.Message):
+    network_preallocation: bool = betterproto.bool_field(1)
+    criu_enabled: bool = betterproto.bool_field(2)
+    tmp_size_limit: str = betterproto.string_field(3)
+    storage_mode: str = betterproto.string_field(4)
+    storage_path: str = betterproto.string_field(5)
+    images_path: str = betterproto.string_field(6)
+    durable_disks_path: str = betterproto.string_field(7)
+    cache: "AgentPoolCacheConfig" = betterproto.message_field(8)
+    config_group: str = betterproto.string_field(9)
+    gpu_virtualized: bool = betterproto.bool_field(10)
+
+
+@dataclass(eq=False, repr=False)
+class GetAgentPoolVirtualizationRequest(betterproto.Message):
+    agent_token: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class GetAgentPoolVirtualizationResponse(betterproto.Message):
+    ok: bool = betterproto.bool_field(1)
+    err_msg: str = betterproto.string_field(2)
+    gpu_virtualized: bool = betterproto.bool_field(3)
+
+
 class GatewayServiceStub(SyncServiceStub):
     def authorize(self, authorize_request: "AuthorizeRequest") -> "AuthorizeResponse":
         return self._unary_unary(
@@ -1720,6 +2012,33 @@ class GatewayServiceStub(SyncServiceStub):
             .future(put_object_request_iterator)
             .result()
         )
+
+    def complete_object_upload(
+        self, complete_object_upload_request: "CompleteObjectUploadRequest"
+    ) -> "CompleteObjectUploadResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/CompleteObjectUpload",
+            CompleteObjectUploadRequest,
+            CompleteObjectUploadResponse,
+        )(complete_object_upload_request)
+
+    def create_object_delta(
+        self, create_object_delta_request: "CreateObjectDeltaRequest"
+    ) -> "CreateObjectDeltaResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/CreateObjectDelta",
+            CreateObjectDeltaRequest,
+            CreateObjectDeltaResponse,
+        )(create_object_delta_request)
+
+    def commit_object_delta(
+        self, commit_object_delta_request: "CommitObjectDeltaRequest"
+    ) -> "CommitObjectDeltaResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/CommitObjectDelta",
+            CommitObjectDeltaRequest,
+            CommitObjectDeltaResponse,
+        )(commit_object_delta_request)
 
     def checkpoint_container(
         self, checkpoint_container_request: "CheckpointContainerRequest"
@@ -2097,6 +2416,33 @@ class GatewayServiceStub(SyncServiceStub):
             ListPoolMachinesResponse,
         )(list_pool_machines_request)
 
+    def download_machine_ssh_key(
+        self, download_machine_ssh_key_request: "DownloadMachineSshKeyRequest"
+    ) -> "DownloadMachineSshKeyResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/DownloadMachineSSHKey",
+            DownloadMachineSshKeyRequest,
+            DownloadMachineSshKeyResponse,
+        )(download_machine_ssh_key_request)
+
+    def rotate_machine_ssh_key(
+        self, rotate_machine_ssh_key_request: "RotateMachineSshKeyRequest"
+    ) -> "RotateMachineSshKeyResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/RotateMachineSSHKey",
+            RotateMachineSshKeyRequest,
+            RotateMachineSshKeyResponse,
+        )(rotate_machine_ssh_key_request)
+
+    def activate_machine_ssh_key(
+        self, activate_machine_ssh_key_request: "ActivateMachineSshKeyRequest"
+    ) -> "ActivateMachineSshKeyResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/ActivateMachineSSHKey",
+            ActivateMachineSshKeyRequest,
+            ActivateMachineSshKeyResponse,
+        )(activate_machine_ssh_key_request)
+
     def join_agent(self, join_agent_request: "JoinAgentRequest") -> "JoinAgentResponse":
         return self._unary_unary(
             "/gateway.GatewayService/JoinAgent",
@@ -2113,6 +2459,33 @@ class GatewayServiceStub(SyncServiceStub):
             RequestAgentTransportCredentialRequest,
             RequestAgentTransportCredentialResponse,
         )(request_agent_transport_credential_request)
+
+    def get_agent_pool_virtualization(
+        self, get_agent_pool_virtualization_request: "GetAgentPoolVirtualizationRequest"
+    ) -> "GetAgentPoolVirtualizationResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/GetAgentPoolVirtualization",
+            GetAgentPoolVirtualizationRequest,
+            GetAgentPoolVirtualizationResponse,
+        )(get_agent_pool_virtualization_request)
+
+    def create_node_enrollment(
+        self, create_node_enrollment_request: "CreateNodeEnrollmentRequest"
+    ) -> "CreateNodeEnrollmentResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/CreateNodeEnrollment",
+            CreateNodeEnrollmentRequest,
+            CreateNodeEnrollmentResponse,
+        )(create_node_enrollment_request)
+
+    def delete_node_enrollment(
+        self, delete_node_enrollment_request: "DeleteNodeEnrollmentRequest"
+    ) -> "DeleteNodeEnrollmentResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/DeleteNodeEnrollment",
+            DeleteNodeEnrollmentRequest,
+            DeleteNodeEnrollmentResponse,
+        )(delete_node_enrollment_request)
 
     def list_agent_routes(
         self, list_agent_routes_request: "ListAgentRoutesRequest"
@@ -2131,6 +2504,15 @@ class GatewayServiceStub(SyncServiceStub):
             UpdateAgentRouteStatusRequest,
             UpdateAgentRouteStatusResponse,
         )(update_agent_route_status_request)
+
+    def update_agent_ssh_status(
+        self, update_agent_ssh_status_request: "UpdateAgentSshStatusRequest"
+    ) -> "UpdateAgentSshStatusResponse":
+        return self._unary_unary(
+            "/gateway.GatewayService/UpdateAgentSSHStatus",
+            UpdateAgentSshStatusRequest,
+            UpdateAgentSshStatusResponse,
+        )(update_agent_ssh_status_request)
 
     def update_agent_availability(
         self, update_agent_availability_request: "UpdateAgentAvailabilityRequest"

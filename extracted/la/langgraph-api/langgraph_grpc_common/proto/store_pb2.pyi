@@ -110,17 +110,43 @@ Global___MatchType: _TypeAlias = MatchType  # noqa: Y015
 class BatchRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
+    @_typing.final
+    class EncryptionContextJsonEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.bytes
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.bytes = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     OPS_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def ops(self) -> _containers.RepeatedCompositeFieldContainer[Global___Op]: ...
+    @_builtins.property
+    def encryption_context_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]:
+        """Request-scoped custom-encryption context for write operations."""
+
     def __init__(
         self,
         *,
         ops: _abc.Iterable[Global___Op] | None = ...,
+        encryption_context_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["ops", b"ops"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["encryption_context_json", b"encryption_context_json", "ops", b"ops"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

@@ -59,8 +59,11 @@ class OpenAIVoiceModelProvider(VoiceModelProvider):
             agent_registration: Optional agent registration configuration.
         """
         if openai_client is not None:
-            if api_key is not None or base_url is not None:
-                raise UserError("Don't provide api_key or base_url if you provide openai_client")
+            if any(value is not None for value in (api_key, base_url, organization, project)):
+                raise UserError(
+                    "Don't provide api_key, base_url, organization, or project if you provide "
+                    "openai_client"
+                )
             self._client: AsyncOpenAI | None = openai_client
         else:
             self._client = None
@@ -78,12 +81,27 @@ class OpenAIVoiceModelProvider(VoiceModelProvider):
     # AsyncOpenAI() raises an error if you don't have an API key set.
     def _get_client(self) -> AsyncOpenAI:
         if self._client is None:
-            default_client = _openai_shared.get_default_openai_client()
+            has_explicit_client_options = any(
+                value is not None
+                for value in (
+                    self._stored_api_key,
+                    self._stored_base_url,
+                    self._stored_organization,
+                    self._stored_project,
+                )
+            )
+            default_client = (
+                None if has_explicit_client_options else _openai_shared.get_default_openai_client()
+            )
             self._client = (
                 default_client
                 if default_client is not None
                 else AsyncOpenAI(
-                    api_key=self._stored_api_key or _openai_shared.get_default_openai_key(),
+                    api_key=(
+                        self._stored_api_key
+                        if self._stored_api_key is not None
+                        else _openai_shared.get_default_openai_key()
+                    ),
                     base_url=self._stored_base_url,
                     organization=self._stored_organization,
                     project=self._stored_project,

@@ -59,6 +59,7 @@ session manually.
 
 import json
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -71,7 +72,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
 from agentic_devtools.file_locking import FileLockError, locked_state_file
 from agentic_devtools.state import get_state_dir, read_modify_write_state, set_value
@@ -157,16 +158,16 @@ class CopilotSessionResult:
 
     Attributes:
         session_id: Unique identifier for the session (UUID4 hex).
-        mode: ``"interactive"`` or ``"non-interactive"``.
+        mode: ``"interactive"``, ``"terminal"``, or ``"non-interactive"``.
         prompt_file: Absolute path to the temporary prompt file.
         start_time: ISO-8601 UTC timestamp when the session was started.
-        pid: Process ID for non-interactive sessions; ``None`` for
-            interactive sessions (where the process has already exited
-            when this object is returned).
-        process: The :class:`subprocess.Popen` handle for non-interactive
-            sessions; ``None`` for interactive sessions.
-        log_file: Absolute path to the session log file for non-interactive
-            sessions; ``None`` for interactive sessions.
+        pid: Process ID for terminal and non-interactive sessions; ``None`` for
+            interactive sessions (where the process has already exited when
+            this object is returned).
+        process: The :class:`subprocess.Popen` handle for terminal and
+            non-interactive sessions; ``None`` for interactive sessions.
+        log_file: Absolute path to the session log file for terminal and
+            non-interactive sessions; ``None`` for interactive sessions.
     """
 
     session_id: str
@@ -194,6 +195,247 @@ class CopilotChildAliveError(RuntimeError):
     The original exception that triggered the abort is chained as
     :attr:`__cause__` and is always an instance of :class:`Exception`.
     """
+
+
+class CopilotTerminalLaunchError(RuntimeError):
+    """Raised when no supported dedicated terminal host can be launched."""
+
+
+def _powershell_quote(value: str) -> str:
+    """Quote a value for a single-quoted PowerShell string."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _terminal_shell_command(args: list[str], log_file_path: Path) -> str:
+    """Build a shell command that preserves Copilot's exit code while capturing output."""
+    bash_path = shutil.which("bash")
+    if not bash_path:
+        raise CopilotTerminalLaunchError(
+            "Unable to launch a dedicated terminal: bash is required to capture Copilot output."
+        )
+    pipeline = f"{shlex.join(args)} 2>&1 | tee -a {shlex.quote(str(log_file_path))}"
+    return f"{shlex.quote(bash_path)} -o pipefail -c {shlex.quote(pipeline)}"
+
+
+def _append_terminal_lifecycle_entry(
+    log_file_path: Path,
+    session_id: str,
+    event: str,
+    *,
+    exit_code: int | None = None,
+) -> None:
+    """Append a structured lifecycle marker for a dedicated terminal session."""
+    marker_fields: dict[str, object] = {"session_id": session_id}
+    jsonl_entry: dict[str, object] = {
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "event_type": "lifecycle",
+        "content": event,
+        "session_id": session_id,
+    }
+    if exit_code is not None:
+        marker_fields["exit_code"] = exit_code
+        jsonl_entry["exit_code"] = exit_code
+
+    with log_file_path.open("a", encoding="utf-8", errors="replace") as log_file:
+        _emit_log_marker(log_file, None, event, **marker_fields)
+
+    with log_file_path.with_suffix(".jsonl").open("a", encoding="utf-8", errors="replace") as jsonl_file:
+        jsonl_file.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
+        jsonl_file.flush()
+
+
+def _record_terminal_launch_abort(log_file_path: Path, session_id: str, *, exit_code: int = 1) -> None:
+    """Best-effort lifecycle closure for dedicated-terminal launch aborts."""
+    with suppress(OSError, ValueError):
+        _append_terminal_lifecycle_entry(
+            log_file_path,
+            session_id,
+            "SESSION_ERROR",
+            exit_code=exit_code,
+        )
+        _append_terminal_lifecycle_entry(
+            log_file_path,
+            session_id,
+            "SESSION_END",
+            exit_code=exit_code,
+        )
+
+
+def _terminal_lifecycle_writer_args(log_file_path: Path, session_id: str) -> list[str]:
+    """Return argv for the helper that appends terminal lifecycle markers."""
+    return [
+        sys.executable,
+        "-m",
+        "agentic_devtools.cli.copilot.session",
+        "--write-terminal-lifecycle",
+        str(log_file_path),
+        session_id,
+    ]
+
+
+def _terminal_lifecycle_shell_command(args: list[str], log_file_path: Path, session_id: str) -> str:
+    """Build a shell command that records terminal-session completion."""
+    command = _terminal_shell_command(args, log_file_path)
+    lifecycle_writer = shlex.join(_terminal_lifecycle_writer_args(log_file_path, session_id))
+    return (
+        f"{command}; exit_code=$?; "
+        'if [ "$exit_code" -eq 0 ]; then marker=SESSION_END; else marker=SESSION_ERROR; fi; '
+        f'{lifecycle_writer} "$marker" "$exit_code"; exit "$exit_code"'
+    )
+
+
+def _terminal_launch_args(
+    args: list[str],
+    working_directory: str,
+    log_file_path: Path,
+    session_id: str,
+) -> tuple[list[str], int]:
+    """Return the command and creation flags for a dedicated terminal host.
+
+    ``AGDT_TERMINAL_HOST`` may name a specific terminal executable. On macOS,
+    only ``osascript`` (including an absolute path to that executable) is
+    supported. Otherwise a platform-supported host is selected from the
+    available executables.
+    """
+    configured_host = os.environ.get("AGDT_TERMINAL_HOST", "").strip()
+    if sys.platform == "win32":
+        if configured_host:
+            host = shutil.which(configured_host)
+            if not host:
+                raise CopilotTerminalLaunchError(
+                    "Unable to launch a dedicated terminal: configured Windows terminal host "
+                    f"{configured_host!r} is unavailable. Supported hosts: wt.exe, cmd.exe."
+                )
+        else:
+            host = shutil.which("wt.exe") or shutil.which("wt") or shutil.which("cmd.exe")
+        powershell = shutil.which("powershell.exe") or shutil.which("powershell")
+        if not host or not powershell:
+            raise CopilotTerminalLaunchError(
+                "Unable to launch a dedicated terminal: a supported Windows host "
+                "(wt.exe or cmd.exe) and PowerShell are required. "
+                "Set AGDT_TERMINAL_HOST to a supported host."
+            )
+        lifecycle_writer = " ".join(
+            _powershell_quote(value) for value in _terminal_lifecycle_writer_args(log_file_path, session_id)
+        )
+        command = (
+            "& "
+            + " ".join(_powershell_quote(value) for value in args)
+            + " 2>&1 | Tee-Object -Append -FilePath "
+            + _powershell_quote(str(log_file_path))
+            + "; $exitCode = $LASTEXITCODE; "
+            + "if ($null -eq $exitCode) { $exitCode = 0 }; "
+            + "$marker = if ($exitCode -eq 0) { 'SESSION_END' } else { 'SESSION_ERROR' }; "
+            + "& "
+            + lifecycle_writer
+            + " $marker $exitCode; exit $exitCode"
+        )
+        powershell_args = [powershell, "-NoLogo", "-NoProfile", "-Command", command]
+        host_name = Path(host).name.lower()
+        if host_name in {"wt", "wt.exe"}:
+            return (
+                [
+                    host,
+                    "--wait",
+                    "new-window",
+                    "--title",
+                    f"Copilot {session_id}",
+                    "--startingDirectory",
+                    working_directory,
+                    "--",
+                    *powershell_args,
+                ],
+                0,
+            )
+        if host_name in {"cmd", "cmd.exe"}:
+            return [host, "/D", "/S", "/C", subprocess.list2cmdline(powershell_args)], subprocess.CREATE_NEW_CONSOLE
+        raise CopilotTerminalLaunchError(
+            "Unable to launch a dedicated terminal: unsupported Windows terminal host "
+            f"{host!r}. Supported hosts: wt.exe, cmd.exe."
+        )
+
+    if sys.platform == "darwin":
+        if configured_host and Path(configured_host).name != "osascript":
+            raise CopilotTerminalLaunchError(
+                "Unable to launch a dedicated terminal: unsupported macOS terminal host "
+                f"{configured_host!r}. Supported host: osascript."
+            )
+        osascript = shutil.which(configured_host or "osascript")
+        if not osascript:
+            if configured_host:
+                raise CopilotTerminalLaunchError(
+                    "Unable to launch a dedicated terminal: configured macOS terminal host "
+                    f"{configured_host!r} is unavailable. Supported host: osascript."
+                )
+            raise CopilotTerminalLaunchError("Unable to launch a dedicated terminal: macOS osascript is unavailable.")
+        command = _terminal_lifecycle_shell_command(args, log_file_path, session_id)
+        script = (
+            'tell application "Terminal"\n'
+            f"set terminalTab to do script {json.dumps(f'cd {shlex.quote(working_directory)}; {command}')}\n"
+            "activate\n"
+            "repeat while busy of terminalTab\n"
+            "delay 1\n"
+            "end repeat\n"
+            "end tell"
+        )
+        return [osascript, "-e", script], 0
+
+    if configured_host:
+        host = shutil.which(configured_host)
+        if not host:
+            raise CopilotTerminalLaunchError(
+                f"Unable to launch a dedicated terminal: configured terminal host {configured_host!r} is unavailable."
+            )
+    else:
+        candidates = [
+            "x-terminal-emulator",
+            "gnome-terminal",
+            "konsole",
+            "xterm",
+        ]
+        host = next((resolved for candidate in candidates if (resolved := shutil.which(candidate))), None)
+    if not host:
+        raise CopilotTerminalLaunchError(
+            "Unable to launch a dedicated terminal: no supported terminal host was found. "
+            "Set AGDT_TERMINAL_HOST to a supported terminal executable."
+        )
+    host_name = Path(host).name.lower()
+    command = _terminal_lifecycle_shell_command(args, log_file_path, session_id)
+    if host_name == "gnome-terminal":
+        return [host, "--", "sh", "-lc", command], 0
+    return [host, "-e", "sh", "-lc", command], 0
+
+
+def _monitor_terminal_pid(pid: int, state_file_path: Path) -> None:
+    """Release a terminal session mutex after its host process exits."""
+    while _is_process_alive(pid):
+        time.sleep(0.1)
+    _release_session_mutex_claim(pid, state_file_path=state_file_path)
+
+
+def _start_terminal_monitor(pid: int, state_file_path: Path) -> subprocess.Popen[bytes]:
+    """Start an independent monitor process that survives launcher exit."""
+    kwargs: dict[str, Any] = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "shell": False,
+    }
+    if sys.platform == "win32":  # pragma: no cover
+        kwargs["creationflags"] = getattr(subprocess, "DETACHED_PROCESS", 0)
+    else:
+        kwargs["start_new_session"] = True
+    return subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "agentic_devtools.cli.copilot.session",
+            "--monitor-terminal",
+            str(pid),
+            str(state_file_path),
+        ],
+        **kwargs,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -615,6 +857,7 @@ def _check_session_mutex(*, claim: bool = False) -> dict | None:
                         "mode": copilot_state.get("mode") or "",
                         "prompt_file": copilot_state.get("prompt_file") or "",
                         "start_time": copilot_state.get("start_time") or "",
+                        "log_file": copilot_state.get("log_file") or "",
                         "pid": pid,
                     }
                 else:
@@ -719,6 +962,7 @@ def _persist_session_state(result: CopilotSessionResult, model: str | None = Non
     - ``copilot.prompt_file``
     - ``copilot.start_time``
     - ``copilot.pid`` (empty string when not applicable)
+    - ``copilot.log_file`` (empty string when not applicable)
     - ``copilot.model_id`` (only when *model* is not ``None``)
 
     Args:
@@ -730,6 +974,7 @@ def _persist_session_state(result: CopilotSessionResult, model: str | None = Non
     set_value(f"{_COPILOT_NS}.prompt_file", result.prompt_file)
     set_value(f"{_COPILOT_NS}.start_time", result.start_time)
     set_value(f"{_COPILOT_NS}.pid", result.pid if result.pid is not None else "")
+    set_value(f"{_COPILOT_NS}.log_file", result.log_file or "")
     if model is not None:
         set_value(f"{_COPILOT_NS}.model_id", model)
 
@@ -825,6 +1070,7 @@ def start_copilot_session(
     autopilot: bool = True,
     allow_all: bool = True,
     model: str | None = None,
+    terminal: bool = False,
 ) -> CopilotSessionResult:
     """Start a ``gh copilot`` CLI session with the given prompt.
 
@@ -848,6 +1094,9 @@ def start_copilot_session(
     - In **interactive** mode the child process inherits the current
       terminal (stdin / stdout / stderr), so the user can interact with
       it directly.  This call blocks until the interactive session ends.
+    - In **terminal** mode Copilot is launched in a dedicated OS terminal
+      window.  The launcher returns immediately while retaining PID tracking,
+      lifecycle logging, and mutex ownership until the window closes.
     - In **non-interactive** mode the child process runs in the
       background with stdout and stderr captured to a log file.  The
       call returns immediately.
@@ -883,6 +1132,8 @@ def start_copilot_session(
         model: Optional Copilot model ID (e.g. ``"gpt-4o"``).
             Forwarded to ``_build_copilot_args`` and persisted as
             ``copilot.model_id`` in state.
+        terminal: When ``True``, launch Copilot in a dedicated terminal
+            window instead of the caller's terminal.
 
     Returns:
         A :class:`CopilotSessionResult` with session metadata.
@@ -902,6 +1153,7 @@ def start_copilot_session(
     owner_pid = os.getpid()
     existing = _check_session_mutex(claim=True)
     if existing is not None:
+        existing_log_file = existing.get("log_file")
         return CopilotSessionResult(
             session_id=existing.get("session_id", ""),
             mode=existing.get("mode", ""),
@@ -909,6 +1161,7 @@ def start_copilot_session(
             start_time=existing.get("start_time", ""),
             pid=existing.get("pid"),
             process=None,
+            log_file=existing_log_file if isinstance(existing_log_file, str) and existing_log_file else None,
         )
 
     # Pre-seed Copilot's trusted folders for the launch directory so the
@@ -931,7 +1184,8 @@ def start_copilot_session(
         model = model.strip() or None
 
     start_time = datetime.now(UTC).isoformat()
-    mode = "interactive" if interactive else "non-interactive"
+    mode = "terminal" if terminal else ("interactive" if interactive else "non-interactive")
+    launch_interactive = interactive and not terminal
 
     # --- Write prompt to temp file -------------------------------------------
     prompt_file_path = _get_prompt_file_path(session_id)
@@ -972,7 +1226,7 @@ def start_copilot_session(
     # on disk still contains the multi-line version for manual reuse.
     argv_prompt = _inline_prompt(prompt, prompt_file)
     args = _build_copilot_args(
-        argv_prompt, interactive=interactive, autopilot=autopilot, allow_all=allow_all, model=model
+        argv_prompt, interactive=launch_interactive, autopilot=autopilot, allow_all=allow_all, model=model
     )
 
     # When the prompt is too large for safe argv passing, fall back to
@@ -995,7 +1249,79 @@ def start_copilot_session(
         return result
 
     # --- Launch process -------------------------------------------------------
-    if interactive:
+    if terminal:
+        log_file_path = _get_log_file_path(session_id, start_time)
+        log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        _append_terminal_lifecycle_entry(log_file_path, session_id, "SESSION_START")
+        env = {k: v for k, v in os.environ.items() if k != "NODE_OPTIONS"}
+        try:
+            terminal_args, creationflags = _terminal_launch_args(
+                args,
+                working_directory,
+                log_file_path,
+                session_id,
+            )
+            process = subprocess.Popen(
+                terminal_args,
+                cwd=working_directory,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=False,
+                env=env,
+                creationflags=creationflags,
+            )
+        except (OSError, CopilotTerminalLaunchError):
+            _record_terminal_launch_abort(log_file_path, session_id)
+            _release_session_mutex_claim(owner_pid)
+            raise
+        print(f"Copilot terminal launched: pid={process.pid} worktree={working_directory}")
+        if not _transfer_session_mutex_claim(owner_pid, process.pid):
+            with suppress(OSError, ValueError):
+                process.kill()
+            _record_terminal_launch_abort(log_file_path, session_id)
+            _release_session_mutex_claim(owner_pid)
+            raise RuntimeError("Could not transfer the session mutex claim to the terminal host process.")
+        result = CopilotSessionResult(
+            session_id=session_id,
+            mode=mode,
+            prompt_file=prompt_file,
+            start_time=start_time,
+            pid=process.pid,
+            process=process,
+            log_file=str(log_file_path),
+        )
+        try:
+            _persist_session_state(result, model=model)
+        except Exception as exc:
+            with suppress(OSError, ValueError):
+                process.kill()
+            exit_confirmed = False
+            try:
+                process.wait(timeout=0.5)
+                exit_confirmed = True
+            except (AttributeError, OSError, ValueError, subprocess.TimeoutExpired):
+                exit_confirmed = isinstance(getattr(process, "returncode", None), int)
+            if exit_confirmed:
+                _record_terminal_launch_abort(log_file_path, session_id)
+                _release_session_mutex_claim(process.pid, state_file_path=session_state_file_path)
+            else:
+                print(
+                    "Warning: could not confirm terminal-host exit after session-state persistence "
+                    f"failure; retaining mutex claim for pid {process.pid}.",
+                    file=sys.stderr,
+                )
+                raise CopilotChildAliveError(str(exc)) from exc
+            raise
+        try:
+            _start_terminal_monitor(process.pid, session_state_file_path)
+        except OSError:
+            with suppress(OSError, ValueError):
+                process.kill()
+            _record_terminal_launch_abort(log_file_path, session_id)
+            _release_session_mutex_claim(process.pid, state_file_path=session_state_file_path)
+            raise
+    elif interactive:
         # Inherit stdio so the user can interact with the session.
         # This call blocks until the interactive session ends.
         # shell=False is required: gh is a proper .exe (not a .cmd batch script),
@@ -1407,6 +1733,30 @@ def start_copilot_session(
                 raise CopilotChildAliveError(str(exc)) from exc
             raise
 
-    if interactive:
+    if launch_interactive:
         _persist_session_state(result, model=model)
     return result
+
+
+def _run_terminal_monitor_cli() -> None:  # pragma: no cover
+    """Run the detached terminal monitor helper."""
+    if len(sys.argv) != 4 or sys.argv[1] != "--monitor-terminal":
+        return
+    _monitor_terminal_pid(int(sys.argv[2]), Path(sys.argv[3]))
+
+
+def _run_terminal_lifecycle_writer_cli() -> None:  # pragma: no cover
+    """Append a terminal lifecycle marker from a helper subprocess."""
+    if len(sys.argv) != 6 or sys.argv[1] != "--write-terminal-lifecycle":
+        return
+    _append_terminal_lifecycle_entry(
+        Path(sys.argv[2]),
+        sys.argv[3],
+        sys.argv[4],
+        exit_code=int(sys.argv[5]),
+    )
+
+
+if __name__ == "__main__":  # pragma: no cover
+    _run_terminal_monitor_cli()
+    _run_terminal_lifecycle_writer_cli()

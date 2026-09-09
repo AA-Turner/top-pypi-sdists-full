@@ -24,8 +24,9 @@ _PHASES_SECTION = (
     "3. `cli_installation`\n"
     "4. `dependency_check`\n"
     "5. `environment_persistence`\n"
-    "6. `file_modifications`\n"
-    "7. `autorun_setup`\n\n"
+    "6. `provider_configuration`\n"
+    "7. `file_modifications`\n"
+    "8. `autorun_setup`\n\n"
 )
 
 _MERMAID = "```mermaid\nflowchart TD\n  A-->B\n```\n"
@@ -117,8 +118,9 @@ class TestValidateSetupExpectations:
             "3. `cli_installation`\n"
             "4. `dependency_check`\n"
             "5. `environment_persistence`\n"
-            "6. `file_modifications`\n"
-            "7. `autorun_setup`\n\n"
+            "6. `provider_configuration`\n"
+            "7. `file_modifications`\n"
+            "8. `autorun_setup`\n\n"
             "## Exit Codes\n\n" + _FULL_EXIT_TABLE + "\n## Report Schema\n\nSchema here.\n\n" + _MERMAID,
             encoding="utf-8",
         )

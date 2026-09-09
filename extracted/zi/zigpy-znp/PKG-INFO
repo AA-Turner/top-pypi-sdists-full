@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy-znp
-Version: 1.1.0
+Version: 1.1.1
 Summary: A library for zigpy which communicates with TI ZNP radios
 Author-email: Alexei Chetroi <alexei.chetroi@outlook.com>
 License: GPL-3.0
@@ -13,12 +13,6 @@ Requires-Dist: zigpy>=1.5.0
 Requires-Dist: voluptuous
 Requires-Dist: coloredlogs
 Requires-Dist: jsonschema
-Provides-Extra: testing
-Requires-Dist: pytest>=7.3.1; extra == "testing"
-Requires-Dist: pytest-asyncio>=0.21.0; extra == "testing"
-Requires-Dist: pytest-timeout>=2.1.0; extra == "testing"
-Requires-Dist: pytest-mock>=3.10.0; extra == "testing"
-Requires-Dist: pytest-cov>=4.1.0; extra == "testing"
 Dynamic: license-file
 
 # zigpy-znp

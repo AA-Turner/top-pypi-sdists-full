@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: weasyprint
-Version: 69.0
+Version: 70.0
 Summary: The Awesome Document Factory
 Keywords: html,css,pdf,converter
 Author-email: Simon Sapin <simon.sapin@exyr.org>
@@ -47,6 +47,7 @@ Project-URL: Homepage, https://weasyprint.org/
 Project-URL: Issues, https://github.com/Kozea/WeasyPrint/issues
 Provides-Extra: doc
 Provides-Extra: test
+Import-Name: weasyprint
 
 **The Awesome Document Factory**
 

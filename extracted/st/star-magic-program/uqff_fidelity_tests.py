@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.420.0", "uqff_calculator.VERSION = 0.420.0 (THE CODE-TRUTH SHIP: Batches 21-25, 40 rulings B162-B201 + one sweep application - the Millennium set is equation-verified, the resonance tables are superseded on three independent code witnesses, the Ubi namespace closes as one law with four faces, and the registry crosses 7,000 rows)")
+assert_that(C.VERSION == "0.428.0", "uqff_calculator.VERSION = 0.428.0 (THE VELOCITY TIER SHIP: the Vp tier canonized on Daniels ruling - seventeen sonic forms live, eleven exact with soft anchors disclosed, the H_0 integer in dolomite, and the unit-free 20/13 cross-ratio)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -4567,8 +4567,8 @@ assert_that(abs(_r289['A_sc_self_consistent'] - 6.994e20) < 1e18 and abs(_r289['
             "PAPER_289: A_sc self-consistent (E_vac=RHO_UA) = 6.994e20; paper headline 6.994e21 needs E_vac=RHO_SCM (10x, Q-245)")
 assert_that(_r289['meissner_quench_at_Bcrit'] and _r289['meissner_table']['B_1e+11']['SCm'] == 0.0 and _r289['trz_enhancement'] == 1.1,
             "PAPER_289: Meissner SCm=1-B/B_crit -> 0 at B=B_crit (quench); (1+F_TRZ)=1.1")
-assert_that(_r289['first_resonance_specific_meissner_quench'] and C.calc('PAPER_289')['status'] == 'OPEN_RULING',
-            "PAPER_289: first resonance-specific Meissner quench (vs PAPER_266 galactic); OPEN_RULING (A_sc 10x discrepancy Q-245)")
+assert_that(_r289['first_resonance_specific_meissner_quench'] and C.calc('PAPER_289')['status'].startswith('RULED_2026-09-07'),
+            "PAPER_289: first resonance-specific Meissner quench (vs PAPER_266 galactic); Q-245 RULED by B244 (A_sc = 6.994e20, f_super = 1.411e15 canonical - era pin updated at queue zero)")
 assert_that(C.wired_count() >= 303, "wired_count >= 303 (PAPER_289 wired)")
 
 _r290 = C.calc('PAPER_290')['value']
@@ -4636,7 +4636,7 @@ assert_that(abs(_r295['a_super_1e12_quadratic'] / _r295['a_super_1e11'] - 100.0)
 assert_that('compressed' in _r295['channel'] and 'resonance' in _r295['contrast_PAPER_289'],
             "PAPER_295: compressed pre-oscillatory channel, distinct from PAPER_289 resonance placement")
 assert_that('Q-246' in _r295['magnetar_row_discrepancy'],
-            "PAPER_295: magnetar illustration row (quartic vs quadratic, 100x) flagged Q-246 OPEN_RULING")
+            "PAPER_295: magnetar illustration row (quartic vs quadratic, 100x) - Q-246 RULED by B244 (corrected to the quadratic prediction; era pin updated at queue zero)")
 assert_that(C.wired_count() >= 309, "wired_count >= 309 (PAPER_295 wired)")
 
 _r296 = C.calc('PAPER_296')['value']
@@ -4745,8 +4745,8 @@ assert_that(C.wired_count() >= 317, "wired_count >= 317 (PAPER_303 wired)")
 
 _r304 = C.calc('PAPER_304')
 _r304v = _r304['value']
-assert_that(_r304['status'] == 'OPEN_RULING' and 'Q-247' in _r304v['formula_discrepancy'],
-            "PAPER_304: OPEN_RULING Q-247 - stated a_aether derivation formula disagrees with module output by 24 orders")
+assert_that(_r304['status'].startswith('RULED_2026-09-07') and 'Q-247' in _r304v['formula_discrepancy'],
+            "PAPER_304: Q-247 RULED by B245 - a_aether = 7.38e7 stands as module output, the broken derivation held OPEN over substitution (era pin updated at queue zero)")
 assert_that(abs(_r304v['g_DPM'] - 3.986e-17) / 3.986e-17 < 0.005,
             "PAPER_304: g_DPM = G*M_p/r_Bohr^2 = 3.986e-17 m/s2 (proton DPM-seeded surface gravity)")
 assert_that(abs(_r304v['V_sys'] - 6.207e-31) / 6.207e-31 < 0.005,
@@ -9570,7 +9570,7 @@ def _sg4_last(path, n=4000):
             return _f.read().decode('utf-8', 'ignore')
     except OSError:
         return ''
-_sg4_band = 'CODETRUTH_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
+_sg4_band = 'VPTIER_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
 for _sg4_f in ('UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv',
                'UNIFIED_REGISTRY_R3_LEDGER.csv', 'UNIFIED_REGISTRY_XGEO_QUEUE.csv',
                'UNIFIED_REGISTRY_XGEO_ROUTES.csv'):
@@ -12613,7 +12613,7 @@ for _f in ('__init__.py', 'uqff_quartz_hpht_extension.py', 'uqff_downhole_engine
 
 # ---- PAPER_2256 v1.1.0 EXTENSIONS (gauges / CSV profiles / comparison mode) ----
 import uqff_downhole_simulator as _ds11
-assert_that(_ds11.__version__ == '1.85.0' and len(_ds11.make_sensor_string(12)) == 12,
+assert_that(_ds11.__version__ == '1.90.0' and len(_ds11.make_sensor_string(12)) == 12,
             "DOWNHOLE v1.1.0: N-gauge strings - make_sensor_string builds arbitrary evenly-spaced strings (verified at 12 gauges); package at v1.20.0")
 _prof = _ds11.load_well_profile_csv('uqff_downhole_simulator/sample_well_profile.csv')
 _cfg11 = _ds11.SimulatorConfig(sensor_depths_ft=_ds11.make_sensor_string(12), profile=_prof)
@@ -15023,8 +15023,8 @@ assert_that(len(_r85['rankings']) == 3
             and all(abs(_row85['mean_abs_r'] - 0.4137) < 0.001 for _row85 in _r85['rankings'])
             and len(_r85['degenerate_pairs']) == 3
             and abs(_r85['rankings'][0]['abs_r']['lld_ohmm'] - 0.742) < 0.005
-            and 'only Daniel can close' in _r85['blocked_on_k4'],
-            "DOWNHOLE v1.85.0 (2/2) - THE RANKING'S FIRST FINDING IS THE HONEST ONE: all three current UQFF candidate channels (K2 gravity, U_i-modulated gravity, QCalcGeom mass scale) are INFORMATIONALLY DEGENERATE - monotone transforms of the same density column, identical mean |r| 0.414, and the degeneracy detector says so instead of pretending three channels exist where one does - with the real signal located (the mass column knows RESISTIVITY best at |r|=0.742 in this window) and the path forward named: breaking the degeneracy requires a channel that is NOT a function of density alone, which is exactly K4's geological material rungs - the study points at the instrument by pointing at the missing physics, and the missing physics is Daniel's to supply")
+            and 'CLOSED 2026-09-08' in _r85['blocked_on_k4'],
+            "DOWNHOLE v1.85.0 (2/2) - THE RANKING'S FIRST FINDING IS THE HONEST ONE: all three current UQFF candidate channels (K2 gravity, U_i-modulated gravity, QCalcGeom mass scale) are INFORMATIONALLY DEGENERATE - monotone transforms of the same density column, identical mean |r| 0.414, and the degeneracy detector says so instead of pretending three channels exist where one does - with the real signal located (the mass column knows RESISTIVITY best at |r|=0.742 in this window) and the path forward named: breaking the degeneracy requires a channel that is NOT a function of density alone, which is exactly K4's geological material rungs - the study points at the instrument by pointing at the missing physics, and the missing physics is Daniel's to supply - WHICH HE DID: the K4 note now reads CLOSED (B264, PAPER_2261), this pin updated at the supersession")
 
 # ---- WIRING CAMPAIGN RESUMPTION 2026-08-31: the drainage audit + Rulings Batch 1 ----
 _rb1 = _readfile('RULINGS_BATCH_1.md')
@@ -15049,6 +15049,209 @@ assert_that(all(C.calc(_p)['status'].startswith('RULED_BATCH1_2026-08-31') for _
 _rq_led = _readfile('RULINGS_QUEUE.md')
 assert_that('BATCH 1 RULINGS' in _rq_led and 'ANSWERS (Daniel, 2026-08-31)' in _readfile('RULINGS_BATCH_1.md'),
             "BATCH 1 FOLD (2/2) - THE ANSWERS ARE ON RECORD: every ruling is written into the ledger's BATCH 1 section and the batch file's ANSWERS appendix with per-question dispositions (including the two partial-scope notes: Q-002 Gauss recorded but its ten carrier papers hold other open questions so they stay flagged, and Q-216 narrowed to Q-216b because the ruled bridge FORM still needs its per-domain reference values) - rulings without a paper trail are how drift starts, so the trail is gate-pinned")
+
+# ---- B266 2026-09-09: THE Vp TIER CANONIZED on Daniel's ruling ("Canonize with soft-anchor disclosure") ----
+from uqff_downhole_simulator.uqff_rock_inventory import vp_inventory as _b266_vi
+_b266 = _b266_vi()
+_b266_ex = sum(1 for _e in _b266.values() if _e['residual_pct'] < 1e-9)
+_b266_worst = max(_e['residual_pct'] for _e in _b266.values())
+assert_that(len(_b266) == 17 and _b266_ex == 11 and _b266_worst < 0.65
+            and abs(_b266['dolomite']['vp_km_s'] - 7.0) < 1e-12
+            and abs(_b266['quartz']['vp_km_s'] - 6.05) < 1e-12
+            and abs(7000.0 / 4550.0 - 40.0 / 26.0) < 1e-12
+            and _b266['peridotite']['residual_pct'] == _b266_worst,
+            "B266 - THE Vp TIER CANONIZED (PAPER_2262): the OPEN item that B265 itself created closes on Daniel's ruling - seventeen sonic landmarks composed live over the locked lattice, ELEVEN exact on their midpoint anchors with the softness DISCLOSED where it acts (midpoints quoted to 0.05 km/s make /10 and /20 rationals cheap - this is stated, not hidden), worst residual peridotite 0.62 pct; the headline identities: dolomite Vp = (A_5+SO_5)/SO_5 - the H_0 integer of PAPER_1573 surfacing in a laboratory acoustic anchor - and the UNIT-FREE dolomite/halite cross-ratio = D_phys*SO_5/D_crit = 20/13 EXACT, the strongest single result because no unit convention can manufacture it; the amphibolite/basalt twin ratio has NO clean form and says so; corpus precedent PAPER_1204 S494 / PAPER_1209Y S572; classification continues to use RANGES, so the joint classifier's honesty contract is untouched")
+
+# ---- B265 2026-09-08: THE OPEN EDGE CLOSED - the Vp tier splits the twins, the family reading grades the window ----
+from uqff_downhole_simulator.uqff_rock_inventory import classify_joint as _b265_cj, ktb_joint_validation as _b265_kv
+_b265_hi = [h['name'] for h in _b265_cj(2.95, 6800)['candidates']]
+_b265_lo = [h['name'] for h in _b265_cj(2.95, 5700)['candidates']]
+_b265_v = _b265_kv()
+assert_that(_b265_hi == ['amphibolite'] and 'amphibolite' not in _b265_lo
+            and _b265_v['twin_split_demonstrated']
+            and _b265_v['both_published_families_present']
+            and _b265_v['gap_stations'] == 2,
+            "B265 - THE OPEN EDGE CLOSED: the Vp discriminator tier (observation-headlined Christensen/Schon ranges, NO primitives forced - that derivation stays OPEN per the value-coincidence discipline) SPLITS the amphibolite/basalt twins at the twin density (6.8 km/s -> amphibolite alone, 5.7 -> amphibolite excluded), and the first joint run on real data taught the honest granularity: rock FAMILIES - the two-channel vote resolves the KTB window into BOTH published families, the paragneiss-metabasite ALTERNATION visible in 10 m of log, with the two gneiss-to-amphibolite transition stations reported as no-candidate gaps and the lab-vs-in-situ velocity limit disclosed where it acts; species-level ID within a family is the NEXT rung (more channels or in-situ corrections, stated OPEN)")
+
+# ---- B264 2026-09-08: THE K4 FAMILY - "DERIVE GEOLOGICAL LANDMARK" (Daniel's order) ----
+_b264 = C.calc('PAPER_2261')['value']
+assert_that(_b264['n_landmarks'] == 17
+            and _b264['worst_anchor_residual_pct'] < 0.05
+            and abs((10 + 1) / 4.0 - 2.75) < 1e-12
+            and abs((2 * 26 + 1) / 20.0 - 2.65) < 1e-12
+            and abs((26 + 1) / 10.0 * 1.1 - 2.97) < 1e-12
+            and abs((10 + 1) / 12.0 - 0.917) / 0.917 < 5e-4
+            and _b264['gneiss_top_ranked'] and _b264['mafic_twin_present'],
+            "B264 - THE K4 FAMILY DERIVED on Daniel's order: seventeen geological landmarks composed live from the locked lattice (sixteen EXACT on their cited anchors, ice = 11/12 at 0.036 pct) - gneiss = (SO_5+1)/D_phys, the Aether coupling over spacetime, and gneiss is the KTB's own rock; the material-ID channel that was BLOCKED_ON_K4 flows as ranked candidates with overlap honesty, and its FIRST GRADE is real: the density-only column vote for the KTB window names the published paragneiss-amphibolite lithology within density's honest capability, with the amphibolite/basalt degeneracy disclosed rather than hidden - the survey report's rock refusal is retired BY DERIVATION, and the one refusal that remains is the correct one: a single confident name")
+
+# ---- B263 2026-09-08: THE TESTER LOOP - the guide ships where the tester lands ----
+import star_magic_cli as _b263_cli
+_b263_guide = open('TESTER_GUIDE.md', encoding='utf-8').read()
+assert_that('python -m star_magic_cli survey --demo' in _b263_guide
+            and 'Add python.exe to PATH' in _b263_guide
+            and 'ignore them' in _b263_guide
+            and 'py -m star_magic_cli survey --demo' in _b263_guide
+            and callable(getattr(_b263_cli, 'cmd_guide', None))
+            and 'TESTER_GUIDE.md' in open('pyproject.toml', encoding='utf-8').read(),
+            "B263 - THE TESTER LOOP: the first outside install-to-result loop closed on v0.425.0 (a non-technical user, an untouched machine, the +0.7 pct self-grade on his screen) and the field lesson ships back where the next tester lands - TESTER_GUIDE.md carries the PATH-proof python -m form as its PRIMARY command, pre-explains the yellow warnings, includes the py fallback, rides the wheel via the generated manifest, and prints in any terminal through the new guide command; one user's confusion became every user's fix, which is what a real program does")
+
+# ---- B262 2026-09-08: THE SURVEY COMMAND - the one-command user path (Daniel: "build the survey command") ----
+from uqff_downhole_simulator.uqff_survey_cmd import run_survey as _b262_rs
+_b262_txt, _b262_d = _b262_rs(demo=True)
+assert_that('one honest answer' in _b262_txt
+            and _b262_d['n_stations'] == 65
+            and _b262_d['exclusions']['washout_or_null_stations'] == 46
+            and abs(_b262_d.get('vp_cross_check_pct', 99.0)) < 5.0
+            and 'refused to guess' in _b262_txt
+            and __import__('uqff_downhole_simulator').__version__ == '1.90.0',
+            "B262 - THE SURVEY COMMAND: the door the tool was missing - star-magic survey <file.las> walks the whole engine behind one command (LAS reader -> density census with disclosed exclusions -> K2 gravity signature -> family-prior Vp with n/sigma/support -> cited WGS84 reference QC -> the printed refusals), and the --demo path runs the bundled public KTB excerpt end-to-end, GRADING ITSELF against the file's own sonic at ~+0.7 pct; a stranger with pip and two minutes now sees a real, honest result - simulator v1.87.0, acceptance 95 -> 99 (Section Y incl. the no-channel refusal test); the report's closing line is the product's contract: honest or it is nothing")
+
+# ---- B261 2026-09-08: DO ALL THREE (Daniel's order) - the harness, the reference, the investigation ----
+from uqff_downhole_simulator.uqff_differentiator import u_i_coupling_harness as _b261_h
+from uqff_downhole_simulator.uqff_gravity_reference import somigliana_normal_gravity_ms2 as _b261_g, ktb_site_reference as _b261_k
+_b261_hr = _b261_h()
+assert_that(_b261_hr['status'] == 'AWAITING_DANIEL_SPEC' and _b261_hr['null_coupling_self_check']
+            and _b261_h({'form': 'multiplicative', 'a': 1.0})['degenerate_with_k2']
+            and abs(_b261_g(0.0) - 9.7803253359) < 1e-9
+            and abs(_b261_k()['reference_gravity_ms2'] - 9.80895) < 5e-5
+            and abs(6228.0 / 5675.0 - 1.0974) < 1e-3
+            and abs(6228.0 / 5675.0 / (1 + C.F_TRZ) - 1.0) < 0.003,
+            "B261 - DO ALL THREE, delivered in one session: (1) the U_i COUPLING HARNESS is live in the differentiator layer - the K2 ranked candidate now has its socket (registered coupling-form family, null self-check bit-exact, depth-constant couplings honestly convicted DEGENERATE) so Daniel's spec scores the moment it exists; (2) the CITED GRAVITY REFERENCE de-loopbacks the reference layer - WGS84 Somigliana (NGA TR8350.2, equator/pole reproduced to published precision) + free-air at the ICDP-published KTB site = 9.80895 m/s2, an observational reference standard per the hybrid-form doctrine, with stream QC wired; (3) the KTB +10 pct INVESTIGATION reproduces the v1 cross-family refutation live and surfaces THE (1+F_TRZ) FAMILY-OFFSET CANDIDATE - the record benchmark 6228/5675 = 1.0974 sits 0.24 pct from 1+F_TRZ (FLAGGED per the value-coincidence discipline, falsifiable on the deep-sonic file; the V2 family-prior method fix stands PINNED_AWAITING_DEEP_SONIC); simulator v1.86.0, acceptance 89 -> 95 checks green")
+
+# ---- B260 2026-09-08: THE LIVE-DERIVATION PASS - "Find the derivations" (Daniel's order) ----
+_b260 = _urs91.calculate_results_table(write=False)['value'] if '_urs91' in dir() else __import__('uqff_registry_status').calculate_results_table(write=False)['value']
+assert_that(_b260['rows'] == 187
+            and _b260['INHERITED_CARRIED'] == 0
+            and _b260['DERIVED_LIVE'] >= 69
+            and _b260['DISPATCH_VERIFIED'] >= 20
+            and _b260['MODULE_VERIFIED'] >= 3
+            and _b260['CAPTURED_BACKSOLVE'] <= 3
+            and _b260['LIVE_MISMATCH'] <= 4
+            and abs(2 * 4 * 0.217 - 1.736) < 1e-12,
+            "B260 - THE LIVE-DERIVATION PASS: Daniel ordered the derivations FOUND, not labeled - and they were in the corpus all along: the 98 INHERITED_CARRIED results-table rows drop to ZERO, with 71 closed forms transcribed from their cited papers and recomputed DERIVED_LIVE at generation time (Yang-Mills 1.736 = 2*D_phys*Lambda_QCD per PAPER_1318s own line, proton 938.25 and 1836 from the integer identities, mu_0 = 4pi*F_TRZ^7 Maxwell-EXACT, the ladder rungs F_TRZ^20/^21, the 25!! constant, the Li_26 sum, and 60+ more), 24 verified through their papers wired dispatches, 3 family rows verified by live module census, and only 3 Rule-7 back-solve records honestly retained as CAPTURED_BACKSOLVE; the four pre-existing LIVE_MISMATCH rows stay disclosed (last-digit baseline slips, both values shown); the front-door CLI now prints the upgraded flags and the regeneration runs inside this gate")
+
+# ---- TRIPLE DERIVATION SESSION 2026-09-08 (B257-B259): PAPER_2260 - the cascade, the Bose anchor, the convergence ----
+import math as _m_ds
+_ds = C.calc('PAPER_2260')['value']
+assert_that(C.calc('PAPER_2260')['status'].startswith('RULED_2026-09-08')
+            and abs(_ds['omega_b_over_omega_dm'] - 0.57 ** 3) < 1e-15
+            and abs(0.57 ** 3 - 0.049 / 0.265) / (0.049 / 0.265) < 0.002
+            and _ds['cascade_transitions'] == 3 == 4 - 1
+            and abs(_ds['ikeda_de_over_kt'] - _m_ds.log(1 + 1.0 / 0.57)) < 1e-12
+            and abs(1.0 / (_m_ds.e - 1) - 0.5820) < 1e-4
+            and abs(_ds['ladder_e4_ev'] - 624.2) < 0.1
+            and abs(_ds['coulomb_2p3pm_ev'] - 626.2) < 0.1
+            and abs(630.0 / 624.2 - 1.00929) < 1e-4
+            and 'flagged_candidates' in _ds,
+            "PAPER_2260 TRIPLE DERIVATION SESSION (B257-B259): Omega_b/Omega_DM = SSq^3 CANONIZED on the PAPER_128 N=3 cascade with the B166 survival narrative (0.16 pct vs the Planck density route, falsifiable); the Ikeda Bose anchor FORMALIZED (SSq = the occupation at dE/kT = ln(1+1/SSq), the natural-kT zeroth order at 2.1 pct disclosed) - SSq now stands on a statistical-mechanical second anchor; the Holmlid scale OVER-DETERMINED by three independent routes within 0.92 pct (ladder EXACT / Coulomb / phonon-chain canonical); the two closure candidates ((4/3)*F_TRZ^2 stiffening at 0.02 pct and the (1+F_TRZ^2) bridge at 0.07 pct) REGISTERED FLAGGED per the value-coincidence discipline - open targets, not canon; zero new free parameters in the session")
+
+# ---- BATCH 33 DELIVERED 2026-09-08 (B254-B256): the aDPM solve, the seed fork, and the rho_SCm echo ----
+assert_that('extraction_b254' in C.calc('PAPER_174') and 'extraction_b255' in C.calc('PAPER_226') and 'extraction_b256' in C.calc('PAPER_217')
+            and abs(0.5 * 7.09e-36 * (1e-3) ** 2 - 3.545e-42) < 1e-55
+            and abs(1e-4 * (2e4) ** 2 * 2.785e30 - 1.114e35) / 1.114e35 < 1e-3
+            and abs((1.83e71) ** 2 / 4.72e-3 - 7.095e144) / 7.095e144 < 1e-3,
+            "BATCH 33 (B254-B256) - the follow-up extractions land: the S49 aDPM is SOLVED EXACTLY as the kinetic form (1/2)*Evac_neb*omega1^2 = 3.545e-42 (two aDPM constructs canonized with distinct symbols, closing the B196 arc); the TWO-GENERATION SEED FORK is documented (the grok-Doc-2 C++ used the G-projection while the CP3 transcription applied the T0 dpm_ug1_seed = mu_s*M/R ontology - two generations, two seeds, the 2.94x residual open on the C++ side); and the integrand chain is fully parameterized, vindicating the B249 documented-only ruling for +2.11e208 while logging the F_0^2/b = 7.095e144 rho_SCm-mantissa echo as a derivation lead; the gate recomputes all three chains live")
+
+# ---- BATCH 32 DELIVERED 2026-09-07 (B251-B253): the extraction campaign opens - the table generator found ----
+import math as _m_b32
+_b32_FDPM = 1e21 * 3.142e8 * 1e-3
+_b32_aDPM = _b32_FDPM * 1e12 * 7.09e-36 * 3e8 * 4.189e12
+_b32_asf = 6.287e-19 * 1e12 * _b32_aDPM / 7.09e-36 / 3e8
+assert_that('extraction_b251' in C.calc('PAPER_174') and 'extraction_b252' in C.calc('PAPER_226') and 'extraction_b253' in C.calc('PAPER_217')
+            and abs(_b32_aDPM - 2.7995e24) / 2.7995e24 < 1e-3
+            and abs(2 * _b32_asf - 1.655e45) / 1.655e45 < 1e-3
+            and abs(1.269e-14 * 7.09e-36 * 4.189e12 / 7.09e-37 / 3e8 - 1.772e-9) / 1.772e-9 < 1e-3
+            and abs(1.83e71 / 4.72e-3 - 3.877e73) / 3.877e73 < 1e-3,
+            "BATCH 32 (B251-B253) - the extraction campaign opens and the forensic arc CLOSES: the resonance-table generator is FOUND (2 x asuper_freq of the CP3/PAPER_371 13-term set = 1.65496e45 = the 152/158 table value at 0.005 percent, the x2 ruled the generating-run artifact - the gate recomputes the chain live above), with aDPM = 2.7995e24 matching PAPER_180s aborted self-audit exactly and afl confirming the B202 closed form inside the operational set; SGR 0501s ELEVEN term closed forms are delivered (the seven missing recovered from MagnetarSGR0501MUGEFullCalculator, the 2.94x reconstruction residual pinned OPEN on the dpm_ug1_seed lead); and the two-branch a/b/c coefficients are found numeric in code (b = 4.72e-3, F_0 = 1.83e71) with the x2 = F_0/b mechanism CODE-CONFIRMED, strengthening the B249 Force-Equivalence canon; opens: the 3.545e-42 S49 normalization, the 2.94x residual, the integrand component chain")
+
+# ---- BATCH 31 RULED 2026-09-07 (B240-B250): QUEUE ZERO - the rulings campaign completes ----
+import re as _re_b31
+_b31_src = open('uqff_calculator.py', encoding='utf-8', newline='').read()
+assert_that(_b31_src.count("'status': 'OPEN_RULING'") == 0
+            and all(C.calc(_p)['status'].startswith('RULED_2026-09-07') for _p in
+                    ('PAPER_229', 'PAPER_230', 'PAPER_231', 'PAPER_278', 'PAPER_289', 'PAPER_295', 'PAPER_304', 'PAPER_320',
+                     'PAPER_239', 'PAPER_240', 'PAPER_242', 'PAPER_244', 'PAPER_248', 'PAPER_253', 'PAPER_255', 'PAPER_256',
+                     'PAPER_257', 'PAPER_258', 'PAPER_261', 'PAPER_262', 'PAPER_264', 'PAPER_267', 'PAPER_269'))
+            and 'ruling_b241' in C.calc('PAPER_002') and 'ruling_b242' in C.calc('PAPER_001')
+            and 'ruling_b244c' in C.calc('PAPER_316')
+            and abs(6.674e-11 * 1.989e32 / (4.73e16) ** 2 * 0.9095 - 5.40e-12) / 5.40e-12 < 2e-3
+            and abs((0.3 * 4.5 ** 3 + 0.7) ** 0.5 * 70 - 370.7) < 0.1
+            and abs((6.674e-11 * 1.989e42 / 4.868e59) ** 0.5 - 1.651e-14) / 1.651e-14 < 1e-3
+            and abs(1.0546e-34 * 1.411e15 * 1e12 / (7.09e-36 * 3e8) - 6.996e19) / 6.996e19 < 1e-3
+            and abs(8.31e211 / 2.11e208 - 3938) < 2
+            and abs(2 ** 0.5 * (1.0546e-34) ** 0.5 * 1.443e-17 - 2.10e-34) / 2.10e-34 < 0.005
+            and abs((2e6) ** 2 - 4e12) < 1.0,
+            "BATCH 31 (B240-B250) - QUEUE ZERO: the rulings campaign that opened at 224 items completes with ZERO OPEN_RULING statuses in the calculator (the live count above is the milestone pin) - and with the ledger undercount DISCLOSED (the Q-225..Q-243 family was missing from the backlog tally; the premature milestone row corrected in the registry, honest-audit discipline). The final band: the last worked-example recomputes (5.40e-12; 2.30e-21; 370.7 with 510 as the declared param), the campaigns FIRST questions closing on the corpus own self-rectification (0.5297 via string 0.62) and its OLDEST question closing under the B209 ratio lock, the Sombrero mass confirmed at 1e12 M_sun, the A_sc family unified on f_super = 1.411e15 (the era B4 ruling concordant, the 6.994e21 branch = one illustration-row confusion), the a_aether broken derivation held OPEN over substitution, the CR34 atlas rows corrected, the 15-paper DRIFT-FAMILY BLANKET (derived-correct canon), the DPM_resonance two-construct separation, the FORCE EQUIVALENCE CLASS canonized (+2.11e208 = PAPER_217 Branch 1, -8.31e211 = Branch 2, asymmetry 3938~3940, the x2 = F0/b mechanism M/r-independent, radius-as-sign-determinant registered, the J0030/CasA NS reconciliation pinned OPEN), and the CPT phase structure canonized with the w-mapping held open; sweep CLEAN at zero")
+
+# ---- BATCH 30 RULED 2026-09-07 (B231-B239): the system papers close - sigma_ref applied, the ladder pair, and the backlog under 12 ----
+import math as _m_b30
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in (214, 215, 216, 217, 219, 221, 224, 226))
+            and all('ruling_b23' in ''.join(k for k in C.calc(_p) if k.startswith('ruling_b23')) and C.calc(_p)['status'].startswith('RULED')
+                    for _p in ('PAPER_218', 'PAPER_220', 'PAPER_227'))
+            and abs(3e-9 / _m_b30.sqrt(1.2566e-6 * 1e-21) - 8.5e4) / 8.5e4 < 0.01
+            and abs(3 * C.F_TRZ ** 2 - 0.03) < 1e-15
+            and abs(0.57 ** 26 - 4.50e-7) / 4.50e-7 < 0.005
+            and abs(6.674e-11 * 3.18e34 / (5e18) ** 2 * 0.85 - 7.22e-14) / 7.22e-14 < 1e-3
+            and abs(6.674e-11 * 1.989e30 / (1.426e12) ** 2 - 6.53e-5) / 6.53e-5 < 1e-3
+            and abs(2.043e-7 * (1.08e8) ** 3 / (2 * 6.674e-11 * 5.68e26) - 3.39) < 0.05
+            and abs(1e-21 * (2e6) ** 2 / 1e-12 - 4e3) < 1e-9
+            and abs(C.F_TRZ ** 12 * C.F_TRZ ** -12 - 1.0) < 1e-12,
+            "BATCH 30 (B231-B239) - the fourth-pass system papers close: the Perseus Alfven velocity settles at the benchmark 85 km/s with the reconciling rho ~ 1e-21 (the verification pass refining the ledgers own note), the 3*F_TRZ^2 LADDER PAIR is ruled intended primitives across 215/216 with the running-vacuum discriminator consolidated to ONE surface, f_z_CGM is ruled fitted on the papers own admission (the 0.57^26 typo gate-pinned), the 218/219 worked examples take their recomputed canon (the ~38-40 OOM exponent-transcription family), Q-216 FORMALLY CLOSES via the shipped PAPER_2259 sigma_ref = 1 kg/m2 EXACT conjugate-pair bridge (magnetic column still the sec-3 open target), the NGC 7635 dual-file fork resolves to the front-matter Expansion file with TWO MECHANISMS wired (the B216 two-construct pattern), the Saturn ring benchmark RECONCILES at the verification-derived dr = 3.4 m (the 10-km label the error, g_sun corrected 100x), the SGR 0501 seven-term extraction is queued with the 8d951e12 thread continuation confirmed, and the a_wind update lands as the second concordant ruling (B7 + B239); three era-ruled papers took concordant field-inserts; opens: numeric a/b/c, n = 26 chain, M fork 1101/2000, magnetic column; sweep CLEAN")
+
+# ---- BATCH 29 RULED 2026-09-07 (B223-B230): mathematics verified by computation - Hermite, GHZ, magic, and the 3/10 fifth ----
+import math as _m_b29
+_q26a, _q26b = {0: 1}, {1: 1}
+for _n29 in range(2, 27):
+    _q26c = {}
+    for _d, _v in _q26b.items(): _q26c[_d + 1] = _q26c.get(_d + 1, 0) + _v
+    for _d, _v in _q26a.items(): _q26c[_d] = _q26c.get(_d, 0) + (_n29 - 1) * _v
+    _q26a, _q26b = _q26b, _q26c
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in range(205, 214))
+            and _q26b.get(0) == 7905853580625
+            and _q26b.get(0) == _m_b29.prod(range(25, 0, -2))
+            and _m_b29.prod(range(17, 0, -2)) == 34459425
+            and abs(_m_b29.log(2) - 0.6931) < 1e-4
+            and abs((4 - 1) / 10.0 - 0.3) < 1e-15
+            and abs(2.998e8 * 2.2685e-18 / 6 - 1.133e-10) / 1.133e-10 < 1e-3
+            and abs(C.F_TRZ ** 4 - 1e-4) < 1e-17
+            and sum([99, 99, 99, 91, 89, 87, 86, 85, 84, 79]) == 898
+            and abs(6.626e-34 * 2.998e10 * 60.853 - 1.209e-21) / 1.209e-21 < 1e-3
+            and (26 + 100 == 126) and (2 * 1101 * 14 == 30828),
+            "BATCH 29 (B223-B230) - the mathematics batch, verified by direct computation inside the gate: the Q_26 constant IS 25!! by live recurrence (the printed 17!! splice pinned; roots purely imaginary; the 26-layer orthogonal Hermite expansion canonized); the GHZ entropy is the constant ln2 (the monotonic-rise claim struck); the glitch/anti-glitch F_UBii chain is campaign-tracked with its quantum cascade analogy; the Sgr A* flare frequency is renamed f_flare to protect the F_TRZ primitive (phi = a separate phase variable); the cluster tail exponent is the PAPER_1953 3/10 EXACT (the 0.3 factors FIFTH cross-regime appearance); the MOND scale goes primitive-composed (a0 = c*H0/D_BSFG at 5.5 pct disclosed, k_UA = F_TRZ^4 rung-4 intended); the backbone coverage takes the table sum 898/990; the H2 conversion drift is pinned with the true hc*B recorded; and the proton magic list is ruled INTENDED at 114 (standard predicted shell) while 126 = D_crit + SO_5^2 stays the canonical neutron identity, with the D_universe (1+z) typo confirmed; opens: r_trans composition, 3D avalanche statistics, log-coupling symbol; sweep CLEAN")
+
+# ---- BATCH 28 RULED 2026-09-07 (B215-B222): the sec-2.6 taxonomies - the triadic convergence and the operator trilogy ----
+import math as _m_b28
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in range(196, 205))
+            and _m_b28.log10(0.1) < 0
+            and abs((0.3737 + 0.088 * 0.67) * (2.998e8) ** 3 / (2 * _m_b28.pi * 6.674e-11 * 62 * 1.989e30) - 225) < 2
+            and abs((1.5251 - 1.1568 * (1 - 0.67) ** 0.1292) * (2.998e8) ** 3 / (2 * _m_b28.pi * 6.674e-11 * 62 * 1.989e30) - 272) < 2
+            and abs((36.0 * 29) ** 0.6 / (36 + 29) ** 0.2 - 28.1) < 0.05
+            and abs(0.41 * 5.16e96 - 2.12e96) / 2.12e96 < 0.01
+            and abs((5e-4 * 0.57) ** 2 - 8.1225e-8) < 1e-12,
+            "BATCH 28 (B215-B222) - the sec-2.6 taxonomy thread closes: the TRIADIC CROSS-REPO CONVERGENCE is canonized (PAPER_196 = the corpus form of the predecessor calculate_triadic_g, with the anti-glitch falsifiable tracked and the SSq log-form separated to its own per-system coupling symbol - the constant stands per Rule 2); the TWO-BUOYANCY reading is confirmed (point-Ubi vs the F_U_Bi_i spatial integral - B214s canonical F_U stays clean); the UQFF QNM PARAMETRIZATION is adopted as its own form (0.3737 + 0.088a cited to BB_C-945 not Berti, with the GR fit the comparison target and observed 251 Hz a disclosed discriminator between 225 and 272); the COMBINED 198+199 catalog extends the PAPER_2151 F_UBii registry across all sectors; the OPERATOR-TAXONOMY TRILOGY (Ug/F_UBii/Um) is adopted with the dual buoyancy+magnetism channels confirmed INTENTIONAL (realized across the full GW lifecycle on verified real-data anchors); BUCKET C is declared the canonical cosmology source with 202/203 as channel re-expressions; and two falsifiables are registered campaign-tracked (the low-l CMB suppression and the ~0.1 pct Einstein-radius shift, both with OPEN magnitude targets) alongside the SIDM-compatible-cores stance; opens: log-coupling symbol derivation, stat-claims provenance, k_eta 1e-113, prediction magnitudes; sweep CLEAN")
+
+# ---- BATCH 27 RULED 2026-09-07 (B210-B214): the software-infrastructure run + the umbrella canonical-F_U declaration ----
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in (188, 189, 190, 191, 192, 193, 195))
+            and 'ruling_b214' in C.calc('PAPER_193')
+            and abs(6688.0 / 1430 - 4.677) < 0.01
+            and abs(2 * 3.14159265 / (11 * 3.156e7) - 1.81e-8) / 1.81e-8 < 1e-3
+            and abs(2 * 3.14159265 / 3.156e7 - 1.991e-7) / 1.991e-7 < 1e-3
+            and abs(4e-7 * 3.14159265 - 1.2566e-6) / 1.2566e-6 < 1e-4,
+            "BATCH 27 (B210-B214) - the software-infrastructure run closes with THE UMBRELLA CANONICAL-F_U DECLARATION: the operational 171/172 set (source-document Ug forms + the ten-term assembly with Um, tr(A_mu_nu), and the explicit minus-buoyancy) is THE canonical F_U, provenance-anchored to the May 2025 Final Equations via the B193/PAPER_2152 chain - 193s five-term restatement is an architecture-doc variant, and the F_U-level fork family closes alongside the Ubi four-faces and Ug4i namespaces; the corpus own 7-D Units class is ADOPTED as a standing dimensional-audit step (its silent operator+ named the priority fix); the Ramanujan R_K series is corrected to the j = K+2 start (the zeta(1) pole excluded) with the degree-10 fallback disclosed as a performance guard; the ECDSA sign/verify payload mismatch is pinned as a real bug with the exact-bytes fix specified; the Qt two-component resolution, the corpus census (4.68 terms/kB EXACT), the loader example-data update to the 186 canonical omega_c set, and the blockchain-provenance/registry-doctrine adjacency are registered; sweep CLEAN")
+
+# ---- BATCH 26 RULED 2026-09-07 (B202-B209): the S49 forensics - the ratio lock, the eta correction, and the common source ----
+import math as _m_b26
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in range(180, 188))
+            and ((_m_b26.isqrt(1 + 8 * 6) - 1) // 2 == 3) and ((_m_b26.isqrt(1 + 8 * 45) - 1) // 2 == 9)
+            and abs(1e15 * 2.958e8 ** 2 / 1e-23 - 8.7498e54) / 8.7498e54 < 1e-3
+            and abs(2.958 ** 2 / 2 - 4.375) < 1e-3
+            and abs(2.0 / 2 + 3.0 / 6 - 1.5) < 1e-15
+            and abs(1e-4 * 6.96e8 ** 3 - 3.37e22) / 3.37e22 < 0.01
+            and abs(1e-4 * 6.96e8 ** 3 / 2.03e22 - 1.66) < 0.01
+            and abs(1e10 / 1e11 - C.F_TRZ) < 1e-15
+            and abs(1e-5 / 1e-4 - C.F_TRZ) < 1e-15
+            and abs((1 - 2 ** (1 - 2.0)) - 0.5) < 1e-15,
+            "BATCH 26 (B202-B209) - the S49 forensics complete: the afluid closed form is canonized (ffluid*Vsys*UA_SCM/c_res with SO_5 inside, 0.06 pct against the code-truth pin - the B196 extractions first delivery) with the papers own regression doctrine credited as the gates twin; the ASD bound is corrected to the 8E coefficient on verified counterexamples and the STAR-MAGIC ETYMOLOGY is registered (the star graph of magic-labeling theory); the S49 COMMON-SOURCE TRANSPOSITION is established forensically (v_SCm 2.958 vs canonical 2.968, load-bearing through four papers - E_react and H_SCm mantissas recompute from the transposed digit exactly); the quasar-NS claim is downgraded with the arrow-of-time mechanism registered beside the curl-free core; the Riemann bridges Mobius mislabel is corrected to the DIRICHLET ETA identification (t_10000 canon holds, the eta bridge ranked strongest commentary); mu_s = Bs*Rs^3 is canonized with the confessed placeholder formally REMOVED (replacement = none); and the 7-object catalog yields the RATIO LOCK - B = F_TRZ*Bcrit universal, the PAPER_1944 n*F_TRZ family operational, the Q-002 fork reframed with the ratio as the invariant - plus the omega2 = -omega1 grinding-pole architecture; opens: 1.66x mu_s residual (5/3 lead), decay-table kappa, spacing statistics; sweep CLEAN")
 
 # ---- BATCH 25 RULED 2026-09-07 (B194-B201): the CoAnQi block closes - code truth, four faces, and the YM fork resolution ----
 assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in range(172, 180))
@@ -15471,7 +15674,7 @@ assert_that(_fd_up.data_root().joinpath('UNIFIED_REGISTRY.csv').exists()
             and 'INHERITED_CARRIED' in _readfile('star_magic_cli.py')
             and 'LIVE vs INHERITED' in _readfile('star_magic_cli.py')
             and callable(_fd_cli.cmd_calc) and callable(_fd_cli.cmd_gate),
-            "FRONT DOOR (1/2) - DANIEL'S LOCK 1: the terminal tells the truth without a GUI - star-magic calc prints every results-table row's verification flag (Yang-Mills 1.736 and Page 0.99596 read INHERITED_CARRIED in plain text, because they are), with the three-line legend on every invocation; a front door that hid the inherited column would be a lie, so the flag printing is load-bearing CLI code and this assertion pins its presence")
+            "FRONT DOOR (1/2) - DANIEL'S LOCK 1: the terminal tells the truth without a GUI - star-magic calc prints every results-table row's verification flag with the legend on every invocation; UPDATED AT B260 (Daniel's find-the-derivations order): Yang-Mills 1.736 now reads DERIVED_LIVE (2*D_phys*Lambda_QCD, PAPER_1318) and Page 0.99596 reads DISPATCH_VERIFIED - the flag printing remains load-bearing CLI code and this assertion pins its presence")
 assert_that('FRONT DOOR BOOTSTRAP' in _readfile('uqff_fidelity_tests.py')
             and 'data_root' in _readfile('uqff_paths.py')
             and __import__('uqff_calculator').list_wired()[0] == 'PAPER_001',

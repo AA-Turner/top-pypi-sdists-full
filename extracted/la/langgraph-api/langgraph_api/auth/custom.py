@@ -33,6 +33,15 @@ from langgraph_api.timing import profiled_import
 
 logger = structlog.stdlib.get_logger(__name__)
 
+WEBSOCKET_HANDSHAKE_METHOD = "GET"
+
+
+def connection_method(scope: Mapping[str, Any]) -> str:
+    if scope["type"] == "http":
+        return scope["method"]
+    return WEBSOCKET_HANDSHAKE_METHOD
+
+
 SUPPORTED_PARAMETERS = {
     "request": Request,
     "body": dict,
@@ -138,6 +147,7 @@ class CustomAuthBackend(AuthenticationBackend):
             Awaitable[tuple[list[str], Any]],
         ],
         disable_studio_auth: bool = False,
+        allow_langsmith_api_keys: bool | None = None,
     ):
         if not inspect.iscoroutinefunction(fn):
             self.fn = functools.partial(run_in_threadpool, fn)
@@ -148,6 +158,7 @@ class CustomAuthBackend(AuthenticationBackend):
             if fn
             else None
         )
+        self.allow_langsmith_api_keys = allow_langsmith_api_keys
         self.ls_auth = None
         if not disable_studio_auth:
             if LANGGRAPH_AUTH_TYPE == "langsmith":
@@ -163,6 +174,7 @@ class CustomAuthBackend(AuthenticationBackend):
         return (
             f"CustomAuthBackend(fn={self.fn}, "
             f"ls_auth={self.ls_auth}, "
+            f"allow_langsmith_api_keys={self.allow_langsmith_api_keys}, "
             f"param_names={self._param_names}"
             ")"
         )
@@ -170,11 +182,29 @@ class CustomAuthBackend(AuthenticationBackend):
     async def authenticate(
         self, conn: HTTPConnection
     ) -> tuple[AuthCredentials, BaseUser] | None:
-        if self.ls_auth is not None and (
-            (auth_scheme := conn.headers.get("x-auth-scheme"))
-            and auth_scheme == "langsmith"
-        ):
-            return await self.ls_auth.authenticate(conn)
+        ls_auth = self.ls_auth
+        authorization = conn.headers.get("authorization")
+        use_langsmith = ls_auth is not None and (
+            # Studio auth uses the "langsmith" scheme.
+            conn.headers.get("x-auth-scheme") == "langsmith"
+            # LangSmith API keys travel on the Authorization header.
+            or (
+                bool(self.allow_langsmith_api_keys)
+                and (authorization is None or authorization.strip() == "")
+            )
+        )
+        if use_langsmith:
+            result = await ls_auth.authenticate(conn)
+            handler = "langsmith"
+        else:
+            result = await self._authenticate_custom(conn)
+            handler = "custom"
+        await logger.ainfo("Resolved authentication handler", auth_handler=handler)
+        return result
+
+    async def _authenticate_custom(
+        self, conn: HTTPConnection
+    ) -> tuple[AuthCredentials, BaseUser] | None:
         if self.fn is None:
             return None
         try:
@@ -218,11 +248,13 @@ def _get_custom_auth_middleware(
     config: str | dict,
 ) -> AuthenticationBackend:
     disable_studio_auth = False
+    allow_langsmith_api_keys: bool | None = None
     if isinstance(config, str):
         path: str | None = config
     else:
         path = config.get("path")
         disable_studio_auth = config.get("disable_studio_auth", disable_studio_auth)
+        allow_langsmith_api_keys = config.get("allow_langsmith_api_keys")
 
     auth_instance = _get_auth_instance(path)
     if auth_instance is None:
@@ -237,7 +269,10 @@ def _get_custom_auth_middleware(
     if auth_instance == "js":
         from langgraph_api.js.remote import CustomJsAuthBackend  # noqa: PLC0415
 
-        return CustomJsAuthBackend(disable_studio_auth=disable_studio_auth)
+        return CustomJsAuthBackend(
+            disable_studio_auth=disable_studio_auth,
+            allow_langsmith_api_keys=allow_langsmith_api_keys,
+        )
 
     if auth_instance._authenticate_handler is None:
         raise ValueError(
@@ -259,6 +294,7 @@ def _get_custom_auth_middleware(
     result = CustomAuthBackend(
         auth_instance._authenticate_handler,
         disable_studio_auth,
+        allow_langsmith_api_keys,
     )
     logger.info(f"Loaded custom auth middleware: {result!s}")
     return result
@@ -431,7 +467,7 @@ def _extract_arguments_from_scope(
             authorization = authorization.decode(encoding="utf-8")
         args["authorization"] = authorization
     if "method" in param_names:
-        args["method"] = scope.get("method")
+        args["method"] = connection_method(scope)
 
     return args
 

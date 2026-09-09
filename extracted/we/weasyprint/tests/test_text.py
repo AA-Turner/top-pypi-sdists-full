@@ -3,7 +3,7 @@
 import pytest
 
 from weasyprint.css import InitialStyle
-from weasyprint.formatting_structure.build import capitalize
+from weasyprint.formatting_structure.text import capitalize
 from weasyprint.text.fonts import FontConfiguration
 from weasyprint.text.line_break import split_first_line
 
@@ -83,6 +83,54 @@ def test_line_breaking_nbsp():
     assert line_1.children[2].text == ' c'
     assert line_2.children[0].text == 'd\xa0'
     assert line_2.children[1].children[0].text == 'ef'
+
+
+@assert_no_logs
+def test_line_breaking_trailing_inline_width():
+    page, = render_pages('''
+      <style>
+        @page { size: 520px 180px; margin: 20px }
+        body {
+          margin: 0;
+          font-family: weasyprint;
+          font-size: 16px;
+          line-height: 1.25;
+        }
+        div {
+          width: 27ch;
+          text-align: right;
+          border-right: 1px solid black;
+        }
+      </style>
+      <div>
+        <span>
+          aaaaaaaaaa bbbbbbbbbb cccccccccc ddddd <span>e. 43</span>
+          ff&nbsp;<span>ggggg</span>.
+        </span>
+      </div>
+    ''')
+    html, = page.children
+    body, = html.children
+    div, = body.children
+    _, line_2, line_3 = div.children
+    span_2, = line_2.children
+    text_2, nested_2 = span_2.children
+    number, = nested_2.children
+    span_3, = line_3.children
+    text_3, nested_3, dot = span_3.children
+    word, = nested_3.children
+
+    assert text_2.text == 'cccccccccc ddddd '
+    assert number.text == 'e. 43'
+    assert text_3.text == 'ff\xa0'
+    assert word.text == 'ggggg'
+    assert dot.text == '.'
+
+    div_right = div.position_x + div.width
+    number_right = nested_2.position_x + nested_2.width
+    span_right = span_2.position_x + span_2.width
+    assert number_right == pytest.approx(div_right)
+    assert span_right == pytest.approx(number_right)
 
 
 @assert_no_logs
@@ -767,6 +815,18 @@ def test_hyphenate_manual_4():
     line_1, = body.children
     # TODO: should not end with an hyphen
     # assert line_1.children[0].text == 'test\xad'
+
+
+@assert_no_logs
+def test_hyphenate_manual_keep_hyphen():
+    # Regression test for #2614.
+    page, = render_pages(
+        '<html style="width: 6em; font-family: weasyprint">'
+        '<body style="hyphens: manual">super&shy;aa bb')
+    html, = page.children
+    body, = html.children
+    lines = body.children
+    assert lines[0].children[0].text == 'super\xad‐'
 
 
 @assert_no_logs

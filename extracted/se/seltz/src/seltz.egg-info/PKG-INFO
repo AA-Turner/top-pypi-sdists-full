@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seltz
-Version: 1.12.0
+Version: 1.13.0
 Summary: Seltz Python SDK for AI-powered search
 Author-email: Seltz <support@seltz.ai>
 Project-URL: Homepage, https://seltz.ai
@@ -72,6 +72,72 @@ Content: Generative AI can make finding information faster and more intuitive.
 If you’re tired of traditional search, explore some of the best AI-powered
 search engines we've tested...
 ```
+
+### Search tiers
+
+`tier` selects which search tier serves the request, `"base"` or `"pro"`. It
+never changes which corpus is searched — that is `scope` — and the two are
+orthogonal: any scope can be requested in either tier.
+
+Omitting `tier` defaults to `"pro"`, the higher-precision tier, which is what a
+caller who expressed no preference should get. `"base"` is therefore opt-out
+rather than opt-in — name it explicitly to skip the reranking:
+
+```python
+response = client.search(
+    "best ai search engines",
+    tier="base",
+)
+```
+
+The SDK sends no tier of its own when you omit the argument, so the default
+follows the service rather than being pinned here.
+
+`tier` is typed as a plain `str` and the name is forwarded to the API as given.
+The service owns the set of tiers: it matches the name case-insensitively and
+rejects one it does not recognize, in a `400` that names the tiers it accepts.
+The SDK carries no list of tier names, so tiers can be added or renamed without
+an SDK release — check the API reference for the current names.
+
+### Result fields
+
+`fields` selects which members of each result document come back. Content is
+the default; `url` and `published_date` are always emitted:
+
+```python
+from seltz import Fields, Seltz
+
+client = Seltz(api_key="your-api-key")
+
+response = client.search(
+    "best ai search engines",
+    fields=Fields(content=True, snippets=True),
+)
+
+for document in response.documents:
+    print(f"URL: {document.url}")
+    for snippet in document.snippets:
+        print(f"  {snippet.text}")
+```
+
+`snippets` are the passages of a document that best match your query, in
+descending order of score — useful when you want the relevant part of a long
+page rather than the whole thing, and cheaper to feed to a model.
+
+**A selection you pass is taken literally.** `Fields(snippets=True)` asks for
+snippets and nothing else, so the documents come back with no content. Name
+every member you want:
+
+```python
+# passages only — document.content is empty
+response = client.search("ai news", fields=Fields(snippets=True))
+
+# both
+response = client.search("ai news", fields=Fields(content=True, snippets=True))
+```
+
+Snippets are only available on scopes whose index produces them; elsewhere the
+list comes back empty rather than erroring.
 
 ### Answer
 

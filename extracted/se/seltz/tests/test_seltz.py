@@ -11,16 +11,17 @@ from seltz import (
     AnswerStreamResponse,
     Citation,
     Citations,
+    Fields,
     SearchResponse,
     Seltz,
 )
-from seltz.services.monitor_service import MonitorService
 from seltz.exceptions import (
     SeltzAPIError,
     SeltzAuthenticationError,
     SeltzConfigurationError,
 )
 from seltz.services.answer_service import AnswerService
+from seltz.services.monitor_service import MonitorService
 
 load_dotenv()
 
@@ -131,12 +132,16 @@ def test_search_forwards_filter_params(monkeypatch):
         to_date="2026-05-01",
         include_domains=["techcrunch.com", "wired.com"],
         exclude_domains=["wikipedia.org"],
+        tier="base",
+        fields=Fields(content=True, snippets=True),
     )
 
     assert captured["from_date"] == "2026-01-01"
     assert captured["to_date"] == "2026-05-01"
     assert captured["include_domains"] == ["techcrunch.com", "wired.com"]
     assert captured["exclude_domains"] == ["wikipedia.org"]
+    assert captured["tier"] == "base"
+    assert captured["fields"] == Fields(content=True, snippets=True)
 
 
 def test_search_omitted_filters_use_sentinel(monkeypatch):
@@ -158,6 +163,8 @@ def test_search_omitted_filters_use_sentinel(monkeypatch):
     assert isinstance(captured["exclude_domains"], Omit)
     assert isinstance(captured["from_date"], Omit)
     assert isinstance(captured["to_date"], Omit)
+    assert isinstance(captured["tier"], Omit)
+    assert isinstance(captured["fields"], Omit)
 
 
 def test_answer_service_initialized():

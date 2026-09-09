@@ -153,6 +153,33 @@ class TestInitiateCreateJiraIssueWorkflowBranches:
 
         assert state.get_value("copilot.model_id") == "gpt-4"
 
+    def test_headless_suppresses_terminal_mode(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
+    ):
+        """When headless is enabled, terminal mode is forced off before persistence."""
+        state.set_value("jira.issue_key", "PROJECT-1234")
+        state.set_value("jira.project_key", "PROJECT")
+
+        with patch("agentic_devtools.cli.workflows.preflight.check_worktree_and_branch") as mock_pf:
+            from agentic_devtools.cli.workflows.preflight import PreflightResult
+
+            mock_pf.return_value = PreflightResult(
+                folder_valid=False,
+                branch_valid=False,
+                folder_name="wrong",
+                branch_name="main",
+                issue_key="PROJECT-1234",
+            )
+
+            with patch("agentic_devtools.cli.workflows.preflight.perform_auto_setup") as mock_setup:
+                mock_setup.return_value = True
+                commands.initiate_create_jira_issue_workflow(
+                    _argv=["--issue-key", "PROJECT-1234", "--no-vscode", "--terminal"]
+                )
+
+        assert state.get_value("copilot.terminal") is False
+        assert "--terminal" not in mock_setup.call_args.kwargs["auto_execute_command"]
+
     def test_default_project_key_persisted_to_state(self, temp_state_dir, clear_state_before, capsys):
         """Test that the default project key is persisted to state when not explicitly set."""
         state.set_value("jira.issue_key", "PROJECT-1234")
@@ -387,19 +414,24 @@ class TestWorkflowCommands:
             )
 
             # Mock session launcher to avoid waiting for prompt file
-            with patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_create_jira_issue"):
+            with patch(
+                "agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_create_jira_issue"
+            ) as mock_session:
                 # Execute command with issue-key (continuation mode)
-                commands.initiate_create_jira_issue_workflow(_argv=["--issue-key", "PROJECT-1234"])
+                commands.initiate_create_jira_issue_workflow(_argv=["--issue-key", "PROJECT-1234", "--terminal"])
 
         # Verify
         workflow = state.get_workflow_state()
         assert workflow["active"] == "create-jira-issue"
+        assert state.get_value("copilot.terminal") is True
+        mock_session.assert_called_once()
+        assert mock_session.call_args.kwargs["terminal"] is True
 
 
 class TestSkipCopilotSession:
     """Tests for the --skip-copilot-session flag."""
 
-    def _run_with_preflight_passing(self, issue_key, argv=None, skip_copilot_session=False):
+    def _run_with_preflight_passing(self, issue_key, argv=None, skip_copilot_session=False, terminal=None):
         """Helper: run the command with preflight passing, return mock_session."""
         from agentic_devtools.cli.workflows.preflight import PreflightResult
 
@@ -429,6 +461,7 @@ class TestSkipCopilotSession:
                         ):
                             commands.initiate_create_jira_issue_workflow(
                                 _argv=["--issue-key", issue_key] + argv,
+                                terminal=terminal,
                                 skip_copilot_session=skip_copilot_session,
                             )
                             return mock_session
@@ -442,6 +475,14 @@ class TestSkipCopilotSession:
         """--skip-copilot-session CLI flag prevents copilot session from starting."""
         mock_session = self._run_with_preflight_passing("PROJECT-1234", argv=["--skip-copilot-session"])
         mock_session.assert_not_called()
+
+    def test_programmatic_terminal_value_is_preserved(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing
+    ):
+        """A programmatic terminal selection is not replaced by the CLI default."""
+        mock_session = self._run_with_preflight_passing("PROJECT-1234", terminal=True)
+        assert state.get_value("copilot.terminal") is True
+        assert mock_session.call_args.kwargs["terminal"] is True
 
 
 class TestProgrammaticParamsSkipCliOverride:

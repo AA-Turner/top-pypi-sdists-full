@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import operator
 import platform
 import shutil
 import stat
@@ -14,6 +15,7 @@ from typing import Any
 from .. import cliparse
 from ..core import (
     catalog,
+    cohort,
     complete,
     journal,
     jsonstate,
@@ -26,6 +28,7 @@ from ..core import (
 from ..core import output as out
 from ..errors import BoostError
 from ._common import _s
+from .pkg import _report_result
 
 _tilde = paths.tilde
 
@@ -80,7 +83,8 @@ def cmd_cohort(argv) -> int:
     p.add_argument("action", nargs="?", default="list",
                    choices=["list", "create", "delete", "status", "apply"])
     p.add_argument("name", nargs="?", help="cohort name")
-    p.add_argument("--skills", default="", help="comma-separated skill names")
+    p.add_argument("--skills", action="append", default=[],
+                   help="comma-separated skill names (repeatable)")
     p.add_argument("--percent", type=int, default=100,
                    help="rollout percentage (default 100)")
     p.add_argument("--json", action="store_true", help="machine-readable output")
@@ -94,7 +98,7 @@ def cmd_cohort(argv) -> int:
             p.error("create needs a cohort NAME")
         if not 0 <= args.percent <= 100:
             p.error("--percent must be 0-100")
-        skills = [s.strip() for s in args.skills.split(",") if s.strip()]
+        skills = cohort.parse_skills(args.skills)
         if not skills:
             p.error("create needs --skills a,b,...")
         for s in skills:
@@ -111,6 +115,11 @@ def cmd_cohort(argv) -> int:
         _save_cohorts(cohorts)
         journal.log("cohort", args.name, op="create", percent=args.percent)
         member = _is_member(user, args.name, args.percent)
+        if args.json:
+            print(json.dumps({"name": args.name, "percent": args.percent,
+                              "skills": skills, "updated": bool(existing),
+                              "member": member}, indent=2))
+            return 0
         if existing:
             out.ok("updated cohort %s (was %d%% / %d skill%s) — now %d%% "
                    "rollout, %d skill%s — you are %s"
@@ -129,12 +138,19 @@ def cmd_cohort(argv) -> int:
         if args.name not in cohorts:
             raise BoostError("no cohort named %s" % args.name,
                             hint="list cohorts with `boost cohort list`")
-        if not out.confirm("delete cohort %s?" % args.name):
+        if not out.confirm("delete cohort %s?" % args.name, quiet=args.json):
+            if args.json:
+                print(json.dumps({"name": args.name, "deleted": False,
+                                  "cancelled": True}, indent=2))
+                return 1
             out.info("cancelled")
             return 1
         del cohorts[args.name]
         _save_cohorts(cohorts)
         journal.log("cohort", args.name, op="delete")
+        if args.json:
+            print(json.dumps({"name": args.name, "deleted": True}, indent=2))
+            return 0
         out.ok("deleted cohort %s" % args.name)
         return 0
 
@@ -144,16 +160,27 @@ def cmd_cohort(argv) -> int:
             raise BoostError("no cohort named %s" % args.name,
                             hint="list cohorts with `boost cohort list`")
         if not targets:
+            if args.json:
+                print(json.dumps({"cohorts": []}, indent=2))
+                return 0
             print(out.empty_state("no cohorts defined"))
             return 0
         applied = skipped = 0
+        total_installed = total_present = total_missing = 0
+        per_cohort = []
         for cname in targets:
             spec = cohorts[cname]
             if not _is_member(user, cname, spec["percent"]):
-                out.info(out.role("%s: not in the %d%% rollout — skipping"
-                               % (cname, spec["percent"]), "muted"))
+                per_cohort.append({"cohort": cname, "member": False,
+                                   "installed": [], "already_present": [],
+                                   "not_found": []})
+                if not args.json:
+                    out.info(out.role("%s: not in the %d%% rollout — skipping"
+                                   % (cname, spec["percent"]), "muted"))
                 continue
-            out.heading("cohort %s" % cname)
+            if not args.json:
+                out.heading("cohort %s" % cname)
+            installed_here, present_here, missing_here = [], [], []
             for skill in spec["skills"]:
                 # find_any, not installed(): a cohort item installed as a rule
                 # or workflow would otherwise be re-installed on every apply.
@@ -161,18 +188,45 @@ def cmd_cohort(argv) -> int:
                 if found is not None:
                     label = (skill if found[0] == "skill"
                              else "%s (%s)" % (skill, found[0]))
-                    out.info(out.role("%s already installed" % label, "muted"))
+                    if not args.json:
+                        out.info(out.role("%s already installed" % label, "muted"))
+                    present_here.append(skill)
                     skipped += 1
                     continue
                 entry = _resolve_entry(skill)
                 if entry is None:
-                    out.warn("%s not found in any tap — skipped" % skill)
+                    if not args.json:
+                        out.warn("%s not found in any tap — skipped" % skill)
+                    missing_here.append(skill)
                     continue
                 res = store.install(entry)
-                out.ok("installed %s → %s" % (skill, " · ".join(res.linked)))
+                if not args.json:
+                    out.ok("installed %s → %s" % (skill, " · ".join(res.linked)))
+                installed_here.append(skill)
                 applied += 1
-        out.info("applied: %d installed, %d already present" % (applied, skipped))
-        return 0
+            per_cohort.append({"cohort": cname, "member": True,
+                               "installed": installed_here,
+                               "already_present": present_here,
+                               "not_found": missing_here})
+            journal.log("cohort", cname, op="apply",
+                        installed=len(installed_here),
+                        present=len(present_here),
+                        missing=len(missing_here))
+            total_installed += len(installed_here)
+            total_present += len(present_here)
+            total_missing += len(missing_here)
+        # #767's exit code is the substance of that PR — a cohort member no tap
+        # can resolve must not read as success — so it applies under --json too:
+        # an exit code that depended on the output format would undo it.
+        if args.json:
+            print(json.dumps({"cohorts": per_cohort, "installed": applied,
+                              "already_present": skipped}, indent=2))
+            return cohort.apply_exit_code(total_installed, total_present,
+                                          total_missing)
+        out.info(cohort.apply_summary(total_installed, total_present,
+                                      total_missing))
+        return cohort.apply_exit_code(total_installed, total_present,
+                                      total_missing)
 
     # list / status
     rows = []
@@ -205,7 +259,7 @@ def cmd_cohort(argv) -> int:
 # ---------------------------------------------------------------- profile
 
 def _profile_path(name: str):
-    return paths.profiles_dir() / (util.slugify(name) + ".json")
+    return paths.profiles_dir() / (util.resolve_slug(name, what="profile name") + ".json")
 
 
 def _load_profile(name: str) -> dict:
@@ -274,6 +328,10 @@ def cmd_profile(argv) -> int:
                              "skills": len(data.get("skills", {})),
                              "saved": data.get("saved", "?"),
                              "unreadable": False})
+        # Sort by the name shown on screen, not the slugged filename that put
+        # them there — glob order otherwise prints rows in an order that
+        # matches nothing a reader sees (`daily, mixed, !!!, Work Profile`).
+        profiles.sort(key=operator.itemgetter("name"))
         if args.json:
             print(json.dumps(profiles, indent=2))
             return 0
@@ -291,27 +349,34 @@ def cmd_profile(argv) -> int:
 
     if args.action == "save":
         installed = lockfile.installed()
+        path = _profile_path(args.name)
         was = None
-        if _profile_path(args.name).exists():
+        if path.exists():
             try:
-                was = len(_load_profile(args.name).get("skills", {}))
-            except BoostError:
+                was = len(json.loads(path.read_text(encoding="utf-8")).get("skills", {}))
+            except (json.JSONDecodeError, OSError):
                 was = None   # unreadable old profile: still fine to replace
         profile = {"name": args.name, "saved": util.now_iso(), "user": util.user(),
                    "skills": {n: {"tap": e.get("tap", "local"),
                                   "version": e.get("version", "0.0.0")}
                               for n, e in installed.items()}}
         paths.ensure_dirs()
-        _profile_path(args.name).write_text(json.dumps(profile, indent=2) + "\n", encoding="utf-8")
+        path.write_text(json.dumps(profile, indent=2) + "\n", encoding="utf-8")
         journal.log("profile", args.name, op="save", skills=len(installed))
+        n_rules = len(lockfile.installed_rules())
+        n_workflows = len(lockfile.installed_workflows())
+        if args.json:
+            print(json.dumps({"name": args.name, "updated": was is not None,
+                              "was_skills": was, "skills": len(installed),
+                              "rules_not_captured": n_rules,
+                              "workflows_not_captured": n_workflows}, indent=2))
+            return 0
         if was is not None:
             out.ok("updated profile %s (was %d skill%s, now %d skill%s)"
                    % (args.name, was, _s(was), len(installed), _s(len(installed))))
         else:
             out.ok("saved profile %s (%d skill%s)"
                    % (args.name, len(installed), _s(len(installed))))
-        n_rules = len(lockfile.installed_rules())
-        n_workflows = len(lockfile.installed_workflows())
         if n_rules or n_workflows:
             out.warn("%d rule%s and %d workflow%s not captured — profiles "
                      "carry skills only"
@@ -357,33 +422,55 @@ def cmd_profile(argv) -> int:
         return 0
 
     if args.action == "delete":
-        if not _profile_path(args.name).exists():
+        path = _profile_path(args.name)
+        if not path.exists():
             raise BoostError("no profile named %s" % args.name,
                             hint="list profiles with `boost profile list`")
-        if not out.confirm("delete profile %s?" % args.name):
+        if not out.confirm("delete profile %s?" % args.name, quiet=args.json):
+            if args.json:
+                print(json.dumps({"name": args.name, "deleted": False,
+                                  "cancelled": True}, indent=2))
+                return 1
             out.info("cancelled")
             return 1
-        _profile_path(args.name).unlink()
+        path.unlink()
         journal.log("profile", args.name, op="delete")
+        if args.json:
+            print(json.dumps({"name": args.name, "deleted": True}, indent=2))
+            return 0
         out.ok("deleted profile %s" % args.name)
         return 0
 
     # use
     profile = _load_profile(args.name)
-    missing, extras, _changed, other_kind = _profile_diff(profile)
+    missing, extras, changed, other_kind = _profile_diff(profile)
     want = profile.get("skills", {})
     for n, kind in sorted(other_kind.items()):
         # Installing it as a skill would shadow the rule/workflow of the same
         # name; say why it is skipped rather than skipping silently.
-        out.info("%s is installed as a %s — profiles carry skills only, "
-                 "leaving it as-is" % (n, kind))
+        if not args.json:
+            out.info("%s is installed as a %s — profiles carry skills only, "
+                     "leaving it as-is" % (n, kind))
+    installed_now, not_found = [], []
     for n in missing:
         entry = _resolve_entry(n, prefer_tap=want[n].get("tap"))
         if entry is None:
-            out.warn("%s is in the profile but not in any tap — skipped" % n)
+            if not args.json:
+                out.warn("%s is in the profile but not in any tap — skipped" % n)
+            not_found.append(n)
             continue
         res = store.install(entry)
-        out.ok("installed %s → %s" % (n, " · ".join(res.linked)))
+        if not args.json:
+            out.ok("installed %s → %s" % (n, " · ".join(res.linked)))
+        installed_now.append(n)
+    for n in changed:
+        # Mirrors `diff`'s "~ NAME (version differs)" — `use` used to discard
+        # this and switch silently, leaving the drift `diff` warns about
+        # invisible from the command that is supposed to resolve it. Prose, so
+        # it is gated like every other line here; `--json` callers already read
+        # the same drift out of `profile diff`.
+        if not args.json:
+            out.warn("%s (version differs)" % n)
     for n in sorted(want):
         if lockfile.get_skill(n) and not (lockfile.get_skill(n) or {}).get("quarantined"):
             # unsideline, not link_agents: a skill this profile wants may have
@@ -391,21 +478,44 @@ def cmd_profile(argv) -> int:
             # `context`), and relinking without clearing `sidelined_by` left
             # `list`/`doctor` still calling it set aside.
             store.unsideline(n)
+    uninstalled, sidelined, kept_extras = [], [], False
     if extras:
-        if args.prune:
-            if out.confirm("uninstall %d skill%s not in the profile (%s)?"
-                           % (len(extras), _s(len(extras)), ", ".join(extras))):
-                for n in extras:
-                    store.uninstall(n)
+        # A declined --prune confirm used to leave extras fully installed
+        # and linked, then still print the unconditional "switched" below —
+        # a checkmark for a state the machine was not in. Falling through to
+        # the same sideline extras get without --prune keeps that claim true
+        # either way, without a second prompt. `and` short-circuits, so no
+        # prompt is raised when --prune was not asked for.
+        pruned = args.prune and out.confirm(
+            "uninstall %d skill%s not in the profile (%s)?"
+            % (len(extras), _s(len(extras)), ", ".join(extras)),
+            quiet=args.json)
+        if pruned:
+            for n in extras:
+                store.uninstall(n)
+                if not args.json:
                     out.ok("uninstalled %s" % n)
-            else:
-                out.info("kept extras installed")
+                uninstalled.append(n)
         else:
+            # `kept_extras` keeps the meaning #804 published it with — the
+            # user was asked to uninstall these and declined, so they are
+            # still installed — and is now reported beside a populated
+            # `sidelined`: kept, but unlinked. It stays False when --prune
+            # was never passed, since nothing was ever kept against a no.
+            kept_extras = bool(args.prune)
             for n in extras:
                 store.sideline(n, "profile")
-            out.info("sidelined %d skill%s not in the profile (unlinked, still installed): %s"
-                     % (len(extras), _s(len(extras)), ", ".join(extras)))
+            sidelined = extras
+            if not args.json:
+                out.info("sidelined %d skill%s not in the profile (unlinked, still installed): %s"
+                         % (len(extras), _s(len(extras)), ", ".join(extras)))
     journal.log("profile", args.name, op="use")
+    if args.json:
+        print(json.dumps({"name": args.name, "installed": installed_now,
+                          "not_found": not_found, "uninstalled": uninstalled,
+                          "sidelined": sidelined, "kept_extras": kept_extras,
+                          "other_kind": other_kind}, indent=2))
+        return 0
     out.ok("switched to profile %s" % args.name)
     return 0
 
@@ -456,10 +566,10 @@ def cmd_protocol(argv) -> int:
             if not out.confirm("install %s from %s?" % (entry["name"], entry["tap"])):
                 out.info("cancelled")
                 return 1
-            res = store.install(entry)
-            out.ok("copied to %s" % _tilde(res.dest))
-            out.ok("linked → %s" % " · ".join(res.linked))
-            out.ok("lock updated (.skill-lock.json)")
+            res = store.install(entry, via="protocol")
+            _report_result(res)
+            if res.kind == "skill":
+                out.ok("quality score %d/100" % res.score)
             return 0
         # tap
         if not out.confirm("tap %s?" % arg):
@@ -523,8 +633,20 @@ def cmd_protocol(argv) -> int:
 
     # status
     out.kv("platform", system)
-    out.kv("handler", _tilde(_handler_script())
-           if _handler_script().exists() else "not registered")
+    if system == "Darwin":
+        # `register` on Darwin only ever writes the handler script and prints
+        # manual Automator steps (macOS routes URL schemes through app
+        # bundles, not a CLI call) — it never touches Launch Services. A
+        # single "handler" key that shows the script path once written reads
+        # as "registered", which is false until the user finishes building
+        # Boost.app. Splitting the path from the yes/no keeps that path from
+        # answering a question it can't.
+        out.kv("script", _tilde(_handler_script())
+               if _handler_script().exists() else "not written")
+        out.kv("registered", "no — build Boost.app (see `boost protocol register`)")
+    else:
+        out.kv("handler", _tilde(_handler_script())
+               if _handler_script().exists() else "not registered")
     if system == "Linux":
         out.kv("desktop", _tilde(_desktop_file())
                if _desktop_file().exists() else "not registered")
@@ -563,9 +685,12 @@ def cmd_pulse(argv) -> int:
         print(json.dumps(events, indent=2))
         return 0
     if not events:
+        # A second, unfiltered read only on this rare (nothing matched) path —
+        # needed to tell "no events at all" apart from "this filter matched
+        # nothing", which used to render the identical message either way.
+        all_events = journal.events() if args.action else events
         print(out.empty_state(
-            "no activity yet — events appear as you install and manage skills",
-            wrap=True))
+            journal.pulse_empty_state(args.action, all_events), wrap=True))
         return 0
     for e in events:
         action = e.get("action", "?")
@@ -699,38 +824,81 @@ def cmd_replay(argv) -> int:
     # silently absorbed into an "already at this snapshot" all-clear.
     mat_diff = ["%s %s" % (kind, n) for kind in ("rule", "workflow")
                 for group in diffs[kind] for n in group]
-    if mat_diff:
+    if mat_diff and not args.json:
         out.warn("not rolled back (rollback restores skills only): %s — "
                  "reinstall or uninstall these by hand" % ", ".join(mat_diff))
-    if not (added or removed or changed):
+
+    # A "removed" skill no tap can resolve will never come back through
+    # _resolve_entry, so counting it as pending work promised a restore that
+    # could never land — and because nothing about that ever changes, every
+    # later run repeated the same warning and still claimed "complete". Split
+    # it out up front: it never gates the confirm prompt below, only whether
+    # there is anything else left to do.
+    resolved = {n: _resolve_entry(n, prefer_tap=snap_skills[n].get("tap"))
+               for n in removed}
+    restorable = [n for n in removed if resolved[n] is not None]
+    gone = [n for n in removed if resolved[n] is None]
+
+    if not (added or restorable or changed):
+        if args.json:
+            # #804's payload verbatim: `gone` is deliberately not reported
+            # here. Adding it broke that PR's own contract test, and the test
+            # is the specification — see the note on this train's PR.
+            print(json.dumps({"id": args.id, "no_changes": True,
+                              "not_rolled_back": mat_diff}, indent=2))
+            return 0
+        for n in gone:
+            out.warn("%s is gone from every tap — cannot restore" % n)
         out.ok("skills already match this snapshot — nothing to do"
                if mat_diff else "already at this snapshot — nothing to do")
         return 0
-    out.info("rollback to %s will: uninstall %d, install %d, revisit %d version change(s)"
-             % (args.id, len(added), len(removed), len(changed)))
-    if not out.confirm("proceed?"):
+    if not args.json:
+        out.info("rollback to %s will: uninstall %d, install %d, revisit %d version change(s)"
+                 % (args.id, len(added), len(restorable), len(changed)))
+    if not out.confirm("proceed?", quiet=args.json):
+        if args.json:
+            print(json.dumps({"id": args.id, "cancelled": True}, indent=2))
+            return 1
         out.info("cancelled")
         return 1
+    uninstalled, restored, version_diffs = [], [], []
     for n in added:  # in current, not in snapshot
         store.uninstall(n)
-        out.ok("uninstalled %s" % n)
-    for n in removed:  # in snapshot, missing now
-        want = snap_skills[n]
-        entry = _resolve_entry(n, prefer_tap=want.get("tap"))
-        if entry is None:
+        if not args.json:
+            out.ok("uninstalled %s" % n)
+        uninstalled.append(n)
+    for n in gone:
+        if not args.json:
             out.warn("%s is gone from every tap — cannot restore" % n)
-            continue
+    for n in restorable:  # in snapshot, missing now, resolvable
+        want = snap_skills[n]
+        entry = resolved[n]
         res = store.install(entry, force=True)
         if str(entry.get("version")) != str(want.get("version")):
-            out.warn("restored %s v%s from current tap state (snapshot had v%s)"
-                     % (n, entry.get("version"), want.get("version")))
-        else:
+            if not args.json:
+                out.warn("restored %s v%s from current tap state (snapshot had v%s)"
+                         % (n, entry.get("version"), want.get("version")))
+        elif not args.json:
             out.ok("restored %s → %s" % (n, " · ".join(res.linked)))
+        restored.append(n)
     for n in changed:
-        out.warn("%s version differs from snapshot (%s → %s) — taps only carry "
-                 "their current state; `boost pin` prevents future drift"
-                 % (n, snap_skills[n].get("version"), current[n].get("version")))
+        if not args.json:
+            out.warn("%s version differs from snapshot (%s → %s) — taps only carry "
+                     "their current state; `boost pin` prevents future drift"
+                     % (n, snap_skills[n].get("version"), current[n].get("version")))
+        version_diffs.append({"skill": n, "snapshot": snap_skills[n].get("version"),
+                              "current": current[n].get("version")})
     journal.log("replay", args.id, op="rollback")
+    if args.json:
+        print(json.dumps({"id": args.id, "uninstalled": uninstalled,
+                          "restored": restored, "unrestorable": gone,
+                          "version_diffs": version_diffs,
+                          "not_rolled_back": mat_diff}, indent=2))
+        return 1 if gone else 0
+    if gone:
+        out.warn("finished with %d skill%s not restored: %s"
+                 % (len(gone), _s(len(gone)), ", ".join(gone)))
+        return 1
     out.ok("rollback to %s complete" % args.id)
     return 0
 
@@ -747,10 +915,22 @@ def cmd_who(argv) -> int:
     args = p.parse_args(argv)
 
     events = journal.events(subject=args.skill) if args.skill else journal.events()
-    if not events:
-        print(out.empty_state(
-            "no journal activity yet — expertise builds as people install, "
-            "edit, and evolve skills", wrap=True))
+    # #780 made the empty state filter-aware; #804 made it honor --json.
+    # Both are wanted: a --json caller falls through to the emitter below
+    # rather than getting prose on stdout.
+    if not events and not args.json:
+        if args.skill:
+            # Second, unfiltered read only on this rare (nothing matched)
+            # path — same reasoning as cmd_pulse above.
+            all_events = journal.events()
+            known = sorted({e.get("subject", "") for e in all_events
+                           if e.get("subject")})
+            msg = journal.who_empty_state(
+                args.skill, all_events, lockfile.find_any(args.skill) is not None,
+                known)
+        else:
+            msg = journal.who_empty_state(None, [], False)
+        print(out.empty_state(msg, wrap=True))
         return 0
 
     if args.skill:
@@ -758,10 +938,9 @@ def cmd_who(argv) -> int:
         # being installed would contradict `boost list`.
         found = lockfile.find_any(args.skill)
         kind, lk = found if found is not None else (None, None)
-        expertise = ("install", "edit", "evolve", "distill", "tag")
         rows = [(util.rel_time(e.get("ts", "")), e.get("user", "?"),
                  e.get("action", "?"))
-                for e in events if e.get("action") in expertise] or \
+                for e in events if journal.is_expertise_event(e)] or \
                [(util.rel_time(e.get("ts", "")), e.get("user", "?"),
                  e.get("action", "?")) for e in events]
         if args.json:
@@ -785,7 +964,7 @@ def cmd_who(argv) -> int:
         u = users.setdefault(e.get("user", "?"), {
             "events": 0, "skills": set(), "installs": 0, "last": e.get("ts", "")})
         u["events"] += 1
-        if e.get("subject"):
+        if e.get("subject") and journal.is_expertise_event(e):
             u["skills"].add(e["subject"])
         if e.get("action") == "install":
             u["installs"] += 1

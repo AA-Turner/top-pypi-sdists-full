@@ -11,7 +11,7 @@ use uv_distribution_types::{
     Resolution, UnresolvedRequirement, VersionId,
 };
 use uv_normalize::PackageName;
-use uv_pep440::Version;
+use uv_pep440::{Operator, Version};
 use uv_pypi_types::{HashAlgorithm, HashDigest, HashDigests, HashError, ResolverMarkerEnvironment};
 use uv_redacted::DisplaySafeUrl;
 
@@ -58,7 +58,7 @@ impl HashStrategy {
 
     /// Set verification independently of hash generation.
     #[must_use]
-    fn with_verification(mut self, verification: HashVerification) -> Self {
+    pub fn with_verification(mut self, verification: HashVerification) -> Self {
         self.verification = verification;
         self
     }
@@ -97,6 +97,17 @@ impl HashStrategy {
                 let id = id();
                 if let Some(hashes) = hashes.get(&id) {
                     return hash_policy(&id, hashes);
+                }
+                // `==1.0.0` can also select `1.0.0+local`. If the local version has no hash
+                // of its own, check it against the hash for `1.0.0`.
+                if let VersionId::NameVersion(name, version) = &id
+                    && version.is_local()
+                    && let Some(hashes) = hashes.get(&VersionId::from_registry(
+                        name.clone(),
+                        version.clone().without_local(),
+                    ))
+                {
+                    return HashPolicy::Any(hashes);
                 }
             }
             HashVerification::Required(hashes) => {
@@ -405,7 +416,9 @@ impl HashStrategy {
                 };
 
                 // Must be pinned to a specific version.
-                if *specifier.operator() != uv_pep440::Operator::Equal {
+                let is_pinned =
+                    matches!(specifier.operator(), Operator::Equal | Operator::ExactEqual);
+                if !is_pinned {
                     return None;
                 }
 
@@ -631,6 +644,18 @@ mod tests {
             strategy.get_url(&url),
             HashPolicy::All(slice::from_ref(&digest))
         );
+        for fragment in [
+            "#subdirectory=.",
+            "#subdirectory=./",
+            "#subdirectory=",
+            "#subdirectory=nested/..",
+        ] {
+            let root_url = format!("{url}{fragment}").parse()?;
+            assert_eq!(
+                strategy.get_url(&root_url),
+                HashPolicy::All(slice::from_ref(&digest))
+            );
+        }
         assert_eq!(
             strategy.get_url(&unknown_url),
             HashPolicy::Generate(HashGeneration::All)

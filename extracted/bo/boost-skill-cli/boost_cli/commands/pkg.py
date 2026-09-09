@@ -21,6 +21,7 @@ from .. import cliparse, spin
 from ..core import (
     adapters,
     agents,
+    archive,
     catalog,
     complete,
     config,
@@ -159,8 +160,8 @@ def _offer_mcp(res: store.InstallResult, no_mcp: bool = False) -> None:
     out.info("")
     out.warn("%s needs %s to work:" % (res.name, _plural(len(rows), "MCP server")))
     for row in rows:
-        how = ("`%s`" % row["spec"]["command"] if row["spec"]
-               and row["spec"].get("command") else "no command declared")
+        line = mcpdecl.command_line(row["spec"]) if row["spec"] else ""
+        how = "`%s`" % line if line else "no command declared"
         out.info("  %s  %s" % (out.c(row["name"], out.BOLD),
                                out.role(how, "muted")))
     wirable = mcpdecl.registrable(rows)
@@ -177,10 +178,14 @@ def _offer_mcp(res: store.InstallResult, no_mcp: bool = False) -> None:
     # Name the scope. The prompt used to say only "register N servers with
     # Claude Code now?", which is the one detail the answer turns on — this
     # writes a registration every project on this machine will then launch.
-    if not out.confirm("register %s with %s, for every project on this machine?"
-                       % (_plural(len(wirable), "server"), where), default=False):
-        out.dim("  skipped — `%s mcp add …` when you're ready"
-                % mcphost.cli(targets[0]))
+    if not out.confirm(
+            "  register %s with %s, for every project on this machine?"
+            % (_plural(len(wirable), "server"), where), default=False):
+        out.dim("  skipped — run these yourself when you're ready:")
+        for row in wirable:
+            argv = mcpdecl.register_argv(row["name"], row["spec"],
+                                         host=targets[0], scope=res.scope)
+            out.info("    " + " ".join(argv))
         return
     for row in wirable:
         for host in targets:
@@ -534,7 +539,7 @@ def cmd_install(argv: list[str]) -> int:
 def cmd_uninstall(argv: list[str]) -> int:
     ap = cliparse.parser(
         prog="boost uninstall",
-        description="Remove an installed skill, rule, workflow, or config")
+        description="Remove an installed skill, rule, or workflow")
     ap.add_argument("names", nargs="+", metavar="NAME")
     ap.add_argument("--local", dest="scope", action="store_const",
                     const=scopes.SCOPE_PROJECT, default=None,
@@ -664,6 +669,15 @@ def cmd_sync(argv: list[str]) -> int:
                     out.info("%s → %s" % (item[0], item[1]))
                 elif key == "missing_materializations":
                     out.info("%s %s" % (item[0], item[1]))  # (kind, name)
+                elif key == "blocked_links":
+                    # (skill, agent, path) — the general str()-of-a-tuple
+                    # fallback below prints this verbatim as
+                    # "('brainstorming', 'windsurf', '/private/tmp/.../
+                    # brainstorming')", which is what the live warning at the
+                    # bottom of this command deliberately does not do.
+                    name, agent, path = item
+                    out.info("%s → %s (%s in the way)"
+                             % (name, agent, _tilde(Path(path))))
                 else:
                     out.info(_tilde(item))
         return 0
@@ -699,9 +713,12 @@ def cmd_sync(argv: list[str]) -> int:
     left = [n for n in orphans if n not in pruned]
     blocked = plan["blocked_links"]
     if args.json:
+        # `sync --diff --json` above is indent=2; this printed one unindented
+        # line, so the two `--json` shapes of the same command disagreed on
+        # style for no reason tied to their content.
         print(json.dumps({"actions": actions, "pruned": pruned,
                           "orphaned_store": left, "out_of_scope_links": oos,
-                          "blocked_links": blocked}))
+                          "blocked_links": blocked}, indent=2))
         return 0
     for a in actions:
         out.ok(a)
@@ -1051,6 +1068,8 @@ def cmd_update(argv: list[str]) -> int:
     ap.add_argument("--json", dest="as_json", action="store_true",
                     help="with --shards: print the per-tap result as JSON")
     args = ap.parse_args(argv)
+    if args.as_json and not args.shards:
+        ap.error("--json is only supported with --shards")
     if args.shards:
         if args.taps_only:
             ap.error("--shards and --taps-only move taps to different commits")
@@ -1060,9 +1079,12 @@ def cmd_update(argv: list[str]) -> int:
         out.info("no taps configured — start with `boost tap --defaults`")
         return 0
     moved = []
+    pinned_skips = 0
     for tname, summary in results.items():
         if "skipped" not in summary:
             catalog.rebuild_tap(registry.get(tname))
+        else:
+            pinned_skips += 1
         # "abc1234 → def5678" is a tap whose tree changed; "already up to date"
         # and "pinned at ..." are not. Only the first invalidates vectors.
         if "→" in summary:
@@ -1078,6 +1100,14 @@ def cmd_update(argv: list[str]) -> int:
             "%d of %d taps could not be refreshed — the rest are up to date. "
             "Drop a dead one with `boost untap <name>`."
             % (len(failures), len(results) + len(failures)), "muted"))
+    if pinned_skips:
+        out.info(out.role(
+            "%d tap%s pinned and left alone — `boost update --force` moves "
+            "%s too, dropping %s pin%s"
+            % (pinned_skips, "s" if pinned_skips != 1 else "",
+               "them" if pinned_skips != 1 else "it",
+               "their" if pinned_skips != 1 else "its",
+               "s" if pinned_skips != 1 else ""), "muted"))
     # A pulled tap can add, drop, or rename catalogue entries, so the
     # completion name cache must not survive an update unrefreshed.
     complete.refresh_names()
@@ -1132,10 +1162,18 @@ def cmd_update(argv: list[str]) -> int:
     upgraded += _update_materialized("rule", lockfile.installed_rules(), results)
     upgraded += _update_materialized("workflow", lockfile.installed_workflows(), results)
     if not upgraded:
-        # Don't claim "everything up to date" when some taps were never
-        # reached — that is exactly the false all-clear this fix exists to stop.
-        out.ok("everything up to date" if not failures
-               else "everything up to date, except the taps above")
+        if pinned_skips and pinned_skips == len(results) and not failures:
+            # Every tap was a pinned skip: nothing was actually checked over
+            # the network, which "everything up to date" would misreport as
+            # a fresh confirmation rather than the truth — the run never left
+            # config.json.
+            out.ok("nothing to refresh — all taps pinned")
+        else:
+            # Don't claim "everything up to date" when some taps were never
+            # reached — that is exactly the false all-clear this fix exists
+            # to stop.
+            out.ok("everything up to date" if not failures
+                   else "everything up to date, except the taps above")
     # Non-zero only when nothing was refreshed at all. A partial run did the job
     # it could do, and failing it would put us back to one dead upstream
     # breaking `boost update` for the other 79.
@@ -1411,9 +1449,10 @@ def cmd_import(argv: list[str]) -> int:
         prog="boost import",
         description="Import skills from a GitHub URL or local path")
     ap.add_argument("source", metavar="URL_OR_PATH")
-    ap.add_argument("--name", metavar="N",
-                    help="skill to pick when several are found (or a rename)")
-    ap.add_argument("--all", action="store_true", help="import every skill found")
+    group = ap.add_mutually_exclusive_group()
+    group.add_argument("--name", metavar="N",
+                       help="skill to pick when several are found (or a rename)")
+    group.add_argument("--all", action="store_true", help="import every skill found")
     ap.add_argument("--agent", action="append", metavar="A",
                     help="link only into this agent (repeatable)")
     args = ap.parse_args(argv)
@@ -1493,7 +1532,7 @@ def _import_root(root: Path, name: str | None, do_all: bool,
 
 def cmd_pin(argv: list[str]) -> int:
     ap = cliparse.parser(prog="boost pin",
-                                 description="Pin a skill to its current version")
+                                 description="Pin a skill, rule or workflow to its current version")
     ap.add_argument("name", metavar="NAME")
     ap.add_argument("--commit", action="store_true",
                     help="also freeze the exact source commit (integrity pin)")
@@ -1511,15 +1550,22 @@ def cmd_pin(argv: list[str]) -> int:
 
 def cmd_unpin(argv: list[str]) -> int:
     ap = cliparse.parser(prog="boost unpin",
-                                 description="Allow a pinned skill to update again")
+                                 description="Allow a pinned skill, rule or workflow to update again")
     ap.add_argument("name", metavar="NAME")
     args = ap.parse_args(argv)
     # Releasing the version pin releases the commit pin with it — a commit pin
-    # only makes sense while the skill is otherwise frozen.
+    # only makes sense while the skill is otherwise frozen. The commit pin is
+    # cleared before `_set_pin` so it takes effect either way, but the dim
+    # trailer prints after — it qualifies `_set_pin`'s own "unpinned" line, so
+    # printing it first would leave the trailer describing a line that has
+    # not appeared yet (mirrors `cmd_pin`'s ok-line-then-trailer order).
     found = lockfile.find_any(args.name)
-    if found and integrity.clear_commit_pin(args.name, found[1], kind=found[0]):
+    cleared_commit_pin = bool(
+        found and integrity.clear_commit_pin(args.name, found[1], kind=found[0]))
+    rc = _set_pin(args.name, False)
+    if cleared_commit_pin:
         out.dim("  released the commit pin too")
-    return _set_pin(args.name, False)
+    return rc
 
 
 def _set_pin(name: str, pinned: bool) -> int:
@@ -1563,6 +1609,8 @@ def cmd_snapshot(argv: list[str]) -> int:
     ap.add_argument("-y", "--yes", action="store_true",
                     help="skip the restore confirmation prompt")
     args = ap.parse_args(argv)
+    if args.action == "list" and args.arg:
+        ap.error("snapshot list takes no LABEL|ID")
     if args.action == "save":
         return _snapshot_save(args.arg)
     if args.action == "list":
@@ -1620,9 +1668,12 @@ def _snapshot_list(as_json: bool) -> int:
                 meta = json.loads(side.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
                 meta = {}
+        # `skills` is a count when the sidecar has one, `None` when it does
+        # not — never the placeholder string "?" a JSON consumer of a numeric
+        # field would have to special-case.
         snaps.append({"id": snap_id, "created": meta.get("created", ""),
                       "label": meta.get("label", ""),
-                      "skills": meta.get("skills", "?"),
+                      "skills": meta.get("skills"),
                       "size": tar_path.stat().st_size})
     if as_json:
         print(json.dumps(snaps, indent=2))
@@ -1631,7 +1682,9 @@ def _snapshot_list(as_json: bool) -> int:
         out.info("no snapshots yet — create one with `boost snapshot save`")
         return 0
     out.table([(s["id"], util.rel_time(s["created"]) if s["created"] else "?",
-                s["label"] or "—", s["skills"], util.human_size(s["size"]))
+                s["label"] or "—",
+                s["skills"] if s["skills"] is not None else "?",
+                util.human_size(s["size"]))
                for s in snaps],
               headers=("ID", "WHEN", "LABEL", "SKILLS", "SIZE"),
               # The id is the only argument `snapshot restore` accepts, and
@@ -1754,11 +1807,17 @@ def cmd_export(argv: list[str]) -> int:
                                  "agent config files; reinstall them "
                                  "from their tap")
         if not store.skill_store_dir(name).is_dir():
-            raise BoostError("store dir for %s is missing" % name,
-                            hint="repair with `boost sync`")
+            raise BoostError(
+                "store dir for %s is missing" % name,
+                hint=("repair with `boost reinstall %s`" % name)
+                     if entry.get("tap") == "local"
+                     else "repair with `boost sync`")
         chosen[name] = entry
     stamp = datetime.now(UTC).strftime("%Y%m%d")
-    ext = ".zip" if args.zip else ".tar.gz"
+    use_zip, format_warning = archive.resolve_export_format(args.out, args.zip)
+    if format_warning:
+        out.warn(format_warning)
+    ext = ".zip" if use_zip else ".tar.gz"
     dest = paths.expand(args.out) if args.out else Path(
         "boost-skills-%s%s" % (stamp, ext))
     if dest.exists() and not args.force:
@@ -1767,9 +1826,10 @@ def cmd_export(argv: list[str]) -> int:
                              "different -o path")
     manifest = _boostfile_text(chosen, via="boost export")
     try:
-        if args.zip:
+        if use_zip:
             with zipfile.ZipFile(str(dest), "w", zipfile.ZIP_DEFLATED) as zf:
-                zf.writestr("Boostfile", manifest)
+                zf.writestr(archive.boostfile_zipinfo(
+                    datetime.now(UTC).timetuple()[:6]), manifest)
                 for name in chosen:
                     sdir = store.skill_store_dir(name)
                     for f in sorted(p for p in sdir.rglob("*") if p.is_file()):
@@ -1781,9 +1841,10 @@ def cmd_export(argv: list[str]) -> int:
                 ti.size = len(data)
                 ti.mtime = int(datetime.now(UTC).timestamp())
                 ti.mode = 0o644
-                tf.addfile(ti, io.BytesIO(data))
+                tf.addfile(archive.normalize_tar_member(ti), io.BytesIO(data))
                 for name in chosen:
-                    tf.add(str(store.skill_store_dir(name)), arcname=name)
+                    tf.add(str(store.skill_store_dir(name)), arcname=name,
+                          filter=archive.normalize_tar_member)
     except OSError as e:
         raise BoostError("cannot write %s: %s" % (_tilde(dest), e.strerror or e),
                         hint="check the output path exists and is writable") from e

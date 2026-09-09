@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import datetime
 
 from boost_cli.core import paths
 
@@ -384,6 +385,11 @@ class TestLint:
         r = boost("lint", "--min", "-1", expect=2)
         assert "must be between 0 and 100" in r.err
 
+    def test_a_name_given_twice_counts_once(self, boost, installed):
+        r = boost("lint", "brainstorming", "brainstorming")
+        assert r.out.count("brainstorming") == 1
+        assert "1 skill passes lint (min 40)" in r.out
+
     def test_missing_fields_error_rc1_and_json(self, boost, sandbox, tmp_path):
         d = tmp_path / "noname"
         d.mkdir()
@@ -524,6 +530,17 @@ class TestLint:
 
 # ── audit ────────────────────────────────────────────────────────────────
 
+_GOOD_BODY = (
+    "# Test Skill\n\n"
+    "Use this skill when working on structured tasks in this repo.\n\n"
+    "## Steps\n\n"
+    "1. Do the first thing carefully and deliberately.\n"
+    "- Also consider these bullet points.\n\n"
+    "```bash\necho example\n```\n\n"
+    "Additional prose so the body is comfortably over two hundred characters.\n"
+)
+
+
 class TestAudit:
     def test_clean(self, boost, installed):
         r = boost("audit")
@@ -655,7 +672,8 @@ class TestVerify:
         data = json.loads(boost("verify", "--json").out)
         assert data == {"skills": [{"name": "brainstorming", "kind": "skill",
                                     "status": "ok", "scope": "user",
-                                    "missing_fields": [], "commit_pin": None}],
+                                    "missing_fields": [], "commit_pin": None,
+                                    "passed": True}],
                         "failed": 0}
 
     def test_tampered_modified_rc1(self, boost, installed):
@@ -804,6 +822,26 @@ class TestTestCmd:
         assert "verify" in r.out
         assert "0 passed, 1 failed" in r.out
 
+    def test_missing_description_fails_lint_check_like_boost_lint_does(
+            self, boost, sandbox, tmp_path):
+        # A skill missing `description` scores high enough to clear the old
+        # `score < 40` predicate `boost test` used for its lint check, while
+        # `boost lint` fails it outright on the missing required field —
+        # `test` must agree with `lint` rather than passing on score alone.
+        _import_skill(boost, tmp_path, "no-desc", _GOOD_BODY, description="")
+        lint = boost("lint", expect=1)
+        assert "error: missing required field: description" in lint.out
+        test = boost("test", expect=1)
+        assert "FAIL" in test.out
+        assert "lint" in test.out
+        assert "0 passed, 1 failed" in test.out
+
+    def test_a_name_given_twice_counts_once(self, boost, tapped):
+        boost("install", "brainstorming")
+        r = boost("test", "brainstorming", "brainstorming")
+        assert r.out.count("PASS") == 1
+        assert "1 passed, 0 failed" in r.out
+
 
 # ── fingerprint ──────────────────────────────────────────────────────────
 
@@ -921,6 +959,25 @@ class TestQuarantine:
         r = boost("quarantine", "--list")
         assert "nothing in quarantine" in r.out
 
+    def test_release_preserves_narrowed_agent_scope(self, boost, tapped):
+        # A quarantine/release round trip on a skill installed with --agent
+        # must be a no-op on the agent set: release used to re-link every
+        # enabled agent regardless of the scope the install declared, which
+        # doctor then flagged as out-of-scope.
+        boost("install", "brainstorming", "--agent", "claude-code")
+        boost("quarantine", "brainstorming")
+        r = boost("quarantine", "--release", "brainstorming")
+        assert "released brainstorming (linked: claude-code)" in r.out
+        home = paths.home()
+        assert (home / ".claude" / "skills" / "brainstorming").is_symlink()
+        assert not (home / ".windsurf" / "skills" / "brainstorming").exists()
+        assert not (home / ".cursor" / "skills" / "brainstorming").exists()
+        entry = _lock()["brainstorming"]
+        assert entry["agents"] == ["claude-code"]
+        r = boost("doctor")
+        assert r.rc == 0
+        assert "outside its declared scope" not in r.out
+
 
 class TestQuarantineMaterialized:
     """The CLI round trip for the kinds quarantine used to deny existed."""
@@ -1003,6 +1060,29 @@ class TestGovernedIntegritySurface:
         assert "lock file integrity OK" in r.out
         r = boost("verify", "house-style")
         assert "house-style" in r.out and "ok" in r.out
+
+    def test_verify_ok_status_with_missing_fields_still_counts_as_failed(
+            self, boost, installed, fixture_tap_src, tmp_path):
+        # audit-verify-findings repro: a rule entry stripped of `version` and
+        # given an empty `installed_at` still hashes clean, so `status` stays
+        # "ok" — but the row must count toward "failed" and, in JSON, must
+        # not claim `"passed": true` alongside a non-empty `missing_fields`.
+        from boost_cli.core import lockfile
+        self._install_rule(boost, fixture_tap_src, tmp_path, "stripped-tap")
+        entry = lockfile.get_rule("house-style")
+        del entry["version"]
+        entry["installed_at"] = ""
+        lockfile.set_rule("house-style", entry)
+
+        data = json.loads(boost("verify", "--json", expect=1).out)
+        row = next(r for r in data["skills"] if r["name"] == "house-style")
+        assert row["status"] == "ok"
+        assert sorted(row["missing_fields"]) == ["installed_at", "version"]
+        assert row["passed"] is False
+        assert data["failed"] == 1
+
+        r = boost("verify", expect=1)
+        assert "1 of" in r.out and "failed verification" in r.out
 
     def test_verify_flags_a_tampered_claude_block(self, boost, installed,
                                                   fixture_tap_src, tmp_path):
@@ -1221,7 +1301,22 @@ class TestDecay:
         assert data["skills"][0]["name"] == "brainstorming"
         assert data["skills"][0]["relevance"] == "none"
         assert data["skills"][0]["verdict"] == "review"
-        assert data["skills"][0]["last_activity"].endswith("ago")
+        # Machine field is an ISO timestamp, not the table's humanized
+        # "Xh ago" — parsing it back confirms the shape without pinning the
+        # exact age, which would make the test flake on host load.
+        datetime.strptime(data["skills"][0]["last_activity"],
+                          "%Y-%m-%dT%H:%M:%SZ")
+
+    def test_json_last_activity_is_null_without_journal_history(
+            self, boost, installed, tmp_path, monkeypatch):
+        empty = tmp_path / "empty-project"
+        empty.mkdir()
+        monkeypatch.chdir(empty)
+        paths.pulse_path().unlink()  # drop the install event `installed` just logged
+        data = json.loads(boost("decay", "--json").out)
+        assert data["skills"][0]["last_activity"] is None
+        r = boost("decay")
+        assert "never" in r.out
 
 
 # ── heal ─────────────────────────────────────────────────────────────────
@@ -1358,6 +1453,16 @@ class TestConflict:
         assert "(ai-confirmed)" in r.out
         assert "using the heuristic fallback" not in " ".join(r.out.split())
 
+    def test_a_failed_ai_call_still_warns(self, boost, tapped, monkeypatch):
+        # Previously silent: AI was available, the call was made, and it came
+        # back empty — the pairs stayed "(heuristic)" with no note at all.
+        boost("install", "tdd-workflow", "cowboy-coding")
+        monkeypatch.delenv("BOOST_NO_AI")
+        monkeypatch.setattr("boost_cli.core.ai.available", lambda: True)
+        monkeypatch.setattr("boost_cli.core.ai.ask", lambda *a, **k: None)
+        r = boost("conflict", expect=1)
+        assert "using the heuristic fallback" in " ".join(r.out.split())
+
 
 # ── changelog ────────────────────────────────────────────────────────────
 
@@ -1372,6 +1477,11 @@ class TestChangelog:
         _import_skill(boost, tmp_path, "local-one", "# Local\n\nBody.\n")
         r = boost("changelog", "local-one")
         assert "no upstream history — local-one was imported locally" in r.out
+
+    def test_qualified_name_shows_bare_name_once_not_twice(self, boost, rival_tap):
+        r = boost("changelog", "rival-tap:brainstorming")
+        assert "changelog for brainstorming (rival-tap)" in r.out
+        assert "rival-tap:brainstorming" not in r.out
 
     def test_n_must_be_positive_int(self, boost, installed):
         # -n 0 used to print no log lines and claim "no history found" even
@@ -1449,6 +1559,20 @@ class TestHealth:
         assert "2 events" in r.out                # tap + install in journal
         assert re.search(r"fingerprint\s+[0-9a-f]{16}", r.out)
         assert "● healthy" in r.out
+
+    def test_native_store_row_reflects_a_missing_store_dir(self, boost, installed):
+        # The bug: the native-store row was an unconditional
+        # len(expected)/len(expected) with a hard-coded ✓, never statting the
+        # store — so it kept claiming full coverage in the same report where
+        # the claude-code row (and drift) both saw the skill was gone.
+        shutil.rmtree(paths.store_dir() / "brainstorming")
+        r = boost("health")
+        assert "1/1 ✓ (reads the store directly)" not in r.out
+        line = next(ln for ln in r.out.splitlines()
+                    if "(reads the store directly)" in ln)
+        assert "0/1" in line
+        assert "✓" not in line
+        assert "1 store-missing" in r.out
 
     def test_last_tap_sync_reads_the_refresh_marker_not_git_log(
             self, boost, installed):

@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from packaging.version import Version
 from typing_extensions import Unpack
@@ -185,14 +185,45 @@ class SandboxApi(SandboxBase):
         cls,
         sandbox_id: str,
         resume: Optional[bool] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
         timeout: Optional[int] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> bool:
+        success, _ = cls._cls_reset_with_token(
+            sandbox_id=sandbox_id,
+            resume=resume,
+            secure=secure,
+            network=network,
+            timeout=timeout,
+            allow_public_traffic=allow_public_traffic,
+            **opts,
+        )
+        return success
+
+    @classmethod
+    def _cls_reset_with_token(
+        cls,
+        sandbox_id: str,
+        resume: Optional[bool] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
+        timeout: Optional[int] = None,
+        allow_public_traffic: Optional[bool] = None,
+        **opts: Unpack[ApiParams],
+    ) -> Tuple[bool, Optional[str]]:
         config = ConnectionConfig(**opts)
 
         payload: Dict[str, object] = {
             "resume": True if resume is None else bool(resume),
         }
+        if secure is not None:
+            payload["secure"] = bool(secure)
+        if allow_public_traffic is not None:
+            payload["allowPublicTraffic"] = bool(allow_public_traffic)
+        elif network is not None:
+            payload["network"] = SandboxNetworkConfig(**network).to_dict()
         if timeout is not None:
             payload["timeout"] = int(timeout)
 
@@ -206,12 +237,24 @@ class SandboxApi(SandboxBase):
             raise SandboxNotFoundException(f"Sandbox {sandbox_id} not found")
 
         if res.status_code == 409:
-            return False
+            return False, None
 
         if res.status_code >= 300:
             raise handle_api_exception(res)
 
-        return True
+        traffic_access_token = None
+        if getattr(res, "content", b""):
+            try:
+                data = res.json()
+                token = (
+                    data.get("trafficAccessToken") if isinstance(data, dict) else None
+                )
+                if isinstance(token, str):
+                    traffic_access_token = token
+            except ValueError:
+                pass
+
+        return True, traffic_access_token
 
     @classmethod
     def _cls_set_network(
@@ -556,17 +599,33 @@ class SandboxApi(SandboxBase):
         cls,
         sandbox_id: str,
         timeout: Optional[int] = None,
+        secure: Optional[bool] = None,
+        network: Optional[SandboxNetworkOpts] = None,
+        allow_public_traffic: Optional[bool] = None,
         **opts: Unpack[ApiParams],
     ) -> Sandbox:
         timeout = timeout or SandboxBase.default_sandbox_timeout
 
-        config = ConnectionConfig(**opts)
+        config = ConnectionConfig(
+            **{
+                key: value
+                for key, value in opts.items()
+                if key not in {"secure", "network", "allow_public_traffic"}
+            }
+        )
 
         if should_use_legacy(opts):
             api_client = get_api_client(config)
+            payload = {"timeout": timeout, "autoPause": False}
+            if secure is not None:
+                payload["secure"] = bool(secure)
+            if allow_public_traffic is not None:
+                payload["allowPublicTraffic"] = bool(allow_public_traffic)
+            elif network is not None:
+                payload["network"] = SandboxNetworkConfig(**network).to_dict()
             res = api_client.get_httpx_client().post(
                 f"/sandboxes/{sandbox_id}/connect",
-                json={"timeout": timeout, "autoPause": False},
+                json=payload,
             )
             if res.status_code == 404:
                 raise SandboxNotFoundException(f"Paused sandbox {sandbox_id} not found")
@@ -581,10 +640,18 @@ class SandboxApi(SandboxBase):
                 "Novita-Sandbox-Port": str(config.envd_port),
             },
         )
+        body = ConnectSandbox(timeout=timeout)
+        if secure is not None:
+            body.secure = bool(secure)
+        if allow_public_traffic is not None:
+            body.allow_public_traffic = bool(allow_public_traffic)
+        elif network is not None:
+            body.network = SandboxNetworkConfig(**network)
+
         res = post_sandboxes_sandbox_id_connect.sync_detailed(
             sandbox_id,
             client=api_client,
-            body=ConnectSandbox(timeout=timeout),
+            body=body,
         )
 
         if res.status_code == 404:
@@ -711,6 +778,7 @@ class SandboxApi(SandboxBase):
         cls,
         **opts: Unpack[ApiParams],
     ) -> SandboxQuota:
+        raise_if_legacy(opts, "Sandbox.get_quota")
         config = ConnectionConfig(**opts)
         api_client = get_api_client(config)
         res = api_client.get_httpx_client().get("/sandboxes/quota")

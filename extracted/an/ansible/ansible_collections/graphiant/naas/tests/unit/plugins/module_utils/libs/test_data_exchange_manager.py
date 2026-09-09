@@ -770,6 +770,36 @@ def test_create_services_client_to_server_resolves_nat_and_creates() -> None:
     assert nat_prefixes == {"30000061440": {"prefixes": ["162.131.7.64/31"]}}
 
 
+def test_create_services_client_to_server_accepts_service_type_key() -> None:
+    """"serviceType" (matching the API field name) works the same as the legacy "type" key."""
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_services": [
+            {
+                "serviceName": "de-c2s-1",
+                "serviceType": "client_to_server",
+                "policy": {
+                    "serviceLanSegment": 517853,
+                    "prefixTags": [{"prefix": "10.48.52.152/31"}],
+                    "sites": [{"sites": [4497], "siteLists": []}],
+                    "natTranslationMode": {
+                        "centralized": {"prefixes": {"edge-1-sdktest": {"prefixes": ["162.131.7.64/31"]}}}
+                    },
+                },
+            }
+        ]
+    }
+    mgr.gsdk.get_global_routing_policy_summaries.return_value = []
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = None  # doesn't exist yet
+    mgr.gsdk.get_device_id.return_value = 30000061440
+    mgr.gsdk.get_lan_segment_site_device_map.return_value = _site_device_map(517853, {4497: [30000061440]})
+
+    result = mgr.create_services("dummy.yaml")
+
+    assert result["changed"] is True
+    assert "de-c2s-1" in result["created"]
+
+
 def test_create_services_client_to_server_diff_plan_drift_on_nat_translation_mode() -> None:
     """Existing client_to_server service with a changed NAT pool shows drift (use update_services)."""
     mgr = _make_manager()
@@ -951,6 +981,33 @@ def test_update_services_client_to_server_requires_prefix_tags_or_nat() -> None:
         mgr.update_services("dummy.yaml")
 
 
+def test_update_services_client_to_server_accepts_service_type_key() -> None:
+    """"serviceType" (matching the API field name) works the same as the legacy "type" key."""
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_services": [
+            {
+                "serviceName": "de-c2s-1",
+                "serviceType": "client_to_server",
+                "policy": {
+                    "natTranslationMode": {
+                        "centralized": {"prefixes": {"edge-1-sdktest": {"prefixes": ["162.131.7.64/31"]}}}
+                    }
+                },
+            }
+        ]
+    }
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = _make_existing_service()
+    mgr.gsdk.get_data_exchange_service_details.return_value = _c2s_service_details()
+    mgr.gsdk.get_device_id.return_value = 30000061440  # same device ID already on the service
+
+    result = mgr.update_services("dummy.yaml")
+
+    assert result["changed"] is False
+    assert "de-c2s-1" in result["skipped"]
+    mgr.gsdk.edit_data_exchange_service.assert_not_called()
+
+
 def test_update_services_client_to_server_idempotent_no_change() -> None:
     mgr = _make_manager()
     mgr.config_utils.render_config_file.return_value = _c2s_update_config(
@@ -1120,6 +1177,214 @@ def test_validate_vpn_profiles_deduplicates_across_peers() -> None:
 
     mgr._validate_vpn_profiles_for_acceptances(acceptances)  # pylint: disable=protected-access
     mgr.gsdk.get_global_ipsec_profiles.assert_called_once()
+
+
+# ---- _validate_vpn_profiles_for_acceptances: no vpnProfile anywhere ----
+#
+# A missing vpnProfile is never rejected at this early stage — whether it's legitimate (a
+# Graphiant customer, who needs no Site-to-Site VPN per https://docs.graphiant.com/docs/data-exchange)
+# can only be determined once match-level visibility is resolved, which happens later in
+# _process_multiple_acceptances (see _ensure_missing_vpn_profile_is_graphiant_customer tests below).
+
+
+def _make_acceptance_without_vpn_profile(customer_name="FinanceInc", service_name="de-service-1") -> dict:
+    """Minimal acceptance config with no siteToSiteVpn/vpnProfile at all."""
+    return {"customerName": customer_name, "serviceName": service_name, "policy": {}}
+
+
+def test_validate_vpn_profiles_no_profiles_anywhere_skips_portal_check() -> None:
+    """No vpnProfile anywhere across all acceptances — skip cleanly without a portal call; the
+    Graphiant-customer determination happens later, per acceptance, once match_id/service_id
+    are resolved."""
+    mgr = _make_manager()
+    acceptances = [_make_acceptance_without_vpn_profile()]
+
+    mgr._validate_vpn_profiles_for_acceptances(acceptances)  # pylint: disable=protected-access
+
+    mgr.gsdk.get_global_ipsec_profiles.assert_not_called()
+
+
+# ---- _acceptance_vpn_profile_names ----
+
+
+def test_acceptance_vpn_profile_names_empty_for_no_site_to_site_vpn() -> None:
+    assert DataExchangeManager._acceptance_vpn_profile_names({}) == set()  # pylint: disable=protected-access
+
+
+def test_acceptance_vpn_profile_names_ipsec_gateway_peers() -> None:
+    site_to_site_vpn = _make_acceptance_with_peers("profile-a", "profile-b")["policy"]["siteToSiteVpn"]
+    assert DataExchangeManager._acceptance_vpn_profile_names(  # pylint: disable=protected-access
+        site_to_site_vpn
+    ) == {"profile-a", "profile-b"}
+
+
+def test_acceptance_vpn_profile_names_legacy_ipsec_gateway_details() -> None:
+    site_to_site_vpn = {"ipsecGatewayDetails": {"vpnProfile": "legacy-profile"}}
+    assert DataExchangeManager._acceptance_vpn_profile_names(  # pylint: disable=protected-access
+        site_to_site_vpn
+    ) == {"legacy-profile"}
+
+
+# ---- _ensure_missing_vpn_profile_is_graphiant_customer ----
+#
+# peer_type comes from get_matching_customers_for_service — the same "type" the customer was
+# created with (data_exchange_customers), renamed by that call to peer_type. This is the same
+# field the codebase already uses for the Graphiant/Non-Graphiant distinction elsewhere
+# (get_customers_summary's "Customer Type" column) — see issue #154.
+
+
+def test_ensure_missing_vpn_profile_is_graphiant_customer_matches() -> None:
+    mgr = _make_manager()
+
+    mgr._ensure_missing_vpn_profile_is_graphiant_customer(  # pylint: disable=protected-access
+        "graphiant-customer-1", "de-service-graphiant-peer-c2s", "graphiant_peer"
+    )
+    # No exception raised
+
+
+def test_ensure_missing_vpn_profile_is_graphiant_customer_raises_when_non_graphiant() -> None:
+    mgr = _make_manager()
+
+    with pytest.raises(ConfigurationError, match="No vpnProfile found"):
+        mgr._ensure_missing_vpn_profile_is_graphiant_customer(  # pylint: disable=protected-access
+            "ExternalCo", "de-service-1", "non_graphiant_peer"
+        )
+
+
+def test_ensure_missing_vpn_profile_is_graphiant_customer_raises_when_peer_type_unknown() -> None:
+    """peer_type couldn't be determined for this match at all — can't be confirmed as a
+    Graphiant customer."""
+    mgr = _make_manager()
+
+    with pytest.raises(ConfigurationError, match="No vpnProfile found"):
+        mgr._ensure_missing_vpn_profile_is_graphiant_customer(  # pylint: disable=protected-access
+            "FinanceInc", "de-service-1", None
+        )
+
+
+# ---- _process_multiple_acceptances: no vpnProfile end-to-end (issue #154) ----
+
+
+def _mock_matched_customer(match_id=6697, peer_type="non_graphiant_peer", status="EXTRANET_SERVICE_STATUS_INACTIVE"):
+    item = MagicMock(match_id=match_id, status=status, peer_type=peer_type)
+    return item
+
+
+def _stub_lookup(name, item_id):
+    item = MagicMock()
+    item.name = name
+    item.id = item_id
+    return item
+
+
+def _setup_acceptance_lookup_mocks(mgr) -> None:
+    mgr.gsdk.get_sites_details.return_value = [_stub_lookup("site-sjc-sdktest", 5837)]
+    mgr.gsdk.get_global_site_lists.return_value = []
+    mgr.gsdk.get_regions.return_value = []
+    mgr.gsdk.get_global_lan_segments.return_value = [_stub_lookup("customer-1-segment", 547994)]
+
+
+def test_process_multiple_acceptances_no_vpn_profile_graphiant_customer_proceeds() -> None:
+    """Real-world regression (issue #154): an acceptance with no siteToSiteVpn/vpnProfile at all
+    is accepted without error when the matched customer's peer_type is "graphiant_peer" — a
+    Graphiant customer needs no Site-to-Site VPN."""
+    mgr = _make_manager()
+    _setup_acceptance_lookup_mocks(mgr)
+    mgr._get_match_id_from_customer_service = MagicMock(  # pylint: disable=protected-access
+        return_value={"match_id": 6697, "service_id": 10044}
+    )
+    mgr.gsdk.get_matching_customers_for_service.return_value = [
+        _mock_matched_customer(match_id=6697, peer_type="graphiant_peer")
+    ]
+    acceptance = {
+        "customerName": "FinanceInc",
+        "serviceName": "de-partner-to-org-service-1",
+        "policy": {
+            "sites": [{"sites": ["site-sjc-sdktest"], "siteLists": []}],
+            "consumerLanSegments": [{"lanSegment": "customer-1-segment", "consumerPrefixes": ["10.101.0.0/24"]}],
+        },
+    }
+
+    result = mgr._process_multiple_acceptances(  # pylint: disable=protected-access
+        [acceptance], matches_file=None, config_yaml_file=None, vault_bgp_md5={}, vault_psk={}
+    )
+
+    assert result["total_accepted"] == 1
+    assert result["changed"] is True
+    mgr.gsdk.accept_data_exchange_service.assert_called_once()
+    # Regression: the API rejects an empty siteToSiteVpn object outright (confirmed live —
+    # "GuestConsumerSiteToSiteVpnConfig.Emails: value must contain at least 1 item(s);
+    # ...RegionId: value must be greater than 0" — even though no VPN is being established).
+    # The key must be omitted entirely, not sent as {}.
+    (_match_id, sent_payload) = mgr.gsdk.accept_data_exchange_service.call_args[0]
+    assert "siteToSiteVpn" not in sent_payload["policy"]
+
+
+def test_process_multiple_acceptances_with_vpn_profile_includes_site_to_site_vpn_in_payload() -> None:
+    """Guard against the opposite regression: when a real vpnProfile IS provided, siteToSiteVpn
+    must still be included (and populated) in the payload sent to the API, not omitted — and the
+    Graphiant-customer peer_type check must be skipped entirely since it isn't needed."""
+    mgr = _make_manager()
+    _setup_acceptance_lookup_mocks(mgr)
+    mgr._get_match_id_from_customer_service = MagicMock(  # pylint: disable=protected-access
+        return_value={"match_id": 6697, "service_id": 10044}
+    )
+    mgr.gsdk.get_matching_customers_for_service.return_value = [
+        _mock_matched_customer(match_id=6697, peer_type="non_graphiant_peer")
+    ]
+    acceptance = {
+        "customerName": "ExternalCo",
+        "serviceName": "de-service-1",
+        "policy": {
+            "sites": [{"sites": ["site-sjc-sdktest"], "siteLists": []}],
+            "consumerLanSegments": [{"lanSegment": "customer-1-segment", "consumerPrefixes": ["10.101.0.0/24"]}],
+            "siteToSiteVpn": {
+                "ipsecGatewayPeers": {
+                    "name": "s2s-ExternalCo",
+                    "remotePeers": [{"name": "peer-1", "vpnProfile": "vpnprofile-global-test"}],
+                }
+            },
+        },
+    }
+
+    result = mgr._process_multiple_acceptances(  # pylint: disable=protected-access
+        [acceptance], matches_file=None, config_yaml_file=None, vault_bgp_md5={}, vault_psk={}
+    )
+
+    assert result["total_accepted"] == 1
+    (_match_id, sent_payload) = mgr.gsdk.accept_data_exchange_service.call_args[0]
+    sent_peers = sent_payload["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"]
+    assert sent_peers[0]["vpnProfile"] == "vpnprofile-global-test"
+
+
+def test_process_multiple_acceptances_no_vpn_profile_unknown_customer_fails() -> None:
+    """Same acceptance, but the matched customer's peer_type is "non_graphiant_peer" — a
+    genuinely new Non-Graphiant customer, so it fails (not silently skipped)."""
+    mgr = _make_manager()
+    _setup_acceptance_lookup_mocks(mgr)
+    mgr._get_match_id_from_customer_service = MagicMock(  # pylint: disable=protected-access
+        return_value={"match_id": 6697, "service_id": 10044}
+    )
+    mgr.gsdk.get_matching_customers_for_service.return_value = [
+        _mock_matched_customer(match_id=6697, peer_type="non_graphiant_peer")
+    ]
+    acceptance = {
+        "customerName": "ExternalCo",
+        "serviceName": "de-partner-to-org-service-1",
+        "policy": {
+            "sites": [{"sites": ["site-sjc-sdktest"], "siteLists": []}],
+            "consumerLanSegments": [{"lanSegment": "customer-1-segment", "consumerPrefixes": ["10.101.0.0/24"]}],
+        },
+    }
+
+    result = mgr._process_multiple_acceptances(  # pylint: disable=protected-access
+        [acceptance], matches_file=None, config_yaml_file=None, vault_bgp_md5={}, vault_psk={}
+    )
+
+    assert result["total_accepted"] == 0
+    assert result["results"][0]["status"] == "failed"
+    assert "No vpnProfile found" in result["results"][0]["error"]
+    mgr.gsdk.accept_data_exchange_service.assert_not_called()
 
 
 # ---- _normalize_acceptance_shape: legacy flat shape -> current policy-nested shape ----
@@ -1374,6 +1639,43 @@ def _acceptance_with_bgp(customer_name: str, md5_password=None) -> dict:
             },
         },
     }
+
+
+def test_inject_vault_secrets_explicit_null_site_to_site_vpn_does_not_crash() -> None:
+    """Regression: "siteToSiteVpn:" written with no value in YAML parses as an explicit None
+    (key present, value null) — not a missing key — so dict.get("siteToSiteVpn", {}) returns
+    None (the default only applies when the key is absent), not {}. This is exactly the shape
+    a Graphiant customer acceptance with no vpnProfile at all ends up in (issue #154)."""
+    mgr = _make_manager()
+    acceptance = {"customerName": "FinanceInc", "policy": {"siteToSiteVpn": None}}
+
+    mgr._inject_vault_secrets(acceptance, vault_bgp_md5={}, vault_psk={})  # pylint: disable=protected-access
+    # No exception raised
+
+
+def test_normalize_bgp_md5_password_explicit_null_site_to_site_vpn_does_not_crash() -> None:
+    mgr = _make_manager()
+    acceptance = {"customerName": "FinanceInc", "policy": {"siteToSiteVpn": None}}
+
+    mgr._normalize_bgp_md5_password(acceptance)  # pylint: disable=protected-access
+    # No exception raised
+
+
+def test_fill_missing_tunnel_values_explicit_null_site_to_site_vpn_does_not_crash() -> None:
+    """Regression: this method swallows all exceptions and returns the input unchanged either
+    way, so asserting only the return value wouldn't catch the bug reappearing — it must also
+    assert execution actually reached the tunnel-filling loop (via ipsecGatewayDetails, since
+    there's no ipsecGatewayPeers) rather than crashing on `None.get(...)` before ever getting
+    there."""
+    mgr = _make_manager()
+    acceptance = {"customerName": "FinanceInc", "policy": {"siteToSiteVpn": None}}
+
+    result = mgr._fill_missing_tunnel_values(  # pylint: disable=protected-access
+        acceptance, region_id=1, lan_segment_id=2
+    )
+
+    assert result == acceptance
+    assert mgr.gsdk.get_preshared_key.call_count == 2  # tunnel1 + tunnel2
 
 
 def test_inject_vault_md5_fills_null() -> None:

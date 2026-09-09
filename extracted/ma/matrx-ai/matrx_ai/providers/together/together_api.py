@@ -4,6 +4,7 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
+import together as together_sdk
 from matrx_connect.context.events import InfoPayload
 from matrx_utils import vcprint
 from together import AsyncTogether
@@ -50,7 +51,7 @@ class TogetherChat:
         "TOGETHER_API_KEY",
         factory=lambda api_key: AsyncTogether(
             api_key=api_key,
-            http_client=make_capture_http_client(),
+            http_client=make_capture_http_client(sdk=together_sdk),
         ),
     )
 

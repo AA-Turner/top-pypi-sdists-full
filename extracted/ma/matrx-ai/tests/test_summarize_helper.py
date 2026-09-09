@@ -58,3 +58,47 @@ async def test_summarize_content_never_raises(monkeypatch):
 
     assert output == "[Summarization failed: boom]"
     assert usage == []
+
+
+def test_summarize_agent_is_mandated_without_a_hardcoded_source():
+    """A mandate_key + a hardcoded source is refused by NamedAgent; that refusal
+    turned EVERY web summarize=true call into a "[Summarization failed: …]"
+    shell (2026-09-08, Google sync run). The class must define cleanly."""
+    agent = _summarize_helper.SummarizeContentAgent
+    assert agent.mandate_key == "tools.summarize_content"
+    assert getattr(agent, "source", None) is None
+    agent._check_definition()  # raises TypeError on the BOTH-declared antipattern
+
+
+@pytest.mark.asyncio
+async def test_web_read_reports_summarize_failure_as_tool_failure(monkeypatch):
+    """A failed summarization is a failed tool call, never a success whose text
+    is an apology — the model must see is_error and the remedy."""
+    from matrx_ai.tools.implementations import web as web_mod
+    from matrx_ai.tools.models import ToolContext
+
+    async def fake_summarize(content, instructions, ctx):
+        return "[Summarization failed: mandate refused]", []
+
+    monkeypatch.setattr(_summarize_helper, "summarize_content", fake_summarize)
+
+    import matrx_scraper.features.read_page as read_page
+
+    async def fake_read(url):
+        return {"status": "success", "result": "Gemini pricing: $0.75 in / $3.75 out"}
+
+    monkeypatch.setattr(read_page, "read_page_mcp_quick", fake_read)
+
+    ctx = ToolContext(conversation_id="c1", call_id="call-1", emitter=None)
+    result = await web_mod.web_read(
+        {
+            "urls": ["https://ai.google.dev/gemini-api/docs/pricing"],
+            "summarize": True,
+            "instructions": "Report prices",
+        },
+        ctx,
+    )
+    assert result.success is False
+    assert result.error is not None
+    assert "Summarization failed" in result.error.message
+    assert "summarize=false" in (result.error.suggested_action or "")

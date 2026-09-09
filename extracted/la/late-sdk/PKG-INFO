@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.686
+Version: 1.4.702
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -290,8 +290,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `analytics.get_facebook_page_insights()` | Get Facebook Page insights |
 | `analytics.get_facebook_post_earnings()` | Get Facebook post monetization earnings |
 | `analytics.get_facebook_post_reactions()` | Get Facebook post reactions |
-| `analytics.get_google_business_performance()` | Get GBP performance metrics |
-| `analytics.get_google_business_search_keywords()` | Get GBP search keywords |
+| `analytics.get_google_business_performance()` | Get Google Business Profile performance metrics |
+| `analytics.get_google_business_search_keywords()` | Get Google Business Profile search keywords |
 | `analytics.get_instagram_account_insights()` | Get Instagram insights |
 | `analytics.get_instagram_demographics()` | Get Instagram demographics |
 | `analytics.get_instagram_follower_history()` | Get Instagram follower history |
@@ -369,7 +369,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `usage.get_sms_usage()` | SMS usage (volumes) |
 | `usage.get_usage()` | Usage snapshot (default) or billed-spend metering (with params) |
 | `usage.get_usage_stats()` | Get plan and usage snapshot (plan, limits, payment status) |
-| `usage.get_x_api_pricing()` | Get X/Twitter API pricing table |
+| `usage.get_x_api_pricing()` | Get X API pricing table |
 
 ### Logs
 | Method | Description |
@@ -380,7 +380,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `connect.list_facebook_pages()` | List Facebook pages |
-| `connect.list_google_business_locations()` | List GBP locations |
+| `connect.list_google_business_locations()` | List Google Business Profile locations |
 | `connect.list_instagram_pages()` | List Pages with a linked Instagram account |
 | `connect.list_linked_in_organizations()` | List LinkedIn orgs |
 | `connect.list_pinterest_boards_for_selection()` | List Pinterest boards |
@@ -390,7 +390,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.create_pinterest_board()` | Create Pinterest board |
 | `connect.get_connect_url()` | Get OAuth connect URL |
 | `connect.get_facebook_pages()` | List Facebook pages |
-| `connect.get_gmb_locations()` | List GBP locations |
+| `connect.get_gmb_locations()` | List Google Business Profile locations |
 | `connect.get_linked_in_organizations()` | List LinkedIn orgs |
 | `connect.get_pending_o_auth_data()` | Get pending OAuth data |
 | `connect.get_pinterest_boards()` | List Pinterest boards |
@@ -402,12 +402,12 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.get_youtube_captions()` | Get a YouTube video transcript |
 | `connect.get_youtube_playlists()` | List YouTube playlists |
 | `connect.update_facebook_page()` | Update Facebook page |
-| `connect.update_gmb_location()` | Update GBP location |
+| `connect.update_gmb_location()` | Update Google Business Profile location |
 | `connect.update_linked_in_organization()` | Switch LinkedIn account type |
 | `connect.update_pinterest_boards()` | Set default Pinterest board |
 | `connect.update_reddit_subreddits()` | Set default subreddit |
 | `connect.update_youtube_default_playlist()` | Set default YouTube playlist |
-| `connect.assign_google_business_location()` | Assign GBP location to another profile |
+| `connect.assign_google_business_location()` | Assign Google Business Profile location to another profile |
 | `connect.complete_telegram_connect()` | Check Telegram status |
 | `connect.complete_whats_app_phone_selection()` | Complete number selection |
 | `connect.configure_tik_tok_ads_brand_identity()` | Set TikTok brand identity |
@@ -422,7 +422,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.handle_o_auth_callback()` | Complete OAuth callback |
 | `connect.initiate_telegram_connect()` | Connect Telegram directly |
 | `connect.select_facebook_page()` | Select Facebook page |
-| `connect.select_google_business_location()` | Select GBP location |
+| `connect.select_google_business_location()` | Select Google Business Profile location |
 | `connect.select_instagram_account()` | Select the Page whose Instagram account to connect |
 | `connect.select_linked_in_organization()` | Select LinkedIn org |
 | `connect.select_pinterest_board()` | Select Pinterest board |
@@ -602,6 +602,65 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `broadcasts.cancel_broadcast()` | Cancel broadcast |
 | `broadcasts.schedule_broadcast()` | Schedule broadcast for later |
 | `broadcasts.send_broadcast()` | Send broadcast now |
+
+### Business Agent
+| Method | Description |
+|--------|-------------|
+| `business_agent.list_business_agent_allowlist()` | List allowlisted consumers |
+| `business_agent.list_business_agent_connector_tools()` | List connector tools |
+| `business_agent.list_business_agent_connectors()` | List connectors |
+| `business_agent.list_business_agent_faqs()` | List FAQs |
+| `business_agent.list_business_agent_files()` | List knowledge files |
+| `business_agent.list_business_agent_settings()` | List agent settings |
+| `business_agent.list_business_agent_skills()` | List skills |
+| `business_agent.list_business_agent_ui_skills()` | List UI skills |
+| `business_agent.list_business_agent_websites()` | List crawled websites |
+| `business_agent.create_business_agent_connector()` | Create a connector |
+| `business_agent.create_business_agent_connector_tool()` | Create a connector tool |
+| `business_agent.create_business_agent_faq()` | Create a FAQ |
+| `business_agent.create_business_agent_skill()` | Create a skill |
+| `business_agent.create_business_agent_ui_skill()` | Create a UI skill |
+| `business_agent.get_business_agent_budget()` | Get usage budgets |
+| `business_agent.get_business_agent_business_information()` | Get business information |
+| `business_agent.get_business_agent_connector()` | Get a connector |
+| `business_agent.get_business_agent_connector_logs()` | Get connector failure logs |
+| `business_agent.get_business_agent_connector_tool()` | Get a connector tool |
+| `business_agent.get_business_agent_event()` | Get a business event status |
+| `business_agent.get_business_agent_faq()` | Get a FAQ |
+| `business_agent.get_business_agent_file()` | Get a knowledge file |
+| `business_agent.get_business_agent_skill()` | Get a skill |
+| `business_agent.get_business_agent_status()` | Get agent setup status |
+| `business_agent.get_business_agent_ui_skill()` | Get a UI skill |
+| `business_agent.get_business_agent_website()` | Get a crawled website |
+| `business_agent.update_business_agent_connector()` | Update a connector |
+| `business_agent.update_business_agent_connector_tool()` | Update a connector tool |
+| `business_agent.update_business_agent_faq()` | Update a FAQ |
+| `business_agent.update_business_agent_settings()` | Update agent settings |
+| `business_agent.update_business_agent_skill()` | Update a skill |
+| `business_agent.update_business_agent_ui_skill()` | Update a UI skill |
+| `business_agent.update_business_agent_website()` | Update a crawled website |
+| `business_agent.delete_business_agent_connector()` | Delete a connector |
+| `business_agent.delete_business_agent_connector_tool()` | Delete a connector tool |
+| `business_agent.delete_business_agent_faq()` | Delete a FAQ |
+| `business_agent.delete_business_agent_file()` | Delete a knowledge file |
+| `business_agent.delete_business_agent_skill()` | Delete a skill |
+| `business_agent.delete_business_agent_ui_skill()` | Delete a UI skill |
+| `business_agent.delete_business_agent_website()` | Remove a crawled website |
+| `business_agent.add_business_agent_allowlist_entry()` | Allowlist a consumer |
+| `business_agent.add_business_agent_website()` | Add a website to crawl |
+| `business_agent.onboard_business_agent()` | Create the agent |
+| `business_agent.read_business_agent_evals()` | Read evaluation data |
+| `business_agent.refresh_business_agent_connector_tools()` | Refresh MCP connector tools |
+| `business_agent.remove_business_agent_allowlist_entry()` | Remove an allowlisted consumer |
+| `business_agent.replace_business_agent_budget()` | Replace usage budgets |
+| `business_agent.replace_business_agent_business_information()` | Replace business information |
+| `business_agent.reset_business_agent_business_information()` | Reset business information |
+| `business_agent.run_business_agent_connector_tool()` | Run a connector tool once |
+| `business_agent.send_business_agent_event()` | Send a business event |
+| `business_agent.send_business_agent_test_message()` | Send a test message |
+| `business_agent.set_business_agent_connector_credentials()` | Set connector credentials |
+| `business_agent.start_business_agent_eval_run()` | Start an evaluation run |
+| `business_agent.upload_business_agent_file()` | Upload a knowledge file |
 
 ### Calls
 | Method | Description |
@@ -812,6 +871,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `messages.search_inbox_conversations()` | Search conversations |
 | `messages.send_inbox_message()` | Send message |
 | `messages.send_typing_indicator()` | Send typing indicator |
+| `messages.set_conversation_thread_control()` | Hand a conversation to or from Meta Business Agent |
 | `messages.upload_media_direct()` | Upload media file |
 
 ### Messaging Ads

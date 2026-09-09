@@ -26,7 +26,6 @@ import wandb
 import wandb.env
 import wandb.util
 from wandb import trigger
-from wandb.analytics import get_sentry
 from wandb.errors import CommError, UsageError
 from wandb.errors.links import url_registry
 from wandb.integration.torch import wandb_torch
@@ -595,13 +594,6 @@ class Run:
         self._telemetry_obj_dirty = False
 
         self._atexit_cleanup_called = False
-
-        # Initial scope setup for sentry.
-        # This might get updated when the actual run comes back.
-        get_sentry().configure_scope(
-            tags=dict(self._settings),
-            process_context="user",
-        )
 
         self._launch_artifact_mapping: dict[str, Any] = {}
         self._unique_launch_artifact_sequence_names: dict[str, Any] = {}
@@ -1588,11 +1580,6 @@ class Run:
         if run_obj.forked:
             self._forked = run_obj.forked
 
-        get_sentry().configure_scope(
-            process_context="user",
-            tags=dict(self._settings),
-        )
-
     def _populate_git_info(self) -> None:
         from .lib.gitlib import GitRepo
 
@@ -2348,7 +2335,6 @@ class Run:
         finally:
             if wandb.run is self:
                 module.unset_globals()
-            get_sentry().end_session()
 
         if self._finish_timed_out and self.settings.finish_timeout_raises:
             # NOTE: A timeout is theoretically possible in offline mode, so
@@ -3112,19 +3098,11 @@ class Run:
         ```
 
         """
-        from wandb.apis import internal
+        from wandb.sdk.artifacts._gqlutils import record_artifact_use
         from wandb.sdk.artifacts.artifact import Artifact
 
         if self._settings._offline:
             raise TypeError("Cannot use artifact when in offline mode.")
-
-        api = internal.Api(
-            default_settings={
-                "entity": self._settings.entity,
-                "project": self._settings.project,
-            }
-        )
-        api.set_current_run_id(self._settings.run_id)
 
         if use_as is not None:
             deprecation.warn_and_record_deprecation(
@@ -3142,10 +3120,12 @@ class Run:
                 raise ValueError(
                     f"Supplied type {type} does not match type {artifact.type} of artifact {artifact.name}"
                 )
-            api.use_artifact(
-                artifact.id,
+            record_artifact_use(
+                public_api._service_api,
+                artifact_id=artifact.id,
                 entity_name=self._settings.entity,
                 project_name=self._settings.project,
+                run_name=self._settings.run_id,
                 artifact_entity_name=artifact.entity,
                 artifact_project_name=artifact.project,
             )
@@ -3168,8 +3148,12 @@ class Run:
                 )
                 artifact.wait()
             elif isinstance(artifact, Artifact) and not artifact.is_draft():
-                api.use_artifact(
-                    artifact.id,
+                record_artifact_use(
+                    self._public_api()._service_api,
+                    artifact_id=artifact.id,
+                    entity_name=self._settings.entity,
+                    project_name=self._settings.project,
+                    run_name=self._settings.run_id,
                     artifact_entity_name=artifact.entity,
                     artifact_project_name=artifact.project,
                 )

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2026, Ansible Cloud Team (@ansible-collections)
+# Copyright: (c) 2026, Ansible Eco Content Team (github.com/eco-ansible-content)
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -21,7 +21,7 @@ description:
     - You can optionally require TPM protection on the ESXi hosts that use the key provider.
 
 author:
-    - Ansible Cloud Team (@ansible-collections)
+    - Mike Morency (@mikemorency)
 
 requirements:
     - vSphere Automation SDK
@@ -183,6 +183,8 @@ class NativeKeyProviderModule(ModuleRestBase):
 
     def is_provider_cluster_default(self):
         default_provider_id = self.pyvmomi_crypto_manager.GetDefaultKmsCluster()
+        if default_provider_id is None:
+            return False
         return default_provider_id.id == self.provider_name
 
     def create_key_provider(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: serpapi
-Version: 1.1.0
+Version: 1.1.1
 Summary: The official Python client for SerpApi.com.
 Author-email: SerpApi <support@serpapi.com>
 License: MIT
@@ -33,6 +33,11 @@ Provides-Extra: color
 Requires-Dist: pygments; extra == "color"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx<9,>=8.2; python_version >= "3.11" and extra == "docs"
+Requires-Dist: myst-parser<5,>=4; python_version >= "3.11" and extra == "docs"
+Requires-Dist: sphinx-design<1,>=0.6; python_version >= "3.11" and extra == "docs"
+Requires-Dist: sphinx-rtd-theme<4,>=3.1; python_version >= "3.11" and extra == "docs"
 Dynamic: license-file
 
 # SerpApi Python Library & Package
@@ -115,6 +120,22 @@ except serpapi.TimeoutError as e:
 Documentation is [available on Read the Docs](https://serpapi-python.readthedocs.io/en/latest/).
 
 Change history is [available on GitHub](https://github.com/serpapi/serpapi-python/blob/master/HISTORY.md).
+
+### Markdown output for AI agents
+
+For AI agents and LLM workflows, use `output="md"`. It returns search results with clean headings, links, and tables while using roughly half the tokens of JSON on average.
+
+```python
+markdown = client.search({
+    "engine": "google",
+    "q": "coffee",
+    "output": "md",
+})
+```
+
+Markdown works across SerpApi APIs and is returned as a plain Python string. See [Markdown Output for AI Agents](https://serpapi.com/markdown-output.md) for details.
+
+Raw HTML is also available with `output="html"` and is returned as a plain Python string.
 
 ## Basic Examples in Python
 
@@ -330,11 +351,10 @@ results = client.search({
 })
 ```
 
-To search a local image, upload it first and pass its temporary `image_id` to
-Google Lens:
+To search a local image, place a file named `image.png` in your working directory, upload it, and pass its temporary `image_id` to Google Lens:
 
 ```python
-upload = client.upload_image("/path/to/image.png")
+upload = client.upload_image("image.png")
 results = client.search({
     "engine": "google_lens",
     "image_id": upload["image_id"],
@@ -345,19 +365,6 @@ Uploaded images can be JPG/JPEG, PNG, or WebP files up to 500 KB. The returned
 `image_id` expires after 10 minutes.
 
 - API Documentation: [Google Lens image uploads](https://serpapi.com/google-lens-upload-an-image), [Image API](https://serpapi.com/image-api)
-
-### Search Google Events
-```python
-import os
-import serpapi
-
-client = serpapi.Client(api_key=os.getenv("API_KEY"))
-results = client.search({
-    'engine': 'google_events',
-    'q': 'Events in Austin',
-})
-```
-- API Documentation: [serpapi.com/google-events-api](https://serpapi.com/google-events-api)
 
 ### Search Google Local Services
 ```python
@@ -437,16 +444,4 @@ MIT License.
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub. Once dependencies are installed, you can run the tests with `pytest`.
-
-## Publishing a new release
-
-1. Update the version in `serpapi/__version__.py`.
-2. Push a tag — the release pipeline runs automatically:
-   ```sh
-   git tag v1.2.3
-   git push origin v1.2.3
-   ```
-   This triggers the [release workflow](.github/workflows/release.yml), which tests, builds, and publishes to PyPI, then smoke-tests the published package.
-
-> **Required secret:** `API_KEY` (used in smoke-test live search).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and publishing instructions.

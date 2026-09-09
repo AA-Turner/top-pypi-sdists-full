@@ -48,3 +48,29 @@ class TestCleanupStaleSpecializationArtifact:
         err = capsys.readouterr().err
         assert "Failed to clean up stale setup-expectations-specialized.md" in err
         assert "state unavailable" in err
+
+
+class TestCleanupStaleSpecializationArtifactWhenLive:
+    """Verify dry-run gating for stale-specialization cleanup."""
+
+    def test_live_run_delegates_to_cleanup(self) -> None:
+        """Live setup paths must still remove stale specialization artifacts."""
+        with patch.object(commands, "_cleanup_stale_specialization_artifact") as mock_cleanup:
+            commands._cleanup_stale_specialization_artifact_when_live(
+                "test reason",
+                startup_fingerprint=None,
+                dry_run=False,
+            )
+
+        mock_cleanup.assert_called_once_with("test reason", startup_fingerprint=None)
+
+    def test_dry_run_skips_cleanup(self) -> None:
+        """Dry-run setup paths must not mutate specialization artifacts."""
+        with patch.object(commands, "_cleanup_stale_specialization_artifact") as mock_cleanup:
+            commands._cleanup_stale_specialization_artifact_when_live(
+                "test reason",
+                startup_fingerprint=None,
+                dry_run=True,
+            )
+
+        mock_cleanup.assert_not_called()

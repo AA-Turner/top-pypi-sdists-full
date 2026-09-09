@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: wandb
-Version: 0.29.0
+Version: 0.30.0
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -49,13 +49,14 @@ Classifier: Topic :: System :: Monitoring
 Requires-Python: >=3.10
 Requires-Dist: click>=8.2.0
 Requires-Dist: opentelemetry-api>=1.43.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.43.0
+Requires-Dist: opentelemetry-sdk>=1.43.0
 Requires-Dist: packaging
 Requires-Dist: platformdirs
 Requires-Dist: protobuf!=5.28.0,!=5.29.0,<8,>=5
 Requires-Dist: pydantic<3,>=2.6
 Requires-Dist: pyyaml
 Requires-Dist: requests<3,>=2.0.0
-Requires-Dist: sentry-sdk>=2.0.0
 Requires-Dist: typing-extensions<5,>=4.8
 Requires-Dist: xxhash>=3.0.0
 Provides-Extra: aws
@@ -128,7 +129,6 @@ Description-Content-Type: text/markdown
 <a href="https://anaconda.org/conda-forge/wandb"><img src="https://img.shields.io/conda/vn/conda-forge/wandb" /></a>
 <a href="https://pypi.python.org/pypi/wandb"><img src="https://img.shields.io/pypi/pyversions/wandb" /></a>
 <a href="https://circleci.com/gh/wandb/wandb"><img src="https://img.shields.io/circleci/build/github/wandb/wandb/main" /></a>
-<a href="https://codecov.io/gh/wandb/wandb"><img src="https://img.shields.io/codecov/c/gh/wandb/wandb" /></a>
 </p>
 <p align='center'>
 <a href="https://colab.research.google.com/github/wandb/examples/blob/master/colabs/intro/Intro_to_Weights_%26_Biases.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>
@@ -174,7 +174,7 @@ import wandb
 project = "my-awesome-project"
 
 # Dictionary with hyperparameters
-config = {"epochs" : 1337, "lr" : 3e-4}
+config = {"epochs": 1337, "lr": 3e-4}
 
 # The `with` syntax marks the run as finished upon exiting the `with` block,
 # and it marks the run "failed" if there's an exception.

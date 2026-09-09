@@ -408,7 +408,7 @@ def ArgumentException__get_ParamName(_: ArgumentException) -> str:
     return _.param_name
 
 
-def _expr193() -> TypeInfo:
+def _expr192() -> TypeInfo:
     return class_type("System.ArgumentNullException", None, ArgumentNullException, ArgumentException_reflection())
 
 
@@ -418,7 +418,7 @@ class ArgumentNullException(ArgumentException):
         pass
 
 
-ArgumentNullException_reflection = _expr193
+ArgumentNullException_reflection = _expr192
 
 
 def ArgumentNullException__ctor_Z384F8060(param_name: str, message: str) -> ArgumentNullException:
@@ -433,7 +433,7 @@ def ArgumentNullException__ctor(__unit: Unit = UNIT) -> ArgumentNullException:
     return ArgumentNullException__ctor_Z721C83C5("")
 
 
-def _expr195() -> TypeInfo:
+def _expr193() -> TypeInfo:
     return class_type(
         "System.ArgumentOutOfRangeException", None, ArgumentOutOfRangeException, ArgumentException_reflection()
     )
@@ -445,7 +445,7 @@ class ArgumentOutOfRangeException(ArgumentException):
         pass
 
 
-ArgumentOutOfRangeException_reflection = _expr195
+ArgumentOutOfRangeException_reflection = _expr193
 
 
 def ArgumentOutOfRangeException__ctor_Z384F8060(param_name: str, message: str) -> ArgumentOutOfRangeException:

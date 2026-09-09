@@ -303,6 +303,42 @@ def test_floats_page_breaks_3():
 
 
 @assert_no_logs
+def test_float_overflow_splits_formatting_context():
+    # A deferred (overflowing) float must not inflate its block formatting
+    # context on the current page, or the whole block is pushed to the next page
+    # instead of being split across the page break.
+    page_1, page_2 = render_pages('''
+      <style>@page { size: 100px }</style>
+      <div style="height: 70px"></div>
+      <div style="display: flow-root">
+        <p style="height: 20px">a</p>
+        <div style="float: right; width: 30px; height: 40px"></div>
+        <p>b</p>
+      </div>
+    ''')
+
+    # Page 1 keeps the spacer and the first paragraph: the block is split, not
+    # deferred whole.
+    html, = page_1.children
+    body, = html.children
+    spacer, bfc_1 = body.children
+    assert spacer.height == 70
+    paragraph_a, = bfc_1.children
+    assert paragraph_a.element_tag == 'p'
+    assert paragraph_a.position_y == 70
+
+    # Page 2 resumes the block with the deferred float and the last paragraph.
+    html, = page_2.children
+    body, = html.children
+    bfc_2, = body.children
+    float_box, paragraph_b = bfc_2.children
+    assert float_box.is_floated()
+    assert float_box.position_y == 0
+    assert paragraph_b.element_tag == 'p'
+    assert paragraph_b.position_y == 0
+
+
+@assert_no_logs
 def test_preferred_widths_1():
     def get_float_width(body_width):
         page, = render_pages('''
@@ -840,3 +876,107 @@ def test_first_letter_float():
     assert first_letter.position_x == 0
     # TODO: fix problem described in #1859.
     # assert text.position_x == 20
+
+
+@assert_no_logs
+def test_float_break_after_page():
+    page1, page2 = render_pages('''
+      <div style="break-after: page; float: left">float</div>
+      <div>end</div>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'float'
+    html, = page2.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'end'
+
+
+@assert_no_logs
+def test_float_in_block_break_after_page():
+    page1, page2 = render_pages('''
+      <div>
+        <div style="break-after: page; float: left">float</div>
+      </div>
+      <div>end</div>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].children[0].text == 'float'
+    html, = page2.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'end'
+
+
+@assert_no_logs
+def test_float_break_before_page():
+    page1, page2 = render_pages('''
+      <div>start</div>
+      <div style="break-before: page; float: left">float</div>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'start'
+    html, = page2.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'float'
+
+
+@assert_no_logs
+def test_float_in_div_break_before_page():
+    page1, page2 = render_pages('''
+      <div>start</div>
+      <div>
+        <div style="break-before: page; float: left">float</div>
+      </div>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'start'
+    html, = page2.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].children[0].text == 'float'
+
+
+@assert_no_logs
+def test_float_break_after_page_no_fit():
+    page1, page2, page3 = render_pages('''
+      <style>
+        @page { size: 100px }
+        html { line-height: 20px }
+      </style>
+      <div style="height: 90px">start</div>
+      <div style="break-after: right; float: left">float</div>
+      <div>end</div>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'start'
+    html, = page2.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'float'
+    html, = page3.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    assert div.children[0].children[0].text == 'end'

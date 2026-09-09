@@ -94,6 +94,18 @@ class TestGetWorktreeContinuationPrompt:
         assert "--model" in result
         assert "gemini-3.7-flash" in result
 
+    def test_headless_prompt_preserves_flag_and_skips_vscode_wording(self):
+        """Headless fallback commands preserve --headless and avoid VS Code instructions."""
+        result = get_worktree_continuation_prompt(
+            issue_key="PROJECT-1234",
+            workflow_name="work-on-jira-issue",
+            headless=True,
+        )
+
+        assert "--headless" in result
+        assert "new VS Code window" not in result
+        assert "continue in headless mode" in result
+
     def test_returns_generic_prompt_for_unknown_workflow(self):
         """Test returning generic prompt for unknown workflow."""
         result = get_worktree_continuation_prompt(
@@ -103,6 +115,18 @@ class TestGetWorktreeContinuationPrompt:
 
         assert "PROJECT-1234" in result
         assert "new VS Code window" in result
+
+    def test_returns_headless_generic_prompt_for_unknown_workflow(self):
+        """Unknown workflows keep generic fallback wording in headless mode."""
+        result = get_worktree_continuation_prompt(
+            issue_key="PROJECT-1234",
+            workflow_name="unknown-workflow",
+            headless=True,
+        )
+
+        assert "PROJECT-1234" in result
+        assert "current terminal" in result
+        assert "new VS Code window" not in result
 
     def test_generate_create_jira_epic_prompt(self):
         """Test generating prompt for create-jira-epic workflow."""

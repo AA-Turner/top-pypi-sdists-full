@@ -1984,6 +1984,43 @@ def test_required_body_with_unresolvable_reference(ctx, cli, snapshot_cli):
     assert cli.run_openapi_app(app, "--max-examples=1") == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_required_body_with_one_unresolvable_media_type(ctx, cli, snapshot_cli):
+    # A sibling media type that resolves keeps the operation in every phase
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/things": {
+                "post": {
+                    "parameters": [{"name": "tag", "in": "query", "schema": {"type": "string"}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"name": {"type": "string"}},
+                                    "required": ["name"],
+                                }
+                            },
+                            "application/xml": {"schema": {"$ref": "#/components/schemas/Missing"}},
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/things", methods=["POST"])
+    def things_with_xml():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or not isinstance(payload.get("name"), str):
+            return jsonify({"error": "invalid body"}), 400
+        return jsonify([])
+
+    assert cli.run_openapi_app(app, "--max-examples=1") == snapshot_cli
+
+
 @pytest.mark.parametrize("value", ["true", "false"])
 def test_output_sanitization(ctx, cli, hypothesis_max_examples, value):
     api = ctx.openapi.apps.failure()
@@ -2600,6 +2637,22 @@ class EventCounter(cli.EventHandler):
     )
 
 
+def test_custom_handler_shutdown_error_keeps_exit_code(ctx, cli):
+    # A reporter failing at shutdown must not mask the run's verdict.
+    @schemathesis.cli.handler()
+    class BrokenShutdown(schemathesis.cli.EventHandler):
+        def handle_event(self, run_ctx, event) -> None:
+            pass
+
+        def shutdown(self, run_ctx) -> None:
+            raise RuntimeError("oops")
+
+    api = ctx.openapi.apps.success()
+    result = cli.run(api.schema_url, "--max-examples=1")
+    assert result.exit_code == ExitCode.OK, result.stdout
+    assert "CLI Handler Error" in result.stdout
+
+
 @pytest.mark.parametrize(
     ["ordering_mode", "expected"],
     [
@@ -3041,3 +3094,114 @@ def test_repeated_phase_keeps_its_executed_status():
         ctx.on_event(events.PhaseFinished(phase=phase, status=status, payload=None))
 
     assert ctx.phases[PhaseName.STATEFUL_TESTING][0] == Status.SUCCESS
+
+
+@pytest.mark.parametrize(
+    ("version", "extra"),
+    [
+        ("3.0.2", {"servers": [{"url": "/api"}]}),
+        ("2.0", {"basePath": "/api"}),
+    ],
+    ids=["openapi-3", "swagger-2"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_origin_appends_declared_base_path(ctx, cli, app_runner, snapshot_cli, version, extra):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/success": {"get": {"responses": {"200": {"description": "OK"}}}}}, version=version, **extra
+    )
+
+    @app.route("/api/success")
+    def success():
+        return jsonify({"success": True})
+
+    base_url = app_runner.openapi_url(app, path="")
+    assert cli.run(f"{base_url}/openapi.json", f"--origin={base_url}", "--max-examples=1") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_origin_satisfies_the_base_url_requirement_for_files(ctx, cli, app_runner, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/success": {"get": {"responses": {"200": {"description": "OK"}}}}}, servers=[{"url": "/api"}]
+    )
+
+    @app.route("/api/success")
+    def success():
+        return jsonify({"success": True})
+
+    schema_path = ctx.openapi.write_schema(
+        {"/success": {"get": {"responses": {"200": {"description": "OK"}}}}}, servers=[{"url": "/api"}]
+    )
+    origin = app_runner.openapi_url(app, path="")
+    assert cli.run(str(schema_path), f"--origin={origin}", "--max-examples=1") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_origin_from_config_file(ctx, cli, app_runner, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/success": {"get": {"responses": {"200": {"description": "OK"}}}}}, servers=[{"url": "/api"}]
+    )
+
+    @app.route("/api/success")
+    def success():
+        return jsonify({"success": True})
+
+    base_url = app_runner.openapi_url(app, path="")
+    assert cli.run(f"{base_url}/openapi.json", "--max-examples=1", config={"origin": base_url}) == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_origin_overrides_base_url_from_config_file(ctx, cli, app_runner, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/success": {"get": {"responses": {"200": {"description": "OK"}}}}}, servers=[{"url": "/api"}]
+    )
+
+    @app.route("/api/success")
+    def success():
+        return jsonify({"success": True})
+
+    base_url = app_runner.openapi_url(app, path="")
+    assert (
+        cli.run(
+            f"{base_url}/openapi.json",
+            f"--origin={base_url}",
+            "--max-examples=1",
+            config={"base-url": "http://127.0.0.1:1/nope"},
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_url_overrides_origin_from_config_file(ctx, cli, app_runner, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/success": {"get": {"responses": {"200": {"description": "OK"}}}}}, servers=[{"url": "/nope"}]
+    )
+
+    @app.route("/api/success")
+    def success():
+        return jsonify({"success": True})
+
+    base_url = app_runner.openapi_url(app, path="")
+    assert (
+        cli.run(
+            f"{base_url}/openapi.json",
+            f"--url={base_url}/api",
+            "--max-examples=1",
+            config={"origin": base_url},
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_origin_with_path_is_rejected(ctx, cli, app_runner, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app({"/success": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    base_url = app_runner.openapi_url(app, path="")
+    assert cli.run(f"{base_url}/openapi.json", f"--origin={base_url}/api") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_origin_conflicts_with_url(ctx, cli, app_runner, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app({"/success": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    base_url = app_runner.openapi_url(app, path="")
+    assert cli.run(f"{base_url}/openapi.json", f"--origin={base_url}", f"--url={base_url}") == snapshot_cli

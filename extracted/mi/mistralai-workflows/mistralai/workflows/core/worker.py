@@ -3,7 +3,7 @@ import json
 import warnings
 from collections import defaultdict
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Callable, DefaultDict, List, Type
+from typing import TYPE_CHECKING, Any, Callable, DefaultDict, List, Sequence, Type
 from uuid import uuid4
 
 import structlog
@@ -39,6 +39,9 @@ from mistralai.workflows.core.definition.workflow_definition import (
 from mistralai.workflows.core.dependencies.dependency_injector import DependencyInjector
 from mistralai.workflows.core.encoding.fields_offloader import FieldsOffloader
 from mistralai.workflows.core.execution.concurrency import ParallelExecutionWorkflow
+from mistralai.workflows.core.execution.concurrency._concurrency_workflow import (
+    OnBehalfOfParallelExecutionWorkflow,
+)
 from mistralai.workflows.core.execution.sticky_session.get_sticky_worker_session import (
     GET_STICKY_WORKER_SESSION_ACTIVITY_NAME,
 )
@@ -313,7 +316,7 @@ async def _auto_register_as_current_version(
     )
 
 
-def _get_workflow_definitions(workflows: list[ClassType], task_queue: str) -> List[WorkflowSpecWithTaskQueue]:
+def _get_workflow_definitions(workflows: Sequence[Type], task_queue: str) -> List[WorkflowSpecWithTaskQueue]:
     workflow_definitions: List[WorkflowSpecWithTaskQueue] = []
     for workflow in workflows:
         workflow_def = get_workflow_definition(workflow)
@@ -327,6 +330,15 @@ def _get_workflow_definitions(workflows: list[ClassType], task_queue: str) -> Li
     return workflow_definitions
 
 
+def _get_parallel_execution_workflows(workflows: Sequence[Type]) -> list[Type]:
+    parallel_workflows: list[Type] = [ParallelExecutionWorkflow]
+    # Registered like any other spec, so only add it where it can be used: on_behalf_of=True
+    # requires a deployment that can bind a user identity.
+    if any(get_workflow_definition(workflow).on_behalf_of for workflow in workflows):
+        parallel_workflows.append(OnBehalfOfParallelExecutionWorkflow)
+    return parallel_workflows
+
+
 def _create_temporal_workers(
     temporal_client: TemporalClient,
     workflows: List[ClassType],
@@ -334,7 +346,8 @@ def _create_temporal_workers(
     task_queue: str,
 ) -> tuple[List[Worker], List[Type]]:
     """Create Temporal workers and return (workers, plugin_workflows)."""
-    all_workflows: List[Type] = [*workflows, ParallelExecutionWorkflow]
+    parallel_workflows = _get_parallel_execution_workflows(workflows)
+    all_workflows: List[Type] = [*workflows, *parallel_workflows]
     pre_plugin_len = len(all_workflows)
 
     # Collect worker interceptors from plugins
@@ -481,6 +494,7 @@ async def _upload_workflow_graphs(
     # cost to every worker process even when graph upload is disabled. Keep it lazy here.
     from mistralai.workflows.core._graph import build_graph_dynamically
     from mistralai.workflows.core.graph_summaries import SummariseError, summarise_workflow
+    from mistralai.workflows.core.wire_format import FlatNode
 
     base_url = client.sdk_configuration.server_url.rstrip("/")
     http_client = client.sdk_configuration.async_client
@@ -501,14 +515,48 @@ async def _upload_workflow_graphs(
                 "Failed to build workflow graph", workflow=cls.__name__, **extract_error_context(exc), exc_info=exc
             )
 
+        views: list[dict[str, Any]] | None = None
+        extra_nodes: list[FlatNode] | None = None
+        if graph_data is not None and config.worker.graph.dataflow_views_enabled:
+            # Imported here, not at function top, so the kill-switch also avoids
+            # paying libcst's import cost.
+            from mistralai.workflows.core._dataflow import dataflow_only_nodes, expand_views
+
+            # libcst parsing is CPU-bound and this task runs on the worker's loop
+            # while Temporal pollers are starting; keep it off the loop.
+            cf_dict = graph_data.to_dict(include_sources=True)
+            views = await asyncio.to_thread(expand_views, cf_dict)
+            # Built before summarising so the summariser can describe the nodes
+            # that only exist in the data-flow views — transforms and fan-out
+            # groups — which would otherwise fall back to a generic label.
+            extra_nodes = [FlatNode(**n) for n in dataflow_only_nodes(cf_dict, views)]
+
         if graph_data is not None and summary_config is not None:
             summary_client, summary_model = summary_config
             try:
-                result = await summarise_workflow(graph_data, client=summary_client, model=summary_model)
+                result = await summarise_workflow(
+                    graph_data,
+                    client=summary_client,
+                    model=summary_model,
+                    attribute_usage=True,
+                    extra_nodes=extra_nodes,
+                )
                 if result.summaries:
-                    graph_data.node_summaries = {nid: s.to_dict() for nid, s in result.summaries.items()}
+                    summaries = {nid: s.to_dict() for nid, s in result.summaries.items()}
+                    # The control-flow payload keeps everything except the nodes
+                    # only the data-flow views have; each data-flow view takes
+                    # the subset matching its own nodes.
+                    df_only_ids = {n.id for n in extra_nodes or ()}
+                    graph_data.node_summaries = {k: v for k, v in summaries.items() if k not in df_only_ids}
+                    if views is not None:
+                        from mistralai.workflows.core._dataflow import attach_summaries
+
+                        views[0]["node_summaries"] = graph_data.node_summaries
+                        attach_summaries(views[1:], summaries)
                 if result.workflow_summary is not None:
                     graph_data.workflow_summary = result.workflow_summary.to_dict()
+                    for view in views or ():
+                        view["workflow_summary"] = graph_data.workflow_summary
             except SummariseError as exc:
                 error = str(exc) or type(exc).__name__
                 logger.warning(
@@ -519,16 +567,9 @@ async def _upload_workflow_graphs(
                 )
 
         graph_payload = None
-        if graph_data is not None and not config.worker.graph.dataflow_views_enabled:
+        if graph_data is not None and views is None:
             graph_payload = graph_data.to_dict()
-        elif graph_data is not None:
-            # Imported here, not at function top, so the kill-switch also avoids
-            # paying libcst's import cost.
-            from mistralai.workflows.core._dataflow import expand_views
-
-            # libcst parsing is CPU-bound and this task runs on the worker's loop
-            # while Temporal pollers are starting; keep it off the loop.
-            views = await asyncio.to_thread(expand_views, graph_data.to_dict(include_sources=True))
+        elif graph_data is not None and views is not None:
             # The analyser needs the source text; the graphs API must never see it.
             for view in views:
                 view.pop("sources", None)
@@ -672,7 +713,7 @@ async def _run_worker(workflows: List[ClassType]) -> None:
 
         # Get workflow definitions for custom workflows + internal workflows
         workflow_definitions = _get_workflow_definitions(workflows, task_queue)
-        workflow_definitions += _get_workflow_definitions([ParallelExecutionWorkflow], task_queue)
+        workflow_definitions += _get_workflow_definitions(_get_parallel_execution_workflows(workflows), task_queue)
         if plugin_workflows:
             workflow_definitions += _get_workflow_definitions(plugin_workflows, task_queue)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyMatting
-Version: 1.1.15
+Version: 1.1.16
 Summary: Python package for alpha matting.
 Author-email: The PyMatting Developers <pymatting@gmail.com>
 License: MIT
@@ -30,9 +30,9 @@ Dynamic: license-file
 [![CI](https://img.shields.io/github/actions/workflow/status/pymatting/pymatting/.github/workflows/tests.yml?branch=master)](https://github.com/pymatting/pymatting/actions?query=workflow%3Atests)
 [![PyPI](https://img.shields.io/pypi/v/pymatting)](https://pypi.org/project/PyMatting/)
 [![JOSS](https://joss.theoj.org/papers/9766cab65bfbf07a70c8a835edd3875a/status.svg)](https://joss.theoj.org/papers/9766cab65bfbf07a70c8a835edd3875a)
-[![Gitter](https://img.shields.io/gitter/room/pymatting/pymatting)](https://gitter.im/pymatting/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Documentation](https://pymatting.github.io/docs_online.svg)](https://pymatting.github.io/)
 
-We introduce the PyMatting package for Python which implements various methods to solve the alpha matting problem.
+We introduce the PyMatting package for Python, which implements various methods to solve the alpha matting problem.
 
 - **Website and Documentation:** [https://pymatting.github.io/](https://pymatting.github.io)
 - **Benchmarks:**  [https://pymatting.github.io/benchmarks.html](https://pymatting.github.io/benchmarks.html)
@@ -102,6 +102,12 @@ cutout(
     "data/lemur/lemur_trimap.png",
     # output cutout path
     "lemur_cutout.png")
+```
+
+Alternatively, you can use `pymatting` CLI tool.
+
+```bash
+pymatting data/lemur/lemur.png data/lemur/lemur_trimap.png lemur_cutout.png
 ```
 
 [More advanced examples](https://pymatting.github.io/examples.html)
@@ -179,6 +185,8 @@ See also the list of [contributors](https://github.com/pymatting/pymatting/contr
 * [PaddleSeg](https://github.com/PaddlePaddle/PaddleSeg) - a library for a wide range of image segmentation tasks.
 * [chaiNNer](https://github.com/chaiNNer-org/chaiNNer) - a node-based image processing GUI.
 * [LSA-Matting](https://github.com/kfeng123/LSA-Matting) - improving deep image matting via local smoothness assumption.
+* [Prickly Gorse Interactive Background Remover](https://github.com/pricklygorse/Interactive-Image-Background-Remover) - a user friendly GUI application for detailed background removal using several models and post-processing features
+* [PyMatting Interactive Tool](https://github.com/pymatting/pymatting-interactive-tool) - background removal with live preview
 
 ## License
 

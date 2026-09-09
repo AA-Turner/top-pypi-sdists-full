@@ -1,5 +1,3 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
 from typing import List, Optional
 from datetime import datetime
 from typing_extensions import Literal
@@ -24,7 +22,7 @@ class Job(BaseModel):
 
     total_pages: Optional[int] = None
 
-    type: Literal["Parse", "Extract", "Split", "Edit", "Pipeline", "Classify"]
+    type: Literal["Parse", "Extract", "Split", "Edit", "Pipeline", "Classify", "Chart"]
 
     bucket: Optional[object] = None
 

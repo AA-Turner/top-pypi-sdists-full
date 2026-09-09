@@ -126,9 +126,28 @@ class BuildException(Exception):
 
 
 class FileUploadException(BuildException):
-    """
-    Raised when the file upload fails.
-    """
+    """Raised when the file upload fails."""
+    pass
+
+
+class InvalidImageReferenceException(BuildException):
+    pass
+
+
+class RegistryAuthenticationException(BuildException):
+    pass
+
+
+class ImageConfigException(BuildException):
+    pass
+
+
+class TemplateBuildTimeoutException(BuildException):
+    pass
+
+
+class SandboxCreateException(BuildException):
+    pass
 
 
 class VolumeException(Exception):

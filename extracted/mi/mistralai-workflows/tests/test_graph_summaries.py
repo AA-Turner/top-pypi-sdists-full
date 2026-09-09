@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mistralai.client.errors import MistralError
+from mistralai.client.types import UNSET
 
 import mistralai.workflows.core.graph_summaries as _summaries_mod
 from mistralai.workflows.core.graph_summaries import (
@@ -109,6 +110,17 @@ def test_build_user_message_skips_workflow_entrypoint_output():
     # Original name is sanitized; opaque ID appears instead
     assert "do_something" not in msg
     assert "fn_" in msg
+
+
+def test_build_user_message_includes_extra_nodes():
+    """Data-flow transforms are summarised alongside the control-flow nodes, so
+    each statement of a multi-statement ellipsis gets its own summary."""
+    wire = _wire(_node("ellipsis_0", type_="unknown"))
+    transform = _node("transform_12", type_="transform")
+    msg, _, id_map = _build_user_message(wire, [transform])
+    assert set(id_map.values()) == {"ellipsis_0", "transform_12"}
+    # A transform is inline code, so it reuses the ellipsis prompt guidance.
+    assert 'type="transform"' not in msg
 
 
 def test_build_user_message_empty_when_only_skipped():
@@ -389,6 +401,27 @@ async def test_summarise_workflow_passes_retry_config():
     retries = client.chat.complete_async.call_args.kwargs["retries"]
     assert retries is _summaries_mod._RETRY_CONFIG
     assert retries.strategy == "backoff"
+
+
+async def test_summarise_workflow_tags_requests_when_attributing_usage():
+    wire = _wire(_node("a", name="fetch_data"))
+    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
+    client = _mock_client(payload)
+
+    await summarise_workflow(wire, client=client, attribute_usage=True)
+
+    assert client.chat.complete_async.call_args.kwargs["metadata"] == {"feature": "graph_summary"}
+
+
+async def test_summarise_workflow_omits_metadata_by_default():
+    wire = _wire(_node("a", name="fetch_data"))
+    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
+    client = _mock_client(payload)
+
+    await summarise_workflow(wire, client=client)
+
+    # UNSET rather than None: metadata is nullable, so None would send an explicit null.
+    assert client.chat.complete_async.call_args.kwargs["metadata"] is UNSET
 
 
 async def test_summarise_workflow_raises_on_persistent_rate_limit():

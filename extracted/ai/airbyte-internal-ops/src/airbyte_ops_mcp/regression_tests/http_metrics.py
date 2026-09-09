@@ -660,6 +660,16 @@ def build_mitmdump_command(
             f"server_replay_reuse={'true' if replay_reuse else 'false'}",
             "--set",
             f"server_replay_extra={replay_extra}",
+            # mitmdump's `KeepServing` addon watches `replay.server.count` when
+            # `--server-replay` is set and shuts the whole proxy down the moment
+            # the corpus is exhausted. With pop-on-match that is guaranteed to
+            # happen as soon as the target has consumed every recorded flow, so
+            # any request after that point -- including one the `forward`
+            # setting should have sent live -- gets a connection refusal that
+            # the connector reports as its own (misleading) error.
+            # `keepserving` keeps the proxy up until we stop it ourselves.
+            "--set",
+            "keepserving=true",
         ]
     )
     # A sequence option takes one `--set` per value; mitmproxy groups them.

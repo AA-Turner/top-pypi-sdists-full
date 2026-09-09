@@ -7,6 +7,31 @@
 const DEFAULT_BASE_URL = process.env.BASE_URL || 'http://localhost:9123';
 const DEFAULT_LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 
+// There is no bulk delete endpoint (only DELETE /threads/{id}), so deletion
+// fans out client side. Serial deletion took 55 and 80 minutes for two cleanups
+// in one capacity run. Kept modest because this load lands on the deployment we
+// are about to measure.
+// Guarded: a 0 would produce zero workers, which the stall check below would
+// then report as "cleanup stalled" and send someone hunting a server problem.
+const CONCURRENCY = Math.max(1, Number(process.env.CLEAN_CONCURRENCY) || 20);
+
+/**
+ * Run `worker` over `items` with at most CONCURRENCY in flight.
+ * Returns the number that succeeded.
+ */
+async function forEachConcurrent(items, worker) {
+    let index = 0;
+    let succeeded = 0;
+    const runners = Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+        while (index < items.length) {
+            const item = items[index++];
+            if (await worker(item)) succeeded++;
+        }
+    });
+    await Promise.all(runners);
+    return succeeded;
+}
+
 export async function clean(baseUrl = DEFAULT_BASE_URL, langsmithApiKey = DEFAULT_LANGSMITH_API_KEY) {
     try {
         await cleanStore(baseUrl, langsmithApiKey);
@@ -51,19 +76,24 @@ async function cleanStore(baseUrl, langsmithApiKey) {
 
         console.log(`Found ${result.items.length} Store items to delete`);
 
-        for (const item of result.items) {
+        /** @type {Error[]} */
+        const failures = [];
+        totalDeleted += await forEachConcurrent(result.items, async (item) => {
             const deleteResponse = await fetch(deleteUrl, {
                 method: 'DELETE',
                 headers,
                 body: JSON.stringify({ namespace: item.namespace, key: item.key })
             });
-
             if (!deleteResponse.ok) {
-                throw new Error(
+                failures.push(new Error(
                     `Failed to delete Store item ${item.namespace.join('.')}/${item.key}: ${deleteResponse.status} ${deleteResponse.statusText}`
-                );
+                ));
+                return false;
             }
-            totalDeleted++;
+            return true;
+        });
+        if (failures.length > 0) {
+            throw failures[0];
         }
     }
 
@@ -109,26 +139,31 @@ async function cleanAssistants(baseUrl, langsmithApiKey) {
 
         console.log(`Found ${assistants.length} assistants to delete`);
 
-        // Delete each assistant
-        for (const assistant of assistants) {
+        const deleted = await forEachConcurrent(assistants, async (assistant) => {
             try {
-                const deleteUrl = `${baseUrl}/assistants/${assistant.assistant_id}`;
-                const deleteResponse = await fetch(deleteUrl, {
+                const deleteResponse = await fetch(`${baseUrl}/assistants/${assistant.assistant_id}`, {
                     method: 'DELETE',
                     headers
                 });
-
                 if (!deleteResponse.ok) {
                     console.error(`Failed to delete assistant ${assistant.assistant_id}: ${deleteResponse.status} ${deleteResponse.statusText}`);
-                } else {
-                    totalDeleted++;
+                    return false;
                 }
+                return true;
             } catch (deleteError) {
                 console.error(`Error deleting assistant ${assistant.assistant_id}:`, deleteError.message);
+                return false;
             }
+        });
+        totalDeleted += deleted;
+
+        if (deleted === 0) {
+            throw new Error(
+                `Assistant cleanup stalled: ${assistants.length} assistants found, none deleted`
+            );
         }
 
-        console.log(`Deleted ${assistants.length} assistants in this batch`);
+        console.log(`Deleted ${deleted} assistants in this batch`);
     }
 
     console.log(`Assistant cleanup completed. Total assistants deleted: ${totalDeleted}`);
@@ -172,26 +207,31 @@ async function cleanThreads(baseUrl, langsmithApiKey) {
 
         console.log(`Found ${threads.length} threads to delete`);
 
-        // Delete each thread
-        for (const thread of threads) {
+        const deleted = await forEachConcurrent(threads, async (thread) => {
             try {
-                const deleteUrl = `${baseUrl}/threads/${thread.thread_id}`;
-                const deleteResponse = await fetch(deleteUrl, {
+                const deleteResponse = await fetch(`${baseUrl}/threads/${thread.thread_id}`, {
                     method: 'DELETE',
                     headers
                 });
-
                 if (!deleteResponse.ok) {
                     console.error(`Failed to delete thread ${thread.thread_id}: ${deleteResponse.status} ${deleteResponse.statusText}`);
-                } else {
-                    totalDeleted++;
+                    return false;
                 }
+                return true;
             } catch (deleteError) {
                 console.error(`Error deleting thread ${thread.thread_id}:`, deleteError.message);
+                return false;
             }
+        });
+        totalDeleted += deleted;
+
+        if (deleted === 0) {
+            throw new Error(
+                `Thread cleanup stalled: ${threads.length} threads found, none deleted`
+            );
         }
 
-        console.log(`Deleted ${threads.length} threads in this batch`);
+        console.log(`Deleted ${deleted} threads in this batch`);
     }
 
     console.log(`Thread cleanup completed. Total threads deleted: ${totalDeleted}`);

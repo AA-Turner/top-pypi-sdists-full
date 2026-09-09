@@ -28,12 +28,18 @@
 //! | `notification_builder.rs` | `NotificationBuilder` / `JsonRpcRequestBuilder` — fluent envelope construction (#484) |
 
 mod discover;
+mod envelope;
+mod envelope_validation;
+mod inbound;
 mod jsonrpc;
 mod lifecycle;
+mod modern;
 mod notification_builder;
+mod param_headers;
 mod prompts;
 mod resources;
 mod sse;
+mod standard_headers;
 mod tools;
 
 pub use discover::{
@@ -41,6 +47,12 @@ pub use discover::{
     DiscoverCapabilities, DiscoverServerInfo, ServerDiscoverResult, StatelessClientInfo,
     StatelessRequestMeta, TasksCapability,
 };
+pub use envelope::{
+    CLIENT_CAPABILITIES_META_KEY, CLIENT_INFO_META_KEY, EnvelopeIssue, LOG_LEVEL_META_KEY,
+    PROTOCOL_VERSION_META_KEY, REQUEST_ENVELOPE_KEYS, has_modern_envelope_claim,
+    strip_request_envelope,
+};
+pub use inbound::{InboundRoute, classify_protocol_request};
 pub use jsonrpc::{
     JsonRpcBatch, JsonRpcError, JsonRpcMessage, JsonRpcNotification, JsonRpcRequest,
     JsonRpcResponse, error_codes,
@@ -51,7 +63,15 @@ pub use lifecycle::{
     LoggingCapability, LoggingSetLevelParams, PromptsCapability, ResourcesCapability,
     RootsListResult, ServerCapabilities, ServerInfo, StatelessServerCapabilities, ToolsCapability,
 };
+pub use modern::{
+    CACHEABLE_RESULT_METHODS, CacheScope, CompleteResultType, SERVER_INFO_META_KEY,
+    complete_modern_result,
+};
 pub use notification_builder::{JsonRpcRequestBuilder, NotificationBuilder};
+pub use param_headers::{
+    McpParamDeclaration, McpParamSchemaError, McpParamType, McpParamValidationError,
+    build_mcp_param_headers, scan_mcp_param_headers, validate_mcp_param_headers,
+};
 pub use prompts::{
     GetPromptParams, GetPromptResult, ListPromptsResult, McpPrompt, McpPromptArgument,
     McpPromptContent, McpPromptMessage,
@@ -61,6 +81,7 @@ pub use resources::{
     ReadResourceResult, ResourceContents, SubscribeResourceParams,
 };
 pub use sse::{decode_cursor, encode_cursor, format_sse_event};
+pub use standard_headers::{decode_mcp_header_value, encode_mcp_header_value, mcp_name_source};
 pub use tools::{
     CallToolMeta, CallToolMetaDcc, CallToolParams, CallToolResult, ListToolsResult, McpTool,
     McpToolAnnotations, ToolContent, coerce_tool_arguments_object,
@@ -68,10 +89,7 @@ pub use tools::{
 
 // ── Protocol-version negotiation + session/header/method constants ─────────
 
-/// MCP protocol version this server implements (default / latest).
-///
-/// Phase 1 (0.19.0): still `2025-06-18`; will become `2026-07-28` in Phase 2
-/// (0.21.0) per ADR-010.
+/// Default MCP protocol version for the legacy `initialize` lifecycle.
 pub const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 
 /// The MCP 2026-07-28 protocol version string.
@@ -82,39 +100,45 @@ pub const MCP_PROTOCOL_VERSION_2026_07_28: &str = MCP_PROTOCOL_VERSION_2026;
 
 /// All protocol versions this server can speak, newest first.
 ///
-/// `2026-07-28` is listed first so that `negotiate_protocol_version` returns it
-/// when a client explicitly requests it, even though `MCP_PROTOCOL_VERSION` is
-/// still `2025-06-18` in Phase 1.  The ordering here is used only for fallback
-/// when the client requests an *unknown* version — which remains `2025-06-18`
-/// until Phase 2.
+/// This includes both lifecycles. The HTTP protocol header selects the
+/// stateless lifecycle; `initialize` negotiates only legacy versions.
 #[cfg(feature = "mcp-2026-07-28")]
 pub const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &["2026-07-28", "2025-06-18", "2025-03-26"];
 
 #[cfg(not(feature = "mcp-2026-07-28"))]
 pub const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &["2025-06-18", "2025-03-26"];
 
+/// Modern protocol versions advertised by `server/discover`, newest first.
+///
+/// Discovery must never advertise a legacy `initialize` revision. An opt-out
+/// build has no modern protocol support to advertise.
+#[cfg(feature = "mcp-2026-07-28")]
+pub const SUPPORTED_MODERN_PROTOCOL_VERSIONS: &[&str] = &[MCP_PROTOCOL_VERSION_2026_07_28];
+
+#[cfg(not(feature = "mcp-2026-07-28"))]
+pub const SUPPORTED_MODERN_PROTOCOL_VERSIONS: &[&str] = &[];
+
 /// Legacy (session-based) protocol versions (2025-x and earlier).
 ///
-/// Used by [`select_protocol_mode`] to decide whether to route to the
-/// session-based or stateless handler.
+/// Used by [`select_protocol_mode`] for routing and by
+/// [`negotiate_protocol_version`] for `initialize` negotiation.
 pub const LEGACY_PROTOCOL_VERSIONS: &[&str] = &["2025-06-18", "2025-03-26"];
 
-/// Negotiate the protocol version to use for a session.
+/// Negotiate the protocol version for the legacy `initialize` lifecycle.
 ///
-/// If the client requests a version we support, we use it; otherwise we fall
-/// back to the Phase 1 default (`2025-06-18`), keeping old clients working.
-///
-/// In Phase 2 this will change to fall back to `2026-07-28`.
+/// Supported legacy versions are echoed; missing or unsupported versions
+/// fall back to `2025-06-18`. Even when stateless support is compiled in,
+/// requesting `2026-07-28` here cannot switch lifecycles: that protocol uses
+/// an explicit HTTP header and `server/discover`, not `initialize`.
 pub fn negotiate_protocol_version(client_requested: Option<&str>) -> &'static str {
     if let Some(requested) = client_requested {
-        for &v in SUPPORTED_PROTOCOL_VERSIONS {
+        for &v in LEGACY_PROTOCOL_VERSIONS {
             if v == requested {
                 return v;
             }
         }
     }
-    // Client asked for an unknown version (or didn't specify one) — fall back to
-    // the Phase 1 default so existing session-based clients are not broken.
+    // Keep the negotiated version consistent with the selected lifecycle.
     MCP_PROTOCOL_VERSION
 }
 
@@ -173,12 +197,9 @@ pub fn select_protocol_mode(
 
 /// Request-level hints used by HTTP routers before JSON-RPC parsing.
 ///
-/// The protocol version is the authoritative routing signal.  `Accept`,
-/// `Mcp-Method`, and `Mcp-Name` are intentionally retained as optional hints
-/// so gateways can make the same decision without re-parsing request bodies.
-/// They are not used to upgrade an unversioned legacy request to stateless
-/// mode; doing so would silently change the lifecycle contract for old MCP
-/// clients.
+/// The final revision treats these as cross-checks against the parsed body.
+/// Use [`classify_protocol_request`] for ingress; a header-only decision
+/// cannot validate required namespaced metadata or prevent silent downgrade.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ProtocolRequestHints<'a> {
     pub protocol_version: Option<&'a str>,
@@ -188,14 +209,9 @@ pub struct ProtocolRequestHints<'a> {
     pub name: Option<&'a str>,
 }
 
-/// Select the HTTP protocol route from transport headers.
-///
-/// This is the shared classifier for `/mcp` implementations.  A request is
-/// routed statelessly only when the client explicitly advertises
-/// `2026-07-28`; the remaining headers are metadata available to middleware.
-/// The helper deliberately does not require `Accept`, `Mcp-Method`, or
-/// `Mcp-Name`, because discovery and intermediary clients may omit one of
-/// those hints while still negotiating the version explicitly.
+/// Compatibility header hint selector, not a final-revision ingress validator.
+/// Existing users retain its behavior; servers must use the body-primary
+/// [`classify_protocol_request`] before dispatching modern requests.
 #[must_use]
 pub fn select_protocol_mode_from_headers(hints: ProtocolRequestHints<'_>) -> ProtocolMode {
     select_protocol_mode(hints.protocol_version, hints.has_session_id)
@@ -249,10 +265,9 @@ mod tests {
 
     // ── negotiate_protocol_version ──────────────────────────────────────────
 
-    #[cfg(feature = "mcp-2026-07-28")]
     #[test]
-    fn negotiate_returns_2026_when_client_requests_it() {
-        assert_eq!(negotiate_protocol_version(Some("2026-07-28")), "2026-07-28");
+    fn initialize_negotiation_does_not_select_the_stateless_lifecycle() {
+        assert_eq!(negotiate_protocol_version(Some("2026-07-28")), "2025-06-18");
     }
 
     #[test]

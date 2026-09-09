@@ -78,8 +78,7 @@ class BFCommandsMixin(CommandsMixinBase):
             error_on_unexpected=False,
             left_from_first_unexpected=True,
         )
-        # if no_create and (capacity is not None or error_rate is not None):
-        #     raise SimpleError("...")
+        # if no_create and (capacity is not None or error_rate is not None): raise SimpleError("...")
         if len(left_args) < 2 or not casematch(left_args[0], b"items"):
             raise SimpleError("...")
         items = left_args[1:]
@@ -130,7 +129,7 @@ class BFCommandsMixin(CommandsMixinBase):
             res = key.value.scale if key.value.scale > 0 else None
         else:
             raise SimpleError(msgs.SYNTAX_ERROR_MSG)
-        if self._client_info.protocol_version == 2:
+        if self._resp_version == 2:
             return [res]
         return {res_key: res}
 

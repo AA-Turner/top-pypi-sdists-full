@@ -15,7 +15,7 @@ Main Components:
 For more information, visit: https://xpander.ai
 """
 
-__version__ = "2.0.506"
+__version__ = "2.0.507"
 
 # Backend-related imports
 from .modules.backend.backend_module import Backend

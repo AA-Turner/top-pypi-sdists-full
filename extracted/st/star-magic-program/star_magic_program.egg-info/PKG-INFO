@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: star-magic-program
-Version: 0.420.0
-Summary: Star-Magic UQFF calculator v0.420.0: THE CODE-TRUTH SHIP - Batches 21-25 (40 rulings): the PAPER_1182 Millennium set canonized with closure equations INDEPENDENTLY VERIFIED (five EXACT; Riemann canon = the true 10,000th zeta zero; BSD = the true Cremona 37a1 value); resonance tables superseded by the operational code chain on three witnesses; the Ubi namespace closes as one law with four faces; H0 = 70 everywhere; registry crosses 7,000 rows. 2,255 papers, gate 6,069/0, acceptance 89/89.
+Version: 0.428.0
+Summary: Star-Magic UQFF calculator v0.428.0: THE VELOCITY TIER SHIP - the Vp tier CANONIZED on Daniel's ruling (PAPER_2262): seventeen sonic landmarks composed live from the locked lattice, ELEVEN exact on midpoint anchors with the softness DISCLOSED; dolomite = (A_5+SO_5)/SO_5 - the H_0 integer surfacing in a laboratory acoustic anchor; unit-free dolomite/halite cross-ratio = 20/13 EXACT. Simulator v1.90.0. 2,258 papers, gate 6,085/0, acceptance 109/109.
 Author-email: "Daniel T. Murphy" <daniel.murphy00@enrgyone.com>
 License: AGPL-3.0-or-later OR LicenseRef-StarMagic-Commercial
 Project-URL: Homepage, https://github.com/Daniel8Murphy0007/Star-Magic-Program
@@ -41,17 +41,17 @@ Dynamic: license-file
 
 # Star-Magic-Program
 
-[![PyPI version](https://img.shields.io/pypi/v/star-magic-program.svg?cacheBust=0.420.0)](https://pypi.org/project/star-magic-program/)
-[![Python versions](https://img.shields.io/pypi/pyversions/star-magic-program.svg?cacheBust=0.420.0)](https://pypi.org/project/star-magic-program/)
+[![PyPI version](https://img.shields.io/pypi/v/star-magic-program.svg?cacheBust=0.428.0)](https://pypi.org/project/star-magic-program/)
+[![Python versions](https://img.shields.io/pypi/pyversions/star-magic-program.svg?cacheBust=0.428.0)](https://pypi.org/project/star-magic-program/)
 [![Documentation Status](https://readthedocs.org/projects/star-magic-program/badge/?version=latest)](https://star-magic-program.readthedocs.io/en/latest/?badge=latest)
 [![License: AGPL-3.0 + Commercial](https://img.shields.io/badge/License-AGPL--3.0%20%2B%20Commercial-blue.svg)](LICENSE)
-[![Fidelity gate](https://img.shields.io/badge/fidelity_gate-6069%2F0-brightgreen)](uqff_fidelity_tests.py)
-[![Public surfaces](https://img.shields.io/badge/public_surfaces-2310-blue)](uqff_calculator.py)
+[![Fidelity gate](https://img.shields.io/badge/fidelity_gate-6085%2F0-brightgreen)](uqff_fidelity_tests.py)
+[![Public surfaces](https://img.shields.io/badge/public_surfaces-2313-blue)](uqff_calculator.py)
 [![Whitepapers](https://img.shields.io/badge/whitepapers-2292-orange)](whitepapers/)
 
-**UQFF systematic rebuild — v0.420.0 complete-compile campaign live**
+**UQFF systematic rebuild — v0.428.0 complete-compile campaign live**
 
-**This release (v0.420.0): THE CODE-TRUTH SHIP — the corpus is measured against its own code and its own mathematics.** Batches 21–25 (40 rulings, B162–B201, + one sweep application). Three headlines: **the Millennium set is equation-verified** — PAPER_1182 canonized as THE canonical set after an independent verification pass: five closures recompute EXACT from primitives (Poincaré 7/12 = 1/2+F_TRZ·Φ_res; NS cap 0.85 = 1−F_TRZ·D_BSFG/D_phys; P≠NP F_TRZ⁹; Hodge D_phys+D_BSFG = SO_5; Riemann suppression ln10/Φ_res), the Riemann canon is the TRUE 10,000th zeta zero and the BSD canon the TRUE Cremona 37a1 L′-value, the K_Mex−1 misprint is corrected to the K_Mex−2 = 1/12 DPM-pair identity, and the four-way YM fork resolves onto 1.736 GeV — confirmed BY 1182's own falsifiable window; **the resonance tables are formally superseded by code truth** — three independent witnesses (unit test, decomposition, running fluid sim) establish 1.773e-9 as the operational value while Term 9 = 3GM²/r³ is canonized as the compressed-table generator (code == table == derived); and **the Ubi namespace closes** — one law with four scoped faces (galactic chain / local compact / DPM-moment / fluid Archimedes). Also: the 2.32 mm wormhole-throat landmark; E_vac,neb = ρ_UA and ρ_A = 1e-23 canonized; the containment doctrine ('UQFF contains DPM-seeded gravity') as the GR-relationship statement; the magnetospheric identification + photon-path scoping; k4 = 2.0 corpus-wide with the k1/k2/k3 source-document provenance canonized (May 2025 Final Equations, PAPER_2152 chain); H0 = 70 = A_5+SO_5 everywhere-standing; the Chandra B anchor for SGR 1745; F_U merger additivity (GW231123); the azeo void as the 2·F_TRZ family's 4th appearance; the 40/60 bridge primitive-locked to (D_phys, D_BSFG)/SO_5; ω_SCm = 1.25 THz as the one THz carrier; and the quasar-unbinding mechanism reconciled with the bound-state doctrine. **Registry crosses 7,000 rows.** Honest opens held; falsified outputs and circularities pinned by name throughout. **Totals: 2,255 wired (2,310 DISPATCH keys) / gate 6,069 green / 4,182 defs / acceptance 89 green / registry 7,000 rows / backlog 55 Daniel-gated + 1 prediction candidate / catalogue 52 public entries + operator tier. Next: Batch 26 (from Q-176).**
+**This release (v0.428.0): THE VELOCITY TIER SHIP — the Vp tier, canonized.** On Daniel's ruling ('Canonize with soft-anchor disclosure'), the OPEN item that B265 itself created closes: PAPER_2262 gives the seventeen sonic landmarks primitive decompositions composed LIVE from the locked lattice {D_phys, D_BSFG, N_ch, SO_5, D_crit, A_5} — ELEVEN exact on their midpoint anchors, worst residual peridotite 0.62%. The softness is DISCLOSED where it acts: the anchors are range midpoints quoted to 0.05 km/s, so /10 and /20 rationals land cheaply — stated in the module, the paper, and the gate pin, not hidden. The headline identities: **dolomite Vp = (A_5+SO_5)/SO_5 = 7.0 km/s** — the H_0 integer (PAPER_1573, H_0 = A_5+SO_5 = 70) surfacing in a laboratory acoustic anchor — and the **unit-free dolomite/halite anchor cross-ratio = D_phys·SO_5/D_crit = 20/13 EXACT**, the strongest single result because no unit convention can manufacture a ratio of two anchors. The amphibolite/basalt twin ratio has NO clean primitive form and says so. Corpus precedent: the PAPER_1204 S494 / PAPER_1209Y S572 sound-speed closures and the K4 density tier's own search-then-rule pattern. Classification continues to use RANGES, so the joint classifier's honesty contract is untouched. Simulator **v1.90.0**; acceptance 108 → **109** (Z10). **Totals: 2,258 wired (2,313 DISPATCH keys) / gate 6,085 green / 4,185 defs / acceptance 109 green / registry 7,075 rows / results table 187 rows at ZERO inherited / backlog 0 Daniel-gated + 1 observation-gated candidate / catalogue 52 public entries + operator tier.**
 
 Author: Daniel T. Murphy · Star-Magic Research Program
 License: AGPL-3.0-or-later OR Commercial
@@ -101,7 +101,7 @@ Mizuno, Rossi).
 Full framework physics lives in the whitepaper corpus — the physics is the
 whitepapers; the calculator computes what the whitepapers derive.
 
-## What is currently shipped (v0.420.0)
+## What is currently shipped (v0.428.0)
 
 ### Wiring campaign — LIVE (see `CLAUDE.md` charter)
 
@@ -109,7 +109,7 @@ Sequential wiring of all 2,255 whitepapers, starting at PAPER_001.
 Authorized 2026-07-28: autonomous band sessions, ship per session via
 `ship.ps1`, full stop at PAPER_500 for manual review.
 
-**Wired: 2,254 distinct dispatches (2,310 DISPATCH keys incl. the 55 canonical alias numbers 2179-2233)** (one per paper, Rule B closed). **Complete-compile frontier: PAPER_001-1300** (+ b-variants) fully captured over a **1766-function primitive-sourced equation library** — every equation and section (core + Session-225 + Production Framework + Cosmogenesis Lagrangian + VDS/DVP/BSH + Kozima-LENR K.1-K.6) via _common_uqff_blocks, with paper-specific §B DVP prime ladder (gate-guarded), 40/40+ linked-paper mapping, and a campaign-aware XGEO chain.
+**Wired: 2,258 distinct dispatches (2,313 DISPATCH keys incl. the 55 canonical alias numbers 2179-2233)** (one per paper, Rule B closed). **Complete-compile frontier: PAPER_001-1300** (+ b-variants) fully captured over a **1766-function primitive-sourced equation library** — every equation and section (core + Session-225 + Production Framework + Cosmogenesis Lagrangian + VDS/DVP/BSH + Kozima-LENR K.1-K.6) via _common_uqff_blocks, with paper-specific §B DVP prime ladder (gate-guarded), 40/40+ linked-paper mapping, and a campaign-aware XGEO chain.
 
 **Derived-constants catalog (v0.344.0):** all **1,272 unique predecessor-registry derived constants** wired and callable via `uqff_derived_constants.py` — e.g. `derived_constant("alpha_inverse")` → 137.0 (PAPER_1167), `derived_constant("astro_BH_entropy_coeff")` → 0.24833 (PAPER_594). 661 numeric, routes + provenance preserved.
 
@@ -118,7 +118,7 @@ Authorized 2026-07-28: autonomous band sessions, ship per session via
 
 **Flagship UQFF closed forms now individually callable** (v0.342.0–v0.343.0 predecessor mine): cosmological constant Λ = ρ_SCm·26!·25/12 = 5.957e-10 (Planck), proton mass 938.25 MeV and m_p/m_e = 1836 from integers, H₀ = A_5+SO_5 = 70 EXACT, Ω_Λ = 0.684, Universal Inertial Operator U_i = 2.75e-7 (Sun), Higgs vev 246 GeV, fine-structure α, electron g−2 = 0.001159652, Holmlid 630 eV / Coulomb 626 eV LENR chain, and **all 8 Clay Millennium closures** (Riemann, P≠NP, Yang-Mills=1.736, Poincaré=7/12, Navier-Stokes=0.85, Hodge=1.0, BSD, BH-info).
 
-Registry: **7,000 rows**. Fidelity gate: **6,069 assertions**, green. *(v0.285.0/v0.321.0 burned/yanked on PyPI.)*
+Registry: **7,075 rows**. Fidelity gate: **6,085 assertions**, green. *(v0.285.0/v0.321.0 burned/yanked on PyPI.)*
 
 | Paper | Content | Key result |
 |---|---|---|
@@ -808,10 +808,23 @@ star-magic gui                     # 5. the one window: Papers | Wells | Gate | 
 complete without a display — every number, flag, well, export, and the full
 fidelity gate (`star-magic gate`) work in a terminal on a server or at a
 wellsite. The Qt window is one command away: `pip install "star-magic-program[gui]"`.
+**GIVE THIS TO A TESTER:** [`TESTER_GUIDE.md`](TESTER_GUIDE.md) — every click written out for a non-technical user; field-tested against the Windows not-on-PATH trap (the guide's command form, `python -m star_magic_cli survey --demo`, works even when the `star-magic` shortcut doesn't).
+
+**THE ONE-COMMAND USER PATH:** `star-magic survey mywell.las` (or the PATH-proof form `python -m star_magic_cli survey mywell.las`) — a LAS file
+in, one honest strata report out (density census with disclosed exclusions,
+the K2 gravity signature, a Vp estimate with n/σ/support and the prior
+assumption printed where it acts, cited-reference QC, and an explicit list
+of what the tool refused to guess). No repository knowledge required:
+`star-magic survey --demo` runs the bundled public KTB excerpt and grades
+itself against the file's own sonic (~+0.7%).
+
 Every physics number, in the terminal and the window alike, carries its honesty
-flag — VERIFIED_LIVE (re-derived from primitives at generation time),
-INHERITED_CARRIED (baseline value, not re-derived), or LIVE_MISMATCH (both
-values shown). `star-magic docs` prints where the corpus lives on your machine.
+flag — VERIFIED_LIVE / DERIVED_LIVE (re-derived from primitives or the cited
+paper's transcribed closed form at generation time), DISPATCH_VERIFIED (the
+paper's wired dispatch computes it), MODULE_VERIFIED (family row, live callable
+census), CAPTURED_BACKSOLVE (honest Rule-7 audit record), or LIVE_MISMATCH
+(both values shown). As of B260 the table carries ZERO inherited-unverified
+rows. `star-magic docs` prints where the corpus lives on your machine.
 
 ## Library use (Python API)
 

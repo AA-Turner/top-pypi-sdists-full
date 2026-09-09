@@ -23,6 +23,11 @@ class DatasourceServiceStub(object):
             request_serializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.TestDatasourceRequest.SerializeToString,
             response_deserializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.TestDatasourceResponse.FromString,
         )
+        self.ListRunningDatasourceQueries = channel.unary_unary(
+            "/chalk.engine.v1.DatasourceService/ListRunningDatasourceQueries",
+            request_serializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.ListRunningDatasourceQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.ListRunningDatasourceQueriesResponse.FromString,
+        )
 
 
 class DatasourceServiceServicer(object):
@@ -40,6 +45,19 @@ class DatasourceServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListRunningDatasourceQueries(self, request, context):
+        """Lists the queries one data source reports as currently in flight, by having the driver
+        introspect the data source with the caller-supplied credentials.
+
+        Like TestDatasource, this errors only when the request could not be served at all -- an
+        unknown kind, or a connection that could not be established. A driver with no introspection,
+        and an introspection query the data source rejected, are both successful responses carrying a
+        status, because both are facts about the data source that the caller asked for.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DatasourceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -47,6 +65,11 @@ def add_DatasourceServiceServicer_to_server(servicer, server):
             servicer.TestDatasource,
             request_deserializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.TestDatasourceRequest.FromString,
             response_serializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.TestDatasourceResponse.SerializeToString,
+        ),
+        "ListRunningDatasourceQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.ListRunningDatasourceQueries,
+            request_deserializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.ListRunningDatasourceQueriesRequest.FromString,
+            response_serializer=chalk_dot_engine_dot_v1_dot_datasource__service__pb2.ListRunningDatasourceQueriesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.engine.v1.DatasourceService", rpc_method_handlers)
@@ -79,6 +102,35 @@ class DatasourceService(object):
             "/chalk.engine.v1.DatasourceService/TestDatasource",
             chalk_dot_engine_dot_v1_dot_datasource__service__pb2.TestDatasourceRequest.SerializeToString,
             chalk_dot_engine_dot_v1_dot_datasource__service__pb2.TestDatasourceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListRunningDatasourceQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.engine.v1.DatasourceService/ListRunningDatasourceQueries",
+            chalk_dot_engine_dot_v1_dot_datasource__service__pb2.ListRunningDatasourceQueriesRequest.SerializeToString,
+            chalk_dot_engine_dot_v1_dot_datasource__service__pb2.ListRunningDatasourceQueriesResponse.FromString,
             options,
             channel_credentials,
             insecure,

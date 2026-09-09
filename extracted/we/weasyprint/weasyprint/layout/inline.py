@@ -1,11 +1,11 @@
 """Layout for inline-level boxes."""
 
-import unicodedata
 from math import inf
 
-from ..css import AnonymousStyle, Pending, check_math
+from ..css import Pending, check_math
 from ..css.properties import INHERITED
-from ..formatting_structure import boxes, build
+from ..formatting_structure import boxes
+from ..formatting_structure.text import get_first_letter
 from .absolute import AbsolutePlaceholder, absolute_layout
 from .flex import flex_layout
 from .float import avoid_collisions, float_layout
@@ -32,7 +32,6 @@ def iter_line_boxes(context, box, position_y, bottom_space, skip_stack,
     """
     resolve_percentages(box, containing_block)
     if skip_stack is None:
-        # TODO: wrong, see issue #679.
         resolve_one_percentage(box, 'text_indent', containing_block.width)
     else:
         box.text_indent = 0
@@ -311,27 +310,19 @@ def first_letter_to_box(box, skip_stack, first_letter_style):
                     box.element, [child])
                 box.children = ((letter_box, *box.children[1:]))
             elif child.text:
-                character_found = False
                 if skip_stack:
                     child_skip_stack, = skip_stack.values()
                     if child_skip_stack:
                         index, = child_skip_stack
                         child.text = child.text[index:]
                         skip_stack = None
-                while child.text:
-                    next_letter = child.text[0]
-                    category = unicodedata.category(next_letter)
-                    if category not in ('Ps', 'Pe', 'Pi', 'Pf', 'Po'):
-                        if character_found:
-                            break
-                        character_found = True
-                    first_letter += next_letter
-                    child.text = child.text[1:]
+                if first_letter := get_first_letter(child.text):
+                    child.text = child.text[len(first_letter):]
                 if first_letter.lstrip('\n'):
                     # "This type of initial letter is similar to an
                     # inline-level element if its 'float' property is 'none',
                     # otherwise it is similar to a floated element."
-                    children_style = AnonymousStyle(letter_style)
+                    children_style = letter_style.anonymous_style
                     if letter_style['float'] == 'none':
                         letter_box = boxes.InlineBox(
                             f'{box.element_tag}::first-letter',
@@ -354,7 +345,7 @@ def first_letter_to_box(box, skip_stack, first_letter_style):
                             box.element, first_letter)
                         line_box.children = (text_box,)
                         box.children = (letter_box, *box.children)
-                    build.process_text_transform(text_box)
+                    text_box.process_text_transform()
                     if skip_stack and child_skip_stack:
                         index, = skip_stack
                         (child_index, grandchild_skip_stack), = child_skip_stack.items()
@@ -475,7 +466,7 @@ def split_inline_level(context, box, position_x, max_x, bottom_space,
         for key, value in first_line_style.items():
             if key in INHERITED:
                 box.style[key] = value
-        build.process_text_transform(box)
+        box.process_text_transform()
     resolve_percentages(box, containing_block)
     float_widths = {'left': 0, 'right': 0}
     if isinstance(box, boxes.TextBox):
@@ -635,10 +626,8 @@ def _out_of_flow_layout(context, box, containing_block, index, child,
                 if float_align:
                     old_child.translate(dx=dx)
 
-    elif child.is_running():
-        running_name = child.style['position'][1]
-        page = context.current_page
-        context.running_elements[running_name][page].append(child)
+    elif child.is_running() or child.is_note():
+        context.add_running_element(child)
 
 
 def _break_waiting_children(context, box, max_x, bottom_space, initial_skip_stack,
@@ -742,7 +731,6 @@ def split_inline_box(context, box, position_x, max_x, bottom_space, skip_stack,
         box.padding_left + box.margin_left + box.border_left_width)
     right_spacing = (
         box.padding_right + box.margin_right + box.border_right_width)
-    content_box_left = position_x
 
     children = []
     waiting_children = []
@@ -845,16 +833,19 @@ def split_inline_box(context, box, position_x, max_x, bottom_space, skip_stack,
 
             # Check that text doesn’t overflow.
             new_position_x = new_child.position_x + new_child.margin_width()
-            if new_position_x - trailing_whitespace_size(context, new_child) > max_x:
-                # Text overflows, find previous break point.
-                previous_resume_at = _break_waiting_children(
-                    context, containing_block, max_x, bottom_space, initial_skip_stack,
-                    absolute_boxes, fixed_boxes, line_placeholders, waiting_floats,
-                    line_children, children, waiting_children, first_letter_style,
-                    first_line_style)
-                if previous_resume_at:
-                    resume_at = previous_resume_at
-                    break
+            if new_position_x > max_x:
+                # Only calculate trailing space size if needed.
+                trailing_space = trailing_whitespace_size(context, new_child)
+                if new_position_x - trailing_space > max_x:
+                    # Text overflows, find previous break point.
+                    previous_resume_at = _break_waiting_children(
+                        context, containing_block, max_x, bottom_space,
+                        initial_skip_stack, absolute_boxes, fixed_boxes,
+                        line_placeholders, waiting_floats, line_children, children,
+                        waiting_children, first_letter_style, first_line_style)
+                    if previous_resume_at:
+                        resume_at = previous_resume_at
+                        break
 
             position_x = new_position_x
             waiting_children.append((index, new_child, child))
@@ -868,7 +859,7 @@ def split_inline_box(context, box, position_x, max_x, bottom_space, skip_stack,
         children.extend(waiting_children)
         resume_at = None
 
-    # Reorder inline blocks when direction is rtl
+    # Reorder inline blocks when direction is right-to-left.
     if box.style['direction'] == 'rtl' and len(children) > 1:
         in_flow_children = [
             box_child for _, box_child, _ in children
@@ -879,34 +870,34 @@ def split_inline_box(context, box, position_x, max_x, bottom_space, skip_stack,
                 dx=(position_x - child.position_x), ignore_floats=True)
             position_x += child.margin_width()
 
+    # Remove decoration.
     is_end = resume_at is None
     new_box = box.copy_with_children(
         [box_child for index, box_child, _ in children])
     new_box.remove_decoration(start=not is_start, end=not is_end)
-    if isinstance(box, boxes.LineBox):
-        # We must reset line box width according to its new children
-        new_box.width = 0
-        children = new_box.children
-        if new_box.style['direction'] == 'ltr':
-            children = children[::-1]
-        for child in children:
-            if child.is_in_normal_flow():
-                new_box.width = (
-                    child.position_x + child.margin_width() -
-                    new_box.position_x)
-                break
-    else:
+
+    # Translate boxes to respect box decoration and floats.
+    if not isinstance(box, boxes.LineBox):
         new_box.position_x = initial_position_x
-        if box.style['box_decoration_break'] == 'clone':
-            translation_needed = True
-        else:
-            translation_needed = (
-                is_start if box.style['direction'] == 'ltr' else is_end)
-        if translation_needed:
+        left_decoration = left_spacing and (
+            box.style['box_decoration_break'] == 'clone' or
+            (is_start if box.style['direction'] == 'ltr' else is_end))
+        if left_decoration:
             for child in new_box.children:
                 child.translate(dx=left_spacing)
-        new_box.width = position_x - content_box_left
         new_box.translate(dx=float_widths['left'], ignore_floats=True)
+
+    # Reset line box width according to its new children.
+    new_box.width = 0
+    children = new_box.children
+    if new_box.style['direction'] == 'ltr':
+        children = children[::-1]
+    for child in children:
+        if child.is_in_normal_flow():
+            new_box.width = (
+                child.position_x + child.margin_width() -
+                new_box.content_box_x())
+            break
 
     _adjust_line_height(new_box)
 

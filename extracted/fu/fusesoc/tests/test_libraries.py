@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from argparse import Namespace
 
+import pytest
 from test_common import cache_root, cores_root, library_root
 
 from fusesoc.config import Config
@@ -56,6 +57,7 @@ def test_library_location():
     fs.get_core("atlys")
 
 
+@pytest.mark.network
 def test_library_add(caplog):
     import tempfile
 
@@ -76,6 +78,7 @@ def test_library_add(caplog):
         args.location = clone_target
         args.config = conf_path
         args.no_auto_sync = False
+        args.sync_submodules = False
         vars(args)["sync-uri"] = sync_uri
 
         add_library(cm, args)
@@ -151,6 +154,7 @@ auto-sync = true"""
     tcf.close()
 
 
+@pytest.mark.network
 def test_library_update(caplog):
 
     clone_target = tempfile.mkdtemp()
@@ -210,6 +214,7 @@ def test_library_update(caplog):
     assert "test_lib : sync-type is local. Ignoring update" in caplog.text
 
 
+@pytest.mark.network
 def test_library_update_with_initialize(caplog):
     with tempfile.TemporaryDirectory() as library:
 
@@ -236,6 +241,8 @@ auto-sync = true
         with caplog.at_level(logging.INFO):
             fs.update_libraries([])
 
-        assert "vlog_tb_utils does not exist. Trying a checkout" in caplog.text
+        assert (
+            "vlog_tb_utils does not exist. Trying to initialize library" in caplog.text
+        )
         assert f"Cloning library into {library}/vlog_tb_utils" in caplog.text
         assert "Updating..." in caplog.text

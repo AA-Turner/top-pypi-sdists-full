@@ -9,13 +9,15 @@ import sys
 import warnings
 
 import yaml
+import yaml.parser
+import yaml.scanner
 
 try:
     from yaml import CSafeDumper as YamlDumper
     from yaml import CSafeLoader as YamlLoader
 except ImportError:
-    from yaml import SafeDumper as YamlDumper
-    from yaml import SafeLoader as YamlLoader
+    from yaml import SafeDumper as YamlDumper  # type: ignore[assignment]
+    from yaml import SafeLoader as YamlLoader  # type: ignore[assignment]
 
 from fusesoc.capi2.inheritance import Inheritance
 
@@ -34,7 +36,7 @@ class Launcher:
         logger.debug("    " + str(self))
         try:
             subprocess.check_call(
-                map(str, [self.cmd] + self.args),
+                list(map(str, [self.cmd] + self.args)),
                 cwd=self.cwd,
             ),
         except FileNotFoundError:
@@ -121,7 +123,7 @@ def setup_logging(level, monchrome=False, log_file=None):
         return _formatwarning_orig(message, category, filename, lineno, line)
 
     _formatwarning_orig = warnings.formatwarning
-    warnings.formatwarning = _formatwarning
+    warnings.formatwarning = _formatwarning  # ty: ignore[invalid-assignment]
 
     # Pretty color terminal logging
     ch = logging.StreamHandler()
@@ -140,7 +142,7 @@ def setup_logging(level, monchrome=False, log_file=None):
         package_logger.addHandler(ch)
         package_logger.setLevel(level)
     # Warning only packages
-    warning_only_packages = []
+    warning_only_packages: list[str] = []
     for package in warning_only_packages:
         package_logger = logging.getLogger(package)
         package_logger.addHandler(ch)

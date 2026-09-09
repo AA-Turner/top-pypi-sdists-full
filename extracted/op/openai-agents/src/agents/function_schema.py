@@ -6,14 +6,14 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Literal, cast, get_args, get_origin, get_type_hints
 
 # griffelib exposes the `griffe` package at runtime but currently does not ship typing markers.
 from griffe import Docstring, DocstringSectionKind  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field, create_model
 from pydantic.fields import FieldInfo
 
-from .exceptions import UserError
+from .exceptions import ModelBehaviorError, UserError
 from .run_context import RunContextWrapper
 from .strict_schema import ensure_strict_json_schema
 from .tool_context import ToolContext
@@ -47,10 +47,19 @@ class FuncSchema:
         """
         Converts validated data from the Pydantic model into (args, kwargs), suitable for calling
         the original function.
+
+        Raises:
+            ModelBehaviorError: If the ``**kwargs`` payload carries a key that names one of the
+                function's own keyword-bindable parameters. The schema allows it, but no Python
+                call expresses it.
         """
         positional_args: list[Any] = []
         keyword_args: dict[str, Any] = {}
         seen_var_positional = False
+        # Read instance storage first so Pydantic properties such as ``model_extra``
+        # and ``model_fields_set`` do not shadow tool parameters of the same name.
+        # ``model_dump()`` is unsuitable here because it converts nested models to dicts.
+        instance_values = object.__getattribute__(data, "__dict__")
 
         # Use enumerate() so we can skip the first parameter if it's context.
         for idx, (name, param) in enumerate(self.signature.parameters.items()):
@@ -58,14 +67,16 @@ class FuncSchema:
             if self.takes_context and idx == 0:
                 continue
 
-            value = getattr(data, name, None)
+            value = instance_values[name] if name in instance_values else getattr(data, name, None)
             if param.kind == param.VAR_POSITIONAL:
                 # e.g. *args: extend positional args and mark that *args is now seen
                 positional_args.extend(value or [])
                 seen_var_positional = True
             elif param.kind == param.VAR_KEYWORD:
                 # e.g. **kwargs handling
-                keyword_args.update(value or {})
+                var_keyword_values = value or {}
+                self._raise_on_var_keyword_collisions(name, var_keyword_values)
+                keyword_args.update(var_keyword_values)
             elif param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
                 # Before *args, add to positional args. After *args, add to keyword args.
                 if not seen_var_positional:
@@ -76,6 +87,37 @@ class FuncSchema:
                 # For KEYWORD_ONLY parameters, always use keyword args.
                 keyword_args[name] = value
         return positional_args, keyword_args
+
+    def _raise_on_var_keyword_collisions(
+        self, var_keyword_name: str, var_keyword_values: dict[str, Any]
+    ) -> None:
+        """Reject ``**kwargs`` keys that name a parameter the call already binds by name.
+
+        ``**kwargs`` is splatted last, so such a key either replaces the value the model
+        supplied for that parameter -- and Pydantic validated -- or makes the call fail with
+        "got multiple values for argument". Neither is what the schema promised, so treat it
+        as model misbehavior and say which keys clashed.
+
+        Positional-only parameters and ``*args`` are deliberately not reserved: for
+        ``def f(a, /, **kw)``, the call ``f(1, a=2)`` is legal and routes ``a=2`` into ``kw``.
+        The names below only ever reveal the tool's own signature, which the model already
+        has, so they are safe to name even when tool data is redacted.
+        """
+        reserved_names = {
+            name
+            for name, param in self.signature.parameters.items()
+            if param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+        }
+        conflicts = sorted(reserved_names.intersection(var_keyword_values))
+        if not conflicts:
+            return
+
+        conflict_list = ", ".join(repr(conflict) for conflict in conflicts)
+        raise ModelBehaviorError(
+            f"Invalid arguments for tool {self.name}: {conflict_list} "
+            f"{'is' if len(conflicts) == 1 else 'are'} both a named parameter and a key in "
+            f"'{var_keyword_name}'. Pass each argument once, as a named parameter."
+        )
 
 
 @dataclass
@@ -391,19 +433,34 @@ def function_schema(
         # If a docstring param description exists, use it
         field_description = param_descs.get(name, None)
 
+        value_ann = ann
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            field_info = _extract_field_info_from_metadata(param_metadata.get(name, ()))
+            if field_info is not None and field_info.metadata:
+                # Constraints apply to each value, not the collected container or its defaults.
+                value_ann = Annotated[(ann, *cast(Any, field_info).metadata)]
+
         # Handle different parameter kinds
         if param.kind == param.VAR_POSITIONAL:
             # e.g. *args: extend positional args
             if get_origin(ann) is tuple:
-                # e.g. def foo(*args: tuple[int, ...]) -> treat as List[int]
+                # Preserve a homogeneous tuple as the type of each positional argument.
                 args_of_tuple = get_args(ann)
                 if len(args_of_tuple) == 2 and args_of_tuple[1] is Ellipsis:
-                    ann = list[args_of_tuple[0]]  # type: ignore
+                    ann = list[value_ann]  # type: ignore
+                # tuple[()] parameterizes an empty tuple and reports no args, while a bare
+                # typing.Tuple is unparameterized and carries no element type to reject.
+                elif hasattr(ann, "__args__"):
+                    raise UserError(
+                        f"Variadic parameter `*{name}` in function {func.__name__} is annotated"
+                        f" with the fixed-length tuple `{ann}`. A variadic annotation describes"
+                        " each positional argument, so use tuple[T, ...] or list[T] instead."
+                    )
                 else:
                     ann = list[Any]
             else:
                 # If user wrote *args: int, treat as List[int]
-                ann = list[ann]  # type: ignore
+                ann = list[value_ann]  # type: ignore
 
             # Default factory to empty list
             fields[name] = (
@@ -412,17 +469,12 @@ def function_schema(
             )
 
         elif param.kind == param.VAR_KEYWORD:
-            # **kwargs handling
-            if get_origin(ann) is dict:
-                # e.g. def foo(**kwargs: dict[str, int])
-                dict_args = get_args(ann)
-                if len(dict_args) == 2:
-                    ann = dict[dict_args[0], dict_args[1]]  # type: ignore
-                else:
-                    ann = dict[str, Any]
-            else:
-                # e.g. def foo(**kwargs: int) -> Dict[str, int]
-                ann = dict[str, ann]  # type: ignore
+            # **kwargs handling: a ``**kwargs: X`` annotation applies to each keyword *value*
+            # (PEP 484), so the collected container is always ``dict[str, X]``. Preserve the full
+            # annotation as the value type -- mirroring the variadic-positional handling above,
+            # where ``*args: X`` becomes ``list[X]`` (see #4655). A bare ``**kwargs`` has ``ann``
+            # set to ``Any`` above, yielding ``dict[str, Any]``.
+            ann = dict[str, value_ann]  # type: ignore
 
             fields[name] = (
                 ann,

@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import difflib
 import importlib
+import os
 import sys
 import time
 
@@ -51,20 +52,20 @@ GROUPS = {
 COMMANDS = [
     # Package Management (13)
     ("install",     "pkg", "pkg", "Install a skill from a tap registry"),
-    ("uninstall",   "pkg", "pkg", "Remove an installed skill, rule, workflow, or config"),
+    ("uninstall",   "pkg", "pkg", "Remove an installed skill, rule, or workflow"),
     ("sync",        "pkg", "pkg", "Reconcile installed skills & symlinks against the lock file"),
     ("update",      "pkg", "pkg", "Sync taps or update installed skills"),
-    ("reinstall",   "pkg", "pkg", "Reinstall a skill or all skills (force)"),
+    ("reinstall",   "pkg", "pkg", "Reinstall a skill, rule or workflow (force)"),
     ("bundle",      "pkg", "pkg", "Export/install skill sets via a Boostfile"),
     ("import",      "pkg", "pkg", "Import skills from a GitHub URL or local path"),
-    ("pin",         "pkg", "pkg", "Pin a skill to its current version"),
-    ("unpin",       "pkg", "pkg", "Allow a pinned skill to update again"),
+    ("pin",         "pkg", "pkg", "Pin a skill, rule or workflow to its current version"),
+    ("unpin",       "pkg", "pkg", "Allow a pinned skill, rule or workflow to update again"),
     ("snapshot",    "pkg", "pkg", "Save & restore whole skill environments"),
     ("export",      "pkg", "pkg", "Package skills as shareable zip/tar archives"),
-    ("adapt",       "pkg", "pkg", "Render a skill as another framework's agent source (CrewAI, Agents SDK)"),
+    ("adapt",       "pkg", "pkg", "Render a skill as another framework's agent source (CrewAI, Agents SDK, LangGraph)"),
     ("run",         "pkg", "run", "Adapt a skill, wire tools & run it as a live agent"),
     # Discovery & Search (9)
-    ("search",      "find", "discovery", "Search skills across tap registries (AI-ranked)"),
+    ("search",      "find", "discovery", "Search skills across tap registries (BM25; --smart reranks with Claude)"),
     ("reindex",     "find", "discovery", "Build/refresh the full-content search index"),
     ("discover",    "find", "discovery", "Search GitHub for skill repos you have not tapped yet"),
     ("recommend",   "find", "discovery", "Suggest skills based on your project's tech stack"),
@@ -85,10 +86,10 @@ COMMANDS = [
     ("deps",        "info", "info", "Show dependency & conflict relationships"),
     ("tag",         "info", "info", "Custom labels for organizing skills"),
     # Registry (Taps) (5)
-    ("tap",         "tap", "taps", "Add a GitHub repo as a skill registry"),
+    ("tap",         "tap", "taps", "Add a git URL, GitHub repo, or local directory as a skill registry"),
     ("untap",       "tap", "taps", "Remove a registry tap"),
     ("taps",        "tap", "taps", "List all configured registry taps"),
-    ("outdated",    "tap", "taps", "Show skills with available updates"),
+    ("outdated",    "tap", "taps", "Show skills, rules & workflows with available updates"),
     ("catalog",     "tap", "taps", "Share the tapped catalogue so others skip the clone"),
     # Intelligence (9)
     ("chat",        "ai", "intelligence", "Ask about skills in plain language (RAG-grounded)"),
@@ -99,7 +100,7 @@ COMMANDS = [
     ("evolve",      "ai", "intelligence", "Iteratively improve a skill from feedback"),
     ("context",     "ai", "intelligence", "Branch-aware skill activation"),
     ("focus",       "ai", "intelligence", "Temporarily prioritize skills for a work session"),
-    ("impact",      "ai", "intelligence", "Measure a skill's influence on code quality"),
+    ("impact",      "ai", "intelligence", "Correlate a skill's install date with repo activity"),
     # Quality & Health (15)
     ("doctor",      "chk", "quality", "Check installation health & report issues"),
     ("lint",        "chk", "quality", "Validate SKILL.md frontmatter & quality"),
@@ -108,7 +109,7 @@ COMMANDS = [
     ("drift",       "chk", "quality", "Detect installed skills diverging from source"),
     ("test",        "chk", "quality", "Validate installed skills against quality checks"),
     ("fingerprint", "chk", "quality", "Deterministic hash of the skill environment"),
-    ("quarantine",  "chk", "safety", "Isolate a problematic skill without uninstalling"),
+    ("quarantine",  "chk", "safety", "Isolate a problematic skill, rule or workflow without uninstalling"),
     ("decay",       "chk", "quality", "Flag skills irrelevant to your current stack"),
     ("heal",        "chk", "quality", "Self-diagnose & repair the boost environment"),
     ("conflict",    "chk", "quality", "Detect contradictory rules between skills"),
@@ -123,11 +124,11 @@ COMMANDS = [
     ("compact",     "cfg", "configuration", "Shrink tap clones to the files boost indexes"),
     ("create",      "cfg", "configuration", "Scaffold a new skill from a template"),
     ("policy",      "cfg", "configuration", "Manage & enforce skill governance policies"),
-    ("onboard",     "cfg", "configuration", "Add skill-tracker telemetry to a repo & open a PR"),
+    ("onboard",     "cfg", "configuration", "Add skill-tracker telemetry to a repo (optionally open a PR with --pr)"),
     ("completions", "cfg", "configuration", "Generate shell tab-completion scripts"),
     ("schedule",    "cfg", "configuration", "Manage automatic skill-sync scheduling"),
     ("serve",       "cfg", "configuration", "Browse the catalogue in a browser: search, facets and a tap graph"),
-    ("mcp",         "cfg", "configuration", "Register boost as an MCP server (Claude Code, Gemini CLI)"),
+    ("mcp",         "cfg", "configuration", "Register boost as an MCP server (Claude Code, Gemini CLI, Antigravity CLI)"),
     ("hooks",       "cfg", "hooks", "Manage agent hooks (Claude Code, Gemini CLI) in settings.json"),
     ("bmad",        "cfg", "bmad", "BMAD Method autopilot — `bmad on` routes every task to a persona"),
     ("self-update", "cfg", "configuration", "Update boost itself to the latest version"),
@@ -195,6 +196,9 @@ def print_help() -> None:
     else:
         print(usage)
         print("  " + detail)
+    print(out.c(
+        "Options:  -V/--version   -v/--verbose   --debug   -q/--quiet",
+        out.DIM))
 
     width = max(len(n) for n, _, _, _ in COMMANDS)
     for idx, (gkey, (_icon, title, desc)) in enumerate(GROUPS.items()):
@@ -220,6 +224,21 @@ def print_help() -> None:
 
 
 def print_command_help(name: str) -> int:
+    # `main`'s own aliases (-h/--help, -V/--version/version, help itself)
+    # never appear in COMMANDS, so `boost help --help` used to fall straight
+    # into `_unknown` and get difflib-guessed at an unrelated command
+    # (`--help` -> "heal", `version` -> "verify"). Resolve them the same way
+    # `main` does before treating the name as an unrecognized command.
+    if name in ("-h", "--help"):
+        print_help()
+        return 0
+    if name in ("-V", "--version", "version"):
+        print_version()
+        return 0
+    if name == "help":
+        print(out.c("boost help [COMMAND]", out.BOLD)
+              + " — show this index, or one command's own --help")
+        return 0
     meta = resolve(name)
     if not meta:
         return _unknown(name)
@@ -237,6 +256,13 @@ def _crash_hint(report) -> str:
 
 
 def _unknown(name: str) -> int:
+    # A dash-prefixed token is a mistyped flag, not a command guess — nothing
+    # in _BY_NAME is a plausible correction for e.g. `--hepl`, and guessing
+    # one anyway ("did you mean: heal?") reads as a wrong command suggestion
+    # rather than what actually happened.
+    if name.startswith("-"):
+        out.err("unknown option: %s" % name, hint="see `boost --help`")
+        return 2
     close = difflib.get_close_matches(name, list(_BY_NAME), n=3)
     out.err("unknown command: %s" % name,
             hint=("did you mean: %s?" % ", ".join(close)) if close
@@ -286,6 +312,102 @@ def _extract_globals(argv: list[str]) -> tuple[dict, list[str]]:
     return opts, argv[i:]
 
 
+def _seal_broken_stdout() -> None:
+    """Stop CPython's own exit-time flush from re-raising BrokenPipeError.
+
+    A downstream reader closing early (``boost --help | head``) does not
+    raise the moment boost prints — small writes fit the pipe's kernel buffer
+    and succeed silently, so the error only surfaces on the next explicit
+    flush. Left unhandled it surfaces on the *interpreter's own* final flush
+    of stdout at shutdown, which happens outside any of boost's try/except
+    blocks: Python prints "Exception ignored on flushing sys.stdout:
+    BrokenPipeError" straight to stderr and the process exits non-zero.
+    Redirecting the fd to devnull means that final flush lands somewhere
+    that cannot raise.
+    """
+    with contextlib.suppress(Exception):
+        sys.stdout.flush()
+    with contextlib.suppress(Exception):
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull, sys.stdout.fileno())
+        finally:
+            os.close(devnull)
+
+
+def _route(argv: list[str]) -> int:
+    try:
+        if not argv or argv[0] in ("-h", "--help"):
+            print_help()
+            return 0
+        if argv[0] in ("-V", "--version", "version"):
+            print_version()
+            return 0
+        if argv[0] == "help":
+            if len(argv) > 1:
+                return print_command_help(argv[1])
+            print_help()
+            return 0
+        name, rest = argv[0], argv[1:]
+        if name in _PLUMBING:
+            # Before the _BY_NAME guard (it is not a command) and before
+            # log_invocation: this runs on every TAB, and logging a line per
+            # keystroke would bury the diagnostic log in completion noise.
+            return _PLUMBING[name](rest)
+        if name not in _BY_NAME:
+            return _unknown(name)
+        logs.log_invocation([name, *rest])
+        start = time.perf_counter()
+        rc = 70  # assume the worst until a handler proves otherwise
+        try:
+            rc = _dispatch(name, rest)
+            return rc
+        except BoostError as e:
+            logs.get_logger().info("BoostError: %s", e.message)
+            rc = 1
+            out.err(e.message, hint=e.hint)
+            return rc
+        except KeyboardInterrupt:
+            logs.get_logger().debug("interrupted by user")
+            rc = 130
+            print()
+            return rc
+        except BrokenPipeError:
+            # Reclassify before `except Exception` below can mistake a
+            # closed pipe for a crash and write a spurious crash report.
+            rc = 0
+            return rc
+        except SystemExit as e:
+            # argparse (--help, usage errors) exits via SystemExit, which is
+            # a BaseException and so skips the `except Exception` below
+            # entirely — left uncaught, the trail journaled the preset rc=70
+            # for every benign --help and usage exit instead of the real 0
+            # or 2.
+            code = e.code
+            rc = 0 if code is None else code if isinstance(code, int) else 1
+            raise
+        except Exception as e:
+            report = logs.write_crash_report(e, [name, *rest])
+            if logs.is_debug():
+                raise
+            out.err("boost hit an unexpected error: %s: %s"
+                    % (type(e).__name__, e),
+                    hint=_crash_hint(report))
+            return 70  # EX_SOFTWARE
+        finally:
+            # Bookend every invocation with its exit code + duration, even
+            # when the --debug path re-raises the traceback above.
+            logs.log_completion([name, *rest], rc,
+                                (time.perf_counter() - start) * 1000)
+    finally:
+        # Force any buffered output through now, still inside `main`'s own
+        # BrokenPipeError handler below — a `--help`/`--version`/`count`
+        # write that merely fit the pipe's buffer never raised above, and
+        # would otherwise wait until the unhandled, uncatchable flush at
+        # interpreter shutdown to report the broken pipe.
+        sys.stdout.flush()
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     out.harden_console_encoding()
@@ -297,64 +419,12 @@ def main(argv: list[str] | None = None) -> int:
     opts, argv = _extract_globals(argv)
     logs.configure(verbose=opts["verbose"], debug=opts["debug"],
                    quiet=opts["quiet"])
-    if not argv or argv[0] in ("-h", "--help"):
-        print_help()
-        return 0
-    if argv[0] in ("-V", "--version", "version"):
-        print_version()
-        return 0
-    if argv[0] == "help":
-        if len(argv) > 1:
-            return print_command_help(argv[1])
-        print_help()
-        return 0
-    name, rest = argv[0], argv[1:]
-    if name in _PLUMBING:
-        # Before the _BY_NAME guard (it is not a command) and before
-        # log_invocation: this runs on every TAB, and logging a line per
-        # keystroke would bury the diagnostic log in completion noise.
-        return _PLUMBING[name](rest)
-    if name not in _BY_NAME:
-        return _unknown(name)
-    logs.log_invocation([name, *rest])
-    start = time.perf_counter()
-    rc = 70  # assume the worst until a handler proves otherwise
     try:
-        rc = _dispatch(name, rest)
-        return rc
-    except BoostError as e:
-        logs.get_logger().info("BoostError: %s", e.message)
-        rc = 1
-        out.err(e.message, hint=e.hint)
-        return rc
-    except KeyboardInterrupt:
-        logs.get_logger().debug("interrupted by user")
-        rc = 130
-        print()
-        return rc
+        return _route(argv)
     except BrokenPipeError:
-        with contextlib.suppress(Exception):
-            sys.stdout.close()
-        rc = 0
-        return rc
-    except SystemExit as e:
-        # argparse (--help, usage errors) exits via SystemExit, which is a
-        # BaseException and so skips the `except Exception` below entirely —
-        # left uncaught, the trail journaled the preset rc=70 for every
-        # benign --help and usage exit instead of the real 0 or 2.
-        code = e.code
-        rc = 0 if code is None else code if isinstance(code, int) else 1
-        raise
-    except Exception as e:
-        report = logs.write_crash_report(e, [name, *rest])
-        if logs.is_debug():
-            raise
-        out.err("boost hit an unexpected error: %s: %s"
-                % (type(e).__name__, e),
-                hint=_crash_hint(report))
-        return 70  # EX_SOFTWARE
-    finally:
-        # Bookend every invocation with its exit code + duration, even when the
-        # --debug path re-raises the traceback above.
-        logs.log_completion([name, *rest], rc,
-                            (time.perf_counter() - start) * 1000)
+        # Covers the early-return paths above (`--help`, `--version`,
+        # `help`, `__complete`) that have no try/except of their own, plus
+        # the final flush in `_route`'s own `finally` surfacing a pipe error
+        # the dispatch path's flush-free writes didn't.
+        _seal_broken_stdout()
+        return 0

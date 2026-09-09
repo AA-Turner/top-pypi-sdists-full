@@ -50,6 +50,7 @@ from agents.models.chatcmpl_stream_handler import (
 from agents.models.interface import ModelTracing
 from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
 from agents.models.openai_provider import OpenAIProvider
+from agents.tracing import get_current_span
 from tests.testing_processor import fetch_ordered_spans
 from tests.utils.simple_session import SimpleListSession
 
@@ -83,11 +84,15 @@ async def _completion_stream(
 async def _collect_handler_events(
     *chunks: ChatCompletionChunk,
     model: str | None = None,
+    raise_on_length_truncation: bool = False,
 ) -> list[Any]:
     return [
         event
         async for event in ChatCmplStreamHandler.handle_stream(
-            _empty_response(), cast(Any, _completion_stream(*chunks)), model=model
+            _empty_response(),
+            cast(Any, _completion_stream(*chunks)),
+            model=model,
+            raise_on_length_truncation=raise_on_length_truncation,
         )
     ]
 
@@ -3781,6 +3786,149 @@ async def test_buffer_tool_call_stream_forwards_content_filter_finish_reason() -
 
 
 @pytest.mark.asyncio
+async def test_handler_stream_raises_on_length_truncation() -> None:
+    """A stream that terminates with finish_reason == "length" and no emitted
+    content must raise ModelBehaviorError instead of manufacturing a refusal,
+    matching the non-streaming path, when the internal option is enabled."""
+    terminal = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(), finish_reason="length")],
+    )
+
+    with pytest.raises(ModelBehaviorError, match="finish_reason='length'"):
+        await _collect_handler_events(terminal, raise_on_length_truncation=True)
+
+
+@pytest.mark.asyncio
+async def test_handler_stream_length_is_ignored_without_internal_option() -> None:
+    """Without the internal option, a length terminal with no output must keep the
+    released behavior: no error and no refusal synthesis (an empty turn).
+
+    The shared handler also serves LiteLLM and AnyLLM, so the length-error behavior
+    must be opt-in rather than changing those providers' streaming output.
+    """
+    terminal = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(), finish_reason="length")],
+    )
+
+    output_events = await _collect_handler_events(terminal)
+
+    assert "response.refusal.delta" not in [e.type for e in output_events]
+    completed_event = output_events[-1]
+    assert isinstance(completed_event, ResponseCompletedEvent)
+    assert completed_event.response.output == []
+
+
+@pytest.mark.asyncio
+async def test_handler_stream_length_does_not_clobber_text() -> None:
+    """A length finish_reason arriving after real text was streamed must not
+    synthesize a refusal."""
+    chunk1 = _chunk_with([Choice(index=0, delta=ChoiceDelta(content="answer"))])
+    chunk2 = _chunk_with([Choice(index=0, delta=ChoiceDelta(), finish_reason="length")])
+
+    output_events = await _collect_handler_events(chunk1, chunk2, raise_on_length_truncation=True)
+
+    assert "response.refusal.delta" not in [e.type for e in output_events]
+    completed_event = output_events[-1]
+    assert isinstance(completed_event, ResponseCompletedEvent)
+    assistant_msg = completed_event.response.output[0]
+    assert isinstance(assistant_msg, ResponseOutputMessage)
+    text_part = assistant_msg.content[0]
+    assert isinstance(text_part, ResponseOutputText)
+    assert text_part.text == "answer"
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_buffered_stream_raises_on_length_truncation(monkeypatch) -> None:
+    """With tool-call buffering enabled, a stream that terminates with
+    finish_reason == "length" and no emitted content must still raise
+    ModelBehaviorError, mirroring the non-buffered behavior."""
+    chunk1 = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(role="assistant", content=""))],
+    )
+    chunk2 = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(), finish_reason="length")],
+        usage=CompletionUsage(completion_tokens=0, prompt_tokens=7, total_tokens=7),
+    )
+
+    with pytest.raises(ModelBehaviorError, match="finish_reason='length'"):
+        await _buffered_stream_events(monkeypatch, [chunk1, chunk2])
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_buffered_stream_length_does_not_clobber_text(monkeypatch) -> None:
+    """A length finish_reason arriving after real text was streamed must not
+    synthesize a refusal, even with buffering enabled."""
+    chunk1 = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(content="answer"))],
+    )
+    chunk2 = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(), finish_reason="length")],
+        usage=CompletionUsage(completion_tokens=1, prompt_tokens=7, total_tokens=8),
+    )
+
+    output_events = await _buffered_stream_events(monkeypatch, [chunk1, chunk2])
+
+    assert "response.refusal.delta" not in [e.type for e in output_events]
+    completed_event = output_events[-1]
+    assert isinstance(completed_event, ResponseCompletedEvent)
+    assistant_msg = completed_event.response.output[0]
+    assert isinstance(assistant_msg, ResponseOutputMessage)
+    text_part = assistant_msg.content[0]
+    assert isinstance(text_part, ResponseOutputText)
+    assert text_part.text == "answer"
+
+
+@pytest.mark.asyncio
+async def test_buffer_tool_call_stream_forwards_length_finish_reason() -> None:
+    """The buffering layer must forward a length-truncated terminal choice even
+    though its delta is empty, so the finish_reason reaches the handler instead
+    of being swallowed (mirrors the content_filter forwarding behavior)."""
+    chunks = [
+        _chunk_with([Choice(index=0, delta=ChoiceDelta(content=""))]),
+        _chunk_with([Choice(index=0, delta=ChoiceDelta(), finish_reason="length")]),
+    ]
+
+    async def source() -> AsyncIterator[ChatCompletionChunk]:
+        for chunk in chunks:
+            yield chunk
+
+    buffered = [c async for c in ChatCmplStreamHandler.buffer_tool_call_stream(source())]
+
+    terminal_choices = [
+        choice for chunk in buffered for choice in chunk.choices if choice.finish_reason == "length"
+    ]
+    assert len(terminal_choices) == 1
+    # The forwarded copy carries no delta output.
+    assert not ChatCmplStreamHandler._delta_has_passthrough_output(terminal_choices[0].delta)
+
+
+@pytest.mark.asyncio
 async def test_buffer_tool_call_stream_does_not_duplicate_tool_calls_finish() -> None:
     """finish_reason == "tool_calls" is still emitted only by the synthesized
     buffered chunk, so the terminal choice is not forwarded twice."""
@@ -4179,16 +4327,29 @@ async def test_streamed_span_records_the_request_when_provider_omits_usage(monke
 
 @pytest.mark.allow_call_model_methods
 @pytest.mark.asyncio
+@pytest.mark.parametrize("with_usage", [False, True], ids=["no-usage", "detailed-usage"])
+@pytest.mark.parametrize("tracing", [ModelTracing.ENABLED, ModelTracing.ENABLED_WITHOUT_DATA])
 async def test_stream_span_is_recorded_for_a_consumer_that_stops_at_the_terminal_event(
-    monkeypatch,
+    monkeypatch, with_usage: bool, tracing: ModelTracing
 ) -> None:
     """A caller that stops at `response.completed` closes the generator.
 
     Anything recorded only after the yield loop never runs for such a consumer, so the span
     has to be populated before the terminal event is handed out.
     """
+    usage = (
+        CompletionUsage(
+            completion_tokens=5,
+            prompt_tokens=7,
+            total_tokens=12,
+            prompt_tokens_details=PromptTokensDetails(cached_tokens=2),
+            completion_tokens_details=CompletionTokensDetails(reasoning_tokens=3),
+        )
+        if with_usage
+        else None
+    )
     monkeypatch.setattr(
-        OpenAIChatCompletionsModel, "_fetch_response", _usageless_stream_patch(usage=None)
+        OpenAIChatCompletionsModel, "_fetch_response", _usageless_stream_patch(usage=usage)
     )
     model = OpenAIProvider(use_responses=False).get_model("gpt-4")
 
@@ -4200,17 +4361,169 @@ async def test_stream_span_is_recorded_for_a_consumer_that_stops_at_the_terminal
             tools=[],
             output_schema=None,
             handoffs=[],
-            tracing=ModelTracing.ENABLED,
+            tracing=tracing,
             previous_response_id=None,
             conversation_id=None,
             prompt=None,
         )
         stream_agen = cast(Any, stream)
-        async for event in stream_agen:
-            if event.type == "response.completed":
-                break  # stop consuming, as a caller watching for the terminal event would
-        await stream_agen.aclose()
+        try:
+            async for event in stream_agen:
+                if event.type == "response.completed":
+                    generation = get_current_span()
+                    assert generation is not None
+                    assert generation.span_data.usage == {
+                        "requests": 1,
+                        "input_tokens": 7 if with_usage else 0,
+                        "output_tokens": 5 if with_usage else 0,
+                        "total_tokens": 12 if with_usage else 0,
+                        "input_tokens_details": {
+                            "cached_tokens": 2 if with_usage else 0,
+                            "cache_write_tokens": 0,
+                        },
+                        "output_tokens_details": {"reasoning_tokens": 3 if with_usage else 0},
+                    }
+                    assert generation.span_data.output == (
+                        [event.response.model_dump()] if tracing == ModelTracing.ENABLED else None
+                    )
+                    assert (event.response.usage is not None) == with_usage
+                    break
+            else:
+                pytest.fail("The stream did not yield a completed response.")
+        finally:
+            await stream_agen.aclose()
 
     generation = next(s for s in fetch_ordered_spans() if s.span_data.type == "generation")
     assert generation.span_data.usage is not None
     assert generation.span_data.usage["requests"] == 1
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_streamed_span_preserves_usage_on_length_truncation(monkeypatch) -> None:
+    """A stream terminated by finish_reason == "length" with no output raises
+    ModelBehaviorError, but the request and reported token usage must still be
+    preserved on the generation span before the error surfaces."""
+
+    def _length_stream_patch():
+        chunk = ChatCompletionChunk(
+            id="chunk-id",
+            created=1,
+            model="fake",
+            object="chat.completion.chunk",
+            choices=[Choice(index=0, delta=ChoiceDelta(), finish_reason="length")],
+            usage=CompletionUsage(
+                completion_tokens=0,
+                prompt_tokens=7,
+                total_tokens=7,
+                prompt_tokens_details=PromptTokensDetails(cached_tokens=2),
+            ),
+        )
+
+        async def fake_stream() -> AsyncIterator[ChatCompletionChunk]:
+            yield chunk
+
+        async def patched_fetch_response(self, *args, **kwargs):
+            resp = Response(
+                id="resp-id",
+                created_at=0,
+                model="fake-model",
+                object="response",
+                output=[],
+                tool_choice="none",
+                tools=[],
+                parallel_tool_calls=False,
+            )
+            return resp, fake_stream()
+
+        return patched_fetch_response
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", _length_stream_patch())
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    with trace(workflow_name="stream-length-truncation"):
+        with pytest.raises(ModelBehaviorError, match="finish_reason='length'"):
+            async for _ in model.stream_response(
+                system_instructions=None,
+                input="",
+                model_settings=ModelSettings(),
+                tools=[],
+                output_schema=None,
+                handoffs=[],
+                tracing=ModelTracing.ENABLED,
+                previous_response_id=None,
+                conversation_id=None,
+                prompt=None,
+            ):
+                pass
+
+    generation = next(s for s in fetch_ordered_spans() if s.span_data.type == "generation")
+    exported_span = generation.export()
+    assert exported_span is not None
+    assert exported_span["error"] is not None
+    assert generation.span_data.usage is not None
+    assert generation.span_data.usage["requests"] == 1
+    assert generation.span_data.usage["input_tokens"] == 7
+    assert generation.span_data.usage["total_tokens"] == 7
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_streamed_span_counts_request_on_length_truncation_without_usage(
+    monkeypatch,
+) -> None:
+    """When the provider omits usage, a length-truncated empty completion still
+    counts the request on the generation span (tokens stay at zero), mirroring
+    the non-streaming path."""
+
+    def _length_stream_patch():
+        chunk = ChatCompletionChunk(
+            id="chunk-id",
+            created=1,
+            model="fake",
+            object="chat.completion.chunk",
+            choices=[Choice(index=0, delta=ChoiceDelta(), finish_reason="length")],
+            usage=None,
+        )
+
+        async def fake_stream() -> AsyncIterator[ChatCompletionChunk]:
+            yield chunk
+
+        async def patched_fetch_response(self, *args, **kwargs):
+            resp = Response(
+                id="resp-id",
+                created_at=0,
+                model="fake-model",
+                object="response",
+                output=[],
+                tool_choice="none",
+                tools=[],
+                parallel_tool_calls=False,
+            )
+            return resp, fake_stream()
+
+        return patched_fetch_response
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", _length_stream_patch())
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    with trace(workflow_name="stream-length-no-usage"):
+        with pytest.raises(ModelBehaviorError, match="finish_reason='length'"):
+            async for _ in model.stream_response(
+                system_instructions=None,
+                input="",
+                model_settings=ModelSettings(),
+                tools=[],
+                output_schema=None,
+                handoffs=[],
+                tracing=ModelTracing.ENABLED,
+                previous_response_id=None,
+                conversation_id=None,
+                prompt=None,
+            ):
+                pass
+
+    generation = next(s for s in fetch_ordered_spans() if s.span_data.type == "generation")
+    assert generation.span_data.usage is not None
+    assert generation.span_data.usage["requests"] == 1
+    assert generation.span_data.usage["total_tokens"] == 0

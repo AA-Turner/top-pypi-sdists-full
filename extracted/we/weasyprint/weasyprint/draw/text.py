@@ -134,7 +134,6 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
             textbox.pango_layout.set_text(new_text + ellipsis)
             first_line, index = textbox.pango_layout.get_first_line()
 
-    utf8_text = textbox.pango_layout.text.encode()
     stream.set_text_matrix(*matrix.values)
     previous_pango_font = None
     string = ''
@@ -147,16 +146,9 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
         run = run.next
         glyph_string = glyph_item.glyphs
         glyphs_info = glyph_string.glyphs
-        number_of_glyphs = glyph_string.num_glyphs
-        offset = glyph_item.item.offset
+        num_glyphs = glyph_string.num_glyphs
         clusters = glyph_string.log_clusters
-
-        # Get positions of the glyphs in the UTF-8 string.
-        utf8_positions = [offset + clusters[i] for i in range(number_of_glyphs)]
-        if glyph_item.item.analysis.level % 2:
-            utf8_positions.insert(0, offset + glyph_item.item.length)  # rtl
-        else:
-            utf8_positions.append(offset + glyph_item.item.length)  # ltr
+        utf8_text = None
 
         pango_font = glyph_item.item.analysis.font
         if pango_font != previous_pango_font:
@@ -165,7 +157,8 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
             font, font_size = stream.add_font(pango_font)
 
             # Workaround for https://gitlab.gnome.org/GNOME/pango/-/issues/530.
-            if pango.pango_version() < 14802:
+            # This is also needed by raster emoji fonts, see #2800.
+            if pango.pango_version() < 14802 or font.png:
                 font_size = textbox.style['font_size']
 
             # Go through the run glyphs.
@@ -174,8 +167,7 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
             string = ''
             stream.set_font_size(font.hash, 1 if font.bitmap else font_size)
         string += '<'
-        for i in range(number_of_glyphs):
-            glyph_info = glyphs_info[i]
+        for i, glyph_info in enumerate(glyphs_info[0:num_glyphs]):
             glyph_id = glyph_info.glyph
             width = glyph_info.geometry.width
 
@@ -189,7 +181,7 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
                 codepoint = glyph_id - pango.PANGO_GLYPH_UNKNOWN_FLAG
                 LOGGER.warning(
                     '.notdef glyph rendered for Unicode string unsupported by fonts: '
-                    f'"{chr(codepoint)}" (U+{codepoint:04X})')
+                    '"%s" (U+%04X)', chr(codepoint), codepoint)
                 glyph_id = font.get_unused_glyph_id(codepoint)
                 font.widths[glyph_id] = round(width * 1000 * FROM_UNITS / font_size)
                 if 0 not in font.widths:
@@ -200,8 +192,15 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
 
             # Create mapping between glyphs and Unicode codepoints.
             if glyph_id not in font.to_unicode:
-                utf8_slice = slice(*sorted(utf8_positions[i:i+2]))
-                font.to_unicode[glyph_id] = utf8_text[utf8_slice].decode()
+                # Get positions of the glyph in the UTF-8 string.
+                offset = glyph_item.item.offset
+                t1 = clusters[i]
+                if glyph_item.item.analysis.level % 2:  # rtl
+                    t2 = glyph_item.item.length if i == 0 else clusters[i-1]
+                else:
+                    t2 = glyph_item.item.length if i == num_glyphs-1 else clusters[i+1]
+                utf8_text = utf8_text or textbox.pango_layout.text.encode()
+                font.to_unicode[glyph_id] = utf8_text[offset+t1:offset+t2].decode()
 
             # Set horizontal and vertical offsets.
             offset = glyph_info.geometry.x_offset / font_size
@@ -211,7 +210,8 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
                     string = string[:-1]
                 else:
                     string += '>'
-                stream.show_text(string)
+                if string:
+                    stream.show_text(string)
                 stream.set_text_rise(-rise)
                 string = ''
                 if offset:
@@ -273,6 +273,14 @@ def draw_first_line(stream, textbox, text_overflow, block_ellipsis, matrix):
                     f = -stream.logical_rect.y
                     f = f * FROM_UNITS / font_size - font_size
                     emojis.append([image, font, a, d, x_advance, f])
+            elif font.colr:
+                svg_data = get_hb_object_data(font.hb_font, 'colr', glyph_id)
+                if svg_data:
+                    tree = ElementTree.fromstring(svg_data)
+                    image = SVGImage(tree, None, None, None)
+                    a = d = 1
+                    e = x_advance - kerning
+                    emojis.append([image, font, a, d, e, -textbox.baseline])
 
             x_advance += (logical_width + offset - kerning) / 1000
 

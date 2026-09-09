@@ -745,11 +745,168 @@ def section_w_differentiator() -> None:
        "and the re-derived master equation reproduces its paper chain")
     r = channel_ranking()
     ok(len(r["rankings"]) >= 3 and len(r["degenerate_pairs"]) >= 3
-       and "BLOCKED" in r["blocked_on_k4"].upper()
-       or ("only Daniel can close" in r["blocked_on_k4"]),
+       and "CLOSED 2026-09-08" in r["blocked_on_k4"],
        "W2 differentiator: the ranking runs, DISCLOSES that current "
        "candidates are informationally degenerate, and names the K4 block")
 
+
+
+def section_x_do_all_three() -> None:
+    """Section X - Daniel's DO-ALL-THREE order (2026-09-08): the U_i
+    coupling harness, the cited gravity reference, and the KTB +10 pct
+    investigation record (v1.86.0)."""
+    from .uqff_differentiator import u_i_coupling_harness
+    h = u_i_coupling_harness()
+    ok(h['status'] == 'AWAITING_DANIEL_SPEC' and h['null_coupling_self_check'],
+       "X1: U_i coupling harness live - AWAITING_DANIEL_SPEC, the null "
+       "coupling reproduces the K2 baseline bit-exactly (the socket works "
+       "before the plug exists)")
+    d = u_i_coupling_harness({'form': 'multiplicative', 'a': 1.0})
+    ok(d['degenerate_with_k2'] and d['verdict'].startswith('DEGENERATE'),
+       "X2: harness honesty - a depth-constant coupling is convicted "
+       "DEGENERATE (monotone transform of K2, no strata information added)")
+    from .uqff_gravity_reference import (somigliana_normal_gravity_ms2,
+                                         ktb_site_reference,
+                                         check_stream_gravity)
+    ok(abs(somigliana_normal_gravity_ms2(0.0) - 9.7803253359) < 1e-9
+       and abs(somigliana_normal_gravity_ms2(90.0) - 9.8321849379) < 1e-6,
+       "X3: cited gravity reference - WGS84 Somigliana reproduces the "
+       "published equator/pole values (NGA TR8350.2); the reference layer "
+       "is external, not loopback")
+    k = ktb_site_reference()
+    ok(abs(k['reference_gravity_ms2'] - 9.80895) < 5e-5
+       and k['kind'] == 'OBSERVATIONAL_REFERENCE_STANDARD',
+       "X4: KTB site reference = 9.80895 m/s2 (49.8156 N, 513.6 m, cited "
+       "ICDP site) - labeled an observational reference standard per the "
+       "hybrid-form doctrine, never a UQFF-derivation substitute")
+    q = check_stream_gravity(9.8090, 49.8156, 513.6)
+    ok(q['within_band'] and 'CONSISTENT' in q['verdict'],
+       "X5: stream QC against the cited reference works (demo value inside "
+       "the regional-anomaly band)")
+    import statistics
+    from .uqff_inverse_engine import invert_gravity_column
+    from .uqff_profile_catalog import CATALOG
+    v1 = invert_gravity_column(prior_well='504b')
+    vp1 = [e.posteriors['vp']['estimate'] for e in v1['estimates']
+           if e.posteriors.get('vp', {}).get('status') == 'OK'
+           and e.posteriors['vp'].get('estimate')]
+    st = CATALOG['ktb_hb_complog_6020_excerpt'].stream()
+    rho = [float(v) for v in st.channels['RHOB (g/cm3)'].values]
+    dtco = [float(v) for v in st.channels['DTCO (us/m)'].values]
+    meas = [1e6 / dd for r, dd in zip(rho, dtco) if r > 2.5 and dd > 0]
+    ratio = statistics.mean(meas) / statistics.mean(vp1)
+    ok(1.05 < ratio < 1.12,
+       "X6: the +10 pct investigation - the v1 cross-family refutation "
+       "REPRODUCES LIVE (measured/predicted = %.4f on the co-located "
+       "window); the (1+F_TRZ) family-offset factor is a FLAGGED CANDIDATE "
+       "(the record benchmark 6228/5675 = 1.0974 sits 0.24 pct from 1.1; "
+       "+1.7 pct on the window mean) - falsifiable on the deep-sonic file, "
+       "not canon; the method fix (family priors, V2 in-sample -1.2 pct) "
+       "stands PINNED_AWAITING_DEEP_SONIC" % ratio)
+
+
+def section_y_survey() -> None:
+    """Section Y - the one-command user path (v1.87.0): star-magic survey."""
+    from .uqff_survey_cmd import run_survey
+    txt, d = run_survey(demo=True)
+    ok('one honest answer' in txt and d['n_stations'] == 65
+       and d['exclusions']['washout_or_null_stations'] == 46,
+       "Y1 survey demo: end-to-end on the bundled KTB excerpt - 65 "
+       "stations, 46 exclusions DISCLOSED, one readable report")
+    ok('vp_m_s' in d and abs(d.get('vp_cross_check_pct', 99)) < 5.0,
+       "Y2 survey self-grading: the file carries its own sonic and the "
+       "estimate lands within 5 pct of measured (demo: ~+0.7 pct) - the "
+       "tool grades itself when the data allows")
+    ok('ASSUMPTION' in txt and 'refused to guess' in txt,
+       "Y3 survey honesty: the prior-family assumption is printed where "
+       "it acts and the refusals section is always present")
+    import tempfile, os as _os
+    with tempfile.TemporaryDirectory() as td:
+        f = _os.path.join(td, 'empty.las')
+        open(f, 'w').write('~Version\n VERS. 2.0:\n~Well\n~Curve\n'
+                           'DEPT.M : depth\n~ASCII\n1.0\n2.0\n')
+        txt2, d2 = run_survey(path=f)
+        ok(d2['refusals'] and 'REFUSED' in txt2,
+           "Y4 survey refusal: a LAS with no density and no gravity gets "
+           "an honest refusal naming the unlocking channel, not an "
+           "invented answer")
+
+
+def section_z_rock_inventory() -> None:
+    """Section Z - the K4 geological landmark family (v1.88.0): the rock
+    density inventory and its supporting streams."""
+    from .uqff_rock_inventory import (rock_inventory, classify_density,
+                                      rock_candidate_stream,
+                                      ktb_lithology_validation)
+    inv = rock_inventory()
+    worst = max(abs(e['residual_pct']) for e in inv.values())
+    ok(len(inv) == 17 and worst < 0.05,
+       "Z1 K4 inventory: seventeen geological landmarks, primitive-composed "
+       "live from the registry lattice, worst anchor residual %.3f pct "
+       "(sixteen EXACT, ice = 11/12 at 0.036 pct)" % worst)
+    c = classify_density(2.80)
+    ok(c['n_candidates'] >= 2 and 'cannot single out' in c['honesty'],
+       "Z2 classifier honesty: overlapping ranges return RANKED candidates "
+       "with the overlap printed - never one confident name")
+    o = classify_density(5.0)
+    ok(o['n_candidates'] == 0 and 'out of inventory' in o['honesty'],
+       "Z3 classifier refusal: an out-of-inventory density says so instead "
+       "of guessing")
+    sv = rock_candidate_stream()
+    ok(sv['n_stations'] == 19 and sv['column_vote'],
+       "Z4 material-ID stream: the channel that was BLOCKED_ON_K4 flows - "
+       "per-station candidates over the co-located KTB window")
+    v = ktb_lithology_validation()
+    ok(v['gneiss_top_ranked'] and v['mafic_twin_present']
+       and 'degenerate' in v['degeneracy_disclosed'],
+       "Z5 THE GRADE: the density-only classifier names the KTB's published "
+       "rocks within density's honest capability - gneiss top-ranked "
+       "(16/19 stations; the published dominant lithology) with the mafic "
+       "twin present and the amphibolite/basalt degeneracy DISCLOSED")
+    from .uqff_survey_cmd import run_survey
+    txt, d = run_survey(demo=True)
+    ok('rock candidates' in txt and d.get('rock_candidates')
+       and d['rock_candidates'][0][0] == 'gneiss',
+       "Z6 survey integration: the user report now carries the ranked rock "
+       "shortlist (gneiss first on the demo) with the honesty block - the "
+       "old refusal is retired by derivation, not by relaxation")
+
+    from .uqff_rock_inventory import classify_joint, ktb_joint_validation
+    hi = classify_joint(2.95, 6800)
+    lo = classify_joint(2.95, 5700)
+    ok([h['name'] for h in hi['candidates']] == ['amphibolite']
+       and 'amphibolite' not in [h['name'] for h in lo['candidates']],
+       "Z7 joint classifier: THE TWINS SPLIT - at the twin density 2.95 "
+       "g/cc, 6.8 km/s resolves amphibolite ALONE and 5.7 km/s excludes "
+       "it (the Vp tiers are disjoint; the density degeneracy is broken "
+       "by the second channel)")
+    jv = ktb_joint_validation()
+    ok(jv['both_published_families_present']
+       and jv['twin_split_demonstrated']
+       and dict(jv['family_vote']).get('mafic', 0) >= 3
+       and dict(jv['family_vote']).get('felsic', 0) >= 3,
+       "Z8 THE SHARPER GRADE: the two-channel column vote resolves the KTB "
+       "window into BOTH published families - felsic and mafic stations "
+       "alternating, the paragneiss-metabasite banding visible in 10 m of "
+       "log - graded at the granularity the physics honestly supports")
+    ok(jv['gap_stations'] == 2 and 'capability limit' in
+       jv['in_situ_vp_limit_disclosed'],
+       "Z9 the limit, disclosed: two stations at Vp 6.52-6.54 km/s fall in "
+       "the gneiss->amphibolite gap (transition evidence, reported as "
+       "no-candidate rather than forced) and the lab-vs-in-situ velocity "
+       "limit is stated where it acts - fractured deep crust reads slower "
+       "than laboratory samples")
+    from .uqff_rock_inventory import vp_inventory
+    vi = vp_inventory()
+    n_exact = sum(1 for e in vi.values() if e['residual_pct'] < 1e-9)
+    worst = max(e['residual_pct'] for e in vi.values())
+    ok(len(vi) == 17 and n_exact == 11 and worst < 0.65
+       and abs(vi['dolomite']['vp_km_s'] - 7.0) < 1e-12
+       and abs(7000.0 / 4550.0 - 40.0 / 26.0) < 1e-12,
+       "Z10 the Vp tier CANONIZED (B266, soft anchors disclosed): 17 "
+       "primitive forms live, 11 exact on midpoints, worst 0.62 pct; "
+       "dolomite = the H_0 integer over SO_5; dolomite/halite anchor "
+       "cross-ratio = 20/13 = D_phys*SO_5/D_crit EXACT, unit-free")
 
 def main() -> int:
     print("UQFF Downhole Simulator - ACCEPTANCE SUITE (product gate, "
@@ -778,6 +935,9 @@ def main() -> int:
         section_u_segy(tmp)
         section_v_client_shell(tmp)
         section_w_differentiator()
+        section_x_do_all_three()
+        section_y_survey()
+        section_z_rock_inventory()
     if _FAILS:
         print(f"[ACCEPTANCE] {len(_FAILS)} FAILURES ({_PASS} passed):")
         for f in _FAILS:

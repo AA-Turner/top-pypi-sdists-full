@@ -6,21 +6,20 @@
 //! # Usage (called from `server/mod.rs` behind `#[cfg(feature = "rmcp-transport")]`)
 //!
 //! ```ignore
-//! router = rmcp_mount::attach_rmcp_endpoint(router, app_state);
+//! router = rmcp_mount::attach_rmcp_endpoint(router, app_state, max_request_body_bytes);
 //! ```
 
 use std::sync::Arc;
 
 use axum::Router;
-#[cfg(feature = "mcp-2026-07-28")]
-use axum::body::{Body, to_bytes};
+use axum::body::{Body, Bytes, to_bytes};
 use dcc_mcp_http_server::rmcp_handler::{DccMcpHandler, RegistryContext};
 use dcc_mcp_jsonrpc::NotificationBuilder;
 #[cfg(feature = "mcp-2026-07-28")]
-use http::{Request, Response, StatusCode, header::HeaderValue};
+use http::header::HeaderValue;
+use http::{Request, Response, StatusCode};
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
-#[cfg(feature = "mcp-2026-07-28")]
 use tower::ServiceExt;
 use tracing::info;
 
@@ -36,7 +35,11 @@ use crate::handler::AppState;
 ///
 /// The router passed in is already state-erased (`Router<()>`) because
 /// `.with_state()` was called earlier in the builder chain.
-pub fn attach_rmcp_endpoint(router: Router, app_state: &AppState) -> Router {
+pub fn attach_rmcp_endpoint(
+    router: Router,
+    app_state: &AppState,
+    max_request_body_bytes: usize,
+) -> Router {
     let registry_context = build_registry_context(app_state);
     let service = build_legacy_service(app_state, registry_context.clone());
 
@@ -49,7 +52,7 @@ pub fn attach_rmcp_endpoint(router: Router, app_state: &AppState) -> Router {
         let dispatcher = tower::service_fn(move |request: Request<Body>| {
             let legacy = service.clone();
             let stateless = stateless.clone();
-            async move { dispatch_request(request, legacy, stateless).await }
+            async move { dispatch_request(request, legacy, stateless, max_request_body_bytes).await }
         });
         info!("rmcp MCP endpoint mounted at /mcp (legacy + 2026 stateless dispatcher)");
         return router.nest_service("/mcp", dispatcher);
@@ -57,8 +60,12 @@ pub fn attach_rmcp_endpoint(router: Router, app_state: &AppState) -> Router {
 
     #[cfg(not(feature = "mcp-2026-07-28"))]
     {
+        let dispatcher = tower::service_fn(move |request: Request<Body>| {
+            let legacy = service.clone();
+            async move { dispatch_legacy_request(request, legacy, max_request_body_bytes).await }
+        });
         info!("rmcp MCP endpoint mounted at /mcp");
-        router.nest_service("/mcp", service)
+        router.nest_service("/mcp", dispatcher)
     }
 }
 
@@ -147,57 +154,91 @@ async fn dispatch_request(
     request: Request<Body>,
     legacy: StreamableHttpService<DccMcpHandler, LocalSessionManager>,
     stateless: dcc_mcp_http_server::stateless::StatelessMcpService,
+    max_request_body_bytes: usize,
 ) -> Result<Response<Body>, std::convert::Infallible> {
     use dcc_mcp_jsonrpc::{
-        JsonRpcRequest, MCP_PROTOCOL_VERSION_HEADER, MCP_SESSION_HEADER, ProtocolMode,
-        ProtocolRequestHints, select_protocol_mode_from_headers,
+        InboundRoute, JsonRpcResponse, MCP_PROTOCOL_VERSION_HEADER, ProtocolRequestHints,
+        SUPPORTED_MODERN_PROTOCOL_VERSIONS, classify_protocol_request,
     };
-
-    let headers = request.headers();
-    let hints = ProtocolRequestHints {
-        protocol_version: headers
-            .get(MCP_PROTOCOL_VERSION_HEADER)
-            .and_then(|value| value.to_str().ok()),
-        has_session_id: headers.contains_key(MCP_SESSION_HEADER),
-        accept: headers.get("accept").and_then(|value| value.to_str().ok()),
-        method: headers
-            .get("mcp-method")
-            .and_then(|value| value.to_str().ok()),
-        name: headers
-            .get("mcp-name")
-            .and_then(|value| value.to_str().ok()),
-    };
-
-    if select_protocol_mode_from_headers(hints) != ProtocolMode::Stateless {
+    // Body-less session operations stay entirely on the legacy transport.
+    if request.method() != http::Method::POST {
         return legacy
             .oneshot(request)
             .await
             .map(|response| response.map(Body::new));
     }
 
-    if request.method() != http::Method::POST {
-        return Ok(Response::builder()
-            .status(StatusCode::METHOD_NOT_ALLOWED)
-            .header(http::header::ALLOW, "POST")
-            .body(Body::empty())
-            .expect("valid response"));
-    }
-
-    let body = match to_bytes(request.into_body(), 16 * 1024 * 1024).await {
+    let (parts, body) = request.into_parts();
+    let body = match read_bounded_body(body, max_request_body_bytes).await {
         Ok(body) => body,
-        Err(error) => return Ok(json_error_response(None, -32700, error.to_string())),
+        Err(response) => return Ok(response),
     };
-    let req: JsonRpcRequest = match serde_json::from_slice(&body) {
-        Ok(req) => req,
-        Err(error) => return Ok(json_error_response(None, -32700, error.to_string())),
+    // Join duplicates as Fetch does; accepting only the first would hide a
+    // contradictory header. Do not rewrite headers on the legacy request.
+    let header = |name: &str| {
+        let values: Vec<_> = parts
+            .headers
+            .get_all(name)
+            .iter()
+            .map(|value| {
+                value
+                    .to_str()
+                    .map(|value| value.trim_matches([' ', '\t']))
+                    .unwrap_or("\0")
+            })
+            .collect();
+        (!values.is_empty()).then(|| values.join(", "))
     };
-
-    let response = stateless.handle_request(&req).await;
-    let mut builder = Response::builder().status(if response.is_some() {
-        StatusCode::OK
-    } else {
-        StatusCode::ACCEPTED
-    });
+    let version = header(MCP_PROTOCOL_VERSION_HEADER);
+    let method = header("Mcp-Method");
+    let name = header("Mcp-Name");
+    let hints = ProtocolRequestHints {
+        protocol_version: version.as_deref(),
+        method: method.as_deref(),
+        name: name.as_deref(),
+        ..Default::default()
+    };
+    let parsed: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(_)
+            if version
+                .as_deref()
+                .is_some_and(|v| v.trim_matches([' ', '\t']) >= "2026-07-28") =>
+        {
+            return Ok(json_error_response(JsonRpcResponse::parse_error()));
+        }
+        Err(_) => {
+            return legacy
+                .oneshot(Request::from_parts(parts, Body::from(body)))
+                .await
+                .map(|r| r.map(Body::new));
+        }
+    };
+    let req =
+        match classify_protocol_request("POST", hints, &parsed, SUPPORTED_MODERN_PROTOCOL_VERSIONS)
+        {
+            Ok(InboundRoute::Legacy) => {
+                return legacy
+                    .oneshot(Request::from_parts(parts, Body::from(body)))
+                    .await
+                    .map(|r| r.map(Body::new));
+            }
+            Ok(InboundRoute::Modern(req)) => req,
+            Err(response) => return Ok(json_error_response(*response)),
+        };
+    use dcc_mcp_http_server::stateless::StatelessDispatchOutcome;
+    let outcome = match stateless.parameter_header_error(&req, header) {
+        Some(error) => error,
+        None => stateless.handle_request_with_outcome(&req).await,
+    };
+    let status = match &outcome {
+        StatelessDispatchOutcome::Notification => StatusCode::ACCEPTED,
+        StatelessDispatchOutcome::Response(_) => StatusCode::OK,
+        StatelessDispatchOutcome::InvalidEnvelope(_) => StatusCode::BAD_REQUEST,
+        StatelessDispatchOutcome::MethodNotFound(_) => StatusCode::NOT_FOUND,
+    };
+    let response = outcome.into_response();
+    let mut builder = Response::builder().status(status);
     builder = builder.header(
         MCP_PROTOCOL_VERSION_HEADER,
         HeaderValue::from_static("2026-07-28"),
@@ -212,25 +253,58 @@ async fn dispatch_request(
     }
 }
 
-#[cfg(feature = "mcp-2026-07-28")]
-fn json_error_response(
-    id: Option<serde_json::Value>,
-    code: i64,
-    message: String,
-) -> Response<Body> {
-    use dcc_mcp_jsonrpc::JsonRpcResponse;
-    let response = JsonRpcResponse {
-        jsonrpc: "2.0".to_string(),
-        id,
-        result: None,
-        error: Some(dcc_mcp_jsonrpc::JsonRpcError {
-            code,
-            message,
-            data: None,
-        }),
+#[cfg(not(feature = "mcp-2026-07-28"))]
+async fn dispatch_legacy_request(
+    request: Request<Body>,
+    legacy: StreamableHttpService<DccMcpHandler, LocalSessionManager>,
+    max_request_body_bytes: usize,
+) -> Result<Response<Body>, std::convert::Infallible> {
+    let request = if request.method() == http::Method::POST {
+        let (parts, body) = request.into_parts();
+        let body = match read_bounded_body(body, max_request_body_bytes).await {
+            Ok(body) => body,
+            Err(response) => return Ok(response),
+        };
+        Request::from_parts(parts, Body::from(body))
+    } else {
+        request
     };
+    legacy.oneshot(request).await.map(|r| r.map(Body::new))
+}
+
+/// The same bounded stream read protects both feature configurations. In
+/// particular rmcp must not turn an unknown-length overflow into HTTP 500.
+async fn read_bounded_body(body: Body, limit: usize) -> Result<Bytes, Response<Body>> {
+    to_bytes(body, limit).await.map_err(|error| {
+        Response::builder()
+            .status(if body_limit_exceeded(&error) {
+                StatusCode::PAYLOAD_TOO_LARGE
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
+            .body(Body::empty())
+            .expect("valid body-read response")
+    })
+}
+
+fn body_limit_exceeded(error: &(dyn std::error::Error + 'static)) -> bool {
+    // The router's RequestBodyLimitLayer and axum Body each wrap the stream
+    // error. Follow its typed source chain rather than matching one wrapper
+    // depth or depending on an unstable diagnostic string.
+    let mut current = Some(error);
+    while let Some(error) = current {
+        if error.is::<http_body_util::LengthLimitError>() {
+            return true;
+        }
+        current = error.source();
+    }
+    false
+}
+
+#[cfg(feature = "mcp-2026-07-28")]
+fn json_error_response(response: dcc_mcp_jsonrpc::JsonRpcResponse) -> Response<Body> {
     Response::builder()
-        .status(StatusCode::OK)
+        .status(StatusCode::BAD_REQUEST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header(dcc_mcp_jsonrpc::MCP_PROTOCOL_VERSION_HEADER, "2026-07-28")
         .body(Body::from(

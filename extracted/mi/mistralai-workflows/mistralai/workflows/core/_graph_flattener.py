@@ -22,6 +22,7 @@ from mistralai.workflows.core._graph_types import (
     _ParallelNode,
     _RaiseNode,
     _SleepNode,
+    _SourceRange,
     _StepNode,
     _TryExceptNode,
     _WaitConditionNode,
@@ -153,28 +154,44 @@ class _Flattener:
                 }
             )
 
-    def _emit_early_exit(self, from_id: str, cond_id: str, is_true: bool, is_error: bool = False) -> None:
+    def _emit_early_exit(
+        self,
+        from_id: str,
+        cond_id: str,
+        is_true: bool,
+        is_error: bool,
+        exit_range: _SourceRange | None,
+    ) -> str:
         suffix = "true" if is_true else "false"
         exit_node_id = f"{cond_id}::exit_{suffix}"
+        sr = exit_range.to_dict() if exit_range is not None else {"begin": 0, "end": 0, "line": 1}
         self._add_node(
             {
                 "id": exit_node_id,
                 "type": "output",
-                "name": "raises" if is_error else "exit",
+                "name": "raises" if is_error else "returns",
                 "is_error": is_error,
-                "line": 1,
-                "source_range": {"begin": 0, "end": 0, "line": 1},
+                "is_early_exit": True,
+                "line": sr["line"],
+                "source_range": sr,
             }
         )
         self._terminal_exit_ids.add(exit_node_id)
+        # The terminal is branch content, wired the same way a `raise` inside the arm is:
+        # `branch_<side>` straight off the diamond when the arm has no other node,
+        # `sequential` after the arm's last one. Renderers that walk the branch chain --
+        # the Flow renderer does, and it ignores `branch_exit_*` -- only lay out nodes
+        # they can reach this way.
+        kind = f"branch_{suffix}" if from_id == cond_id else "sequential"
         self._add_edge(
             {
-                "id": f"e-exit-{suffix}-{from_id}-{exit_node_id}",
+                "id": f"e-{from_id}-{exit_node_id}",
                 "from": from_id,
                 "to": exit_node_id,
-                "kind": f"branch_exit_{suffix}",
+                "kind": kind,
             }
         )
+        return exit_node_id
 
     def _emit_inner_node(self, child: TreeNode, child_ids: list[str], sink: str | None = None) -> None:
         child_id = child.id
@@ -201,6 +218,7 @@ class _Flattener:
                     "type": "output",
                     "name": child.label,
                     "is_error": True,
+                    "is_early_exit": True,
                     "line": child_line,
                     "source_range": sr,
                 }
@@ -288,17 +306,19 @@ class _Flattener:
 
         branch_sink = self._first_emittable_id(node.rejoin) or sink
 
+        converge_to_output = node.true_exits and node.false_exits and branch_sink == self._out_id
+
         def emit_branch(
             branch_nodes: list[TreeNode],
             suffix: str,
             exits: bool,
-            is_error: bool = False,
+            is_error: bool,
+            exit_range: _SourceRange | None,
         ) -> tuple[list[str], list[str]]:
             ids: list[str] = []
             branch_start = len(self.flat_nodes)
             for bn in branch_nodes:
                 self._emit_inner_node(bn, ids, branch_sink)
-            descendants = [self.flat_nodes[i]["id"] for i in range(branch_start, len(self.flat_nodes))]
             if ids:
                 self._add_edge(
                     {
@@ -310,13 +330,34 @@ class _Flattener:
                 )
                 for from_id, to_id in zip(ids, ids[1:]):
                     self._add_edge({"id": f"e-{from_id}-{to_id}", "from": from_id, "to": to_id, "kind": "sequential"})
-                self._wire_branch(ids[-1], exits, suffix == "true", branch_sink, cond_id, is_error)
+                last_id = ids[-1]
             else:
-                self._wire_branch(cond_id, exits, suffix == "true", branch_sink, cond_id, is_error)
+                last_id = cond_id
+            exit_id = self._wire_branch(
+                last_id,
+                exits,
+                suffix == "true",
+                branch_sink,
+                cond_id,
+                is_error,
+                exit_range,
+                converge_to_output,
+            )
+            # The terminal is synthesized after the tree walk, so it is on neither
+            # list yet. It is branch content like an in-arm `raise`, and the Flow
+            # renderer fills a contained conditional from these lists rather than
+            # from the edges, so it has to be on them to be placed at all.
+            if exit_id is not None:
+                ids.append(exit_id)
+            descendants = [self.flat_nodes[i]["id"] for i in range(branch_start, len(self.flat_nodes))]
             return ids, descendants
 
-        true_ids, true_descendants = emit_branch(node.true_branch, "true", node.true_exits, node.true_exit_error)
-        false_ids, false_descendants = emit_branch(node.false_branch, "false", node.false_exits, node.false_exit_error)
+        true_ids, true_descendants = emit_branch(
+            node.true_branch, "true", node.true_exits, node.true_exit_error, node.true_exit_range
+        )
+        false_ids, false_descendants = emit_branch(
+            node.false_branch, "false", node.false_exits, node.false_exit_error, node.false_exit_range
+        )
         cond_flat = next(n for n in self.flat_nodes if n["id"] == cond_id)
         cond_flat["branchTrue"] = true_ids
         cond_flat["branchFalse"] = false_ids
@@ -371,6 +412,7 @@ class _Flattener:
                         "type": "output",
                         "name": node.label,
                         "is_error": True,
+                        "is_early_exit": True,
                         "line": line,
                         "source_range": sr,
                     }
@@ -484,6 +526,13 @@ class _Flattener:
                     remaining = nodes[node_idx + 1 :]
                     branch_sink = self._first_emittable_id(remaining) or terminal_id
 
+                # An exiting arm converges on the shared output only when nothing at
+                # all follows the conditional -- then the arm *is* the workflow output
+                # rather than a return out of the middle of the flow. `branch_sink`
+                # already carries that: it is the output id only when this list and
+                # every enclosing one are out of work.
+                converge_to_output = node.true_exits and node.false_exits and branch_sink == self._out_id
+
                 true_start = len(self.flat_nodes)
                 true_last = self._process_list(node.true_branch, cond_id, "branch_true", branch_sink)
                 true_end = len(self.flat_nodes)
@@ -499,8 +548,26 @@ class _Flattener:
                     if self.flat_nodes[i]["id"] not in self._terminal_exit_ids
                 ]
 
-                self._wire_branch(true_last, node.true_exits, True, branch_sink, cond_id, node.true_exit_error)
-                self._wire_branch(false_last, node.false_exits, False, branch_sink, cond_id, node.false_exit_error)
+                self._wire_branch(
+                    true_last,
+                    node.true_exits,
+                    True,
+                    branch_sink,
+                    cond_id,
+                    node.true_exit_error,
+                    node.true_exit_range,
+                    converge_to_output,
+                )
+                self._wire_branch(
+                    false_last,
+                    node.false_exits,
+                    False,
+                    branch_sink,
+                    cond_id,
+                    node.false_exit_error,
+                    node.false_exit_range,
+                    converge_to_output,
+                )
 
                 if node.rejoin:
                     rejoin_start = branch_sink if branch_sink is not None else cond_id
@@ -515,15 +582,24 @@ class _Flattener:
         return prev_id
 
     def _wire_branch(
-        self, last_id: str, exits: bool, is_true: bool, sink: str | None, cond_id: str, is_error: bool = False
-    ) -> None:
+        self,
+        last_id: str,
+        exits: bool,
+        is_true: bool,
+        sink: str | None,
+        cond_id: str,
+        is_error: bool = False,
+        exit_range: _SourceRange | None = None,
+        converge_to_output: bool = False,
+    ) -> str | None:
+        """Close an arm off. Returns the id of the terminal it synthesized, if any."""
         suffix = "true" if is_true else "false"
         if exits:
             if last_id in self._terminal_exit_ids or (last_id in self._conditional_ids and last_id != cond_id):
-                return
-            if is_error:
-                self._emit_early_exit(last_id, cond_id, is_true, is_error)
-            else:
+                return None
+            if converge_to_output and not is_error:
+                # Nothing follows the conditional, so the arm is not returning *early* --
+                # it is the workflow output. Both arms land on the single output node.
                 self._add_edge(
                     {
                         "id": f"e-exit-{suffix}-{last_id}-{self._out_id}",
@@ -532,8 +608,11 @@ class _Flattener:
                         "kind": f"branch_exit_{suffix}",
                     }
                 )
+            else:
+                return self._emit_early_exit(last_id, cond_id, is_true, is_error, exit_range)
         elif sink is not None:
             self._emit_branch_merge(last_id, cond_id, sink, suffix)
+        return None
 
     def flatten(
         self,

@@ -8,6 +8,11 @@ pub enum EvalErr {
     #[error("bad encoding")]
     SerializationError,
 
+    /// Atom used a non-shortest length prefix, or a length-prefixed form for a
+    /// value that must be a single byte (`0x00`–`0x7f`).
+    #[error("non-canonical encoding")]
+    NonCanonicalSerialization,
+
     #[error("invalid backreference during deserialisation")]
     SerializationBackreferenceError,
 
@@ -25,6 +30,9 @@ pub enum EvalErr {
 
     #[error("cost exceeded or below zero")]
     CostExceeded,
+
+    #[error("timeout")]
+    Timeout,
 
     #[error("unknown softfork extension")]
     UnknownSoftforkExtension,

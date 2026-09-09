@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from boost_cli.core import util
+from boost_cli.errors import BoostError
 
 ISO_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -147,6 +148,32 @@ class TestRelTime:
         assert util.rel_time(None) == "?"
 
 
+class TestIsoDate:
+    def test_matches_git_date_short_format(self):
+        # git's `--date=short` on the same instant: no time-of-day, no "ago"
+        assert util.iso_date("2026-07-16T01:00:00Z") == "2026-07-16"
+
+    def test_recent_instant_still_returns_a_date_not_ago(self):
+        # the whole point: `_tap_updated`'s two branches must agree on shape
+        # even when the cache was generated seconds ago — rel_time would say
+        # "1s ago" here, iso_date must not.
+        now = datetime.now(UTC)
+        assert util.iso_date(now.strftime(ISO_FMT)) == now.strftime("%Y-%m-%d")
+
+    def test_far_past_instant(self):
+        then = datetime(2020, 1, 2, 3, 4, 5, tzinfo=UTC)
+        assert util.iso_date(then.strftime(ISO_FMT)) == "2020-01-02"
+
+    def test_junk_passthrough(self):
+        assert util.iso_date("not-a-date") == "not-a-date"
+
+    def test_empty_becomes_question_mark(self):
+        assert util.iso_date("") == "?"
+
+    def test_none_becomes_question_mark(self):
+        assert util.iso_date(None) == "?"
+
+
 class TestHumanSize:
     @pytest.mark.parametrize("n,expected", [
         (0, "0B"),
@@ -189,6 +216,44 @@ class TestSlugify:
 
     def test_digits_and_dashes_kept(self):
         assert util.slugify("tdd-workflow-3") == "tdd-workflow-3"
+
+
+class TestResolveSlug:
+    """The shared helper for a user-typed name: slugify, refuse when there is
+    nothing to slug, and never swap the name for another without saying so."""
+
+    def test_already_a_slug_is_returned_unchanged_and_silent(self, capsys):
+        assert util.resolve_slug("tdd-workflow-3") == "tdd-workflow-3"
+        assert capsys.readouterr().out == ""
+
+    def test_differing_slug_is_printed_as_a_note(self, capsys):
+        assert util.resolve_slug("My Great Skill") == "my-great-skill"
+        out = capsys.readouterr().out
+        assert "my-great-skill" in out
+        assert "My Great Skill" in out
+
+    def test_what_names_the_field_in_the_note_and_the_error(self, capsys):
+        util.resolve_slug("Bad Name!!", what="profile name")
+        assert "profile name" in capsys.readouterr().out
+        with pytest.raises(BoostError) as exc:
+            util.resolve_slug("!!!", what="profile name")
+        assert "profile name" in exc.value.message
+
+    def test_empty_raises_instead_of_falling_back_to_skill(self):
+        with pytest.raises(BoostError) as exc:
+            util.resolve_slug("")
+        assert "no letters or digits" in exc.value.message
+
+    def test_punctuation_only_raises_instead_of_falling_back_to_skill(self):
+        # Unlike slugify("!!!") == "skill", a user-typed name with nothing to
+        # slug is a mistake to report, not a name to invent.
+        with pytest.raises(BoostError):
+            util.resolve_slug("!!!")
+
+    def test_literal_skill_is_not_mistaken_for_the_fallback(self):
+        # "skill" slugifies to itself, so it must not raise even though it is
+        # the same string slugify() falls back to for punctuation-only input.
+        assert util.resolve_slug("skill") == "skill"
 
 
 class TestSha256Dir:
@@ -525,6 +590,74 @@ class TestScoreSkill:
         assert score == 25
         assert "frontmatter missing `name`" in notes
         assert "frontmatter is not closed (no terminating ---)" not in notes
+
+
+class TestLintErrors:
+    def test_missing_skill_md(self, tmp_path):
+        d = tmp_path / "empty"
+        d.mkdir()
+        assert util.lint_errors(d) == ["missing SKILL.md"]
+
+    def test_clean_skill_has_no_errors(self, tmp_path):
+        d = make_skill(tmp_path, full_text())
+        assert util.lint_errors(d) == []
+
+    def test_missing_name_and_description(self, tmp_path):
+        d = make_skill(tmp_path, "just a plain markdown body\n")
+        errors = util.lint_errors(d)
+        assert "missing required field: name" in errors
+        assert "missing required field: description" in errors
+
+    def test_missing_name_only(self, tmp_path):
+        d = make_skill(tmp_path, "---\ndescription: has one\n---\nbody\n")
+        assert util.lint_errors(d) == ["missing required field: name"]
+
+    def test_unclosed_frontmatter_is_one_error(self, tmp_path):
+        d = make_skill(tmp_path, "---\nname: x\nno closing fence\n")
+        assert util.lint_errors(d) == ["frontmatter is not closed (no terminating ---)"]
+
+    def test_missing_frontmatter_entirely_reports_both_fields(self, tmp_path):
+        # No `---` at all parses as an empty frontmatter dict rather than the
+        # unclosed-fence short circuit — both required fields read absent.
+        d = make_skill(tmp_path, "no frontmatter fence here at all\n")
+        assert util.lint_errors(d) == [
+            "missing required field: name", "missing required field: description"]
+
+
+class TestLintFailed:
+    def test_high_score_but_missing_description_still_fails(self, tmp_path):
+        # The bug this closes: `boost test` used to trust the score alone, so
+        # a skill scoring 85 with no `description` passed `test` while
+        # `boost lint` failed it outright.
+        d = make_skill(tmp_path, full_text(desc=""))
+        score, _notes = util.score_skill(d)
+        assert score >= 40
+        assert util.lint_failed(d, score, min_score=40)
+
+    def test_low_score_with_no_errors_fails_on_score_alone(self, tmp_path):
+        # name and description both present (no hard errors), but a huge
+        # frontmatter field trips the oversized-file penalty hard enough to
+        # drop the score under the floor on its own.
+        text = ("---\nname: test-skill\ndescription: %s\npadding: %s\n---\n\nhi\n"
+                % ("d" * 10, "x" * 49_000))
+        d = make_skill(tmp_path, text)
+        score, _notes = util.score_skill(d)
+        assert score < 40
+        assert util.lint_errors(d) == []
+        assert util.lint_failed(d, score, min_score=40)
+
+    def test_clean_high_score_passes(self, tmp_path):
+        d = make_skill(tmp_path, full_text())
+        score, _notes = util.score_skill(d)
+        assert not util.lint_failed(d, score, min_score=40)
+
+    def test_min_score_shifts_the_floor(self, tmp_path):
+        text = ("---\nname: test-skill\ndescription: %s\npadding: %s\n---\n\nhi\n"
+                % ("d" * 10, "x" * 49_000))
+        d = make_skill(tmp_path, text)
+        score, _notes = util.score_skill(d)
+        assert util.lint_failed(d, score, min_score=40)
+        assert not util.lint_failed(d, score, min_score=0)
 
 
 class TestAtomicWriteText:

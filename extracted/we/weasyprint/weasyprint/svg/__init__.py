@@ -1,15 +1,15 @@
 """Render SVG images."""
 
 import re
+from collections import deque
 from contextlib import suppress
 from math import cos, hypot, pi, radians, sin, sqrt
 from xml.etree import ElementTree
 
 from cssselect2 import ElementWrapper
 
-from ..urls import get_url_attribute
 from .css import parse_declarations, parse_stylesheets
-from .defs import apply_filters, draw_gradient_or_pattern, paint_mask, use
+from .defs import apply_filters, draw_gradient, draw_pattern, paint_mask, use
 from .images import image, svg
 from .path import path
 from .shapes import circle, ellipse, line, polygon, polyline, rect
@@ -95,7 +95,7 @@ class Node:
 
         self.attrib = wrapper.etree_element.attrib.copy()
 
-        self.vertices = []
+        self.vertices = deque()
         self.bounding_box = None
 
     def copy(self):
@@ -202,8 +202,10 @@ class Node:
 
     def get_href(self, base_url):
         """Get the href attribute, with or without a namespace."""
+        from ..html import parse_url
+
         for attr_name in ('{http://www.w3.org/1999/xlink}href', 'href'):
-            if url := get_url_attribute(self, attr_name, base_url, allow_relative=True):
+            if url := parse_url(self.get(attr_name), base_url, allow_relative=True):
                 return url
 
     def del_href(self):
@@ -332,6 +334,29 @@ class Node:
             svg.inner_width, svg.inner_height = svg.concrete_width, svg.concrete_height
         svg.inner_diagonal = hypot(svg.inner_width, svg.inner_height) / sqrt(2)
 
+    def get_paint(self, attribute, context=None):
+        """Get paint fill or stroke attribute with a color or a URL."""
+        assert attribute in ('fill', 'stroke')
+
+        value = self.get(attribute, 'black' if attribute == 'fill' else '').strip()
+
+        if not value or value == 'none':
+            return None, None
+
+        if value in ('context-fill', 'context-stroke'):
+            if context is None:
+                return None, None
+            return context.get_paint(value.removeprefix('context-'))
+
+        if match := re.compile(r'(url\(.+\)) *(.*)').search(value):
+            source = parse_url(match.group(1)).fragment
+            color = match.group(2) or None
+        else:
+            source = None
+            color = value or None
+
+        return source, color
+
 
 class LazyDefs:
     def __init__(self, name, svg):
@@ -429,7 +454,7 @@ class SVG:
 
         self.draw_node(self.tree, size('12pt'))
 
-    def draw_node(self, node, font_size, fill_stroke=True):
+    def draw_node(self, node, font_size, fill_stroke=True, context=None):
         """Draw a node."""
         if node.tag == 'defs':
             return
@@ -461,7 +486,7 @@ class SVG:
 
         # Set graphical state
         if call_fill_stroke:
-            self.set_graphical_state(node, font_size)
+            fill, stroke = self.set_graphical_state(node, font_size, context=context)
 
         # Clip
         clip_path = parse_url(node.get('clip-path')).fragment
@@ -489,8 +514,11 @@ class SVG:
         # Handle text anchor and set text bounding box
         text_anchor_shift = False
         if node.display and TAGS.get(node.tag) == text:
-            if (text_anchor := node.get('text-anchor')) in ('middle', 'end'):
-                text_anchor_shift = True
+            text_anchor = node.get('text-anchor', 'start')
+            direction = node.get('direction', 'ltr')
+            text_anchor_shift = (text_anchor, direction) not in (
+                ('start', 'ltr'), ('end', 'rtl'))
+            if text_anchor_shift:
                 group = self.stream.add_group(0, 0, 0, 0)  # BBox set after drawing
                 original_streams.append(self.stream)
                 self.stream = group
@@ -514,7 +542,8 @@ class SVG:
                 if new_chunk:
                     new_stream = self.stream
                     self.stream = original_streams[-1]
-                self.draw_node(child, font_size, fill_stroke)
+                context = node if node.tag == 'use' else context
+                self.draw_node(child, font_size, fill_stroke, context)
                 if new_chunk:
                     self.stream = new_stream
                 visible_text_child = (
@@ -532,7 +561,7 @@ class SVG:
 
         # Restore concrete and inner size of root svg tag
         if node.tag == 'svg':
-            self.tree.set_svg_size(svg, concrete_width, concrete_height)
+            self.tree.set_svg_size(self, concrete_width, concrete_height)
 
         # Handle text anchor
         if text_anchor_shift:
@@ -558,7 +587,8 @@ class SVG:
 
         # Fill and stroke
         if call_fill_stroke:
-            self.fill_stroke(node, font_size)
+            even_odd = node.get('fill-rule') == 'evenodd'
+            self.fill_stroke(fill, stroke, even_odd)
 
         # Draw markers
         self.draw_markers(node, font_size, fill_stroke)
@@ -604,8 +634,8 @@ class SVG:
 
         while node.vertices:
             # Calculate position and angle
-            point = node.vertices.pop(0)
-            angles = node.vertices.pop(0) if node.vertices else None
+            point = node.vertices.popleft()
+            angles = node.vertices.popleft() if node.vertices else None
             if angles:
                 if position == 'start':
                     angle = pi - angles[0]
@@ -691,52 +721,42 @@ class SVG:
                     self.stream.clip()
                     self.stream.end()
 
-                self.draw_node(child, font_size, fill_stroke)
+                self.draw_node(child, font_size, fill_stroke, context=node)
                 self.stream.pop_state()
 
             position = 'mid' if angles else 'start'
 
-    @staticmethod
-    def get_paint(value):
-        """Get paint fill or stroke attribute with a color or a URL."""
-        if not value or value == 'none':
-            return None, None
-
-        value = value.strip()
-        match = re.compile(r'(url\(.+\)) *(.*)').search(value)
-        if match:
-            source = parse_url(match.group(1)).fragment
-            color = match.group(2) or None
-        else:
-            source = None
-            color = value or None
-
-        return source, color
-
-    def set_graphical_state(self, node, font_size, text=False):
-        """Set stroke and fill colors, and line options."""
+    def set_graphical_state(self, node, font_size, context=None):
+        """Set stroke and fill colors, gradients, patterns, and line options."""
         # Get fill data
-        fill_source, fill_color = self.get_paint(node.get('fill', 'black'))
-        fill_opacity = alpha_value(node.get('fill-opacity', 1))
-        fill_in_gradient = fill_source in self.gradients
-        fill_in_pattern = fill_source in self.patterns
-        if fill_color and not (fill_in_gradient or fill_in_pattern):
-            stream_color = color(fill_color)
-            stream_color.alpha *= fill_opacity
+        source, fill = node.get_paint('fill', context)
+        opacity = alpha_value(node.get('fill-opacity', 1))
+        if gradient := self.gradients.get(source):
+            fill = draw_gradient(self, node, gradient, font_size, opacity, stroke=False)
+        elif pattern := self.patterns.get(source):
+            fill = draw_pattern(self, node, pattern, font_size, opacity, stroke=False)
+        elif fill:
+            stream_color = color(fill)
+            stream_color.alpha *= opacity
             self.stream.set_color(stream_color)
 
         # Get stroke data
-        stroke_source, stroke_color = self.get_paint(node.get('stroke'))
-        stroke_opacity = alpha_value(node.get('stroke-opacity', 1))
-        stroke_in_gradient = stroke_source in self.gradients
-        stroke_in_pattern = stroke_source in self.patterns
-        if stroke_color and not (stroke_in_gradient or stroke_in_pattern):
-            stream_color = color(stroke_color)
-            stream_color.alpha *= stroke_opacity
-            self.stream.set_color(stream_color, stroke=True)
-        stroke_width = self.length(node.get('stroke-width', '1px'), font_size)
-        if stroke_width:
-            self.stream.set_line_width(stroke_width)
+        if stroke_width := self.length(node.get('stroke-width', '1px'), font_size):
+            source, stroke = node.get_paint('stroke', context)
+            opacity = alpha_value(node.get('stroke-opacity', 1))
+            if gradient := self.gradients.get(source):
+                stroke = draw_gradient(
+                    self, node, gradient, font_size, opacity, stroke=True)
+            elif pattern := self.patterns.get(source):
+                stroke = draw_pattern(
+                    self, node, pattern, font_size, opacity, stroke=True)
+            elif stroke:
+                stream_color = color(stroke)
+                stream_color.alpha *= opacity
+                self.stream.set_color(stream_color, stroke=True)
+                self.stream.set_line_width(stroke_width)
+        else:
+            stroke = None
 
         # Apply dash array
         dash_array = tuple(
@@ -752,6 +772,8 @@ class SVG:
                 sum_dashes = sum(float(value) for value in dash_array)
                 offset = sum_dashes - abs(offset) % sum_dashes
             self.stream.set_dash(dash_array, offset)
+        else:
+            self.stream.set_dash((), 0)
 
         # Apply line cap
         line_cap = node.get('stroke-linecap', 'butt')
@@ -779,27 +801,12 @@ class SVG:
             miter_limit = 4
         self.stream.set_miter_limit(miter_limit)
 
-    def fill_stroke(self, node, font_size, text=False):
+        return fill, stroke
+
+    def fill_stroke(self, fill, stroke, even_odd=False, text=False):
         """Paint fill and stroke for a node."""
-        # Get fill data
-        fill_source, fill_color = self.get_paint(node.get('fill', 'black'))
-        fill_opacity = alpha_value(node.get('fill-opacity', 1))
-        fill_drawn = draw_gradient_or_pattern(
-            self, node, fill_source, font_size, fill_opacity, stroke=False)
-        fill = fill_color or fill_drawn
-
-        # Get stroke data
-        stroke_source, stroke_color = self.get_paint(node.get('stroke'))
-        stroke_opacity = alpha_value(node.get('stroke-opacity', 1))
-        stroke_drawn = draw_gradient_or_pattern(
-            self, node, stroke_source, font_size, stroke_opacity, stroke=True)
-        stroke_width = self.length(node.get('stroke-width', '1px'), font_size)
-        stroke = (stroke_color or stroke_drawn) and stroke_width
-
-        # Fill and stroke
-        even_odd = node.get('fill-rule') == 'evenodd'
         if text:
-            if stroke and fill:
+            if fill and stroke:
                 text_rendering = 2
             elif stroke:
                 text_rendering = 1
@@ -818,16 +825,17 @@ class SVG:
             else:
                 self.stream.end()
 
-    def transform(self, node, font_size):
-        """Apply a transformation string to the node."""
-        transform_origin = node.get('transform-origin')
-        transform_string = node.get('transform')
-        if not transform_string:
-            return
+    def get_node_transform_matrix(self, node, font_size):
+        """Get the transformation matrix of a node."""
+        if transform_string := node.get('transform'):
+            origin = node.get('transform-origin')
+            matrix = transform(transform_string, origin, font_size, self.inner_diagonal)
+            if matrix.determinant:
+                return matrix
 
-        matrix = transform(
-            transform_string, transform_origin, font_size, self.inner_diagonal)
-        if matrix.determinant:
+    def transform(self, node, font_size):
+        """Apply the transformation string of a node to the stream."""
+        if matrix := self.get_node_transform_matrix(node, font_size):
             self.stream.transform(*matrix.values)
 
     def inherit_element(self, element, defs):
@@ -864,9 +872,9 @@ class Pattern(SVG):
         self.svg = svg
         self.tree = tree
 
-    def draw_node(self, node, font_size, fill_stroke=True):
+    def draw_node(self, node, font_size, fill_stroke=True, context=None):
         # Store the original tree in self.tree when calling draw(), so that we
         # can reach defs outside the pattern
         if node == self.tree:
             self.tree = self.svg.tree
-        super().draw_node(node, font_size, fill_stroke=True)
+        super().draw_node(node, font_size, fill_stroke, context)

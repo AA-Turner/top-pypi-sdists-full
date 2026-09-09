@@ -86,6 +86,7 @@ class Spdxgen:
         decl_license_rel_id = "https://FuseSoC/relationship/" + nanoid.generate()
         purl = f"pkg:fusesoc/{vendor}/{library}/{name}@{version}"
         pkg_id = "https://FuseSoC/package/" + vlnv
+        file_ids: list[str] = []
         pkg = [
             {
                 "spdxId": pkg_id,
@@ -125,15 +126,20 @@ class Spdxgen:
                 "creationInfo": ci_id,
                 "from": pkg_id,
                 "relationshipType": "contains",
-                "to": [],
+                "to": file_ids,
             },
         ]
-        file_rel = pkg[-1]
         for fname in flist:
             file_id = "https://FuseSoC/file/" + nanoid.generate()
             hash_id = "https://FuseSoC/hash/" + nanoid.generate()
             with open(os.path.join(work_root, fname), "rb", buffering=0) as f:
-                hash_val = hashlib.file_digest(f, "sha256").hexdigest()
+                # When switching python version to >= 3.11 we can use:
+                # hash_val = hashlib.file_digest(f, "sha256").hexdigest()
+                # But for now do it in a 3.10 friendly way
+                h = hashlib.sha256()
+                while chunk := f.read(65536):
+                    h.update(chunk)
+                hash_val = h.hexdigest()
             pkg += [
                 {
                     "spdxId": file_id,
@@ -150,18 +156,18 @@ class Spdxgen:
                     "@id": hash_id,
                 },
             ]
-            file_rel["to"].append(file_id)
+            file_ids.append(file_id)
         return pkg, pkg_id
 
     def run(self, edam, work_root):
         with open(os.path.join(work_root, edam["name"] + ".spdx.json"), "w") as f:
             ci_id = "https://FuseSoC/creationinfo/" + nanoid.generate()
-            dt = datetime.datetime.now(datetime.UTC)
-            dt.replace(microsecond=0)  # for isoformat to stop at seconds
+            dt = datetime.datetime.now(datetime.timezone.utc)
+            dt = dt.replace(microsecond=0)  # for isoformat to stop at seconds
             now = dt.isoformat()
             graph, sbom = self._generate_preamble(ci_id, now)
 
-            core_dict = {}
+            core_dict: dict[str, list[str]] = {}
             for fn in edam["files"]:
                 core = fn["core"]
                 name = fn["name"]

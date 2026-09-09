@@ -2332,6 +2332,79 @@ fn a_result_carries_exactly_the_targets_it_still_names() {
     validator_for(&emitted).expect("the result resolves its own pointers");
 }
 
+// The cycle keeps the document's own fold from reading `#/$defs/r`; the intersection reads it,
+// proves the `null` alternative covered by the first branch, and rebuilding the narrowed branch
+// distributes over the union `r` holds.
+#[test]
+fn intersect_flattens_a_narrowed_branch_that_distributes_over_a_reference() {
+    let left = canonicalize(&json!({
+        "anyOf": [
+            {"type": "object", "properties": {"a": {"type": "null"}}},
+            {"allOf": [
+                {"type": "object", "properties": {"a": {"anyOf": [{"type": "integer"}, {"$ref": "#/$defs/null"}]}}},
+                {"$ref": "#/$defs/r"}
+            ]},
+            {"$ref": "#/$defs/loop"}
+        ],
+        "$defs": {
+            "loop": {"type": "array", "items": {"$ref": "#/$defs/loop"}},
+            "null": {"type": "null"},
+            "r": {"anyOf": [{"type": "object", "required": ["p"]}, {"type": "object", "required": ["q"]}]}
+        }
+    }))
+    .expect("canonicalizes");
+    let right = canonicalize(&json!({"type": "object"})).expect("canonicalizes");
+    assert_eq!(
+        left.intersect(&right).expect("intersects").to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {"loop": {"type": "array", "items": {"$ref": "#/$defs/loop"}}},
+            "anyOf": [
+                {"type": "object", "properties": {"a": {"type": "null"}}},
+                {"type": "object", "properties": {"a": {"type": ["null", "integer"]}}, "required": ["p"]},
+                {"type": "object", "properties": {"a": {"type": ["null", "integer"]}}, "required": ["q"]},
+                {"allOf": [{"type": "object"}, {"$ref": "#/$defs/loop"}]}
+            ]
+        })
+    );
+}
+
+// The proofs that a sibling covers each `null` alternative spend the difference's intersection
+// allowance partway through; the branch is still narrowed, and rebuilding it gets `true` back.
+#[test]
+fn covers_answers_unknown_where_narrowing_a_branch_spends_the_allowance() {
+    let mut definitions = json!({
+        "r": {"anyOf": [{"type": "object", "required": ["p"]}, {"type": "object", "required": ["q"]}]}
+    });
+    let mut alternatives = vec![json!({"type": "integer"})];
+    for index in 0..64 {
+        definitions[format!("null{index}")] = json!({"type": "null"});
+        alternatives.push(json!({"$ref": format!("#/$defs/null{index}")}));
+    }
+    let mut demands = vec![
+        json!({"type": "object", "properties": {"a": {"anyOf": alternatives}}}),
+        json!({"$ref": "#/$defs/r"}),
+    ];
+    for index in 0..64 {
+        definitions[format!("cycle{index}")] = json!({
+            "type": "object",
+            "properties": {"next": {"$ref": format!("#/$defs/cycle{index}")}}
+        });
+        demands.push(json!({"$ref": format!("#/$defs/cycle{index}")}));
+    }
+    let wide = canonicalize(&json!({
+        "anyOf": [
+            {"type": "object", "properties": {"a": {"type": "null"}}},
+            {"allOf": demands}
+        ],
+        "$defs": definitions
+    }))
+    .expect("canonicalizes");
+    let narrow =
+        canonicalize(&json!({"type": "object", "required": ["zzz"]})).expect("canonicalizes");
+    assert_eq!(narrow.covers(&wide).expect("covers"), Containment::Unknown);
+}
+
 #[test]
 fn intersect_rejects_operands_from_different_drafts() {
     let draft7 = options()

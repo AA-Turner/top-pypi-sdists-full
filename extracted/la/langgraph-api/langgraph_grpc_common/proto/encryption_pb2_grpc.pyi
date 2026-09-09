@@ -37,6 +37,10 @@ class EncryptionStub:
     """Encrypt JSON data (e.g., thread metadata, run kwargs)."""
     DecryptJSON: _grpc.UnaryUnaryMultiCallable[_encryption_pb2.DecryptJSONRequest, _encryption_pb2.DecryptResponse]
     """Decrypt JSON data. Context is extracted from __encryption_context__ in the data."""
+    EncryptBlob: _grpc.UnaryUnaryMultiCallable[_encryption_pb2.EncryptBlobRequest, _encryption_pb2.EncryptResponse]
+    """Encrypt blob data (checkpoint channel values and pending writes)."""
+    DecryptBlob: _grpc.UnaryUnaryMultiCallable[_encryption_pb2.DecryptBlobRequest, _encryption_pb2.DecryptResponse]
+    """Decrypt blob data. Context is supplied by the caller from the blob wrapper."""
 
 @_typing.type_check_only
 class EncryptionAsyncStub(EncryptionStub):
@@ -47,6 +51,10 @@ class EncryptionAsyncStub(EncryptionStub):
     """Encrypt JSON data (e.g., thread metadata, run kwargs)."""
     DecryptJSON: _aio.UnaryUnaryMultiCallable[_encryption_pb2.DecryptJSONRequest, _encryption_pb2.DecryptResponse]  # type: ignore[assignment]
     """Decrypt JSON data. Context is extracted from __encryption_context__ in the data."""
+    EncryptBlob: _aio.UnaryUnaryMultiCallable[_encryption_pb2.EncryptBlobRequest, _encryption_pb2.EncryptResponse]  # type: ignore[assignment]
+    """Encrypt blob data (checkpoint channel values and pending writes)."""
+    DecryptBlob: _aio.UnaryUnaryMultiCallable[_encryption_pb2.DecryptBlobRequest, _encryption_pb2.DecryptResponse]  # type: ignore[assignment]
+    """Decrypt blob data. Context is supplied by the caller from the blob wrapper."""
 
 class EncryptionServicer(metaclass=_abc_1.ABCMeta):
     """Encryption service for custom encryption implementations."""
@@ -66,5 +74,21 @@ class EncryptionServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_encryption_pb2.DecryptResponse, _abc.Awaitable[_encryption_pb2.DecryptResponse]]:
         """Decrypt JSON data. Context is extracted from __encryption_context__ in the data."""
+
+    @_abc_1.abstractmethod
+    def EncryptBlob(
+        self,
+        request: _encryption_pb2.EncryptBlobRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_encryption_pb2.EncryptResponse, _abc.Awaitable[_encryption_pb2.EncryptResponse]]:
+        """Encrypt blob data (checkpoint channel values and pending writes)."""
+
+    @_abc_1.abstractmethod
+    def DecryptBlob(
+        self,
+        request: _encryption_pb2.DecryptBlobRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_encryption_pb2.DecryptResponse, _abc.Awaitable[_encryption_pb2.DecryptResponse]]:
+        """Decrypt blob data. Context is supplied by the caller from the blob wrapper."""
 
 def add_EncryptionServicer_to_server(servicer: EncryptionServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

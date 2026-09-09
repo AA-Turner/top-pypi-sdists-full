@@ -201,6 +201,9 @@ AUTH_ISSUER_ENV = "AIRBYTE_MCP_AUTH_ISSUER"
 AUTH_AUDIENCE_ENV = "AIRBYTE_MCP_AUTH_AUDIENCE"
 AUTH_ALGORITHM_ENV = "AIRBYTE_MCP_AUTH_ALGORITHM"
 AUTH_ALLOW_CLIENT_CREDENTIALS_ENV = "AIRBYTE_MCP_AUTH_ALLOW_CLIENT_CREDENTIALS"
+# Default-on for the PyAirbyte MCP server's insiders-only tool modules (e.g. `agents`);
+# clients no longer need `X-MCP-Insiders: 1` but may still opt out with `X-MCP-Insiders: 0`.
+MCP_INSIDERS_ENV = "AIRBYTE_MCP_INSIDERS"
 OPS_MCP_FIRESTORE_DATABASE = "ops-mcp-oauth"
 OPS_MCP_PREVIEW_FIRESTORE_DATABASE = "ops-mcp-oauth-preview"
 
@@ -1047,6 +1050,9 @@ def main() -> None:
         extra_envs=[
             *_cloud_mcp_auth_envs(),
             *_cloud_mcp_storage_envs(cloud_mcp_preview_firestore),
+            # Preview defaults to insiders tools so pre-release features can be demoed
+            # and tested without client-side header configuration.
+            _env(MCP_INSIDERS_ENV, "true"),
         ],
         extra_depends=[firestore_iam],
         **mcp_common,

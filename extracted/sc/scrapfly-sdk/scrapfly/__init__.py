@@ -1,8 +1,10 @@
-__version__ = '0.11.1'
+__version__ = '0.12.0'
 
 from typing import Tuple
 from .errors import ScrapflyError
 from .errors import ScrapflyAspError
+# Same class object as ScrapflyAspError, under the feature's current name.
+from .errors import ScrapflyUnblockerError
 from .errors import ScrapflyProxyError
 from .errors import ScrapflyScheduleError
 from .errors import ScrapflyScrapeError
@@ -21,6 +23,9 @@ from .errors import ScreenshotAPIError
 from .errors import ExtractionAPIError
 from .errors import CrawlerError
 from .errors import ScrapflyCrawlerError
+from .errors import CrawlerSearchError
+from .errors import CrawlerPromptError
+from .errors import CrawlerRefreshError
 from .api_response import ScrapeApiResponse, ScreenshotApiResponse, ExtractionApiResponse, ResponseBodyHandler
 from .client import ScrapflyClient, ScraperAPI, MonitoringTargetPeriod, MonitoringAggregation
 from .scrape_config import ScrapeConfig
@@ -33,6 +38,14 @@ from .crawler import (
     CrawlerArtifactResponse,
     CrawlerUrlsResponse,
     CrawlerUrlEntry,
+    CrawlerSearchState,
+    CrawlerSearchResult,
+    CrawlerSearchCrawl,
+    CrawlerSearchSkipped,
+    CrawlerSearchResponse,
+    CrawlerPromptEvent,
+    CrawlerRefreshEntry,
+    CrawlerRefreshState,
     WarcParser,
     WarcRecord,
     parse_warc,
@@ -49,6 +62,9 @@ from .crawler import (
     CrawlerUrlSkippedWebhook,
     CrawlerUrlDiscoveredWebhook,
     CrawlerUrlFailedWebhook,
+    CrawlerSearchWebhook,
+    CrawlerUpdatedWebhook,
+    CrawlerUpdatedDocuments,
     CrawlerScrapeResult,
     CrawlerWebhook,
     webhook_from_payload,
@@ -69,6 +85,7 @@ from .schedule import (
 __all__: Tuple[str, ...] = (
     'ScrapflyError',
     'ScrapflyAspError',
+    'ScrapflyUnblockerError',
     'ScrapflyProxyError',
     'ScrapflyScheduleError',
     'ScrapflyScrapeError',
@@ -99,6 +116,9 @@ __all__: Tuple[str, ...] = (
     'ScreenshotAPIError',
     'ExtractionAPIError',
     'CrawlerError',
+    'CrawlerSearchError',
+    'CrawlerPromptError',
+    'CrawlerRefreshError',
     'ScrapflyCrawlerError',
     'ScraperAPI',
     'MonitoringTargetPeriod',
@@ -110,6 +130,14 @@ __all__: Tuple[str, ...] = (
     'CrawlerArtifactResponse',
     'CrawlerUrlsResponse',
     'CrawlerUrlEntry',
+    'CrawlerSearchState',
+    'CrawlerSearchResult',
+    'CrawlerSearchCrawl',
+    'CrawlerSearchSkipped',
+    'CrawlerSearchResponse',
+    'CrawlerPromptEvent',
+    'CrawlerRefreshEntry',
+    'CrawlerRefreshState',
     'WarcParser',
     'WarcRecord',
     'parse_warc',
@@ -125,6 +153,9 @@ __all__: Tuple[str, ...] = (
     'CrawlerUrlSkippedWebhook',
     'CrawlerUrlDiscoveredWebhook',
     'CrawlerUrlFailedWebhook',
+    'CrawlerSearchWebhook',
+    'CrawlerUpdatedWebhook',
+    'CrawlerUpdatedDocuments',
     'CrawlerScrapeResult',
     'CrawlerWebhook',
     'webhook_from_payload',

@@ -53,16 +53,6 @@ def use(svg, node, font_size):
     svg.stream.transform(e=x, f=y)
 
 
-def draw_gradient_or_pattern(svg, node, name, font_size, opacity, stroke):
-    """Draw given gradient or pattern."""
-    if name in svg.gradients:
-        return draw_gradient(
-            svg, node, svg.gradients[name], font_size, opacity, stroke)
-    elif name in svg.patterns:
-        return draw_pattern(
-            svg, node, svg.patterns[name], font_size, opacity, stroke)
-
-
 def draw_gradient(svg, node, gradient, font_size, opacity, stroke):
     """Draw given gradient node."""
     # TODO: merge with Gradient.draw
@@ -87,13 +77,11 @@ def draw_gradient(svg, node, gradient, font_size, opacity, stroke):
     if not is_valid_bounding_box(bounding_box):
         return False
     if gradient.get('gradientUnits') == 'userSpaceOnUse':
-        width, height = svg.inner_width, svg.inner_height
-        bx1, by1 = bounding_box[:2]
+        bx1, by1, width, height = bounding_box
         matrix = Matrix()
     else:
-        width, height = 1, 1
+        bx1, by1, width, height = 0, 0, 1, 1
         e, f, a, d = bounding_box
-        bx1, by1 = 0, 0
         matrix = Matrix(a=a, d=d, e=e, f=f)
 
     spread = gradient.get('spreadMethod', 'pad')

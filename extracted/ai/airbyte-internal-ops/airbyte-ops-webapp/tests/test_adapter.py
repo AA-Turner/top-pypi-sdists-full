@@ -1548,8 +1548,8 @@ def test_progressive_rollout_rows_split_tier_displays(
             initial_docker_image_tag="3.8.0",
             current_target_rollout_pct="50",
             final_target_rollout_pct="100",
-            created_at="2026-06-10T00:00:00Z",
-            updated_at="2026-06-11T00:00:00Z",
+            created_at="2026-06-12T00:00:00Z",
+            updated_at="2026-06-13T09:30:00Z",
             tier="TIER_0",
         ),
     )
@@ -1572,6 +1572,8 @@ def test_progressive_rollout_rows_split_tier_displays(
             "connector_id": "source-postgres-id",
             "connector_name": "source-postgres",
             "rc_docker_image_tag": "3.8.0-rc.1",
+            "started_at_display": "2026-06-10 (Wed)",
+            "updated_at_display": "2026-06-13 09:30 UTC",
             "tier_2_display": "☑️",
             "tier_1_display": "☑️",
             "tier_0_display": "🔵",
@@ -1580,6 +1582,17 @@ def test_progressive_rollout_rows_split_tier_displays(
             "reason_display": "",
         }
     ]
+
+
+def test_format_datetime_display_treats_naive_values_as_utc() -> None:
+    assert (
+        helpers_module._format_datetime_display("2026-06-13 09:30:00.123456")
+        == "2026-06-13 09:30 UTC"
+    )
+    assert (
+        helpers_module._format_datetime_display("2026-06-13T07:30:00-02:00")
+        == "2026-06-13 09:30 UTC"
+    )
 
 
 def test_progressive_rollout_rows_include_terminal_sibling_tier(
@@ -1634,6 +1647,8 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
     assert row["tier_2_display"] == "⚠️"
     assert row["tier_1_display"] == "➖"
     assert row["tier_0_display"] == "➖"
+    assert row["started_at_display"] == "2026-08-07 (Fri)"
+    assert row["updated_at_display"] == "2026-08-07 04:22 UTC"
 
 
 @pytest.mark.parametrize(
@@ -1747,6 +1762,8 @@ def test_progressive_rollout_rows_apply_tier_ordering_inference(
         row["tier_1_display"],
         row["tier_0_display"],
     ) == expected
+    assert row["started_at_display"] == "2026-08-07 (Fri)"
+    assert row["updated_at_display"] == "2026-08-07 00:00 UTC"
 
 
 def test_connector_version_manager_initial_state_uses_resolved_context(

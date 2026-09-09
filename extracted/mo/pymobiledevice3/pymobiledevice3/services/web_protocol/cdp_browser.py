@@ -8,6 +8,11 @@ from typing import Any, Optional, cast
 from fastapi import WebSocket
 
 from pymobiledevice3.services.web_protocol.cdp_target import CdpTarget
+from pymobiledevice3.services.web_protocol.cdp_trace import (
+    BRIDGE_TO_EDITOR,
+    EDITOR_TO_BRIDGE,
+    ProtocolTrace,
+)
 from pymobiledevice3.services.web_protocol.session_protocol import SessionProtocol
 from pymobiledevice3.services.webinspector import (
     Application,
@@ -176,9 +181,18 @@ class CdpBrowser:
         Safari's "Automatically Pause Connecting to JSContexts" (see CdpTarget.pause_on_start).
     """
 
-    def __init__(self, inspector: WebinspectorService, websocket: WebSocket, pause_on_start: bool = False) -> None:
+    def __init__(
+        self,
+        inspector: WebinspectorService,
+        websocket: WebSocket,
+        pause_on_start: bool = False,
+        trace: Optional[ProtocolTrace] = None,
+    ) -> None:
         self.inspector = inspector
         self.websocket = websocket
+        # The --trace recorder, if any: the browser endpoint is what VS Code's js-debug and
+        # Playwright attach to, so its editor side is recorded here.
+        self._trace = trace
         self._pause_on_start = pause_on_start
         # Target.setAutoAttach(waitForDebuggerOnStart): attach before the debuggable runs.
         self._wait_for_debugger = False
@@ -209,6 +223,7 @@ class CdpBrowser:
             "Target.attachToBrowserTarget": self._target_attach_to_browser_target,
             "Target.setDiscoverTargets": self._target_set_discover_targets,
             "Target.setAutoAttach": self._target_set_auto_attach,
+            "Target.getBrowserContexts": self._target_get_browser_contexts,
             "Target.getTargets": self._target_get_targets,
             "Target.getTargetInfo": self._target_get_target_info,
             "Target.attachToTarget": self._target_attach_to_target,
@@ -219,6 +234,8 @@ class CdpBrowser:
         """Serve the connection until the client disconnects."""
         async for message in self.websocket.iter_json():
             logger.debug(f"BROWSER CDP INPUT: {message}")
+            if self._trace is not None:
+                self._trace.record(EDITOR_TO_BRIDGE, message, session="browser")
             try:
                 await self._handle(message)
             except Exception:
@@ -307,6 +324,8 @@ class CdpBrowser:
     async def _send(self, message: dict[str, Any]) -> None:
         logger.debug(f"BROWSER CDP OUTPUT: {message}")
         async with self._send_lock:
+            if self._trace is not None:
+                self._trace.record(BRIDGE_TO_EDITOR, message, session="browser")
             await self.websocket.send_json(message)
 
     async def _reply(self, message: dict[str, Any], result: dict[str, Any]) -> None:
@@ -366,9 +385,12 @@ class CdpBrowser:
         self._discover = bool(message.get("params", {}).get("discover"))
         if self._discover:
             self._events_session = message.get("sessionId")
-            # Announce the current pages before answering so a client awaiting the response
-            # observes the initial Target.targetCreated batch immediately after it.
-            await self._refresh_targets()
+            # Announce every current page before answering so a client awaiting the response
+            # observes the initial Target.targetCreated batch immediately after it. Chrome reports
+            # all existing targets when discovery is enabled; the batch must go out even for pages
+            # already learnt through an earlier Target.getTargets (js-debug's target picker calls
+            # getTargets first, then setDiscoverTargets, and hangs without this initial batch).
+            await self._refresh_targets(announce_all=True)
             self._ensure_poll()
         await self._reply(message, {})
 
@@ -390,6 +412,12 @@ class CdpBrowser:
         else:
             await self._stop_waiting_for_new_targets()
         await self._reply(message, {})
+
+    async def _target_get_browser_contexts(self, message: dict[str, Any]) -> None:
+        # Only the default browser context exists (no incognito), and Chrome omits the default from
+        # this list, so it is empty. Puppeteer's connect iterates the result and fails on a missing
+        # array; a bare {} ack is not enough.
+        await self._reply(message, {"browserContextIds": []})
 
     async def _target_get_targets(self, message: dict[str, Any]) -> None:
         await self._refresh_targets()
@@ -445,13 +473,13 @@ class CdpBrowser:
     def _list_pages(self) -> dict[str, tuple[Application, Page]]:
         return {target_id: (application, page) for target_id, application, page in iter_inspectable(self.inspector)}
 
-    async def _refresh_targets(self) -> None:
+    async def _refresh_targets(self, announce_all: bool = False) -> None:
         """Ask every application for its listing, then bring the client's target list up to date."""
         await self.inspector.get_open_pages()
         await self.inspector.flush_input(PAGE_LISTING_FLUSH)
-        await self._sync_targets()
+        await self._sync_targets(announce_all=announce_all)
 
-    async def _sync_targets(self, attach: bool = True) -> None:
+    async def _sync_targets(self, attach: bool = True, announce_all: bool = False) -> None:
         """Bring the client's target list in line with the listings already received: announce
         new pages, destroy gone ones and, unless `attach` is off, auto-attach the new ones."""
         async with self._refresh_lock:
@@ -469,7 +497,7 @@ class CdpBrowser:
                     "canAccessOpener": False,
                     "browserContextId": DEFAULT_BROWSER_CONTEXT_ID,
                 }
-                if is_new and self._discover:
+                if (is_new or announce_all) and self._discover:
                     await self._send_event("Target.targetCreated", {"targetInfo": self._known_targets[page_id]})
                 if attach and self._auto_attach and page_id not in self._attachments:
                     if self._left_to_its_candidate(page_id, page):

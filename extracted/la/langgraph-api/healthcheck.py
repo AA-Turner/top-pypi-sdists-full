@@ -7,7 +7,7 @@ from langgraph_api.utils.network import get_healthcheck_url_host
 
 
 def get_healthcheck_host() -> str:
-    server_host = os.environ.get("LANGGRAPH_SERVER_HOST", "0.0.0.0")
+    server_host = os.environ.get("LANGGRAPH_SERVER_HOST", "")
     return get_healthcheck_url_host(server_host)
 
 

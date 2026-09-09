@@ -4,7 +4,7 @@ import json
 import os
 import sys
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -1882,3 +1882,249 @@ class TestAiPrLoopWatchdogCommand:
         assert payload["due_probe_count"] == 0
         assert "::notice::ai-pr-loop-watchdog evaluated" not in out
         mock_gh_api.assert_not_called()
+
+    def test_redispatch_stop_conditions_mode_delegates_to_helper(self) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-stop-conditions", "--repo", "o/r"],
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command._run_redispatch_stop_conditions") as run_check,
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        run_check.assert_called_once_with("o/r", None)
+
+    def test_redispatch_dispatch_throttler_mode_warns_on_failure(self, capsys) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
+            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=2),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        output_lines = capsys.readouterr().out.splitlines()
+        assert output_lines[0].startswith("::warning::Could not dispatch ai-pr-loop-throttler.yml")
+        payload = json.loads(output_lines[-1])
+        assert payload["dispatch_status"] == 2
+        assert payload["workflow"] == "ai-pr-loop-throttler.yml"
+
+    def test_redispatch_dispatch_throttler_mode_resolves_default_branch_with_fallback_token_when_preferred_missing(
+        self,
+        capsys,
+    ) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
+            ),
+            patch.dict(
+                os.environ,
+                {
+                    "GH_TOKEN": "",
+                    "FALLBACK_GH_TOKEN": "fallback-token",
+                },
+                clear=True,
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
+                return_value="main",
+            ) as resolve_branch,
+            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=0),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        _ = capsys.readouterr().out
+        resolve_branch.assert_called_once_with("o/r", token="fallback-token")
+
+    def test_redispatch_dispatch_throttler_mode_retries_default_branch_with_fallback_on_auth_failure(
+        self,
+        capsys,
+    ) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
+            ),
+            patch.dict(
+                os.environ,
+                {
+                    "GH_TOKEN": "preferred-token",
+                    "FALLBACK_GH_TOKEN": "fallback-token",
+                },
+                clear=True,
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
+                side_effect=[RuntimeError("HTTP 403"), "main"],
+            ) as resolve_branch,
+            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=0),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        _ = capsys.readouterr().out
+        assert resolve_branch.call_args_list == [
+            call("o/r", token="preferred-token"),
+            call("o/r", token="fallback-token"),
+        ]
+
+    def test_redispatch_dispatch_throttler_mode_exits_on_non_authorization_default_branch_failure(self) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
+            ),
+            patch.dict(
+                os.environ,
+                {
+                    "GH_TOKEN": "preferred-token",
+                    "FALLBACK_GH_TOKEN": "fallback-token",
+                },
+                clear=True,
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
+                side_effect=RuntimeError("network down"),
+            ),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            with pytest.raises(SystemExit, match="1"):
+                ai_pr_loop_watchdog_command()
+
+    def test_redispatch_dispatch_redispatch_mode_warns_on_failure(self, capsys) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-redispatch", "--repo", "o/r"],
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
+            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_redispatch_from_loop", return_value=2),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        output_lines = capsys.readouterr().out.splitlines()
+        assert output_lines[0] == "::warning::Failed to dispatch ai-pr-loop-redispatch.yml; continuing"
+        payload = json.loads(output_lines[-1])
+        assert payload["dispatch_status"] == 2
+        assert payload["workflow"] == "ai-pr-loop-redispatch.yml"
+
+    def test_redispatch_dispatch_redispatch_mode_resolves_default_branch_with_fallback_when_preferred_missing(
+        self,
+        capsys,
+    ) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-redispatch", "--repo", "o/r"],
+            ),
+            patch.dict(
+                os.environ,
+                {
+                    "GH_TOKEN": "",
+                    "FALLBACK_GH_TOKEN": "fallback-token",
+                },
+                clear=True,
+            ),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch(
+                "agentic_devtools.cli.ci.watchdog_command._get_default_branch",
+                return_value="main",
+            ) as resolve_branch,
+            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_redispatch_from_loop", return_value=0),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        _ = capsys.readouterr().out
+        resolve_branch.assert_called_once_with("o/r", token="fallback-token")
+
+    def test_redispatch_dispatch_throttler_mode_omits_warning_on_success(self, capsys) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-throttler", "--repo", "o/r"],
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
+            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_throttler_with_fallback", return_value=0),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        output_lines = capsys.readouterr().out.splitlines()
+        assert len(output_lines) == 1
+        payload = json.loads(output_lines[-1])
+        assert payload["dispatch_status"] == 0
+
+    def test_redispatch_dispatch_redispatch_mode_omits_warning_on_success(self, capsys) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["agdt-ai-pr-loop-watchdog", "--mode", "redispatch-dispatch-redispatch", "--repo", "o/r"],
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch("agentic_devtools.cli.ci.watchdog_command.shutil.which", return_value="/usr/bin/gh"),
+            patch("agentic_devtools.cli.ci.watchdog_command.resolve_github_repo", return_value="o/r"),
+            patch("agentic_devtools.cli.ci.watchdog_command.GitHubActionsProvider"),
+            patch("agentic_devtools.cli.ci.watchdog_command._get_default_branch", return_value="main"),
+            patch("agentic_devtools.cli.ci.watchdog_command._dispatch_redispatch_from_loop", return_value=0),
+        ):
+            from agentic_devtools.cli.ci.watchdog_command import ai_pr_loop_watchdog_command
+
+            ai_pr_loop_watchdog_command()
+
+        output_lines = capsys.readouterr().out.splitlines()
+        assert len(output_lines) == 1
+        payload = json.loads(output_lines[-1])
+        assert payload["dispatch_status"] == 0

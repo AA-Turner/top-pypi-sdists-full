@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import grpc
 import grpc.aio
+import orjson
 from langgraph.checkpoint.base import (
     BaseCheckpointSaver,
     ChannelVersions,
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 RetryFn = Callable[[Callable[[], Awaitable[Any]], str], Awaitable[Any]]
 StubProvider = Callable[[], Awaitable["CheckpointerStub"]]
+EncryptionContextProvider = Callable[[], Mapping[str, Any]]
 
 
 class GrpcCheckpointer(BaseCheckpointSaver):
@@ -57,6 +59,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         retry: RetryFn | None = None,
         retry_context_prefix: str | None = None,
         serializer: SerializerProtocol | None = None,
+        encryption_context_provider: EncryptionContextProvider | None = None,
     ) -> None:
         """Construct a gRPC checkpointer client.
 
@@ -74,17 +77,33 @@ class GrpcCheckpointer(BaseCheckpointSaver):
                 so unrelated gRPC ops sharing
                 ``langgraph_grpc_common.conversion.*`` keep using the
                 process-wide default
+            encryption_context_provider: Optional callable returning the
+                request-scoped encryption context, sent with writes so the
+                server can encrypt blobs with the caller's context. Injected
+                rather than read directly because the context lives in a
+                ``ContextVar`` owned by ``langgraph_api``, which this package
+                does not depend on.
         """
         super().__init__(serde=None)
         self._get_stub = get_stub
         self._retry = retry
         self._retry_context_prefix = retry_context_prefix or type(self).__name__
         self._serializer = serializer
+        self._encryption_context_provider = encryption_context_provider
         self.latest_iter = None
         try:
             self._loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
         except RuntimeError:
             self._loop = None
+
+    def _encryption_context_json(self) -> dict[str, bytes]:
+        """Return encryption context as JSON-encoded proto map values."""
+        if self._encryption_context_provider is None:
+            return {}
+        context = self._encryption_context_provider()
+        if not context:
+            return {}
+        return {key: orjson.dumps(value) for key, value in context.items()}
 
     def _scoped(self) -> AbstractContextManager[None]:
         """Bind ``self._serializer`` for the duration of a conversion call."""
@@ -168,6 +187,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
                 checkpoint=ckpt_conv.checkpoint_to_proto(checkpoint),
                 metadata=ckpt_conv.checkpoint_metadata_to_proto(metadata),
                 new_versions={k: str(v) for k, v in new_versions.items()},
+                encryption_context_json=self._encryption_context_json(),
             )
 
         async def _request() -> RunnableConfig:
@@ -202,6 +222,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
                 writes=ckpt_conv.writes_to_proto(writes),
                 task_id=task_id,
                 task_path=task_path,
+                encryption_context_json=self._encryption_context_json(),
             )
 
         async def _request() -> None:

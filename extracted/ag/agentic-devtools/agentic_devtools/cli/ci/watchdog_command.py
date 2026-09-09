@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import shutil
 import sys
 import time
@@ -32,9 +33,16 @@ from agentic_devtools.cli.github.repo_resolution import resolve_github_repo
 logger = logging.getLogger(__name__)
 
 THROTTLER_WORKFLOW = "ai-pr-loop-throttler.yml"
+REDISPATCH_WORKFLOW = "ai-pr-loop-redispatch.yml"
 COOLDOWN_SECONDS = 60
 REDISPATCH_COOLDOWN_SECONDS = 65
 REDISPATCH_MAX_HORIZON_SECONDS = 300
+REDISPATCH_MAX_OPEN_PR_PAGES = 5
+REDISPATCH_MAX_CLOSED_PR_PAGES = 5
+AUTHORIZATION_STATUS_PATTERN = re.compile(
+    r"(^|[^A-Za-z0-9])HTTP(/[0-9]+(\.[0-9]+)?)?\s+(401|403)([^0-9]|$)",
+    re.IGNORECASE,
+)
 
 
 def _utc_now() -> datetime:
@@ -58,6 +66,290 @@ def _parse_timestamp(value: str) -> datetime | None:
 def _writer_token() -> str | None:
     token = os.environ.get("REPO_VARIABLE_WRITER_PAT", "").strip()
     return token or None
+
+
+def _is_authorization_failure(error_text: str) -> bool:
+    lowered = error_text.lower()
+    return (
+        AUTHORIZATION_STATUS_PATTERN.search(error_text) is not None
+        or "resource not accessible by personal access token" in lowered
+        or "repository.pullrequests" in lowered
+    )
+
+
+def _token_from_env(name: str) -> str:
+    return os.environ.get(name, "").strip()
+
+
+def _dispatch_with_token(workflow: str, repo: str, default_branch: str, token: str) -> tuple[int, str]:
+    try:
+        _gh_api(
+            f"/repos/{repo}/actions/workflows/{quote(workflow, safe='')}/dispatches",
+            method="POST",
+            body={"ref": default_branch},
+            token=token,
+        )
+    except RetryableError as exc:
+        return 2, str(exc)
+    except RuntimeError as exc:
+        message = str(exc)
+        if _is_authorization_failure(message):
+            return 1, message
+        return 2, message
+    return 0, ""
+
+
+def _dispatch_throttler_with_fallback(repo: str, default_branch: str) -> int:
+    preferred_token = _token_from_env("GH_TOKEN")
+    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
+    dispatch_status = 0
+    if not preferred_token:
+        if not fallback_token:
+            return 2
+        dispatch_status, _ = _dispatch_with_token(THROTTLER_WORKFLOW, repo, default_branch, fallback_token)
+        return dispatch_status
+    dispatch_status, _ = _dispatch_with_token(THROTTLER_WORKFLOW, repo, default_branch, preferred_token)
+    if dispatch_status == 1 and fallback_token:
+        dispatch_status, _ = _dispatch_with_token(THROTTLER_WORKFLOW, repo, default_branch, fallback_token)
+    return dispatch_status
+
+
+def _dispatch_redispatch_from_loop(repo: str, default_branch: str) -> int:
+    preferred_token = _token_from_env("GH_TOKEN")
+    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
+    cooldown_active = _token_from_env("COOLDOWN_ACTIVE").lower() == "true"
+    loop_exit_code = _token_from_env("LOOP_EXIT_CODE")
+    if fallback_token and (not preferred_token or cooldown_active or loop_exit_code == "6"):
+        preferred_token = fallback_token
+    if not preferred_token:
+        return 2
+    dispatch_status, _ = _dispatch_with_token(REDISPATCH_WORKFLOW, repo, default_branch, preferred_token)
+    return dispatch_status
+
+
+def _resolve_default_branch_for_throttler_dispatch(repo: str) -> str:
+    preferred_token = _token_from_env("GH_TOKEN")
+    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
+    probe_token = preferred_token or fallback_token or None
+    try:
+        return _get_default_branch(repo, token=probe_token)
+    except RuntimeError as exc:
+        if preferred_token and fallback_token and _is_authorization_failure(str(exc)):
+            return _get_default_branch(repo, token=fallback_token)
+        raise
+
+
+def _resolve_default_branch_for_redispatch_dispatch(repo: str) -> str:
+    preferred_token = _token_from_env("GH_TOKEN")
+    fallback_token = _token_from_env("FALLBACK_GH_TOKEN")
+    cooldown_active = _token_from_env("COOLDOWN_ACTIVE").lower() == "true"
+    loop_exit_code = _token_from_env("LOOP_EXIT_CODE")
+    selected_token = preferred_token
+    if fallback_token and (not selected_token or cooldown_active or loop_exit_code == "6"):
+        selected_token = fallback_token
+    return _get_default_branch(repo, token=selected_token or None)
+
+
+def _read_open_pr_page(repo: str, token: str, page: int) -> list[dict[str, Any]]:
+    response = _gh_api(
+        f"/repos/{repo}/pulls?state=open&per_page=100&page={page}",
+        token=token,
+    )
+    try:
+        data = json.loads(response)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Open pull-request inventory was malformed; refusing redispatch.") from exc
+    if not isinstance(data, list):
+        raise RuntimeError("Open pull-request inventory was malformed; refusing redispatch.")
+    if not all(isinstance(item, dict) for item in data):
+        raise RuntimeError("Open pull-request inventory was malformed; refusing redispatch.")
+    return data
+
+
+def _is_cross_repository_pull_request(pr_payload: dict[str, Any], repo: str) -> bool:
+    base = pr_payload.get("base")
+    head = pr_payload.get("head")
+    if not isinstance(base, dict) or not isinstance(head, dict):
+        return True
+    base_repo = base.get("repo")
+    head_repo = head.get("repo")
+    if not isinstance(base_repo, dict) or not isinstance(head_repo, dict):
+        return True
+    base_full_name = str(base_repo.get("full_name", "")).strip()
+    head_full_name = str(head_repo.get("full_name", "")).strip()
+    if not base_full_name or not head_full_name:
+        return True
+    return base_full_name != head_full_name or base_full_name != repo
+
+
+def _eligible_open_pr_count(repo: str, token: str) -> int:
+    eligible_count = 0
+    for page in range(1, REDISPATCH_MAX_OPEN_PR_PAGES + 1):
+        open_prs = _read_open_pr_page(repo, token, page)
+        for pr in open_prs:
+            if _is_cross_repository_pull_request(pr, repo):
+                continue
+            labels = pr.get("labels")
+            if not isinstance(labels, list):
+                raise RuntimeError("Open pull-request inventory was malformed; refusing redispatch.")
+            label_names: list[str] = []
+            for label in labels:
+                if not isinstance(label, dict):
+                    raise RuntimeError("Open pull-request inventory was malformed; refusing redispatch.")
+                label_name = label.get("name")
+                if not isinstance(label_name, str) or not label_name.strip():
+                    raise RuntimeError("Open pull-request inventory was malformed; refusing redispatch.")
+                label_names.append(label_name)
+            if "ai-pr-loop-ignore" in label_names:
+                continue
+            eligible_count += 1
+        if len(open_prs) < 100:
+            break
+    return eligible_count
+
+
+def _latest_merged_at(repo: str, default_branch: str, token: str) -> str | None:
+    latest_merge_time: datetime | None = None
+    latest_merge_raw: str | None = None
+    for page in range(1, REDISPATCH_MAX_CLOSED_PR_PAGES + 1):
+        response = _gh_api(
+            (
+                f"/repos/{repo}/pulls?state=closed&base={quote(default_branch, safe='')}"
+                f"&sort=updated&direction=desc&per_page=100&page={page}"
+            ),
+            token=token,
+        )
+        try:
+            data = json.loads(response)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Merged pull-request inventory was malformed; refusing redispatch.") from exc
+        if not isinstance(data, list):
+            raise RuntimeError("Merged pull-request inventory was malformed; refusing redispatch.")
+        if not data:
+            break
+
+        oldest_updated_at_in_page: datetime | None = None
+        for item in data:
+            if not isinstance(item, dict):
+                raise RuntimeError("Merged pull-request inventory was malformed; refusing redispatch.")
+            updated_at = item.get("updated_at")
+            if not isinstance(updated_at, str) or not updated_at.strip():
+                raise RuntimeError("Merged pull-request inventory was malformed; refusing redispatch.")
+            parsed_updated_at = _parse_timestamp(updated_at)
+            if parsed_updated_at is None:
+                raise RuntimeError(
+                    "Merged pull-request inventory returned an invalid update date; refusing redispatch."
+                )
+            if oldest_updated_at_in_page is None or parsed_updated_at < oldest_updated_at_in_page:
+                oldest_updated_at_in_page = parsed_updated_at
+
+            merged_at = item.get("merged_at")
+            if merged_at is None:
+                continue
+            if not isinstance(merged_at, str) or not merged_at.strip():
+                raise RuntimeError("Merged pull-request inventory was malformed; refusing redispatch.")
+            parsed_merged_at = _parse_timestamp(merged_at)
+            if parsed_merged_at is None:
+                raise RuntimeError("Merged pull-request inventory returned an invalid merge date; refusing redispatch.")
+            if latest_merge_time is None or parsed_merged_at > latest_merge_time:
+                latest_merge_time = parsed_merged_at
+                latest_merge_raw = merged_at.strip()
+
+        if len(data) < 100:
+            break
+        if (
+            latest_merge_time is not None
+            and oldest_updated_at_in_page is not None
+            and oldest_updated_at_in_page <= latest_merge_time
+        ):
+            break
+    return latest_merge_raw
+
+
+def _select_pr_read_token(repo: str) -> str:
+    candidates = (
+        ("SPECKIT_PR_TOKEN", _token_from_env("SPECKIT_PR_TOKEN")),
+        ("GITHUB_TOKEN", _token_from_env("GITHUB_TOKEN")),
+    )
+    for candidate_name, candidate_token in candidates:
+        if not candidate_token:
+            continue
+        try:
+            probe = _gh_api(f"/repos/{repo}/pulls?state=open&per_page=1", token=candidate_token)
+        except RetryableError as exc:
+            raise RuntimeError(
+                f"Pull-request inventory probe failed for {candidate_name}; "
+                "refusing redispatch because the inventory is unavailable."
+            ) from exc
+        except RuntimeError as exc:
+            if _is_authorization_failure(str(exc)):
+                continue
+            raise RuntimeError(
+                f"Pull-request inventory probe failed for {candidate_name}; "
+                "refusing redispatch because the inventory is unavailable."
+            ) from exc
+        try:
+            decoded = json.loads(probe)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Pull-request inventory probe returned a malformed response for {candidate_name}; refusing redispatch."
+            ) from exc
+        if not isinstance(decoded, list):
+            raise RuntimeError(
+                f"Pull-request inventory probe returned a malformed response for {candidate_name}; refusing redispatch."
+            )
+        return candidate_token
+    raise RuntimeError(
+        "No credential can read repository pull requests; grant Pull requests: read "
+        "to a configured PAT or the workflow GITHUB_TOKEN."
+    )
+
+
+def _run_redispatch_stop_conditions(repo: str, default_branch: str | None) -> None:
+    should_dispatch = False
+    output: dict[str, Any] = {"should_dispatch": False}
+    try:
+        pr_read_token = _select_pr_read_token(repo)
+        resolved_default_branch = default_branch or _get_default_branch(repo, token=pr_read_token)
+        eligible_count = _eligible_open_pr_count(repo, pr_read_token)
+        if eligible_count == 0:
+            print("No eligible open PRs — stopping loop.")
+            _write_github_output({"should_dispatch": False})
+            print(json.dumps(output))
+            return
+        merged_at = _latest_merged_at(repo, resolved_default_branch, pr_read_token)
+        if merged_at is None:
+            print("Could not determine last merge date — stopping loop (fail-safe).")
+            _write_github_output({"should_dispatch": False})
+            print(json.dumps(output))
+            return
+        last_merge_dt = _parse_timestamp(merged_at)
+        if last_merge_dt is None:
+            raise RuntimeError("Merged pull-request inventory returned an invalid merge date; refusing redispatch.")
+        now_utc = _utc_now()
+        elapsed_seconds = max(0, int((now_utc - last_merge_dt).total_seconds()))
+        hours_since_merge = elapsed_seconds // 3600
+        if hours_since_merge >= 24:
+            print(
+                f"No merges to main in {hours_since_merge}h — stopping loop "
+                "(likely stuck PRs needing human intervention)."
+            )
+            _write_github_output({"should_dispatch": False})
+            print(json.dumps(output))
+            return
+        print(f"Eligible open PRs: {eligible_count}")
+        print(f"Last merge to main was {hours_since_merge}h ago — continuing loop.")
+        should_dispatch = True
+        output = {
+            "should_dispatch": True,
+            "eligible_open_pr_count": eligible_count,
+            "hours_since_merge": hours_since_merge,
+            "default_branch": resolved_default_branch,
+        }
+    except (RuntimeError, RetryableError) as exc:
+        print(f"::error::{exc}")
+    _write_github_output({"should_dispatch": should_dispatch})
+    print(json.dumps(output))
 
 
 def _get_default_branch(repo: str, *, token: str | None = None) -> str:
@@ -463,9 +755,15 @@ def ai_pr_loop_watchdog_command() -> None:
             "redispatch-timing",
             "redispatch-recheck",
             "redispatch-wait",
+            "redispatch-stop-conditions",
+            "redispatch-dispatch-throttler",
+            "redispatch-dispatch-redispatch",
         ),
         default="watchdog",
-        help="Command mode: normal watchdog dispatch or redispatch cooldown evaluation.",
+        help=(
+            "Command mode: normal watchdog dispatch, redispatch cooldown evaluation, "
+            "stop-condition checks, or redispatch workflow dispatch."
+        ),
     )
     parser.add_argument("--repo", type=str, default=None, help="Repository (owner/repo)")
     parser.add_argument("--default-branch", type=str, default=None, help="Default branch override")
@@ -512,6 +810,26 @@ def ai_pr_loop_watchdog_command() -> None:
             return
         if args.mode == "redispatch-wait":
             _run_redispatch_wait(provider, repo, args.default_branch)
+            return
+        if args.mode == "redispatch-stop-conditions":
+            _run_redispatch_stop_conditions(repo, args.default_branch)
+            return
+        if args.mode == "redispatch-dispatch-throttler":
+            default_branch = args.default_branch or _resolve_default_branch_for_throttler_dispatch(repo)
+            dispatch_status = _dispatch_throttler_with_fallback(repo, default_branch)
+            if dispatch_status != 0:
+                print(
+                    "::warning::Could not dispatch ai-pr-loop-throttler.yml "
+                    "(workflow may be disabled); watchdog will retry."
+                )
+            print(json.dumps({"dispatch_status": dispatch_status, "workflow": THROTTLER_WORKFLOW}))
+            return
+        if args.mode == "redispatch-dispatch-redispatch":
+            default_branch = args.default_branch or _resolve_default_branch_for_redispatch_dispatch(repo)
+            dispatch_status = _dispatch_redispatch_from_loop(repo, default_branch)
+            if dispatch_status != 0:
+                print("::warning::Failed to dispatch ai-pr-loop-redispatch.yml; continuing")
+            print(json.dumps({"dispatch_status": dispatch_status, "workflow": REDISPATCH_WORKFLOW}))
             return
         if args.mode == "redispatch-recheck":
             now_utc = _utc_now()

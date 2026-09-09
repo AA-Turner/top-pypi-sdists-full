@@ -290,6 +290,7 @@ from .literals import (
     NatGatewayApplianceStateType,
     NatGatewayStateType,
     NestedVirtualizationSpecificationType,
+    NetworkCardInterfaceTypeType,
     NetworkInterfaceAttributeType,
     NetworkInterfaceCreationTypeType,
     NetworkInterfacePermissionStateCodeType,
@@ -8830,6 +8831,7 @@ class NetworkCardInfoTypeDef(TypedDict):
     DefaultEnaQueueCountPerInterface: NotRequired[int]
     MaximumEnaQueueCount: NotRequired[int]
     MaximumEnaQueueCountPerInterface: NotRequired[int]
+    InterfaceTypes: NotRequired[list[NetworkCardInterfaceTypeType]]
 
 
 class NetworkInterfaceAssociationTypeDef(TypedDict):

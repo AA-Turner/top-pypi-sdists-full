@@ -1,12 +1,58 @@
-# Copyright (c) 2025 Ratha SIV | MIT License
+# Copyright (c) 2026 Ratha SIV | MIT License
 
 import numpy as np
-from typing import Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 from ._lapjvs import lapjvs_native as _lapjvs_native  # type: ignore
 from ._lapjvs import lapjvs_float32 as _lapjvs_float32  # type: ignore
 from ._lapjvs import lapjvsa_native as _lapjvsa_native  # type: ignore
 from ._lapjvs import lapjvsa_float32 as _lapjvsa_float32  # type: ignore
+
+
+# Describe return_cost for type checkers without registering overloads at runtime.
+if TYPE_CHECKING:
+    from typing import overload
+    from typing_extensions import Literal
+
+    @overload
+    def lapjvs(
+        cost: np.ndarray,
+        extend_cost: Optional[bool] = None,
+        return_cost: Literal[True] = True,
+        jvx_like: bool = True,
+        prefer_float32: bool = True,
+    ) -> Tuple[float, np.ndarray, np.ndarray]: ...
+
+    @overload
+    def lapjvs(
+        cost: np.ndarray,
+        extend_cost: Optional[bool],
+        return_cost: Literal[False],
+        jvx_like: bool = True,
+        prefer_float32: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]: ...
+
+    @overload
+    def lapjvs(
+        cost: np.ndarray,
+        extend_cost: Optional[bool] = None,
+        *,
+        return_cost: Literal[False],
+        jvx_like: bool = True,
+        prefer_float32: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]: ...
+
+    @overload
+    def lapjvs(
+        cost: np.ndarray,
+        extend_cost: Optional[bool] = None,
+        return_cost: bool = True,
+        jvx_like: bool = True,
+        prefer_float32: bool = True,
+    ) -> Union[
+        Tuple[float, np.ndarray, np.ndarray],
+        Tuple[np.ndarray, np.ndarray],
+    ]: ...
 
 
 def lapjvs(
@@ -19,66 +65,70 @@ def lapjvs(
     Tuple[float, np.ndarray, np.ndarray],
     Tuple[np.ndarray, np.ndarray]
 ]:
-    """
-    This function wraps a high-performance JV solver and provides flexible
-    I/O to match either lapjv-style vector outputs (x, y) or lapjvx/SciPy-style
-    pair lists (rows, cols). It handles rectangular inputs by zero-padding to a
-    square matrix internally when requested.
+    """Solve a linear assignment problem with a Jonker-Volgenant solver.
+
+    The function returns mapping arrays (x, y), as in lapjv, or aligned index arrays
+    (rows, cols), as in lapjvx and SciPy. When requested, it adds zeros to make
+    rectangular inputs square.
 
     Parameters
     ----------
     cost : np.ndarray, shape (n, m)
-        The cost matrix. Must be 2D and a real floating dtype. Values are treated
-        as minimization costs. Rectangular matrices are supported via internal
-        zero-padding when `extend_cost=True` or `extend_cost=None and n != m`.
+        The cost matrix must be 2D with a real floating data type.
+        The solver treats the values as costs to minimize.
+        It pads rectangular inputs with zeros when extend_cost=True or
+        when extend_cost=None and n != m.
     extend_cost : Optional[bool], default None
-        Controls how rectangular inputs are handled:
-        - True: Always zero-pad to a square internally (if needed).
-        - False: Require a square matrix, otherwise raise ValueError.
-        - None: Auto mode; pad iff the input is rectangular.
+        This option controls padding for rectangular inputs:
+        - True: Add zeros to make the matrix square, if necessary.
+        - False: Require a square matrix. Otherwise, raise ValueError.
+        - None: Add zeros if and only if the input is rectangular.
     return_cost : bool, default True
-        If True, include the total assignment cost as the first return value.
-        The total is always recomputed from the ORIGINAL input array `cost`
-        (float64 accumulation) to match previous numeric behavior.
+        If True, return the total assignment cost first.
+        The solver always recalculates this total from the original cost array
+        with float64 sums. This preserves the previous numerical behavior.
     jvx_like : bool, default True
-        Selects the output format.
-        - True: Return lapjvx/SciPy-style indexing arrays:
+        This option selects the output format:
+        - True: Return aligned index arrays, as in lapjvx and SciPy:
             return_cost=True  -> (total_cost: float, rows: (k,), cols: (k,))
             return_cost=False -> (rows: (k,), cols: (k,))
-          Here, `rows[i]` is assigned to `cols[i]`.
-        - False: Return lapjv-style mapping vectors:
+          The solver assigns rows[i] to cols[i].
+        - False: Return mapping arrays, as in lapjv:
             return_cost=True  -> (total_cost: float, x: (n0,), y: (m0,))
             return_cost=False -> (x: (n0,), y: (m0,))
-          `x[i]` gives the assigned column for row i or -1 if unassigned.
-          `y[j]` gives the assigned row for column j or -1 if unassigned.
+          x[i] gives the assigned column for row i, or -1 if the row has no assignment.
+          y[j] gives the assigned row for column j, or -1 if the column has no assignment.
     prefer_float32 : bool, default True
-        When True, the solver kernel runs in float32 to reduce memory bandwidth
-        and improve speed. When False and the input is float64, the kernel runs
-        in float64. Regardless of kernel dtype, the returned total cost is
-        recomputed against the ORIGINAL `cost` array.
+        If True, the kernel uses float32 to reduce memory bandwidth and improve speed.
+        If False and the input is float64, the kernel uses float64.
+        The solver recalculates the total from the original cost array,
+        regardless of the kernel data type.
 
     Returns
     -------
-    See `jvx_like` and `return_cost` above for exact signatures. In all cases,
-    index arrays are int64 and refer to indices in the ORIGINAL orientation of
-    `cost` (not the internally transposed one).
+    See jvx_like and return_cost above for the exact return formats.
+    All index arrays use int64. Their indices refer to the original orientation
+    of cost, before any internal transpose.
 
     Raises
     ------
     ValueError
-        - If `cost` is not a 2D array.
-        - If `extend_cost=False` and the input matrix is rectangular.
+        The function raises this exception in these cases:
+        - cost is not a 2D array.
+        - extend_cost=False and the input matrix is rectangular.
+        - No feasible assignment exists.
 
     Notes
     -----
-    - Rectangular handling:
-      Internally, the solver normalizes orientation so that the working matrix
-      has rows <= cols. Rectangular problems are modeled by zero-padding on
-      the right and/or bottom to become square. Only assignments within the
-      original (n, m) region are returned and used for the total.
-    - Dtype:
-      The kernel may operate in float32 or float64, but accumulation for the
-      returned total cost is performed in float64 on the ORIGINAL `cost`.
+    - The solver does not check for NaN (not a number) or negative infinity.
+      Check or remove these values before you call the solver. Results with these
+      values are undefined. Positive infinity can represent a forbidden assignment.
+    - The solver adjusts the matrix orientation so the working matrix has rows <= cols.
+      It pads the right, bottom, or both with zeros to make rectangular problems square.
+      It returns only assignments within the original (n, m) region.
+      It uses only these assignments for the total cost.
+    - The kernel may use float32 or float64.
+      The solver always sums total costs in float64 from the original cost array.
     """
     # Keep the original array to compute the final cost from it (preserves previous behavior)
     A = np.asarray(cost)
@@ -86,26 +136,31 @@ def lapjvs(
         raise ValueError("cost must be a 2D array")
 
     n0, m0 = A.shape
-    transposed = False
+    if extend_cost is not None and not extend_cost and n0 != m0:
+        raise ValueError("extend_cost=False requires a square cost matrix")
+    if n0 == 0 or m0 == 0:
+        if jvx_like:
+            x_out = np.empty((0,), dtype=np.int64)
+            y_out = np.empty((0,), dtype=np.int64)
+        else:
+            x_out = np.full(n0, -1, dtype=np.int64)
+            y_out = np.full(m0, -1, dtype=np.int64)
+        return (0.0, x_out, y_out) if return_cost else (x_out, y_out)
 
     # Normalize orientation for performance: let the kernel see rows <= cols.
-    if n0 > m0:
-        B = np.ascontiguousarray(A.T)
-        transposed = True
-    else:
-        B = np.ascontiguousarray(A)
-
+    # Keep a view until the final working buffer's dtype and shape are known.
+    transposed = n0 > m0
+    B = A.T if transposed else A
     n, m = B.shape
-    extend = (n != m) if (extend_cost is None) else bool(extend_cost)
 
     # Choose backend and working dtype for the solver only
     use_float32_kernel = not ((prefer_float32 is False) and (B.dtype == np.float64))
     if use_float32_kernel:
         _kernel = _lapjvs_float32
-        work_base = np.ascontiguousarray(B, dtype=np.float32)
+        wdtype = np.float32
     else:
         _kernel = _lapjvs_native
-        work_base = np.ascontiguousarray(B, dtype=np.float64)
+        wdtype = np.float64
 
     def _rows_cols_from_x(x_vec: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if x_vec.size == 0:
@@ -118,11 +173,9 @@ def lapjvs(
         # Map back to original orientation (A): swap row/col
         return cols_b, rows_b
 
-    if not extend:
+    if n == m:
         # Square: call solver directly on chosen dtype, compute total from ORIGINAL A
-        if n != m:
-            # Guard (per docstring): if extend_cost=False, require square input
-            raise ValueError("extend_cost=False requires a square cost matrix")
+        work_base = np.ascontiguousarray(B, dtype=wdtype)
         x_raw_obj, y_raw_obj = _kernel(work_base)
 
         x_raw_b = np.asarray(x_raw_obj, dtype=np.int64)
@@ -130,7 +183,7 @@ def lapjvs(
         if jvx_like:
             rows_a, cols_a = _rows_cols_from_x(x_raw_b)
             if return_cost:
-                total = float(A[rows_a, cols_a].sum()) if rows_a.size else 0.0
+                total = float(A[rows_a, cols_a].sum(dtype=np.float64)) if rows_a.size else 0.0
                 return total, rows_a, cols_a
             else:
                 return rows_a, cols_a
@@ -140,7 +193,7 @@ def lapjvs(
 
             if not transposed:
                 if return_cost:
-                    total = float(A[np.arange(n), x_raw_b].sum()) if n > 0 else 0.0
+                    total = float(A[np.arange(n), x_raw_b].sum(dtype=np.float64)) if n > 0 else 0.0
                     return total, x_raw_b, y_raw_b
                 else:
                     return x_raw_b, y_raw_b
@@ -155,16 +208,16 @@ def lapjvs(
             if rows_a.size:
                 y_out[cols_a] = rows_a
             if return_cost:
-                total = float(A[rows_a, cols_a].sum()) if rows_a.size else 0.0
+                total = float(A[rows_a, cols_a].sum(dtype=np.float64)) if rows_a.size else 0.0
                 return total, x_out, y_out
             else:
                 return x_out, y_out
 
     # Rectangular: zero-pad to square (in B space), solve, map back; compute total from ORIGINAL A
     size = max(n, m)
-    padded = np.empty((size, size), dtype=work_base.dtype)
-    # copy original submatrix
-    padded[:n, :m] = work_base
+    padded = np.empty((size, size), dtype=wdtype)
+    # Copy and cast directly into the final buffer, including for strided inputs.
+    padded[:n, :m] = B
     if m < size:
         padded[:n, m:] = 0
     if n < size:
@@ -192,7 +245,7 @@ def lapjvs(
         cols_a = np.empty((0,), dtype=np.int64)
 
     if jvx_like:
-        total = float(A[rows_a, cols_a].sum()) if (return_cost and rows_a.size) else 0.0
+        total = float(A[rows_a, cols_a].sum(dtype=np.float64)) if (return_cost and rows_a.size) else 0.0
         return (total, rows_a, cols_a) if return_cost else (rows_a, cols_a)
 
     # lapjv-like outputs (vectorized) in ORIGINAL orientation
@@ -203,11 +256,47 @@ def lapjvs(
         y_out[cols_a] = rows_a
 
     if return_cost and rows_a.size:
-        total = float(A[rows_a, cols_a].sum())
+        total = float(A[rows_a, cols_a].sum(dtype=np.float64))
     else:
         total = 0.0
 
     return (total, x_out, y_out) if return_cost else (x_out, y_out)
+
+
+# Describe return_cost for type checkers without registering overloads at runtime.
+if TYPE_CHECKING:
+    @overload
+    def lapjvsa(
+        cost: np.ndarray,
+        extend_cost: Optional[bool] = None,
+        return_cost: Literal[True] = True,
+        prefer_float32: bool = True,
+    ) -> Tuple[float, np.ndarray]: ...
+
+    @overload
+    def lapjvsa(
+        cost: np.ndarray,
+        extend_cost: Optional[bool],
+        return_cost: Literal[False],
+        prefer_float32: bool = True,
+    ) -> np.ndarray: ...
+
+    @overload
+    def lapjvsa(
+        cost: np.ndarray,
+        extend_cost: Optional[bool] = None,
+        *,
+        return_cost: Literal[False],
+        prefer_float32: bool = True,
+    ) -> np.ndarray: ...
+
+    @overload
+    def lapjvsa(
+        cost: np.ndarray,
+        extend_cost: Optional[bool] = None,
+        return_cost: bool = True,
+        prefer_float32: bool = True,
+    ) -> Union[Tuple[float, np.ndarray], np.ndarray]: ...
 
 
 def lapjvsa(
@@ -219,27 +308,26 @@ def lapjvsa(
     Tuple[float, np.ndarray],
     np.ndarray
 ]:
-    """
-    This variant returns a compact pairs array of shape (K, 2), where each row
-    is a (row_index, col_index) assignment in the ORIGINAL orientation of the
-    input matrix. Rectangular inputs are handled by internal zero-padding if
-    requested.
+    """Return assignment pairs with shape (K, 2).
+
+    Each row contains (row_index, col_index) in the original orientation of the
+    input matrix. When requested, the solver pads rectangular inputs with zeros.
 
     Parameters
     ----------
     cost : np.ndarray, shape (n, m)
-        Cost matrix (float32/float64). Must be 2D.
+        The cost matrix must be 2D with data type float32 or float64.
     extend_cost : Optional[bool], default None
-        Rectangular handling:
-        - True: Zero-pad to square internally (if needed).
-        - False: Require square, else raise ValueError.
-        - None: Auto; pad iff rectangular.
+        This option controls padding for rectangular inputs:
+        - True: Add zeros to make the matrix square, if necessary.
+        - False: Require a square matrix. Otherwise, raise ValueError.
+        - None: Add zeros if and only if the input is rectangular.
     return_cost : bool, default True
-        If True, include the total cost as the first return value. The total is
-        computed from the ORIGINAL input matrix.
+        If True, return the total cost first.
+        The solver calculates this total from the original input matrix.
     prefer_float32 : bool, default True
-        Hint to run the solver kernel in float32 for performance. When False and
-        the input is float64, the kernel uses float64.
+        Request a float32 kernel for performance.
+        If False and the input is float64, the kernel uses float64.
 
     Returns
     -------
@@ -251,40 +339,42 @@ def lapjvsa(
     Raises
     ------
     ValueError
-        If `cost` is not 2D, or if `extend_cost=False` and `cost` is rectangular.
+        The function raises this exception in these cases:
+        - cost is not a 2D array.
+        - extend_cost=False and cost is rectangular.
+        - No feasible assignment exists.
 
     Notes
     -----
-    - Orientation is normalized internally so the kernel sees rows <= cols.
-      Returned pairs are always mapped back to the ORIGINAL orientation.
-    - Pairs only include assignments within the original (n, m) region for
-      rectangular inputs.
-    - Total is accumulated in float64 from the ORIGINAL `cost`.
+    - The solver adjusts the matrix orientation so the kernel has rows <= cols.
+      The returned pairs always use the original orientation.
+    - The solver does not check for NaN (not a number) or negative infinity.
+      Check or remove these values before you call the solver. Results with these
+      values are undefined. Positive infinity can represent a forbidden assignment.
+    - For rectangular inputs, pairs contain only assignments within the original (n, m) region.
+    - The solver sums total costs in float64 from the original cost array.
     """
     A = np.asarray(cost)
     if A.ndim != 2:
         raise ValueError("cost must be a 2D array")
 
     n0, m0 = A.shape
-    transposed = False
+    if extend_cost is not None and not extend_cost and n0 != m0:
+        raise ValueError("extend_cost=False requires a square cost matrix")
+    if n0 == 0 or m0 == 0:
+        pairs = np.empty((0, 2), dtype=np.int64)
+        return (0.0, pairs) if return_cost else pairs
 
     # Normalize orientation for performance
-    if n0 > m0:
-        B = np.ascontiguousarray(A.T)
-        transposed = True
-    else:
-        B = np.ascontiguousarray(A)
-
+    transposed = n0 > m0
+    B = A.T if transposed else A
     n, m = B.shape
-    extend = (n != m) if (extend_cost is None) else bool(extend_cost)
 
     # Select dtype/backend
     use_f32 = not ((prefer_float32 is False) and (B.dtype == np.float64))
     wdtype = np.float32 if use_f32 else (B.dtype if B.dtype in (np.float32, np.float64) else np.float64)
 
-    if not extend:
-        if n != m:
-            raise ValueError("extend_cost=False requires a square cost matrix")
+    if n == m:
         work = np.ascontiguousarray(B, dtype=wdtype)
         pairs_b_obj = (_lapjvsa_float32(work) if use_f32 else _lapjvsa_native(work))
         pairs_b = np.asarray(pairs_b_obj, dtype=np.int64)
@@ -298,7 +388,7 @@ def lapjvsa(
         if return_cost:
             if pairs_a.size:
                 r = pairs_a[:, 0]; c = pairs_a[:, 1]
-                total = float(A[r, c].sum())
+                total = float(A[r, c].sum(dtype=np.float64))
             else:
                 total = 0.0
             return total, pairs_a
@@ -307,7 +397,7 @@ def lapjvsa(
     # Rectangular: zero-pad in B space, solve, trim, map back to A
     size = max(n, m)
     padded = np.empty((size, size), dtype=wdtype)
-    padded[:n, :m] = B.astype(wdtype, copy=False)
+    padded[:n, :m] = B
     if m < size:
         padded[:n, m:] = 0
     if n < size:
@@ -328,7 +418,7 @@ def lapjvsa(
             # Map back to A orientation if needed
             pairs_a = pairs_b[:, ::-1] if transposed else pairs_b
             if return_cost and pairs_a.size:
-                total = float(A[pairs_a[:, 0], pairs_a[:, 1]].sum())
+                total = float(A[pairs_a[:, 0], pairs_a[:, 1]].sum(dtype=np.float64))
             else:
                 total = 0.0
         else:

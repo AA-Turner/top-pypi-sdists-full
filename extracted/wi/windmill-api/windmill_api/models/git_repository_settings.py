@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.git_repository_settings_auto_pull import GitRepositorySettingsAutoPull
+    from ..models.git_repository_settings_credential import GitRepositorySettingsCredential
     from ..models.git_repository_settings_settings import GitRepositorySettingsSettings
 
 
@@ -29,6 +30,8 @@ class GitRepositorySettings:
         promotion_open_prs (Union[Unset, bool]):
         fork_open_prs (Union[Unset, bool]):
         open_pr_error (Union[Unset, str]): server-owned, last failure opening a PR for a deploy branch of this repo
+        credential (Union[Unset, GitRepositorySettingsCredential]): server-owned, what the repo's own credential reports
+            about itself
     """
 
     git_repo_resource_path: str
@@ -42,6 +45,7 @@ class GitRepositorySettings:
     promotion_open_prs: Union[Unset, bool] = UNSET
     fork_open_prs: Union[Unset, bool] = UNSET
     open_pr_error: Union[Unset, str] = UNSET
+    credential: Union[Unset, "GitRepositorySettingsCredential"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -69,6 +73,9 @@ class GitRepositorySettings:
         promotion_open_prs = self.promotion_open_prs
         fork_open_prs = self.fork_open_prs
         open_pr_error = self.open_pr_error
+        credential: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.credential, Unset):
+            credential = self.credential.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -97,12 +104,15 @@ class GitRepositorySettings:
             field_dict["fork_open_prs"] = fork_open_prs
         if open_pr_error is not UNSET:
             field_dict["open_pr_error"] = open_pr_error
+        if credential is not UNSET:
+            field_dict["credential"] = credential
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.git_repository_settings_auto_pull import GitRepositorySettingsAutoPull
+        from ..models.git_repository_settings_credential import GitRepositorySettingsCredential
         from ..models.git_repository_settings_settings import GitRepositorySettingsSettings
 
         d = src_dict.copy()
@@ -145,6 +155,13 @@ class GitRepositorySettings:
 
         open_pr_error = d.pop("open_pr_error", UNSET)
 
+        _credential = d.pop("credential", UNSET)
+        credential: Union[Unset, GitRepositorySettingsCredential]
+        if isinstance(_credential, Unset):
+            credential = UNSET
+        else:
+            credential = GitRepositorySettingsCredential.from_dict(_credential)
+
         git_repository_settings = cls(
             git_repo_resource_path=git_repo_resource_path,
             script_path=script_path,
@@ -157,6 +174,7 @@ class GitRepositorySettings:
             promotion_open_prs=promotion_open_prs,
             fork_open_prs=fork_open_prs,
             open_pr_error=open_pr_error,
+            credential=credential,
         )
 
         git_repository_settings.additional_properties = d

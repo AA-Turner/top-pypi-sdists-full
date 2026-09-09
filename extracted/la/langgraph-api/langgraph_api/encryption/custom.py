@@ -9,9 +9,20 @@ from __future__ import annotations
 import functools
 import importlib.util
 import sys
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import structlog
+
+try:
+    from langgraph_sdk import DecryptResult
+except ImportError:  # minimum-deps image predates SDK re-encryption support
+
+    @dataclass
+    class DecryptResult:
+        plaintext: Any
+        replacement: Any | None = None
+
 
 from langgraph_api import timing
 from langgraph_api.config import LANGGRAPH_ENCRYPTION
@@ -31,6 +42,10 @@ ModelType = Literal["run", "thread", "assistant", "cron", "checkpoint"]
 SUPPORTED_ENCRYPTION_MODELS: frozenset[str] = frozenset(get_args(ModelType))
 
 logger = structlog.stdlib.get_logger(__name__)
+
+
+def normalize_decrypt_result(result: Any) -> DecryptResult:
+    return result if isinstance(result, DecryptResult) else DecryptResult(result)
 
 
 @functools.lru_cache(maxsize=1)
@@ -232,7 +247,9 @@ class JsonEncryptionWrapper:
 
         return encryptor
 
-    def get_json_decryptor(self, model_type: ModelType) -> JsonDecryptor:
+    def get_json_decryptor(
+        self, model_type: ModelType, *, with_replacement: bool = False
+    ) -> JsonDecryptor:
         """Return an async decryptor that routes based on encryption type.
 
         The decryptor routes based on __encryption_context__ marker:
@@ -287,8 +304,21 @@ class JsonEncryptionWrapper:
 
             # Strip marker and decrypt
             data = strip_encryption_metadata(data)
-            decrypted = await custom_decryptor(ctx, data)
-            return strip_encryption_metadata(decrypted)
+            decrypted = normalize_decrypt_result(await custom_decryptor(ctx, data))
+            plaintext = strip_encryption_metadata(decrypted.plaintext)
+            replacement = decrypted.replacement
+            if replacement is not None:
+                try:
+                    replacement = dict(replacement)
+                    replacement[ENCRYPTION_CONTEXT_KEY] = context_dict
+                except (TypeError, ValueError):
+                    await logger.aerror(
+                        "Ignoring invalid re-encryption replacement",
+                        model=model_type,
+                    )
+                    replacement = None
+            result = DecryptResult(plaintext, replacement)
+            return result if with_replacement else result.plaintext
 
         return decryptor
 

@@ -8,7 +8,7 @@ import requests as rq
 
 from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk.constants import EXAMPLES_GITHUB_REPO, GITHUB_BRANCH, \
-    AGENT_PLUGINS, SUPPORTED_AGENT_DISPLAY_NAMES, TOOLS_GITHUB_REPO_URL, TEMPLATE_CONNECTOR_PATH, \
+    AGENT_PLUGINS, SUPPORTED_AGENT_DISPLAY_NAMES, AI_TOOLS_INSTALLATION_DOCS_URL, TEMPLATE_CONNECTOR_PATH, \
     CONNECTORS_GITHUB_REPO, CONNECTORS_TEMPLATE_PREFIX, VIRTUAL_ENV_CONFIG, EXCLUDED_DIRS
 from fivetran_connector_sdk.helpers import print_library_log, PromptMode, resolve_confirmation
 
@@ -67,6 +67,14 @@ def detect_installed_agents() -> dict:
     }
 
 
+def _print_plugin_install_guidance():
+    print_library_log(
+        "To install the plugin later, follow the AI tools guide:",
+        log_icon=Logging.LogIcon.STEP,
+    )
+    print_library_log(AI_TOOLS_INSTALLATION_DOCS_URL, indent=True)
+
+
 def install_agent_plugin(agent_key: str) -> bool:
     config = AGENT_PLUGINS[agent_key]
     print_library_log(f"installing {config['display_name']} plugin", log_icon=Logging.LogIcon.STEP)
@@ -79,10 +87,7 @@ def install_agent_plugin(agent_key: str) -> bool:
                 level=Logging.Level.WARNING,
                 log_icon=Logging.LogIcon.FAILURE,
             )
-            print_library_log(
-                f"install manually: {TOOLS_GITHUB_REPO_URL}",
-                log_icon=Logging.LogIcon.STEP,
-            )
+            _print_plugin_install_guidance()
             return False
         if result.returncode != 0:
             print_library_log(
@@ -90,10 +95,7 @@ def install_agent_plugin(agent_key: str) -> bool:
                 level=Logging.Level.WARNING,
                 log_icon=Logging.LogIcon.FAILURE,
             )
-            print_library_log(
-                f"install manually: {TOOLS_GITHUB_REPO_URL}",
-                log_icon=Logging.LogIcon.STEP,
-            )
+            _print_plugin_install_guidance()
             return False
     print_library_log(f"{config['display_name']} plugin installed", log_icon=Logging.LogIcon.SUCCESS)
     update_commands = config.get("update_commands", [])
@@ -136,7 +138,7 @@ def is_agent_plugin_install_supported(agent_key: str) -> bool:
         log_icon=Logging.LogIcon.FAILURE,
     )
     print_library_log(f"update {config['display_name']} and rerun agent setup", log_icon=Logging.LogIcon.STEP)
-    print_library_log(f"install manually: {TOOLS_GITHUB_REPO_URL}", log_icon=Logging.LogIcon.STEP)
+    _print_plugin_install_guidance()
     return False
 
 
@@ -148,10 +150,7 @@ def setup_ai_agent():
             f"no supported coding agents detected ({SUPPORTED_AGENT_DISPLAY_NAMES}); skipping plugin setup",
             log_icon=Logging.LogIcon.STEP,
         )
-        print_library_log(
-            f"install manually: {TOOLS_GITHUB_REPO_URL}",
-            log_icon=Logging.LogIcon.STEP,
-        )
+        _print_plugin_install_guidance()
         return
 
     agent_list = list(installed.items())
@@ -173,7 +172,7 @@ def setup_ai_agent():
 
     if choice_num == skip_num:
         print_library_log("skipping plugin setup", log_icon=Logging.LogIcon.STEP)
-        print_library_log(f"install manually: {TOOLS_GITHUB_REPO_URL}", log_icon=Logging.LogIcon.STEP)
+        _print_plugin_install_guidance()
     else:
         agent_key = agent_list[choice_num - 1][0]
         if not is_agent_plugin_install_supported(agent_key):
@@ -242,10 +241,51 @@ def _collect_download_files(tree: list, actual_path: str) -> tuple:
     return files_to_download, prefix_matches
 
 
-def _raise_no_match(prefix_matches: set, requested_path: str):
+def _collect_nested_prefix_matches(tree: list, actual_path: str) -> set:
+    """Find connectors in subdirectories matching the prefix.
+    
+    For examples/hello, this finds examples/quickstart/hello and examples/advanced/hello_world,
+    but not direct children like examples/hello (those are handled by _collect_download_files).
+    """
+    parent_path, separator, connector_name_prefix = actual_path.rpartition("/")
+    if not separator or not connector_name_prefix:
+        return set()
+
+    parent_path_prefix = parent_path + "/"
+    nested_prefix_matches = set()
+    for item in tree:
+        if item['type'] != 'blob' or item['path'].split('/')[-1] != 'connector.py':
+            continue
+
+        connector_path = item['path'].rsplit('/connector.py', 1)[0]
+        if not connector_path.startswith(parent_path_prefix):
+            continue
+
+        # Extract path relative to parent (e.g., "quickstart/hello" from "examples/quickstart/hello")
+        relative_connector_path = connector_path[len(parent_path_prefix):]
+        # Only match nested paths (containing "/"), skip direct children
+        if "/" not in relative_connector_path:
+            continue
+
+        # Check if the final directory name matches the prefix
+        connector_name = relative_connector_path.rsplit('/', 1)[-1]
+        if connector_name.startswith(connector_name_prefix):
+            nested_prefix_matches.add(connector_path)
+
+    return nested_prefix_matches
+
+
+def _raise_no_match(prefix_matches: set, requested_path: str, has_nested_matches: bool = False):
     if prefix_matches:
+        if has_nested_matches:
+            match_message = f"no connector found matching '{requested_path}'; did you mean any of the following:"
+        else:
+            match_message = (
+                f"no connector found at '{requested_path}'; "
+                f"available connectors with prefix '{requested_path}':"
+            )
         print_library_log(
-            f"no connector found at '{requested_path}'; available connectors with prefix '{requested_path}':",
+            match_message,
             Logging.Level.WARNING
         )
         for match in sorted(prefix_matches):
@@ -271,7 +311,12 @@ def download_git_directory(path_prefix: str, project_dir: str):
         files_to_download, prefix_matches = _collect_download_files(tree_data['tree'], actual_path)
 
         if not files_to_download:
-            _raise_no_match(prefix_matches, requested_path)
+            # For examples/ repo, also search nested subdirectories (e.g., examples/quickstart/hello)
+            nested_prefix_matches = set()
+            if repo == EXAMPLES_GITHUB_REPO:
+                nested_prefix_matches = _collect_nested_prefix_matches(tree_data['tree'], actual_path)
+                prefix_matches.update(nested_prefix_matches)
+            _raise_no_match(prefix_matches, requested_path, bool(nested_prefix_matches))
 
         validate_example_directory(files_to_download, requested_path)
 

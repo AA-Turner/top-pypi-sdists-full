@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from time import monotonic
 from typing import Any, cast
 
 from openai import AsyncOpenAI
@@ -13,6 +13,12 @@ from openai import AsyncOpenAI
 from ... import _debug
 from ...exceptions import AgentsException, UserError
 from ...logger import logger
+from ...models._openai_websocket import (
+    get_openai_websocket_logger,
+    merge_openai_client_websocket_headers,
+    prepare_openai_client_websocket_base_url,
+    refresh_openai_client_api_key_if_supported,
+)
 from ...tracing import Span, SpanError, TranscriptionSpanData, transcription_span
 from ...util._error_tracing import get_trace_error
 from ..exceptions import STTWebsocketConnectionError
@@ -58,6 +64,24 @@ def _audio_buffer_to_base64(buffer: npt.NDArray[np.int16 | np.float32]) -> str:
     return base64.b64encode(buffer.tobytes()).decode("utf-8")
 
 
+def _prepare_websocket_url(client: AsyncOpenAI) -> str:
+    base_url = prepare_openai_client_websocket_base_url(
+        client,
+        context="Streamed STT websocket",
+    )
+    params: dict[str, Any] = dict(base_url.params)
+    params["intent"] = "transcription"
+    path = base_url.path.rstrip("/") + "/realtime"
+    return str(base_url.copy_with(path=path, params=params))
+
+
+def _prepare_websocket_headers(client: AsyncOpenAI) -> dict[str, str]:
+    return merge_openai_client_websocket_headers(
+        client,
+        extra_headers={"OpenAI-Log-Session": "1"},
+    )
+
+
 async def _wait_for_event(
     event_queue: asyncio.Queue[dict[str, Any] | ErrorSentinel],
     expected_types: list[str],
@@ -66,9 +90,11 @@ async def _wait_for_event(
     """
     Wait for an event from event_queue whose type is in expected_types within the specified timeout.
     """
-    start_time = time.time()
+    # Wall-clock adjustments can move a deadline forwards or backwards. Timeout
+    # accounting must use a monotonic clock instead.
+    start_time = monotonic()
     while True:
-        remaining = timeout - (time.time() - start_time)
+        remaining = timeout - (monotonic() - start_time)
         if remaining <= 0:
             raise TimeoutError(f"Timeout waiting for event(s): {expected_types}")
         evt = await asyncio.wait_for(event_queue.get(), timeout=remaining)
@@ -112,6 +138,7 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
         self._state_queue: asyncio.Queue[dict[str, Any] | ErrorSentinel] = asyncio.Queue()
         self._turn_audio_buffer: list[npt.NDArray[np.int16 | np.float32]] = []
         self._tracing_span: Span[TranscriptionSpanData] | None = None
+        self._transcription_config: dict[str, Any] | None = None
 
         # tasks
         self._listener_task: asyncio.Task[Any] | None = None
@@ -120,13 +147,41 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
         self._connection_task: asyncio.Task[Any] | None = None
         self._stored_exception: Exception | None = None
 
+    def _get_transcription_config(self) -> dict[str, Any]:
+        transcription_config: dict[str, Any] = {"model": self._model}
+        if self._settings.languages is not None:
+            transcription_config["languages"] = list(self._settings.languages)
+        elif self._settings.language is not None:
+            if self._model in {"gpt-transcribe", "gpt-live-transcribe"}:
+                transcription_config["languages"] = [self._settings.language]
+            else:
+                transcription_config["language"] = self._settings.language
+        if self._settings.prompt is not None:
+            transcription_config["prompt"] = self._settings.prompt
+        if self._settings.keywords is not None:
+            transcription_config["keywords"] = list(self._settings.keywords)
+        return transcription_config
+
     def _start_turn(self) -> None:
+        # A listener failure can surface a buffered transcript before session.update completes.
+        # Once configured, every normal turn reuses the exact detached request snapshot.
+        transcription_config = self._transcription_config or self._get_transcription_config()
         self._tracing_span = transcription_span(
             model=self._model,
             model_config={
                 "temperature": self._settings.temperature,
-                "language": self._settings.language,
-                "prompt": self._settings.prompt,
+                "language": transcription_config.get("language"),
+                "languages": transcription_config.get("languages"),
+                "keywords": (
+                    transcription_config.get("keywords")
+                    if self._trace_include_sensitive_data
+                    else None
+                ),
+                "prompt": (
+                    transcription_config.get("prompt")
+                    if self._trace_include_sensitive_data
+                    else None
+                ),
                 "turn_detection": self._turn_detection,
             },
         )
@@ -175,23 +230,25 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
 
     async def _configure_session(self) -> None:
         assert self._websocket is not None, "Websocket not initialized"
-        await self._websocket.send(
-            json.dumps(
-                {
-                    "type": "session.update",
-                    "session": {
-                        "type": "transcription",
-                        "audio": {
-                            "input": {
-                                "format": {"type": "audio/pcm", "rate": 24000},
-                                "transcription": {"model": self._model},
-                                "turn_detection": self._turn_detection,
-                            }
-                        },
+        transcription_config = self._get_transcription_config()
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {
+                    "type": "transcription",
+                    "audio": {
+                        "input": {
+                            "format": {"type": "audio/pcm", "rate": 24000},
+                            "transcription": transcription_config,
+                            "turn_detection": self._turn_detection,
+                        }
                     },
-                }
-            )
+                },
+            }
         )
+        self._transcription_config = transcription_config
+
+        await self._websocket.send(session_update)
 
     async def _setup_connection(self, ws: websockets.ClientConnection) -> None:
         self._websocket = ws
@@ -303,12 +360,11 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
 
     async def _process_websocket_connection(self) -> None:
         try:
+            await refresh_openai_client_api_key_if_supported(self._client)
             async with websockets.connect(
-                "wss://api.openai.com/v1/realtime?intent=transcription",
-                additional_headers={
-                    "Authorization": f"Bearer {self._client.api_key}",
-                    "OpenAI-Log-Session": "1",
-                },
+                _prepare_websocket_url(self._client),
+                additional_headers=_prepare_websocket_headers(self._client),
+                logger=get_openai_websocket_logger(),
             ) as ws:
                 await self._setup_connection(ws)
                 self._process_events_task = asyncio.create_task(self._handle_events())
@@ -501,7 +557,11 @@ class OpenAISTTModel(STTModel):
             model_config={
                 "temperature": self._non_null_or_not_given(settings.temperature),
                 "language": self._non_null_or_not_given(settings.language),
-                "prompt": self._non_null_or_not_given(settings.prompt),
+                "prompt": (
+                    self._non_null_or_not_given(settings.prompt)
+                    if trace_include_sensitive_data
+                    else None
+                ),
             },
         ) as span:
             try:

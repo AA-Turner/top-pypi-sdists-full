@@ -6,6 +6,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MAKEFILE = ROOT / "Makefile"
+TESTS_WORKFLOW = ROOT / ".github" / "workflows" / "tests.yml"
+PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish.yml"
+DAPR_REDIS_TEST = ROOT / "integration_tests" / "containers" / "test_dapr_redis.py"
 EXAMPLE_RUNNER = ROOT / ".github" / "scripts" / "run_examples.sh"
 EXAMPLE_SUITE = ROOT / "examples" / "run_examples.py"
 SKILLS = ROOT / ".agents" / "skills"
@@ -24,6 +27,14 @@ def _make_recipes() -> dict[str, str]:
         elif line and not line.startswith((" ", "\t")):
             current_target = None
     return recipes
+
+
+def _workflow_job(name: str, path: Path = TESTS_WORKFLOW) -> str:
+    workflow = path.read_text(encoding="utf-8")
+    job_pattern = rf"(?ms)^  {re.escape(name)}:\n(?P<body>.*?)(?=^  [a-z0-9-]+:\n|\Z)"
+    match = re.search(job_pattern, workflow)
+    assert match is not None
+    return match.group("body")
 
 
 def test_examples_run_analysis_skill_has_no_execution_path() -> None:
@@ -123,8 +134,79 @@ def test_all_make_integration_entry_points_use_classified_profiles() -> None:
         assert profile.group(1) in classified_profiles
 
 
+def test_container_integration_has_one_non_matrix_workflow_job() -> None:
+    containers_job = _workflow_job("containers")
+    tests_job = _workflow_job("tests")
+
+    assert "matrix:" not in containers_job
+    assert 'python-version: "3.14"' in containers_job
+    assert 'TESTCONTAINERS_RYUK_DISABLED: "true"' in containers_job
+    assert containers_job.count("make integration-tests-containers") == 1
+    assert "integration-tests-containers" not in tests_job
+
+
+def test_container_integration_pins_dapr_runtime_image() -> None:
+    source = DAPR_REDIS_TEST.read_text(encoding="utf-8")
+
+    assert (
+        '"daprio/daprd:1.16.2@sha256:'
+        '3ae30141b9775b5bc03d073185abf1101fbad1e1941c1c3075527bc4865454e3"' in source
+    )
+    assert "daprio/daprd:latest" not in source
+
+
+def test_container_integration_does_not_require_docker_cli() -> None:
+    source = DAPR_REDIS_TEST.read_text(encoding="utf-8")
+
+    assert 'shutil.which("docker")' not in source
+    assert "client.ping()" in source
+
+
 def test_prospective_contract_preparation_removes_api_key_before_uv() -> None:
     recipe = _make_recipes()["prepare-prospective-released-api-contract"]
 
     assert recipe.startswith("@unset OPENAI_API_KEY; \\\n")
     assert recipe.index("unset OPENAI_API_KEY") < recipe.index("uv run")
+
+
+def test_release_build_validates_before_executing_candidate_code() -> None:
+    build = _workflow_job("build", PUBLISH_WORKFLOW)
+
+    assert "contents: read" in build
+    assert "id-token:" not in build
+    assert "environment:" not in build
+    assert "ref: refs/heads/main\n          path: control" in build
+    assert "ref: ${{ github.sha }}\n          path: release-source" in build
+    assert build.count("persist-credentials: false") == 2
+    assert "fetch-depth: 0" in build
+    validation = build.index("python -I control/.github/scripts/verify_release.py")
+    assert validation < build.index("run: make sync") < build.index("run: uv build")
+    assert ' --tag "$RELEASE_TAG" --expected-sha "$RELEASE_SHA"' in build
+    assert "enable-cache: false" in build
+
+
+def test_pypi_job_only_publishes_the_build_artifact() -> None:
+    workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+    publish = _workflow_job("publish", PUBLISH_WORKFLOW)
+
+    assert "permissions: {}" in workflow
+    assert workflow.count("id-token: write") == 1
+    assert "needs: build" in publish
+    assert "name: pypi" in publish
+    assert "id-token: write" in publish
+    assert "run:" not in publish
+    actions = re.findall(r"uses: ([^\s]+)", publish)
+    assert len(actions) == 2
+    assert actions[0].startswith("actions/download-artifact@")
+    assert actions[1].startswith("pypa/gh-action-pypi-publish@")
+    assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", action) for action in actions)
+    assert "artifact-ids: ${{ needs.build.outputs.artifact-id }}" in publish
+    assert "artifact-id: ${{ steps.upload.outputs.artifact-id }}" in _workflow_job(
+        "build", PUBLISH_WORKFLOW
+    )
+    assert "path: dist/" in publish
+    assert "merge-multiple: true" in publish
+
+
+def test_release_tagging_is_manual() -> None:
+    assert not (ROOT / ".github/workflows/release-tag.yml").exists()

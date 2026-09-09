@@ -158,3 +158,53 @@ def test_create_feature_names_dataframe_input_unchanged():
     Geocif.create_feature_names(fake, stage, pd.DataFrame({"CID": ["PRCPTOT"]}))
     assert f"PRCPTOT {name}" in fake.feature_names
     assert f"KDD {name}" not in fake.feature_names
+
+
+def test_scaling_survives_global_pandas_output():
+    """sklearn's transform_output is process-global and
+    geocif/experiments/__init__.py sets it to "pandas" at import. Importing
+    any experiment therefore used to make _scale_if_needed return a
+    DataFrame, and callers (np.isnan on the result) broke with
+    "truth value of a Series is ambiguous"."""
+    import sklearn
+    from sklearn.preprocessing import StandardScaler
+
+    prev = sklearn.get_config()["transform_output"]
+    sklearn.set_config(transform_output="pandas")
+    try:
+        t, obj = _trainer_with(["Harvest Year", "Region_ID", "Region"])
+        Xs = t._scale_if_needed(_frame(), StandardScaler())
+        assert isinstance(Xs, np.ndarray), type(Xs)
+        assert not np.isnan(Xs).any()
+        # the global setting must be left exactly as the caller had it
+        assert sklearn.get_config()["transform_output"] == "pandas"
+    finally:
+        sklearn.set_config(transform_output=prev)
+
+
+def test_train_and_predict_scaling_agree_on_container():
+    """_scale_if_needed (train) and _preprocess_test_data (predict) must
+    return the SAME container. Under a global pandas transform_output the
+    predict side used to hand a DataFrame to a model fitted on an ndarray."""
+    import sklearn
+    from sklearn.preprocessing import StandardScaler
+
+    prev = sklearn.get_config()["transform_output"]
+    sklearn.set_config(transform_output="pandas")
+    try:
+        from types import MethodType
+        from geocif.geocif import Geocif
+
+        t, obj = _trainer_with(["Harvest Year", "Region_ID", "Region"])
+        scaler = StandardScaler()
+        Xtr = t._scale_if_needed(_frame(), scaler)
+        # bind the predict-side method onto the same lightweight stub
+        obj.dispatch_name = "linear"
+        obj._preprocess_test_data = MethodType(
+            Geocif._preprocess_test_data, obj)
+        Xte = obj._preprocess_test_data(_frame(), scaler)
+        assert isinstance(Xtr, np.ndarray), type(Xtr)
+        assert isinstance(Xte, np.ndarray), type(Xte)
+        assert Xtr.shape[1] == Xte.shape[1]
+    finally:
+        sklearn.set_config(transform_output=prev)

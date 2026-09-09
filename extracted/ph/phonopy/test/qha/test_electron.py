@@ -1,13 +1,16 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Tests of electronic free energy calculations."""
 
 import numpy as np
 import pytest
 
-from phonopy.qha.electron import (
+from phonopy.qha.electron_kpoint_sum import (
     ElectronFreeEnergy,
-    ElectronicStates,
-    compute_free_energy_and_entropy,
+    compute_free_energy_by_kpoint_sum,
     get_free_energy_at_T,
+)
+from phonopy.qha.electron_states import (
+    ElectronicStates,
     read_electronic_states_hdf5,
     write_electronic_states_hdf5,
 )
@@ -412,7 +415,7 @@ def test_spin_polarized():
     np.testing.assert_allclose(free_energies, reference_free_energies, atol=1e-8)
 
 
-def test_compute_free_energy_and_entropy_Al():
+def test_compute_free_energy_by_kpoint_sum_Al():
     """Free energies match get_free_energy_at_T and S_el = -dF/dT holds.
 
     The entropy at 1000 K is also pinned against the VASP EENTRO reference
@@ -427,7 +430,7 @@ def test_compute_free_energy_and_entropy_Al():
         0, 1000, 10, eigenvalues, WEIGHTS_AL, 3.0
     )
 
-    free_energies, entropies = compute_free_energy_and_entropy(states, temperatures)
+    free_energies, entropies = compute_free_energy_by_kpoint_sum(states, temperatures)
 
     np.testing.assert_allclose(free_energies, fe_ref, rtol=0, atol=1e-12)
     assert entropies[0] == 0.0
@@ -493,3 +496,151 @@ def test_electronic_states_validation():
         )
     with pytest.raises(ValueError):
         ElectronicStates(eigenvalues=eigenvalues, weights=np.ones(5), n_electrons=1.0)
+
+
+def test_spin_degeneracy_overrides_inference():
+    """An explicit spin degeneracy replaces the one inferred from the spin axis."""
+    eigvals = _al_eigenvalues()
+    n_electrons = 3.0
+
+    inferred = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons)
+    explicit_2 = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons, spin_degeneracy=2)
+    explicit_1 = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons, spin_degeneracy=1)
+    for efe in (inferred, explicit_2, explicit_1):
+        efe.run(300.0)
+
+    # The spin axis has length 1, so the inference gives 2.
+    assert explicit_2.mu == pytest.approx(inferred.mu)
+    assert explicit_2.free_energy == pytest.approx(inferred.free_energy)
+    # Halving the degeneracy fills twice as many states, moving mu up.
+    assert explicit_1.mu > inferred.mu
+
+
+def test_noncollinear_spinor_matches_non_spin_polarized():
+    """Spinor states with g = 1 reproduce the doubly occupied states with g = 2.
+
+    A non-collinear calculation without spin-orbit coupling doubles every band
+    of the corresponding non-spin-polarized calculation while each state then
+    holds one electron. Both descriptions are the same physical system, so the
+    chemical potential, energy and entropy must agree.
+    """
+    eigvals = _al_eigenvalues()
+    n_electrons = 3.0
+    # Duplicate every band to mimic the spinor pair, keeping bands sorted.
+    spinor_eigvals = np.repeat(eigvals, 2, axis=2)
+
+    collinear = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons)
+    spinor = ElectronFreeEnergy(
+        spinor_eigvals, WEIGHTS_AL, n_electrons, spin_degeneracy=1
+    )
+    for temperature in (300.0, 1000.0):
+        collinear.run(temperature)
+        spinor.run(temperature)
+        assert spinor.mu == pytest.approx(collinear.mu)
+        assert spinor.energy == pytest.approx(collinear.energy)
+        assert spinor.entropy == pytest.approx(collinear.entropy)
+        assert spinor.free_energy == pytest.approx(collinear.free_energy)
+
+
+@pytest.mark.parametrize("spin_degeneracy", [0, 3, -1])
+def test_invalid_spin_degeneracy_rejected(spin_degeneracy):
+    """Only 1, 2 and None are accepted as a spin degeneracy."""
+    eigvals = _al_eigenvalues()
+    with pytest.raises(ValueError):
+        ElectronFreeEnergy(eigvals, WEIGHTS_AL, 3.0, spin_degeneracy=spin_degeneracy)
+    with pytest.raises(ValueError):
+        ElectronicStates(
+            eigenvalues=eigvals,
+            weights=WEIGHTS_AL,
+            n_electrons=3.0,
+            spin_degeneracy=spin_degeneracy,
+        )
+
+
+def test_spin_degeneracy_survives_hdf5_round_trip(tmp_path):
+    """The spin degeneracy is stored and read back, and stays optional."""
+    eigvals = _al_eigenvalues()
+    with_flag = ElectronicStates(
+        eigenvalues=eigvals,
+        weights=WEIGHTS_AL,
+        n_electrons=3.0,
+        volume=16.0,
+        internal_energy=-1.0,
+        spin_degeneracy=1,
+    )
+    without_flag = ElectronicStates(
+        eigenvalues=eigvals,
+        weights=WEIGHTS_AL,
+        n_electrons=3.0,
+        volume=16.0,
+        internal_energy=-1.0,
+    )
+
+    filename = tmp_path / "electronic_states.hdf5"
+    write_electronic_states_hdf5([with_flag, without_flag], filename)
+    read_back = read_electronic_states_hdf5(filename)
+
+    assert read_back[0].spin_degeneracy == 1
+    assert read_back[1].spin_degeneracy is None
+
+
+def test_compute_free_energy_by_kpoint_sum_uses_spin_degeneracy():
+    """ElectronicStates passes its spin degeneracy on to the calculation."""
+    eigvals = _al_eigenvalues()
+    temperatures = [300.0]
+    common = {"eigenvalues": eigvals, "weights": WEIGHTS_AL, "n_electrons": 3.0}
+
+    fe_inferred, _ = compute_free_energy_by_kpoint_sum(
+        ElectronicStates(**common), temperatures
+    )
+    fe_spinor, _ = compute_free_energy_by_kpoint_sum(
+        ElectronicStates(**common, spin_degeneracy=1), temperatures
+    )
+
+    assert fe_inferred[0] != pytest.approx(fe_spinor[0])
+
+
+def test_fermi_energy_survives_hdf5_round_trip(tmp_path):
+    """The Fermi energy is stored and read back, and stays optional."""
+    common = {
+        "eigenvalues": _al_eigenvalues(),
+        "weights": WEIGHTS_AL,
+        "n_electrons": 3.0,
+        "volume": 16.0,
+        "internal_energy": -1.0,
+    }
+    filename = tmp_path / "electronic_states.hdf5"
+    write_electronic_states_hdf5(
+        [
+            ElectronicStates(**common, fermi_energy=7.5),
+            ElectronicStates(**common),
+        ],
+        filename,
+    )
+    read_back = read_electronic_states_hdf5(filename)
+
+    assert read_back[0].fermi_energy == pytest.approx(7.5)
+    assert read_back[1].fermi_energy is None
+
+
+def test_the_names_electron_py_used_to_hold_still_import():
+    """Test that splitting the module left every old import working.
+
+    ElectronFreeEnergy and its helpers moved to electron_kpoint_sum and the
+    states to electron_states, but phonopy.qha.electron is what the
+    documentation and existing scripts name.
+
+    """
+    from phonopy.qha import electron
+    from phonopy.qha.electron_kpoint_sum import compute_free_energy_by_kpoint_sum
+
+    for name in (
+        "ElectronicStates",
+        "ElectronFreeEnergy",
+        "get_free_energy_at_T",
+        "read_electronic_states_hdf5",
+        "write_electronic_states_hdf5",
+    ):
+        assert hasattr(electron, name), name
+    # The name the k-point sum carried while it was the only route.
+    assert electron.compute_free_energy_and_entropy is compute_free_energy_by_kpoint_sum

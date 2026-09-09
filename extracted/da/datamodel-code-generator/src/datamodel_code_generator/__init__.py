@@ -37,6 +37,7 @@ from datamodel_code_generator._source import (
     _clear_parser_source_data_cache as _clear_parser_source_data_cache,
 )
 from datamodel_code_generator._source import (
+    _has_protobuf_declaration,
     _is_json_text,
     _is_protobuf_text,
     _is_xml_text,
@@ -221,6 +222,7 @@ if TYPE_CHECKING:
         DataclassArguments,
         Mapping[str, Any] | None,
         Path | None,
+        tuple[Path, bytes] | None,
         bool,
         RemoteReferenceLock | None,
     ]
@@ -370,6 +372,13 @@ def _absolute_generation_path(path: Path | None, base_path: Path) -> Path | None
     if path is None or path.is_absolute():
         return path
     return base_path / path
+
+
+def _path_list_base_path(input_paths: list[Path], caller_cwd: Path) -> Path:
+    """Choose a list-input base without changing caller-relative module paths."""
+    if all(path.is_relative_to(caller_cwd) for path in input_paths):
+        return caller_cwd
+    return Path(os.path.commonpath(path.parent for path in input_paths))
 
 
 def _settings_path_from(base_path: Path, settings_path: Path | None) -> Path:
@@ -1855,7 +1864,7 @@ def _prepare_generation_config(config: GenerateConfig, caller_cwd: Path) -> tupl
     """Resolve configuration paths before any process-relative generation work."""
     caller_path_updates = {
         field: absolute_path
-        for field in ("output", "emit_model_metadata", "custom_file_header_path")
+        for field in ("output", "emit_model_metadata", "custom_file_header_path", "custom_template_dir")
         if (absolute_path := _absolute_generation_path(getattr(config, field), caller_cwd))
         is not getattr(config, field)
     }
@@ -1900,6 +1909,7 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
     schema_versions: _SchemaVersions,
     diagnostic_source_path: Path | None,
     *,
+    prefetched_source: tuple[Path, bytes] | None = None,
     formatter_cwd: Path | None = None,
     preserve_circular_root_models: bool = False,
     suppress_parse_warnings: bool = False,
@@ -1926,6 +1936,7 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
         parser.remote_object_cache = reference_cache
     parser.configure_run_context(
         diagnostic_source_path=diagnostic_source_path,
+        prefetched_source=prefetched_source,
         formatter_cwd=formatter_cwd,
         preserve_circular_root_models=preserve_circular_root_models,
         suppress_parse_warnings=suppress_parse_warnings,
@@ -1948,6 +1959,7 @@ def _build_generation_retry_parser(  # noqa: PLR0913, PLR0917
     base_path: Path,
     *,
     skip_root_model: bool,
+    prefetched_source: tuple[Path, bytes] | None = None,
     formatter_cwd: Path | None = None,
     preserve_circular_root_models: bool = False,
     suppress_parse_warnings: bool = False,
@@ -1976,6 +1988,7 @@ def _build_generation_retry_parser(  # noqa: PLR0913, PLR0917
         data_model_types,
         schema_versions,
         diagnostic_source_path,
+        prefetched_source=prefetched_source,
         formatter_cwd=formatter_cwd,
         preserve_circular_root_models=preserve_circular_root_models,
         suppress_parse_warnings=suppress_parse_warnings,
@@ -2082,12 +2095,20 @@ def _prepare_generation_input(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
     _validate_mapping_input(input_, input_file_type)
     source_override: Mapping[str, Any] | None = None
     diagnostic_source_path: Path | None = None
+    prefetched_source: tuple[Path, bytes] | None = None
     if input_file_type == InputFileType.Auto:
         try:
-            if isinstance(input_, Path):
-                input_text_ = get_first_file(input_).read_text(encoding=config.encoding)
-            else:
-                input_text_ = input_text
+            match input_:
+                case Path() as input_path:
+                    input_text_ = get_first_file(input_path).read_text(encoding=config.encoding)
+                case [Path(), *_] as input_paths:
+                    detected_input_path = get_first_file(input_paths[0])
+                    input_data = detected_input_path.read_bytes()
+                    # Retain original bytes for parsing and content-based cache keys without another read.
+                    prefetched_source = (detected_input_path, input_data)
+                    input_text_ = input_data.decode(config.encoding)
+                case _:
+                    input_text_ = input_text
         except FileNotFoundError as exc:
             msg = f"File not found: {input_}"
             raise Error(msg) from exc
@@ -2131,6 +2152,7 @@ def _prepare_generation_input(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
         dataclass_arguments,
         source_override,
         diagnostic_source_path,
+        prefetched_source,
         skip_root_model,
         owned_remote_lock,
     )
@@ -2206,6 +2228,7 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
     skip_root_model: bool,
     schema_versions: _SchemaVersions,
     diagnostic_source_path: Path | None,
+    prefetched_source: tuple[Path, bytes] | None,
     parser_settings_path: Path | None,
     use_output_cwd: bool,
     output_context_path: Path,
@@ -2221,6 +2244,7 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
         data_model_types,
         schema_versions,
         diagnostic_source_path,
+        prefetched_source=prefetched_source,
         formatter_cwd=None if use_output_cwd else output_context_path,
         python_type_expressions=python_type_expressions,
     )
@@ -2254,6 +2278,7 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                 retry_reference_cache,
                 retry_base_path,
                 skip_root_model=skip_root_model,
+                prefetched_source=prefetched_source,
                 formatter_cwd=None if use_output_cwd else output_context_path,
                 preserve_circular_root_models=True,
                 suppress_parse_warnings=True,
@@ -2300,6 +2325,7 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
                     retry_reference_cache,
                     retry_base_path,
                     skip_root_model=skip_root_model,
+                    prefetched_source=prefetched_source,
                     formatter_cwd=None if use_output_cwd else output_context_path,
                     preserve_circular_root_models=preserve_circular_root_models,
                 )
@@ -2389,6 +2415,7 @@ def _generate(  # noqa: PLR0914
             dataclass_arguments,
             source_override,
             diagnostic_source_path,
+            prefetched_source,
             skip_root_model,
             owned_remote_lock,
         ) = _prepare_generation_input(
@@ -2414,7 +2441,11 @@ def _generate(  # noqa: PLR0914
             )
         )
         if additional_options["base_path"] is None and not isinstance(source, Path):
-            additional_options["base_path"] = caller_cwd
+            match input_:
+                case [Path(), *_] as input_paths:
+                    additional_options["base_path"] = _path_list_base_path(input_paths, caller_cwd)
+                case _:
+                    additional_options["base_path"] = caller_cwd
         schema_versions = _resolve_schema_versions(input_file_type, config.schema_version)
         parser_settings_path = (
             config.settings_path if use_output_cwd else _settings_path_from(output_context_path, config.settings_path)
@@ -2435,6 +2466,7 @@ def _generate(  # noqa: PLR0914
             skip_root_model=skip_root_model,
             schema_versions=schema_versions,
             diagnostic_source_path=diagnostic_source_path,
+            prefetched_source=prefetched_source,
             parser_settings_path=parser_settings_path,
             use_output_cwd=use_output_cwd,
             output_context_path=output_context_path,
@@ -2464,11 +2496,15 @@ def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
         if is_xml_schema_text(text):
             return InputFileType.XMLSchema
 
+    protobuf_declaration = _has_protobuf_declaration(text)
+
     try:
         data = load_yaml(text)
     except get_yaml_parse_errors() as exc:
         if not _is_json_text(text) and _looks_like_csv_text(text):
             return InputFileType.CSV
+        if protobuf_declaration:
+            return InputFileType.Protobuf
         msg = _infer_input_type_error_message(parse_error=exc)
         raise Error(msg) from exc
     if isinstance(data, dict):
@@ -2493,6 +2529,8 @@ def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
     if isinstance(data, str):
         if _looks_like_csv_text(text):
             return InputFileType.CSV
+        if protobuf_declaration:
+            return InputFileType.Protobuf
         from datamodel_code_generator._avro_detection import is_avro_schema_data  # noqa: PLC0415
 
         if is_avro_schema_data(data):

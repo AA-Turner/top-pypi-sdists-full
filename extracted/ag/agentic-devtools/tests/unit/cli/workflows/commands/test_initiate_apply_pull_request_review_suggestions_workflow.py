@@ -298,6 +298,24 @@ class TestInitiateApplyPRSuggestionsWorkflowInteractive:
         call_kwargs = mock_setup.call_args[1]
         assert call_kwargs["interactive"] is False
 
+    def test_headless_flag_is_forwarded_to_auto_execute(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
+    ):
+        """Test that --headless is included in the nested auto-execute command."""
+        mock_setup = self._run_with_preflight_failing(argv=["--headless"])
+
+        call_kwargs = mock_setup.call_args[1]
+        assert "--headless" in call_kwargs["auto_execute_command"]
+
+    def test_headless_suppresses_terminal_mode(
+        self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
+    ):
+        """When headless is enabled, terminal mode is forced off before persistence."""
+        mock_setup = self._run_with_preflight_failing(argv=["--no-vscode", "--terminal"])
+
+        assert state.get_value("copilot.terminal") is False
+        assert "--terminal" not in mock_setup.call_args.kwargs["auto_execute_command"]
+
     def test_auto_execute_command_includes_interactive_false(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing, capsys
     ):
@@ -409,7 +427,7 @@ class TestInitiateApplyPRSuggestionsWorkflowCopilotSession:
     ):
         """_start_copilot_session_for_apply_pr_suggestions is called with interactive=False by default."""
         mock_session = self._run_with_preflight_passing("999", issue_key="PROJECT-9999")
-        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o")
+        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o", headless=False)
 
     def test_copilot_session_respects_interactive_false(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing
@@ -418,14 +436,14 @@ class TestInitiateApplyPRSuggestionsWorkflowCopilotSession:
         mock_session = self._run_with_preflight_passing(
             "999", issue_key="PROJECT-9999", argv=["--interactive", "false"]
         )
-        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o")
+        mock_session.assert_called_once_with("/fake/repo-root", interactive=False, model="gpt-4o", headless=False)
 
     def test_copilot_session_interactive_true_when_explicitly_set(
         self, temp_state_dir, clear_state_before, mock_workflow_state_clearing
     ):
         """Session is called with interactive=True when --interactive true."""
         mock_session = self._run_with_preflight_passing("999", issue_key="PROJECT-9999", argv=["--interactive", "true"])
-        mock_session.assert_called_once_with("/fake/repo-root", interactive=True, model="gpt-4o")
+        mock_session.assert_called_once_with("/fake/repo-root", interactive=True, model="gpt-4o", headless=False)
 
 
 class TestAutoExecuteWithoutPrId:

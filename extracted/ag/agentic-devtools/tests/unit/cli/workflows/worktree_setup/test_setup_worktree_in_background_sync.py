@@ -48,6 +48,122 @@ from agentic_devtools.cli.workflows.worktree_setup import (
 class TestSetupWorktreeInBackgroundSync:
     """Tests for setup_worktree_in_background_sync function."""
 
+    def test_headless_existing_worktree_skips_vscode_setup_and_opening(self):
+        """Headless setup does not mutate VS Code settings or open a workspace."""
+        with (
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
+                return_value="/repos/PROJECT-1234",
+            ),
+            patch("agentic_devtools.cli.workflows.worktree_setup.inject_git_path_settings") as mock_git,
+            patch("agentic_devtools.cli.workflows.worktree_setup.inject_python_path_settings") as mock_python,
+            patch("agentic_devtools.cli.workflows.worktree_setup.inject_task_permission_settings") as mock_task,
+            patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace") as mock_open,
+            patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow") as mock_start,
+        ):
+            setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        mock_git.assert_not_called()
+        mock_python.assert_not_called()
+        mock_task.assert_not_called()
+        mock_open.assert_not_called()
+        mock_start.assert_called_once()
+        assert mock_start.call_args.kwargs["headless"] is True
+
+    def test_headless_existing_worktree_skips_manual_fallback_output_after_successful_launch(self):
+        """Successful headless reuse should not print manual continuation guidance."""
+        with (
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
+                return_value="/repos/PROJECT-1234",
+            ),
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow",
+                return_value=True,
+            ),
+            patch("agentic_devtools.cli.workflows.worktree_setup.get_worktree_continuation_prompt") as mock_prompt,
+            patch("agentic_devtools.cli.workflows.worktree_setup._print_agent_instructions_block") as mock_instructions,
+        ):
+            setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        mock_prompt.assert_not_called()
+        mock_instructions.assert_not_called()
+
+    def test_headless_new_worktree_skips_vscode_setup_and_opening(self):
+        """Headless setup also avoids VS Code side effects for a newly created worktree."""
+        setup_result = WorktreeSetupResult(
+            success=True,
+            worktree_path="/repos/PROJECT-1234",
+            branch_name="feature/PROJECT-1234/implementation",
+            vscode_opened=False,
+        )
+        with (
+            patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists", return_value=None),
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.setup_worktree_environment",
+                return_value=setup_result,
+            ) as mock_setup,
+            patch("agentic_devtools.cli.workflows.worktree_setup.inject_git_path_settings") as mock_git,
+            patch("agentic_devtools.cli.workflows.worktree_setup.inject_python_path_settings") as mock_python,
+            patch("agentic_devtools.cli.workflows.worktree_setup.inject_task_permission_settings") as mock_task,
+            patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace") as mock_open,
+            patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow") as mock_start,
+        ):
+            setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        mock_git.assert_not_called()
+        mock_python.assert_not_called()
+        mock_task.assert_not_called()
+        mock_open.assert_not_called()
+        assert mock_setup.call_args.kwargs["defer_path_settings"] is True
+        assert mock_start.call_args.kwargs["headless"] is True
+
+    def test_headless_new_worktree_prints_headless_fallback_when_launch_fails(self):
+        """Headless new-worktree fallback keeps the manual continuation in headless mode."""
+        setup_result = WorktreeSetupResult(
+            success=True,
+            worktree_path="/repos/PROJECT-1234",
+            branch_name="feature/PROJECT-1234/implementation",
+            vscode_opened=False,
+        )
+        with (
+            patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists", return_value=None),
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.setup_worktree_environment",
+                return_value=setup_result,
+            ),
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow",
+                return_value=False,
+            ),
+            patch("agentic_devtools.cli.workflows.worktree_setup.get_worktree_continuation_prompt") as mock_prompt,
+            patch("agentic_devtools.cli.workflows.worktree_setup._print_agent_instructions_block") as mock_instructions,
+        ):
+            setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        assert mock_prompt.call_args.kwargs["headless"] is True
+        assert mock_instructions.call_args.kwargs["headless"] is True
+
     @pytest.fixture(autouse=True)
     def _mock_prompt_file_relative_path(self):
         """Auto-mock _prompt_file_relative_path for all tests.
@@ -84,10 +200,12 @@ class TestSetupWorktreeInBackgroundSync:
     @patch("agentic_devtools.cli.workflows.worktree_setup.inject_task_permission_settings")
     @patch("agentic_devtools.cli.workflows.worktree_setup.inject_python_path_settings")
     @patch("agentic_devtools.cli.workflows.worktree_setup.inject_git_path_settings")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_worktree_branch")
     @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
     def test_existing_worktree_reuses_and_opens(
         self,
         mock_check_exists,
+        mock_get_worktree_branch,
         mock_inject_git,
         mock_inject_python,
         mock_inject_task,
@@ -99,24 +217,96 @@ class TestSetupWorktreeInBackgroundSync:
     ):
         """Test that existing worktree is reused, PATH settings injected, and VS Code opened."""
         mock_check_exists.return_value = "/repos/PROJECT-1234"
+        mock_get_worktree_branch.return_value = "feature/PROJECT-1234/existing"
         mock_open_vscode.return_value = True
         mock_continuation_prompt.return_value = "Continue..."
         mock_ai_prompt.return_value = "AI Agent prompt"
 
-        setup_worktree_in_background_sync(
+        result = setup_worktree_in_background_sync(
             issue_key="PROJECT-1234",
             branch_prefix="feature",
             workflow_name="work-on-jira-issue",
         )
 
         mock_check_exists.assert_called_once_with("PROJECT-1234")
+        mock_get_worktree_branch.assert_called_once_with("/repos/PROJECT-1234")
         mock_inject_git.assert_called_once_with("/repos/PROJECT-1234")
         mock_inject_python.assert_called_once_with("/repos/PROJECT-1234")
         mock_inject_task.assert_called_once_with("/repos/PROJECT-1234")
         mock_open_vscode.assert_called_once_with("/repos/PROJECT-1234")
+        assert result.branch_name == "feature/PROJECT-1234/existing"
         captured = capsys.readouterr()
         assert "Worktree already exists" in captured.out
         assert "Environment ready!" in captured.out
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._maybe_inject_auto_start_before_vscode")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._run_auto_execute_command", return_value=1)
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_worktree_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists", return_value="/repos/PROJECT-1234")
+    def test_setup_only_reuses_existing_worktree_without_session_or_vscode(
+        self,
+        mock_check_exists,
+        mock_get_worktree_branch,
+        mock_run_auto_execute,
+        mock_open_vscode,
+        mock_inject_auto_start,
+        mock_start_session,
+    ):
+        """Setup-only mode never opens VS Code or starts/recovery-starts Copilot."""
+        mock_get_worktree_branch.return_value = "feature/PROJECT-1234/existing"
+        result = setup_worktree_in_background_sync(
+            issue_key="PROJECT-1234",
+            workflow_name="pull-request-review",
+            auto_execute_command=["failing-command"],
+            start_copilot_session=False,
+        )
+
+        assert result.success is True
+        assert result.worktree_path == "/repos/PROJECT-1234"
+        assert result.branch_name == "feature/PROJECT-1234/existing"
+        mock_check_exists.assert_called_once_with("PROJECT-1234")
+        mock_get_worktree_branch.assert_called_once_with("/repos/PROJECT-1234")
+        mock_open_vscode.assert_not_called()
+        mock_inject_auto_start.assert_not_called()
+        mock_start_session.assert_not_called()
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._maybe_inject_auto_start_before_vscode")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._run_auto_execute_command", return_value=1)
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_environment")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists", return_value=None)
+    def test_setup_only_new_worktree_skips_session_after_recovery_failure(
+        self,
+        mock_check_exists,
+        mock_setup,
+        mock_run_auto_execute,
+        mock_open_vscode,
+        mock_inject_auto_start,
+        mock_start_session,
+    ):
+        """Setup-only mode also skips all session paths for a new worktree."""
+        mock_setup.return_value = WorktreeSetupResult(
+            success=True,
+            worktree_path="/repos/PROJECT-1234",
+            branch_name="feature/PROJECT-1234/implementation",
+        )
+
+        result = setup_worktree_in_background_sync(
+            issue_key="PROJECT-1234",
+            workflow_name="pull-request-review",
+            auto_execute_command=["failing-command"],
+            start_copilot_session=False,
+        )
+
+        assert result.success is True
+        mock_check_exists.assert_called_once_with("PROJECT-1234")
+        mock_run_auto_execute.assert_called_once()
+        mock_open_vscode.assert_not_called()
+        mock_inject_auto_start.assert_not_called()
+        mock_start_session.assert_not_called()
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
     @patch("agentic_devtools.cli.workflows.worktree_setup._run_auto_execute_command", return_value=0)
@@ -292,6 +482,7 @@ class TestSetupWorktreeInBackgroundSync:
             "Create a feature for X",
             {"parent_key": "PROJECT-1000"},
             model="gemini-3.7-flash",
+            headless=False,
         )
 
     @patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow")
@@ -377,7 +568,7 @@ class TestSetupWorktreeInBackgroundSync:
         )
 
         mock_run_cmd.assert_called_once_with(
-            ["agdt-initiate-work-on-jira-issue-workflow"], "/repos/PROJECT-1234", 60, workflow="work-on-jira-issue"
+            ["agdt-initiate-work-on-jira-issue-workflow"], "/repos/PROJECT-1234", 1800, workflow="work-on-jira-issue"
         )
         mock_set_value.assert_any_call("worktree_setup.auto_execute_exit_code", "0")
 
@@ -1033,20 +1224,20 @@ class TestSetupWorktreeInBackgroundSync:
             open_vscode=False,
             defer_path_settings=True,
             defer_task_permission_settings=True,
-            target_setup_timeout=60,
+            target_setup_timeout=1800,
         )
         mock_inject_git.assert_not_called()
         mock_inject_python.assert_not_called()
         mock_inject_task.assert_not_called()
         mock_inject_auto_start.assert_not_called()
 
-    def test_auto_execute_timeout_default_is_60(self):
-        """Verify the default value of auto_execute_timeout is 60 via signature inspection."""
+    def test_auto_execute_timeout_default_is_1800(self):
+        """Verify the default value of auto_execute_timeout is 1800 via signature inspection."""
         import inspect
 
         sig = inspect.signature(setup_worktree_in_background_sync)
         default = sig.parameters["auto_execute_timeout"].default
-        assert default == 60
+        assert default == 1800
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
     @patch("agentic_devtools.cli.workflows.worktree_setup._run_auto_execute_command", return_value=0)
@@ -1288,6 +1479,86 @@ class TestSetupWorktreeInBackgroundSync:
         mock_start_session.assert_called_once()
         call_kwargs = mock_start_session.call_args[1]
         assert call_kwargs["model"] == "claude-3.5-sonnet"
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._maybe_inject_auto_start_before_vscode")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_ai_agent_continuation_prompt")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_worktree_continuation_prompt")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_worktree_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
+    def test_existing_worktree_terminal_mode_skips_vscode_autostart(
+        self,
+        mock_check_exists,
+        mock_get_worktree_branch,
+        mock_continuation_prompt,
+        mock_ai_prompt,
+        mock_open_vscode,
+        mock_inject_auto_start,
+        mock_start_session,
+        capsys,
+    ):
+        """Dedicated terminal mode bypasses VS Code setup for existing worktrees."""
+        mock_check_exists.return_value = "/repos/PROJECT-1234"
+        mock_get_worktree_branch.return_value = "feature/PROJECT-1234/existing"
+        mock_continuation_prompt.return_value = "Continue..."
+        mock_ai_prompt.return_value = "AI Agent prompt"
+
+        result = setup_worktree_in_background_sync(
+            issue_key="PROJECT-1234",
+            workflow_name="work-on-jira-issue",
+            terminal=True,
+        )
+
+        assert result.vscode_opened is False
+        mock_inject_auto_start.assert_not_called()
+        mock_open_vscode.assert_not_called()
+        mock_start_session.assert_called_once()
+        assert mock_start_session.call_args.kwargs["terminal"] is True
+        captured = capsys.readouterr()
+        assert "VS Code opened:" not in captured.out
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow")
+    @patch("agentic_devtools.cli.workflows.worktree_setup._maybe_inject_auto_start_before_vscode")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.open_vscode_workspace")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_ai_agent_continuation_prompt")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_worktree_continuation_prompt")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_environment")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
+    def test_new_worktree_terminal_mode_skips_vscode_autostart(
+        self,
+        mock_check_exists,
+        mock_setup,
+        mock_continuation_prompt,
+        mock_ai_prompt,
+        mock_open_vscode,
+        mock_inject_auto_start,
+        mock_start_session,
+        capsys,
+    ):
+        """Dedicated terminal mode bypasses VS Code setup for new worktrees."""
+        mock_check_exists.return_value = None
+        mock_setup.return_value = WorktreeSetupResult(
+            success=True,
+            worktree_path="/repos/PROJECT-1234",
+            branch_name="feature/PROJECT-1234/implementation",
+        )
+        mock_continuation_prompt.return_value = "Continue..."
+        mock_ai_prompt.return_value = "AI Agent prompt"
+
+        result = setup_worktree_in_background_sync(
+            issue_key="PROJECT-1234",
+            workflow_name="work-on-jira-issue",
+            terminal=True,
+        )
+
+        assert result.vscode_opened is False
+        mock_inject_auto_start.assert_not_called()
+        mock_open_vscode.assert_not_called()
+        mock_start_session.assert_called_once()
+        assert mock_start_session.call_args.kwargs["terminal"] is True
+        captured = capsys.readouterr()
+        assert "VS Code opened:" not in captured.out
 
     @patch("agentic_devtools.cli.workflows.worktree_setup._start_copilot_session_for_workflow")
     @patch("agentic_devtools.cli.workflows.worktree_setup._maybe_inject_auto_start_before_vscode")

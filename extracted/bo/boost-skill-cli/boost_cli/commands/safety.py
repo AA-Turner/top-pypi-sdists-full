@@ -431,7 +431,9 @@ def cmd_verify(argv):
         commit_pin = integrity.commit_status(name, entry)
         results.append({"name": name, "kind": kind, "status": status,
                         "scope": "user", "missing_fields": missing_fields,
-                        "commit_pin": commit_pin})
+                        "commit_pin": commit_pin,
+                        "passed": integrity.verification_passed(
+                            status, missing_fields, commit_pin)})
 
     # Vendored, project-scoped skills live in the repo's own lock, not the user's
     # — and they are exactly the ones worth verifying, since they arrive by PR
@@ -446,11 +448,11 @@ def cmd_verify(argv):
             missing_fields.append("sha256")
         results.append({"name": name, "kind": "skill", "status": status,
                         "scope": "project", "missing_fields": missing_fields,
-                        "commit_pin": None})
+                        "commit_pin": None,
+                        "passed": integrity.verification_passed(
+                            status, missing_fields, None)})
 
-    bad = [r for r in results
-           if r["status"] not in ("ok", "quarantined") or r["missing_fields"]
-           or r["commit_pin"] == integrity.STATUS_MODIFIED]
+    bad = [r for r in results if not r["passed"]]
     if args.json:
         print(json.dumps({"skills": results, "failed": len(bad)}))
         return 1 if bad else 0
@@ -460,8 +462,6 @@ def cmd_verify(argv):
                               hint="boost install <skill> to start"))
         return 0
     width = max(len(r["name"]) for r in results)
-    status_role = {"ok": "success", "modified": "warn", "missing": "danger",
-                   "unlocked": "warn", "quarantined": "muted"}
     for r in results:
         bits = []
         if r.get("kind") not in (None, "skill"):
@@ -476,7 +476,9 @@ def cmd_verify(argv):
             bits.append("commit pin DRIFTED")
         note = ("  " + " · ".join(bits)) if bits else ""
         print("  %s  %s%s" % (r["name"].ljust(width),
-                              out.role(r["status"], status_role.get(r["status"], "warn")),
+                              out.role(r["status"],
+                                       integrity.verification_role(
+                                           r["status"], r["passed"])),
                               out.role(note, "muted")))
     if bad:
         out.warn("%d of %d item%s failed verification"
@@ -489,7 +491,7 @@ def cmd_verify(argv):
 def cmd_quarantine(argv):
     ap = cliparse.parser(
         prog="boost quarantine",
-        description="Isolate a problematic skill without uninstalling")
+        description="Isolate a problematic skill, rule or workflow without uninstalling")
     ap.add_argument("name", nargs="?", metavar="NAME")
     ap.add_argument("--release", metavar="NAME",
                     help="re-link a quarantined skill")
@@ -538,7 +540,7 @@ def cmd_quarantine(argv):
             out.warn("%s is not quarantined" % name)
             return 0
         if kind == "skill":
-            res = store.link_agents(name)
+            res = store.link_agents(name, only=entry.get("only_agents"))
             entry["quarantined"] = False
             entry["agents"] = res.linked
             lockfile.set_skill(name, entry)

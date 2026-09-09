@@ -15,6 +15,9 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ..errors import BoostError
+from . import output as out
+
 IGNORED = {".git", "__pycache__", ".DS_Store"}
 
 
@@ -216,6 +219,21 @@ def rel_time(iso: str) -> str:
     return then.strftime("%Y-%m-%d")
 
 
+def iso_date(iso: str) -> str:
+    """'2026-07-16T01:00:00Z' -> '2026-07-16', matching git's `--date=short`.
+
+    Same parse and same fallback (`iso` itself, or "?" when empty) as
+    `rel_time` — a caller that mixes a git-log short date with this on
+    different rows gets one format either way, not "3h ago" beside
+    "2026-07-16".
+    """
+    try:
+        then = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ")
+    except (ValueError, TypeError):
+        return iso or "?"
+    return then.strftime("%Y-%m-%d")
+
+
 def human_duration(seconds: float) -> str:
     """A short, honest duration: ``'45s'``, ``'12m'``, ``'2h 5m'``.
 
@@ -246,9 +264,34 @@ def human_size(n: int) -> str:
     return str(size)
 
 
+def _slug_or_none(name: str) -> str | None:
+    return re.sub(r"[^a-z0-9-]+", "-", name.strip().lower()).strip("-") or None
+
+
 def slugify(name: str) -> str:
     """Lowercase ``name`` into a ``[a-z0-9-]`` slug; empty result -> ``'skill'``."""
-    return re.sub(r"[^a-z0-9-]+", "-", name.strip().lower()).strip("-") or "skill"
+    return _slug_or_none(name) or "skill"
+
+
+def resolve_slug(raw: str, *, what: str = "name") -> str:
+    """Slugify a user-typed ``raw``, refusing one with nothing to slug.
+
+    The one shared helper for a user-typed name that must become a slug:
+    unlike :func:`slugify` (used where indexing must never fail on a hostile
+    entry), this never falls back to a placeholder — an empty or
+    punctuation-only name is the user's mistake to report, not boost's name
+    to invent. It also prints a note whenever the slug differs from what was
+    typed, so a name is never silently swapped for another without the user
+    seeing it — the same silent swap that let ``boost distill -o`` write a
+    path its own install hint then refused, and let two differently-typed
+    profile names collide on one file.
+    """
+    slug = _slug_or_none(raw)
+    if slug is None:
+        raise BoostError("%s has no letters or digits: %r" % (what, raw))
+    if slug != raw:
+        out.info("using %s %r (from %r)" % (what, slug, raw))
+    return slug
 
 
 # A catalog name becomes a path component (a rule file, a workflow file, a store
@@ -390,3 +433,40 @@ def score_skill(skill_dir: Path) -> tuple[int, list[str]]:
         score -= 10
         notes.append("very large SKILL.md (>48KB) — consider splitting")
     return max(0, min(100, score)), notes
+
+
+def lint_errors(skill_dir: Path) -> list[str]:
+    """Hard-failure reasons for a skill dir, independent of `score_skill`'s score.
+
+    A missing SKILL.md, an unclosed frontmatter fence, or a missing required
+    field (`name`/`description`) fails a skill regardless of how high its
+    heuristic score lands. Split out so `boost lint` and `boost test` can
+    share one predicate instead of drifting — a skill scoring 85 with no
+    `description` used to pass `test` and fail `lint`.
+    """
+    from . import frontmatter
+
+    skill_md = Path(skill_dir) / "SKILL.md"
+    if not skill_md.exists():
+        return ["missing SKILL.md"]
+    text = skill_md.read_text(encoding="utf-8", errors="replace")
+    if frontmatter.unclosed(text):
+        return [frontmatter.UNCLOSED_NOTE]
+    meta, _body = frontmatter.parse(text)
+    errors = []
+    if not meta.get("name"):
+        errors.append("missing required field: name")
+    if not meta.get("description"):
+        errors.append("missing required field: description")
+    return errors
+
+
+def lint_failed(skill_dir: Path, score: int, min_score: int = 40) -> bool:
+    """True when `boost lint` would fail this skill dir.
+
+    A skill fails lint when its score is under `min_score` *or* it has any
+    hard error from `lint_errors` — the second clause is what keeps a
+    high-scoring-but-incomplete skill (missing `name`/`description`, an
+    unclosed frontmatter fence, no SKILL.md) from passing on score alone.
+    """
+    return score < min_score or bool(lint_errors(skill_dir))

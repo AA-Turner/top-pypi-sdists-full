@@ -626,7 +626,14 @@ def queue_conversation_create(*, id: str, **fields: Any) -> str:
     # owner under the wrong key (e.g. ``user_id=`` — a column chat.conversation
     # does NOT have — which was silently dropped, landing NULL created_by + NULL
     # org and crashing the INSERT on the not-null org constraint, 2026-07-17).
-    if not fields.get("created_by"):
+    from matrx_ai.context.app_context import try_get_app_context
+    from matrx_ai.db.ownership_fields import is_organization_system_actor
+
+    _ctx = try_get_app_context()
+    _org_owned = is_organization_system_actor(fields.get("created_by"), _ctx) and fields.get(
+        "organization_id"
+    ) == getattr(_ctx, "organization_id", None)
+    if not fields.get("created_by") and not _org_owned:
         vcprint(
             f"[queue_conversation_create] conversation {id} queued WITHOUT "
             f"created_by — an UNOWNED conversation. The owner column is "

@@ -14,7 +14,7 @@ import cssselect2
 import tinycss2
 import tinyhtml5
 
-VERSION = __version__ = '69.0'
+VERSION = __version__ = '70.0'
 
 #: Default values for command-line and Python API rendering options. See
 #: :func:`__main__.main` to learn more about specific options for
@@ -87,11 +87,11 @@ DEFAULT_OPTIONS = {
 
 __all__ = [
     'CSS', 'DEFAULT_OPTIONS', 'HTML', 'VERSION', 'Attachment', 'Document', 'Page',
-    '__version__', 'default_url_fetcher']
+    '__version__']
 
 
 # Import after setting the version, as the version is used in other modules
-from .urls import URLFetcher, default_url_fetcher, select_source  # noqa: I001, E402
+from .urls import URLFetcher, select_source  # noqa: I001, E402
 from .logger import LOGGER, PROGRESS_LOGGER  # noqa: E402
 # Some imports are at the end of the file (after the CSS class)
 # to work around circular imports.
@@ -184,14 +184,14 @@ class HTML:
 
     def _ua_stylesheets(self, forms=False):
         if forms:
-            return [HTML5_UA_STYLESHEET, HTML5_UA_FORM_STYLESHEET]
-        return [HTML5_UA_STYLESHEET]
+            return [UA_STYLESHEET, UA_FORM_STYLESHEET]
+        return [UA_STYLESHEET]
 
     def _ua_counter_style(self):
-        return [HTML5_UA_COUNTER_STYLE.copy()]
+        return [UA_COUNTER_STYLE.copy()]
 
     def _ph_stylesheets(self):
-        return [HTML5_PH_STYLESHEET]
+        return [PH_STYLESHEET]
 
     def render(self, font_config=None, counter_style=None, color_profiles=None,
                **options):
@@ -213,8 +213,8 @@ class HTML:
         :returns: A :class:`document.Document` object.
 
         """
-        for unknown in set(options) - set(DEFAULT_OPTIONS):
-            LOGGER.warning('Unknown rendering option: %s.', unknown)
+        for unknown in sorted(set(options) - set(DEFAULT_OPTIONS)):
+            LOGGER.error('Unknown rendering option: %s.', unknown)
         new_options = DEFAULT_OPTIONS.copy()
         new_options.update(options)
         options = new_options
@@ -261,9 +261,12 @@ class HTML:
         new_options = DEFAULT_OPTIONS.copy()
         new_options.update(options)
         options = new_options
-        return (
-            self.render(font_config, counter_style, color_profiles, **options)
-            .write_pdf(target, zoom, finisher, **options))
+        document = self.render(
+            font_config, counter_style, color_profiles, **options)
+        # render() has already reported any unknown options; forward only the
+        # known ones so they are not reported a second time by write_pdf().
+        options = {key: options[key] for key in DEFAULT_OPTIONS}
+        return document.write_pdf(target, zoom, finisher, **options)
 
 
 class CSS:
@@ -291,6 +294,8 @@ class CSS:
             filename or url or getattr(file_obj, 'name', 'CSS string'))
         if url_fetcher is None:
             url_fetcher = URLFetcher()
+        if isinstance(base_url, Path):
+            base_url = str(base_url)
         result = select_source(
             guess, filename, url, file_obj, string, base_url=base_url,
             url_fetcher=url_fetcher, check_css_mime_type=_check_mime_type)
@@ -370,6 +375,5 @@ class Attachment:
 # Work around circular imports.
 from .css import preprocess_stylesheet  # noqa: I001, E402
 from .html import (  # noqa: E402
-    HTML5_UA_COUNTER_STYLE, HTML5_UA_STYLESHEET, HTML5_UA_FORM_STYLESHEET,
-    HTML5_PH_STYLESHEET)
+    UA_COUNTER_STYLE, UA_STYLESHEET, UA_FORM_STYLESHEET, PH_STYLESHEET)
 from .document import Document, Page  # noqa: E402

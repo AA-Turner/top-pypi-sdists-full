@@ -12,6 +12,10 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: vmware_host_service_info
+deprecated:
+  removed_in: 8.0.0
+  why: This module has been L(moved to vmware.vmware,https://forum.ansible.com/t/5880).
+  alternative: Use M(vmware.vmware.esxi_service_info) instead.
 short_description: Gathers info about an ESXi host's services
 description:
 - This module can be used to gather information about an ESXi host's services.

@@ -1,38 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Routines to handle various calculator interfaces."""
 
-# Copyright (C) 2014 Atsushi Togo
-# All rights reserved.
-#
-# This file is part of phonopy.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in
-#   the documentation and/or other materials provided with the
-#   distribution.
-#
-# * Neither the name of the phonopy project nor the names of its
-#   contributors may be used to endorse or promote products derived
-#   from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
 from __future__ import annotations
 
 import os
@@ -74,8 +42,10 @@ class SupercellWriterConfig:
         Integer 1d array with the length of cells_with_disps, containing
         numbers to be assigned to the supercells with displacements.
     zfill_width : int
-        Supercell numbers are filled by zeros from the left with the digits
-        as given, which results in 001, 002, ..., when zfill_width=3.
+        Exact number of digits of the supercell numbers, which are filled by
+        zeros from the left, e.g. 001, 002, ..., when zfill_width=3. This is
+        the resolved width, i.e. already widened to fit the largest
+        displacement ID.
     additional_info : dict | None
         Any information expected to be given to writers of calculators.
 
@@ -189,6 +159,7 @@ calculator_info = {
     "wien2k": {"option": {"name": "--wien2k", "help": "Invoke Wien2k mode"}},
     "pwmat": {"option": {"name": "--pwmat", "help": "Invoke PWmat mode"}},
     "exciting": {"option": {"name": "--exciting", "help": "Invoke exciting mode"}},
+    "octopus": {"option": {"name": "--octopus", "help": "Invoke Octopus mode"}},
 }
 
 
@@ -390,6 +361,10 @@ def write_crystal_structure(
         import phonopy.interface.pwmat as pwmat
 
         pwmat.write_atom_config(filename, cell)
+    elif interface_mode == "octopus":
+        import phonopy.interface.octopus as octopus
+
+        octopus.write_octopus(filename, cell)
     else:
         raise RuntimeError("No calculator interface was found.")
 
@@ -654,6 +629,10 @@ def _write_supercells_generic(
         import phonopy.interface.exciting as exciting
 
         writer = exciting.write_supercells_with_displacements
+    elif interface_mode == "octopus":
+        import phonopy.interface.octopus as octopus
+
+        writer = octopus.write_supercells_with_displacements
     else:
         msg = f"No handler found for calculator interface: {interface_mode}"
         raise RuntimeError(msg)
@@ -774,9 +753,11 @@ def write_supercells_with_displacements(
         numbers to be assigned to the supercells with displacements.
         Default is None, which gives [1, 2, 3, ...].
     zfill_width : int, optional
-        Supercell numbers are filled by zeros from the left with the digits
-        as given, which results in 001, 002, ..., when zfill_width=3.
-        Default is 3.
+        Minimum number of digits of the supercell numbers, which are filled
+        by zeros from the left, e.g. 001, 002, ..., when zfill_width=3.
+        Default is 3. When the largest displacement ID needs more digits,
+        the width is increased accordingly so that all file names have the
+        same number of digits, e.g. 0001, ..., 1000 for 1000 supercells.
     additional_info : dict | None, optional
         Interface-specific configuration such as "supercell_matrix" or
         "template_file". Default is None.
@@ -796,12 +777,20 @@ def write_supercells_with_displacements(
     else:
         ids = np.asarray(displacement_ids)
 
+    # zfill_width is the minimum width. Widen it when the largest displacement
+    # ID needs more digits, so that all file names have the same number of
+    # digits.
+    if len(ids) > 0:
+        width = max(zfill_width, len(str(int(max(ids)))))
+    else:
+        width = zfill_width
+
     # Create configuration object (type-safe, immutable)
     config = SupercellWriterConfig(
         supercell=supercell,
         cells_with_disps=cells_with_disps,
         displacement_ids=ids,
-        zfill_width=zfill_width,
+        zfill_width=width,
         additional_info=additional_info,
     )
 
@@ -994,6 +983,14 @@ def read_crystal_structure(
         return unitcell, QlmStructureInfo(
             unitcell_filename=cell_filename, qlm_ctx=qlm_ctx
         )
+    elif interface_mode == "octopus":
+        # The unit cell may be given either as a VASP-style POSCAR (the default,
+        # lattice in Angstrom, converted to Bohr) or as an Octopus geometry
+        # include file (already in atomic units); auto-detected.
+        from phonopy.interface.octopus import read_octopus_or_poscar
+
+        unitcell = read_octopus_or_poscar(cell_filename)
+        return unitcell, StructureInfo(unitcell_filename=cell_filename)
 
     else:
         raise RuntimeError("No calculator interface was found.")
@@ -1035,6 +1032,8 @@ def get_default_cell_filename(interface_mode: str | None) -> str:
         return "site"
     elif interface_mode == "pwmat":
         return "atom.config"
+    elif interface_mode == "octopus":
+        return "POSCAR"
     else:
         raise RuntimeError("No calculator interface was found.")
 
@@ -1091,6 +1090,7 @@ def get_default_displacement_distance(interface_mode: str | None) -> float:
         "fleur",
         "abacus",
         "qlm",
+        "octopus",
     ):
         displacement_distance = 0.02
     else:  # default or vasp, crystal, cp2k, pwmat
@@ -1168,6 +1168,8 @@ def get_calc_dataset(
         from phonopy.interface.qlm import parse_set_of_forces
     elif interface_mode == "pwmat":
         from phonopy.interface.pwmat import parse_set_of_forces
+    elif interface_mode == "octopus":
+        from phonopy.interface.octopus import parse_set_of_forces
     else:
         msg = f"No calculator interface was found: {interface_mode}"
         raise RuntimeError(msg)

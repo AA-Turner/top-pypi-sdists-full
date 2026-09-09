@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spaceforge
-Version: 1.8.0
+Version: 1.8.1
 Summary: A Python framework for building Spacelift plugins
 Author-email: Spacelift <support@spacelift.io>
 Maintainer-email: Spacelift <support@spacelift.io>

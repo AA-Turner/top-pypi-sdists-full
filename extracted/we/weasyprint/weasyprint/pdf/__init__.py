@@ -276,7 +276,7 @@ def generate_pdf(document, target, zoom, **options):
                 pdf.info[key] = pydyf.String(value)
     if options['xmp_metadata']:
         for url in options['xmp_metadata']:
-            result = select_source(url)
+            result = select_source(url, url_fetcher=document.url_fetcher)
             with result as (file_obj, base_url, charset, _):
                 xmp_metadata = file_obj.read()
                 if charset:
@@ -310,18 +310,8 @@ def generate_pdf(document, target, zoom, **options):
 
     # Embedded fonts
     subset = not options['full_fonts']
-    pdf_fonts = build_fonts_dictionary(
-        pdf, document.fonts, compress, subset, options)
+    pdf_fonts = build_fonts_dictionary(pdf, document.fonts, compress, subset, options)
     pdf.add_object(pdf_fonts)
-    if 'AcroForm' in pdf.catalog:
-        # Include Dingbats for forms
-        dingbats = pydyf.Dictionary({
-            'Type': '/Font',
-            'Subtype': '/Type1',
-            'BaseFont': '/ZapfDingbats',
-        })
-        pdf.add_object(dingbats)
-        pdf_fonts['ZaDb'] = dingbats.reference
     resources['Font'] = pdf_fonts.reference
     _use_references(pdf, resources, images, document.color_profiles)
 

@@ -1680,7 +1680,7 @@ def start_connector_rollout(
             API defaults to TIER_2. Use "ALL" to target all customer tiers.
 
     Returns:
-        Dictionary containing the API response with the updated rollout data
+        The rollout object, unwrapped from the `data` envelope.
 
     Raises:
         PyAirbyteInputError: If the API request fails
@@ -1761,7 +1761,9 @@ def start_connector_rollout(
             },
         )
 
-    return response.json()
+    body: dict[str, Any] = response.json()
+    data = body.get("data")
+    return data if isinstance(data, dict) else body
 
 
 def progress_connector_rollout(

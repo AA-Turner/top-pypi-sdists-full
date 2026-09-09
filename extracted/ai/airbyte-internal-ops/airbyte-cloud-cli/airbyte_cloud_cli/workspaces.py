@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from airbyte import cloud
 from airbyte._util import api_util
 from airbyte.constants import CLOUD_API_ROOT
+from airbyte.exceptions import PyAirbyteInputError
 from airbyte.secrets import SecretString
 
 if TYPE_CHECKING:
@@ -37,7 +38,13 @@ app.command(workspaces_app)
 
 
 def _workspace_info(workspace: CloudWorkspace):
-    return workspace.get_info()
+    return api_util.get_workspace(
+        workspace.workspace_id,
+        api_root=workspace.api_root,
+        client_id=workspace.client_id,
+        client_secret=workspace.client_secret,
+        bearer_token=workspace.bearer_token,
+    )
 
 
 def _auth_args(
@@ -61,6 +68,14 @@ def list_(
     public_api_root: PublicApiRootArg = None,
 ) -> None:
     """List workspaces in an organization."""
+    if not organization_id:
+        raise PyAirbyteInputError(
+            message=(
+                "Organization ID is required; provide `--organization-id`, "
+                "`AIRBYTE_ORGANIZATION_ID`, or `AIRBYTE_CLOUD_ORGANIZATION_ID`."
+            ),
+            context={"option": "--organization-id"},
+        )
     resolved_public_api_root = (
         CLOUD_API_ROOT if public_api_root is None else public_api_root
     )

@@ -1,3 +1,4 @@
+import json
 import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -129,26 +130,25 @@ json_schema_stag_grammar = [
             "json_schema": {"type": "object", "properties": {"a": {"type": "string"}}},
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
-root_0 ::= (("{" [ \n\t]* "\"a\"" [ \n\t]* ":" [ \n\t]* basic_string [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
+root_0 ::= (("{" [ \n\r\t]* "\"a\"" [ \n\r\t]* ":" [ \n\r\t]* basic_string [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 root ::= ((root_0))
 """,
     )
@@ -183,37 +183,36 @@ qwen_parameter_xml_stag_grammar = [
             },
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
 xml_string ::= TagDispatch(
   loop_after_dispatch=false,
   excludes=("</parameter>")
 )
 xml_any ::= ((xml_string) | (basic_array) | (basic_object))
-xml_object ::= (([ \n\t]* "<parameter=" xml_variable_name ">" [ \n\t]* xml_any [ \n\t]* "</parameter>" xml_object_1 [ \n\t]*) | ([ \n\t]*))
+xml_object ::= (([ \n\r\t]* "<parameter=" xml_variable_name ">" [ \n\r\t]* xml_any [ \n\r\t]* "</parameter>" xml_object_properties{0, -1} [ \n\r\t]*) | ([ \n\r\t]*))
 xml_variable_name ::= (([a-zA-Z_] [a-zA-Z0-9_]*))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
+xml_object_properties ::= (([ \n\r\t]* "<parameter=" xml_variable_name ">" [ \n\r\t]* xml_any [ \n\r\t]* "</parameter>"))
+root_0 ::= (([ \n\r\t]* "<parameter=name" ">" xml_string "</parameter>" root_part_0 [ \n\r\t]*))
 root_prop_1 ::= (("0") | (root_prop_1_1 [1-9] [0-9]*))
-root_part_0 ::= (([ \n\t]* "<parameter=age>" [ \n\t]* root_prop_1 [ \n\t]* "</parameter>"))
-root_0 ::= (([ \n\t]* "<parameter=name>" [ \n\t]* xml_string [ \n\t]* "</parameter>" root_part_0 [ \n\t]*))
+root_part_0 ::= (([ \n\r\t]* "<parameter=age" ">" [ \n\r\t]* root_prop_1 [ \n\r\t]* "</parameter>"))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-xml_object_1 ::= ("" | ([ \n\t]* "<parameter=" xml_variable_name ">" [ \n\t]* xml_any [ \n\t]* "</parameter>" xml_object_1))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 root_prop_1_1 ::= ("" | ("-"))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
 root ::= ((root_0))
 """,
     )
@@ -295,37 +294,36 @@ json_schema_style_minimax_xml_stag_grammar = [
             "style": "minimax_xml",
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
 xml_string ::= TagDispatch(
   loop_after_dispatch=false,
   excludes=("</parameter>")
 )
 xml_any ::= ((xml_string) | (basic_array) | (basic_object))
-xml_object ::= (([ \n\t]* "<parameter name=\"" xml_variable_name "\">" [ \n\t]* xml_any [ \n\t]* "</parameter>" xml_object_1 [ \n\t]*) | ([ \n\t]*))
+xml_object ::= (([ \n\r\t]* "<parameter name=\"" xml_variable_name "\">" [ \n\r\t]* xml_any [ \n\r\t]* "</parameter>" xml_object_properties{0, -1} [ \n\r\t]*) | ([ \n\r\t]*))
 xml_variable_name ::= (([a-zA-Z_] [a-zA-Z0-9_]*))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
+xml_object_properties ::= (([ \n\r\t]* "<parameter name=\"" xml_variable_name "\">" [ \n\r\t]* xml_any [ \n\r\t]* "</parameter>"))
+root_0 ::= (([ \n\r\t]* "<parameter name=\"name" "\">" xml_string "</parameter>" root_part_0 [ \n\r\t]*))
 root_prop_1 ::= (("0") | (root_prop_1_1 [1-9] [0-9]*))
-root_part_0 ::= (([ \n\t]* "<parameter name=\"age\">" [ \n\t]* root_prop_1 [ \n\t]* "</parameter>"))
-root_0 ::= (([ \n\t]* "<parameter name=\"name\">" [ \n\t]* xml_string [ \n\t]* "</parameter>" root_part_0 [ \n\t]*))
+root_part_0 ::= (([ \n\r\t]* "<parameter name=\"age" "\">" [ \n\r\t]* root_prop_1 [ \n\r\t]* "</parameter>"))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-xml_object_1 ::= ("" | ([ \n\t]* "<parameter name=\"" xml_variable_name "\">" [ \n\t]* xml_any [ \n\t]* "</parameter>" xml_object_1))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 root_prop_1_1 ::= ("" | ("-"))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
 root ::= ((root_0))
 """,
     )
@@ -378,41 +376,40 @@ json_schema_style_deepseek_xml_stag_grammar = [
             "style": "deepseek_xml",
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
 xml_string ::= TagDispatch(
   loop_after_dispatch=false,
   excludes=("</\uff5cDSML\uff5cparameter>")
 )
 xml_any ::= ((xml_string) | (basic_array) | (basic_object))
-xml_object ::= (([ \n\t]* "<\uff5cDSML\uff5cparameter name=\"" xml_variable_name "\" string=\"" xml_object_2 "\">" [ \n\t]* xml_any [ \n\t]* "</\uff5cDSML\uff5cparameter>" xml_object_1 [ \n\t]*) | ([ \n\t]*))
+xml_object ::= (([ \n\r\t]* "<\uff5cDSML\uff5cparameter name=\"" xml_variable_name "\" string=\"" xml_object_1 "\">" [ \n\r\t]* xml_any [ \n\r\t]* "</\uff5cDSML\uff5cparameter>" xml_object_properties{0, -1} [ \n\r\t]*) | ([ \n\r\t]*))
 xml_variable_name ::= (([a-zA-Z_] [a-zA-Z0-9_]*))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
+xml_object_properties ::= (([ \n\r\t]* "<\uff5cDSML\uff5cparameter name=\"" xml_variable_name "\" string=\"" xml_object_properties_1 "\">" [ \n\r\t]* xml_any [ \n\r\t]* "</\uff5cDSML\uff5cparameter>"))
+root_0 ::= (([ \n\r\t]* "<\uff5cDSML\uff5cparameter name=\"name" "\" string=\"" root_1 "\">" xml_string "</\uff5cDSML\uff5cparameter>" root_part_0 [ \n\r\t]*))
 root_prop_1 ::= (("0") | (root_prop_1_1 [1-9] [0-9]*))
-root_part_0 ::= (([ \n\t]* "<\uff5cDSML\uff5cparameter name=\"age\" string=\"" root_part_0_1 "\">" [ \n\t]* root_prop_1 [ \n\t]* "</\uff5cDSML\uff5cparameter>"))
-root_0 ::= (([ \n\t]* "<\uff5cDSML\uff5cparameter name=\"name\" string=\"" root_1 "\">" [ \n\t]* xml_string [ \n\t]* "</\uff5cDSML\uff5cparameter>" root_part_0 [ \n\t]*))
+root_part_0 ::= (([ \n\r\t]* "<\uff5cDSML\uff5cparameter name=\"age" "\" string=\"" root_part_0_1 "\">" [ \n\r\t]* root_prop_1 [ \n\r\t]* "</\uff5cDSML\uff5cparameter>"))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-xml_object_1 ::= ("" | ([ \n\t]* "<\uff5cDSML\uff5cparameter name=\"" xml_variable_name "\" string=\"" xml_object_1_1 "\">" [ \n\t]* xml_any [ \n\t]* "</\uff5cDSML\uff5cparameter>" xml_object_1))
-root_prop_1_1 ::= ("" | ("-"))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
-xml_object_2 ::= (("true") | ("false"))
-root_part_0_1 ::= (("true") | ("false"))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
+xml_object_1 ::= (("true") | ("false"))
+xml_object_properties_1 ::= (("true") | ("false"))
 root_1 ::= (("true") | ("false"))
-xml_object_1_1 ::= (("true") | ("false"))
+root_prop_1_1 ::= ("" | ("-"))
+root_part_0_1 ::= (("true") | ("false"))
 root ::= ((root_0))
 """,
     )
@@ -461,6 +458,654 @@ def test_json_schema_style_glm_xml_format(instance: str, is_accepted: bool):
     assert "<arg_value>" in grammar_str
 
     check_stag_with_instance(stag_format, instance, is_accepted)
+
+
+cohere_xml_instance_is_accepted = [
+    # Cohere XML: <cofl:value name="key" type="...">value</cofl:value>
+    (
+        '<cofl:value name="name" type="raw">Bob</cofl:value>'
+        '<cofl:value name="age" type="json">100</cofl:value>',
+        True,
+    ),
+    # Missing the required age parameter.
+    ('<cofl:value name="name" type="raw">Bob</cofl:value>', False),
+    # Unquoted attributes are not accepted.
+    (
+        "<cofl:value name=name type=raw>Bob</cofl:value>"
+        "<cofl:value name=age type=json>100</cofl:value>",
+        False,
+    ),
+    # Qwen XML: <parameter=key>value</parameter>
+    ("<parameter=name>Bob</parameter><parameter=age>100</parameter>", False),
+]
+
+
+@pytest.mark.parametrize("instance, is_accepted", cohere_xml_instance_is_accepted)
+def test_json_schema_style_cohere_xml_format(instance: str, is_accepted: bool):
+    """Test JSONSchemaFormat with style='cohere_xml'."""
+    stag_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+            "required": ["name", "age"],
+        },
+        "style": "cohere_xml",
+    }
+    structural_tag = {"type": "structural_tag", "format": stag_format}
+    stag_grammar = xgr.Grammar.from_structural_tag(structural_tag)
+    grammar_str = str(stag_grammar)
+    assert "<cofl:value" in grammar_str
+    assert ' name=\\"' in grammar_str
+    assert ' type=\\"' in grammar_str
+    assert "</cofl:value>" in grammar_str
+
+    check_stag_with_instance(stag_format, instance, is_accepted)
+
+
+def test_json_schema_style_cohere_xml_nested_values():
+    """Test nested dict and list values through JSONSchemaFormat(style='cohere_xml')."""
+    stag_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "properties": {"mode": {"type": "string"}, "enabled": {"type": "boolean"}},
+                    "required": ["mode", "enabled"],
+                },
+                "items": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 2,
+                    "maxItems": 2,
+                },
+            },
+            "required": ["config", "items"],
+        },
+        "style": "cohere_xml",
+    }
+    accepted = (
+        '<cofl:value name="config" type="dict">'
+        '<cofl:value name="mode" type="raw">fast</cofl:value>'
+        '<cofl:value name="enabled" type="json">true</cofl:value>'
+        "</cofl:value>"
+        '<cofl:value name="items" type="list">'
+        '<cofl:value type="raw">first</cofl:value>'
+        '<cofl:value type="raw">second</cofl:value>'
+        "</cofl:value>"
+    )
+    named_list_item = accepted.replace(
+        '<cofl:value type="raw">first</cofl:value>',
+        '<cofl:value name="0" type="raw">first</cofl:value>',
+    )
+
+    check_stag_with_instance(stag_format, accepted, True)
+    check_stag_with_instance(stag_format, named_list_item, False)
+
+
+@pytest.mark.parametrize(
+    "json_schema, instance, is_accepted",
+    [
+        # Referenced schemas use the resolved target's Cohere wrapper type.
+        pytest.param(
+            {"$ref": "#/$defs/Text"}, '<cofl:value name="value" type="raw">hello</cofl:value>', True
+        ),
+        pytest.param(
+            {"$ref": "#/$defs/Text"},
+            '<cofl:value name="value" type="json">hello</cofl:value>',
+            False,
+        ),
+        # Mixed enum accepts the raw string branch and JSON scalar branch, but not mismatched tags.
+        pytest.param(
+            {"enum": ["ready", 7]}, '<cofl:value name="value" type="raw">ready</cofl:value>', True
+        ),
+        pytest.param(
+            {"enum": ["ready", 7]}, '<cofl:value name="value" type="json">7</cofl:value>', True
+        ),
+        pytest.param(
+            {"enum": ["ready", 7]}, '<cofl:value name="value" type="json">ready</cofl:value>', False
+        ),
+        # anyOf accepts the string branch's raw tag and rejects unrelated container tags.
+        pytest.param(
+            {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+            '<cofl:value name="value" type="raw">hello</cofl:value>',
+            True,
+        ),
+        pytest.param(
+            {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+            '<cofl:value name="value" type="dict">123</cofl:value>',
+            False,
+        ),
+        # oneOf keeps object bodies paired with dict tags, not list tags.
+        pytest.param(
+            {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "properties": {"id": {"type": "integer"}},
+                        "required": ["id"],
+                        "additionalProperties": False,
+                    },
+                    {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 1},
+                ]
+            },
+            '<cofl:value name="value" type="dict">'
+            '<cofl:value name="id" type="json">1</cofl:value>'
+            "</cofl:value>",
+            True,
+        ),
+        pytest.param(
+            {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "properties": {"id": {"type": "integer"}},
+                        "required": ["id"],
+                        "additionalProperties": False,
+                    },
+                    {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 1},
+                ]
+            },
+            '<cofl:value name="value" type="list">'
+            '<cofl:value name="id" type="json">1</cofl:value>'
+            "</cofl:value>",
+            False,
+        ),
+        # JSON Schema type arrays accept the integer json branch and reject unrelated dict tags.
+        pytest.param(
+            {"type": ["string", "integer"]},
+            '<cofl:value name="value" type="json">123</cofl:value>',
+            True,
+        ),
+        pytest.param(
+            {"type": ["string", "integer"]},
+            '<cofl:value name="value" type="dict">123</cofl:value>',
+            False,
+        ),
+        # Single-schema allOf is transparent and uses its child schema's type handling.
+        pytest.param(
+            {"allOf": [{"type": "string"}]},
+            '<cofl:value name="value" type="raw">hello</cofl:value>',
+            True,
+        ),
+        pytest.param(
+            {"allOf": [{"type": "string"}]},
+            '<cofl:value name="value" type="json">hello</cofl:value>',
+            False,
+        ),
+    ],
+)
+def test_json_schema_style_cohere_xml_type_correlation(
+    json_schema: dict, instance: str, is_accepted: bool
+):
+    """Smoke-test Cohere type/body correlation through JSONSchemaFormat(style='cohere_xml')."""
+    stag_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "type": "object",
+            "$defs": {"Text": {"type": "string"}},
+            "properties": {"value": json_schema},
+            "required": ["value"],
+            "additionalProperties": False,
+        },
+        "style": "cohere_xml",
+    }
+
+    check_stag_with_instance(stag_format, instance, is_accepted)
+
+
+# JSONSchemaFormat with style="kimi_k3_xml"
+# (<|open|>argument key="key" type="type"<|sep|>value<|close|>argument<|sep|>)
+#
+# The type attribute is pinned to each declared property's schema type, because the Kimi-K3
+# tool-call parser reads it as a decoding switch: type="string" keeps the value as raw text,
+# any other type JSON-decodes it. A mismatched attribute would therefore change the decoded
+# argument's type.
+kimi_k3_xml_instance_is_accepted = [
+    (
+        '<|open|>argument key="name" type="string"<|sep|>Bob<|close|>argument<|sep|>'
+        '<|open|>argument key="age" type="number"<|sep|>100<|close|>argument<|sep|>',
+        True,
+    ),
+    # Whitespace between argument tags is tolerated.
+    (
+        '<|open|>argument key="name" type="string"<|sep|>Bob<|close|>argument<|sep|>\n'
+        '<|open|>argument key="age" type="number"<|sep|>\t100\n<|close|>argument<|sep|>',
+        True,
+    ),
+    # Raw string values may span lines and contain markup-ish text.
+    (
+        '<|open|>argument key="name" type="string"<|sep|><!DOCTYPE html>\n'
+        "<h1>Hello</h1><|close|>argument<|sep|>"
+        '<|open|>argument key="age" type="number"<|sep|>100<|close|>argument<|sep|>',
+        True,
+    ),
+    # An integer property renders as type="number"; the renderer never emits "integer".
+    (
+        '<|open|>argument key="name" type="string"<|sep|>Bob<|close|>argument<|sep|>'
+        '<|open|>argument key="age" type="integer"<|sep|>100<|close|>argument<|sep|>',
+        False,
+    ),
+    # A string property may not claim a non-string type: the parser would JSON-decode the
+    # body and return a number instead of a string.
+    (
+        '<|open|>argument key="name" type="number"<|sep|>123<|close|>argument<|sep|>'
+        '<|open|>argument key="age" type="number"<|sep|>100<|close|>argument<|sep|>',
+        False,
+    ),
+    # Nor may the integer property claim to be a string.
+    (
+        '<|open|>argument key="name" type="string"<|sep|>Bob<|close|>argument<|sep|>'
+        '<|open|>argument key="age" type="string"<|sep|>100<|close|>argument<|sep|>',
+        False,
+    ),
+    # Missing required property.
+    ('<|open|>argument key="name" type="string"<|sep|>Bob<|close|>argument<|sep|>', False),
+    # Other XML parameter styles are rejected.
+    ('<parameter name="name">Bob</parameter><parameter name="age">100</parameter>', False),
+]
+
+
+@pytest.mark.parametrize("instance, is_accepted", kimi_k3_xml_instance_is_accepted)
+def test_json_schema_style_kimi_k3_xml_format(instance: str, is_accepted: bool):
+    """Test JSONSchemaFormat with style='kimi_k3_xml'."""
+    stag_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+            "required": ["name", "age"],
+        },
+        "style": "kimi_k3_xml",
+    }
+    structural_tag = {"type": "structural_tag", "format": stag_format}
+    stag_grammar = xgr.Grammar.from_structural_tag(structural_tag)
+    grammar_str = str(stag_grammar)
+    assert '<|open|>argument key=\\"' in grammar_str
+    assert "<|close|>argument<|sep|>" in grammar_str
+
+    check_stag_with_instance(stag_format, instance, is_accepted)
+
+
+def test_json_schema_style_kimi_k3_xml_empty_object():
+    """style='kimi_k3_xml' with no properties accepts an empty argument list."""
+    stag_format = {
+        "type": "json_schema",
+        "json_schema": {"type": "object", "properties": {}},
+        "style": "kimi_k3_xml",
+    }
+    check_stag_with_instance(stag_format, "", True)
+    check_stag_with_instance(stag_format, "\n", True)
+
+
+def test_json_schema_style_kimi_k3_xml_object_argument_uses_json():
+    """An object-valued argument uses a JSON body rather than nested XTML arguments."""
+    stag_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "type": "object",
+            "properties": {"value": {"type": "object"}},
+            "required": ["value"],
+            "additionalProperties": False,
+        },
+        "style": "kimi_k3_xml",
+    }
+    argument_prefix = '<|open|>argument key="value" type="object"<|sep|>'
+    argument_suffix = "<|close|>argument<|sep|>"
+
+    check_stag_with_instance(stag_format, argument_prefix + "{}" + argument_suffix, True)
+    check_stag_with_instance(stag_format, argument_prefix + '{"nested":1}' + argument_suffix, True)
+    check_stag_with_instance(stag_format, argument_prefix + argument_suffix, False)
+    check_stag_with_instance(
+        stag_format,
+        argument_prefix
+        + '<|open|>argument key="nested" type="number"<|sep|>'
+        + "1<|close|>argument<|sep|>"
+        + argument_suffix,
+        False,
+    )
+
+
+@pytest.mark.parametrize(
+    "type_attr, value",
+    [
+        ("string", "x"),
+        ("number", "1.5"),
+        ("integer", "1"),
+        ("boolean", "true"),
+        ("object", '{"k": 1}'),
+        ("array", "[1]"),
+        ("null", "null"),
+    ],
+)
+def test_json_schema_style_kimi_k3_xml_free_form_keys_allow_any_type(type_attr: str, value: str):
+    """style='kimi_k3_xml' keeps every type attribute for keys with no declared schema.
+
+    Only declared properties pin the attribute to their schema type. A free-form key (here
+    from an unconstrained schema) may hold any value, so every type name stays legal.
+    """
+    stag_format = {"type": "json_schema", "json_schema": True, "style": "kimi_k3_xml"}
+    check_stag_with_instance(
+        stag_format,
+        f'<|open|>argument key="k" type="{type_attr}"<|sep|>{value}<|close|>argument<|sep|>',
+        True,
+    )
+
+
+def test_json_schema_style_kimi_k3_xml_escapes_key_attribute():
+    r"""style='kimi_k3_xml' escapes & and " in the key attribute like the K3 renderer.
+
+    The parser matches attribute values as [^"]* and then reverses `&quot;` / `&amp;`, so a
+    raw quote in a key would truncate the attribute, and a key that literally contains
+    `&amp;` would be decoded back into `&`.
+    """
+    stag_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "type": "object",
+            "properties": {'we"ird&key': {"type": "string"}},
+            "required": ['we"ird&key'],
+        },
+        "style": "kimi_k3_xml",
+    }
+    check_stag_with_instance(
+        stag_format,
+        '<|open|>argument key="we&quot;ird&amp;key" type="string"<|sep|>v<|close|>argument<|sep|>',
+        True,
+    )
+    check_stag_with_instance(
+        stag_format,
+        '<|open|>argument key="we"ird&key" type="string"<|sep|>v<|close|>argument<|sep|>',
+        False,
+    )
+
+
+def _kimi_k3_argument(key: str, type_attr: str, value: str) -> str:
+    return (
+        f'<|open|>argument key="{key}" type="{type_attr}"<|sep|>' f"{value}<|close|>argument<|sep|>"
+    )
+
+
+def _kimi_k3_schema_grammar(schema: Dict[str, Any], *, any_order: bool = False) -> xgr.Grammar:
+    structural_tag = {
+        "type": "structural_tag",
+        "format": {
+            "type": "json_schema",
+            "json_schema": schema,
+            "style": "kimi_k3_xml",
+            "any_order": any_order,
+        },
+    }
+    return xgr.Grammar.from_structural_tag(structural_tag)
+
+
+def test_json_schema_style_kimi_k3_xml_all_value_types_and_nested_json():
+    """K3 uses one XTML tag per outer argument and JSON inside arrays/objects."""
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "text": {"type": "string", "minLength": 2},
+            "integer": {"type": "integer", "minimum": 1},
+            "number": {"type": "number"},
+            "flag": {"type": "boolean"},
+            "empty": {"type": "null"},
+            "labels": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 2},
+            "config": {
+                "type": "object",
+                "properties": {
+                    "mode": {"enum": ["fast", "safe"]},
+                    "retries": {"type": "integer"},
+                    "nested": {
+                        "type": "object",
+                        "properties": {"enabled": {"type": "boolean"}},
+                        "required": ["enabled"],
+                        "additionalProperties": False,
+                    },
+                },
+                "required": ["mode", "nested"],
+                "additionalProperties": False,
+            },
+            "note": {"type": "string"},
+        },
+        "required": ["text", "integer", "number", "flag", "empty", "labels", "config"],
+        "additionalProperties": False,
+    }
+    labels = json.dumps(["北京", "SF"], ensure_ascii=False)
+    config = json.dumps(
+        {"mode": "fast", "retries": 3, "nested": {"enabled": True}}, ensure_ascii=False
+    )
+    instance = (
+        _kimi_k3_argument("text", "string", "ok")
+        + _kimi_k3_argument("integer", "number", "2")
+        + _kimi_k3_argument("number", "number", "1.5")
+        + _kimi_k3_argument("flag", "boolean", "true")
+        + _kimi_k3_argument("empty", "null", "null")
+        + _kimi_k3_argument("labels", "array", labels)
+        + _kimi_k3_argument("config", "object", config)
+    )
+    grammar = _kimi_k3_schema_grammar(schema)
+
+    assert _is_grammar_accept_string(grammar, instance)
+    # The optional outer `note` and optional nested `retries` may both be omitted.
+    config_without_optional = json.dumps(
+        {"mode": "fast", "nested": {"enabled": True}}, ensure_ascii=False
+    )
+    assert _is_grammar_accept_string(grammar, instance.replace(config, config_without_optional))
+
+    # Every concrete outer schema type is tied to the type name emitted by _xtml_type.
+    for key, expected_type, wrong_type in (
+        ("text", "string", "number"),
+        ("integer", "number", "string"),
+        ("number", "number", "integer"),
+        ("flag", "boolean", "string"),
+        ("empty", "null", "string"),
+        ("labels", "array", "object"),
+        ("config", "object", "array"),
+    ):
+        assert not _is_grammar_accept_string(
+            grammar,
+            instance.replace(
+                f'key="{key}" type="{expected_type}"', f'key="{key}" type="{wrong_type}"'
+            ),
+        )
+
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace("<|sep|>ok<|close|>", "<|sep|>x<|close|>")
+    )
+    assert not _is_grammar_accept_string(
+        grammar,
+        instance.replace(
+            'key="integer" type="number"<|sep|>2', 'key="integer" type="number"<|sep|>0'
+        ),
+    )
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace(labels, json.dumps(["北京"], ensure_ascii=False))
+    )
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace(labels, json.dumps(["北京", "SF", "NY"], ensure_ascii=False))
+    )
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace(labels, json.dumps(["北京", 1], ensure_ascii=False))
+    )
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace(config, config.replace('"fast"', '"slow"'))
+    )
+    assert not _is_grammar_accept_string(
+        grammar,
+        instance.replace(config, json.dumps({"mode": "fast", "nested": {}}, ensure_ascii=False)),
+    )
+    assert not _is_grammar_accept_string(
+        grammar,
+        instance.replace(
+            config,
+            json.dumps(
+                {"mode": "fast", "nested": {"enabled": True, "extra": 1}}, ensure_ascii=False
+            ),
+        ),
+    )
+    # A nested object is JSON, not another sequence of K3 argument tags.
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace(config, _kimi_k3_argument("mode", "string", "fast"))
+    )
+    assert not _is_grammar_accept_string(
+        grammar, instance + _kimi_k3_argument("extra", "string", "x")
+    )
+
+
+def test_json_schema_style_kimi_k3_xml_nested_refs_and_arrays_of_objects():
+    entry_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "integer"}, "label": {"type": "string"}},
+        "required": ["id", "label"],
+        "additionalProperties": False,
+    }
+    schema = {
+        "$defs": {"entry": entry_schema},
+        "type": "object",
+        "properties": {
+            "entry": {"$ref": "#/$defs/entry"},
+            "entries": {"type": "array", "items": {"$ref": "#/$defs/entry"}},
+        },
+        "required": ["entry", "entries"],
+        "additionalProperties": False,
+    }
+    entry = json.dumps({"id": 1, "label": "主"}, ensure_ascii=False)
+    entries = json.dumps([{"id": 2, "label": "备"}], ensure_ascii=False)
+    instance = _kimi_k3_argument("entry", "object", entry) + _kimi_k3_argument(
+        "entries", "array", entries
+    )
+    grammar = _kimi_k3_schema_grammar(schema)
+
+    assert _is_grammar_accept_string(grammar, instance)
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace(entry, json.dumps({"id": 1}, ensure_ascii=False))
+    )
+    assert not _is_grammar_accept_string(
+        grammar,
+        instance.replace(entries, json.dumps([{"id": "2", "label": "备"}], ensure_ascii=False)),
+    )
+
+
+def test_json_schema_style_kimi_k3_xml_pattern_properties_pin_each_value_type():
+    schema = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+        "patternProperties": {
+            "^metric_[a-z]+$": {"type": "number"},
+            "^flag_[a-z]+$": {"type": "boolean"},
+        },
+        "additionalProperties": False,
+    }
+    instance = (
+        _kimi_k3_argument("name", "string", "worker")
+        + _kimi_k3_argument("metric_cpu", "number", "0.5")
+        + _kimi_k3_argument("flag_hot", "boolean", "true")
+    )
+    grammar = _kimi_k3_schema_grammar(schema)
+
+    assert _is_grammar_accept_string(grammar, instance)
+    assert not _is_grammar_accept_string(
+        grammar,
+        instance.replace('key="metric_cpu" type="number"', 'key="metric_cpu" type="string"'),
+    )
+    assert not _is_grammar_accept_string(
+        grammar, instance.replace('key="flag_hot" type="boolean"', 'key="flag_hot" type="string"')
+    )
+    assert not _is_grammar_accept_string(grammar, instance.replace("metric_cpu", "other"))
+
+
+def test_json_schema_style_kimi_k3_xml_nested_pattern_properties_stay_json():
+    schema = {
+        "type": "object",
+        "properties": {
+            "payload": {
+                "type": "object",
+                "patternProperties": {"^x_[a-z]+$": {"type": "integer"}},
+                "additionalProperties": False,
+            }
+        },
+        "required": ["payload"],
+        "additionalProperties": False,
+    }
+    prefix = '<|open|>argument key="payload" type="object"<|sep|>'
+    suffix = "<|close|>argument<|sep|>"
+    grammar = _kimi_k3_schema_grammar(schema)
+
+    assert _is_grammar_accept_string(grammar, prefix + '{"x_count": 2}' + suffix)
+    assert not _is_grammar_accept_string(grammar, prefix + '{"x_count": "2"}' + suffix)
+    assert not _is_grammar_accept_string(grammar, prefix + '{"bad": 2}' + suffix)
+    assert not _is_grammar_accept_string(
+        grammar, prefix + _kimi_k3_argument("x_count", "number", "2") + suffix
+    )
+
+
+def test_json_schema_style_kimi_k3_xml_any_order_applies_outer_and_nested_objects():
+    schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "settings": {
+                "type": "object",
+                "properties": {"first": {"type": "integer"}, "second": {"type": "boolean"}},
+                "required": ["first", "second"],
+                "additionalProperties": False,
+            },
+        },
+        "required": ["name", "settings"],
+        "additionalProperties": False,
+    }
+    ordered = _kimi_k3_argument("name", "string", "n") + _kimi_k3_argument(
+        "settings", "object", '{"first": 1, "second": true}'
+    )
+    reordered = _kimi_k3_argument(
+        "settings", "object", '{"second": true, "first": 1}'
+    ) + _kimi_k3_argument("name", "string", "n")
+
+    ordered_grammar = _kimi_k3_schema_grammar(schema)
+    any_order_grammar = _kimi_k3_schema_grammar(schema, any_order=True)
+    assert _is_grammar_accept_string(ordered_grammar, ordered)
+    assert not _is_grammar_accept_string(ordered_grammar, reordered)
+    assert _is_grammar_accept_string(any_order_grammar, ordered)
+    assert _is_grammar_accept_string(any_order_grammar, reordered)
+
+
+def test_json_schema_style_kimi_k3_xml_const_enum_and_nullable_values():
+    schema = {
+        "type": "object",
+        "properties": {
+            "mode": {"enum": ["fast", "safe"]},
+            "version": {"const": 3},
+            "target": {"type": ["string", "null"]},
+        },
+        "required": ["mode", "version", "target"],
+        "additionalProperties": False,
+    }
+
+    def instance(target_type: str, target_value: str) -> str:
+        return (
+            _kimi_k3_argument("mode", "string", "fast")
+            + _kimi_k3_argument("version", "number", "3")
+            + _kimi_k3_argument("target", target_type, target_value)
+        )
+
+    grammar = _kimi_k3_schema_grammar(schema)
+    string_target = instance("string", "primary")
+    assert _is_grammar_accept_string(grammar, string_target)
+    assert _is_grammar_accept_string(grammar, instance("null", "null"))
+    assert not _is_grammar_accept_string(grammar, string_target.replace("fast", "slow"))
+    assert not _is_grammar_accept_string(
+        grammar, string_target.replace("<|sep|>3<|close|>", "<|sep|>4<|close|>")
+    )
+    assert not _is_grammar_accept_string(
+        grammar, string_target.replace('key="mode" type="string"', 'key="mode" type="number"')
+    )
+    assert not _is_grammar_accept_string(
+        grammar, string_target.replace('key="version" type="number"', 'key="version" type="string"')
+    )
 
 
 ebnf_grammar_stag_grammar = [
@@ -534,26 +1179,25 @@ sequence_stag_grammar = [
         },
         r"""const_string ::= (("Hello!"))
 basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 root_1 ::= ("" | ([\-+*/]))
 root_2 ::= ((root_1_1))
 root_1_1 ::= ("" | ([simple]))
@@ -599,26 +1243,25 @@ or_stag_grammar = [
         },
         r"""const_string ::= (("Hello!"))
 basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 or ::= ((const_string) | (root_0))
 root ::= ((or))
 """,
@@ -653,26 +1296,25 @@ tag_stag_grammar = [
             "end": "END",
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 tag ::= (("BEG" root_0 "END"))
 root ::= ((tag))
 """,
@@ -775,6 +1417,33 @@ def test_any_text_only_format(
 ):
     check_stag_with_grammar(stag_format, expected_grammar)
     check_stag_with_instance(stag_format, instance, is_accepted)
+
+
+def test_any_text_length_budgets():
+    check_stag_with_grammar(
+        {
+            "type": "tag",
+            "begin": "<think>",
+            "content": {"type": "any_text", "max_tokens": 2, "max_chars": 4},
+            "end": "</think>",
+        },
+        r"""any_text[max_tokens=2, max_chars=4] ::= TagDispatch(
+  loop_after_dispatch=false,
+  excludes=("</think>")
+)
+tag ::= (("<think>" any_text "</think>"))
+root ::= ((tag))
+""",
+    )
+
+
+def test_any_text_zero_token_budget_is_empty():
+    check_stag_with_grammar(
+        {"type": "any_text", "max_tokens": 0},
+        r"""any_text[max_tokens=0] ::= ("")
+root ::= ((any_text))
+""",
+    )
 
 
 test_no_end_anytext_format_with_excludes_instance_is_accepted = [
@@ -1422,26 +2091,25 @@ root ::= ((optional))
             },
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 tag ::= (("BEG" root_0 "END"))
 optional ::= ("" | (tag))
 root ::= ((optional))
@@ -1451,26 +2119,25 @@ root ::= ((optional))
         4,
         {"type": "optional", "content": {"type": "json_schema", "json_schema": {"type": "number"}}},
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 optional ::= ("" | (root_0))
 root ::= ((optional))
 """,
@@ -1571,26 +2238,25 @@ root ::= ((plus))
             },
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 tag ::= (("BEG" root_0 "END"))
 plus_star ::= ("" | (tag plus_star))
 plus ::= ((tag plus_star))
@@ -1709,26 +2375,25 @@ root ::= ((star_1))
             },
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 tag ::= (("BEG" root_0 "END"))
 star ::= ("" | (tag star))
 star_1 ::= ((star))
@@ -1880,26 +2545,25 @@ root ::= ((repeat))
             },
         },
         r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\t]* [,}\]:]))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=([ \n\r\t]* [,}\]:]))
 basic_any ::= ((basic_number) | (basic_string) | (basic_boolean) | (basic_null) | (basic_array) | (basic_object))
 basic_integer ::= (("0") | (basic_integer_1 [1-9] [0-9]*))
-basic_number ::= ((basic_number_1 basic_number_7 basic_number_3 basic_number_6))
+basic_number ::= ((basic_number_1 basic_number_2 basic_number_3 basic_number_5))
 basic_string ::= (("\"" basic_string_sub))
 basic_boolean ::= (("true") | ("false"))
 basic_null ::= (("null"))
-basic_array ::= (("[" [ \n\t]* basic_any basic_array_1 [ \n\t]* "]") | ("[" [ \n\t]* "]"))
-basic_object ::= (("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1 [ \n\t]* "}") | ("{" [ \n\t]* "}"))
+basic_array ::= (("[" [ \n\r\t]* basic_any basic_array_items{0, -1} [ \n\r\t]* "]") | ("[" [ \n\r\t]* "]"))
+basic_object ::= (("{" [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any basic_object_properties{0, -1} [ \n\r\t]* "}") | ("{" [ \n\r\t]* "}"))
+basic_number_digits ::= (([0-9]))
+basic_array_items ::= (([ \n\r\t]* "," [ \n\r\t]* basic_any))
+basic_object_properties ::= (([ \n\r\t]* "," [ \n\r\t]* basic_string [ \n\r\t]* ":" [ \n\r\t]* basic_any))
 root_0 ::= ((basic_number))
 basic_integer_1 ::= ("" | ("-"))
 basic_number_1 ::= ("" | ("-"))
-basic_number_2 ::= (([0-9] basic_number_2) | ([0-9]))
-basic_number_3 ::= ("" | ("." basic_number_2))
+basic_number_2 ::= (("0") | ([1-9] [0-9]*))
+basic_number_3 ::= ("" | ("." basic_number_digits{1, -1}))
 basic_number_4 ::= ("" | ([+\-]))
-basic_number_5 ::= (([0-9] basic_number_5) | ([0-9]))
-basic_number_6 ::= ("" | ([eE] basic_number_4 basic_number_5))
-basic_array_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_any basic_array_1))
-basic_object_1 ::= ("" | ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_any basic_object_1))
-basic_number_7 ::= (("0") | ([1-9] [0-9]*))
+basic_number_5 ::= ("" | ([eE] basic_number_4 basic_number_digits{1, -1}))
 tag ::= (("BEG" root_0 "END"))
 repeat ::= ((tag{0, -1}))
 root ::= ((repeat))
@@ -2599,7 +3263,7 @@ json_format_error_test_data = [
     ),
     (
         '{"type": "structural_tag", "format": {"type": "json_schema", "json_schema": {"type": "string"}, "style": "not_string"}}',
-        'style must be "json", "qwen_xml", "minimax_xml", "deepseek_xml", or "glm_xml"',
+        'style must be "json", "qwen_xml", "minimax_xml", "deepseek_xml", "glm_xml", "cohere_xml", or "kimi_k3_xml"',
     ),
     # RepeatFormat Errors - illegal min/max
     (
@@ -2867,6 +3531,23 @@ basic_structural_tags_instance_is_accepted = [
             style="glm_xml",
         ),
         "<arg_key>name</arg_key><arg_value>value</arg_key>",
+        False,
+    ),
+    # JSONSchemaFormat with style="cohere_xml"
+    (
+        xgr.structural_tag.JSONSchemaFormat(
+            json_schema={"type": "object", "properties": {"name": {"type": "string"}}},
+            style="cohere_xml",
+        ),
+        '<cofl:value name="name" type="raw">value</cofl:value>',
+        True,
+    ),
+    (
+        xgr.structural_tag.JSONSchemaFormat(
+            json_schema={"type": "object", "properties": {"name": {"type": "string"}}},
+            style="cohere_xml",
+        ),
+        '<cofl:value name="name" type="raw">value</cofl:value_extra>',
         False,
     ),
     # AnyTextFormat
@@ -3582,6 +4263,26 @@ root ::= ((any_tokens))
     )
 
 
+def test_any_tokens_format_max_tokens():
+    check_stag_with_grammar(
+        {"type": "any_tokens", "exclude_tokens": [5, 10], "max_tokens": 3},
+        r"""any_tokens_inner ::= ((ExcludeToken(5, 10)))
+any_tokens[max_tokens=3] ::= ("" | (any_tokens_inner any_tokens))
+root ::= ((any_tokens))
+""",
+    )
+
+
+def test_any_tokens_format_zero_token_budget_is_empty():
+    check_stag_with_grammar(
+        {"type": "any_tokens", "exclude_tokens": [5], "max_tokens": 0},
+        r"""any_tokens_inner ::= ((ExcludeToken(5)))
+any_tokens[max_tokens=0] ::= ("")
+root ::= ((any_tokens))
+""",
+    )
+
+
 def test_any_tokens_detects_end_from_parent_tag():
     """AnyTokensFormat inside a tag with token end should auto-detect end token IDs."""
     check_stag_with_grammar(
@@ -3772,6 +4473,61 @@ def test_any_tokens_format_invalid_exclude_type():
     stag = {"type": "structural_tag", "format": {"type": "any_tokens", "exclude_tokens": "bad"}}
     with pytest.raises(Exception, match="Invalid structural tag error"):
         xgr.Grammar.from_structural_tag(stag)
+
+
+@pytest.mark.parametrize("format_type", ["any_text", "any_tokens"])
+@pytest.mark.parametrize("bad_value", [-1, 1.5, "invalid", 2**31])
+def test_length_budget_invalid(format_type: str, bad_value: Any):
+    field = "max_tokens"
+    stag = {"type": "structural_tag", "format": {"type": format_type, field: bad_value}}
+    with pytest.raises(Exception, match="non-negative 32-bit integer"):
+        xgr.Grammar.from_structural_tag(stag)
+
+
+@pytest.mark.parametrize("bad_value", [-1, 1.5, "invalid", 2**31])
+def test_any_text_max_chars_invalid(bad_value: Any):
+    stag = {"type": "structural_tag", "format": {"type": "any_text", "max_chars": bad_value}}
+    with pytest.raises(Exception, match="non-negative 32-bit integer"):
+        xgr.Grammar.from_structural_tag(stag)
+
+
+def test_length_budget_pydantic_roundtrip():
+    from xgrammar.structural_tag import AnyTextFormat, AnyTokensFormat
+
+    any_text = AnyTextFormat(excludes=["END"], max_tokens=3, max_chars=7)
+    any_text_roundtrip = AnyTextFormat.model_validate_json(any_text.model_dump_json())
+    assert any_text_roundtrip == any_text
+    assert AnyTextFormat().max_tokens is None
+    assert AnyTextFormat().max_chars is None
+    assert "any_text[max_tokens=3, max_chars=7]" in str(
+        xgr.Grammar.from_structural_tag(StructuralTag(format=any_text))
+    )
+
+    any_tokens = AnyTokensFormat(exclude_tokens=[5, "END"], max_tokens=3)
+    any_tokens_roundtrip = AnyTokensFormat.model_validate_json(any_tokens.model_dump_json())
+    assert any_tokens_roundtrip == any_tokens
+    assert AnyTokensFormat().max_tokens is None
+    assert "any_tokens[max_tokens=3]" in str(
+        xgr.Grammar.from_structural_tag(
+            StructuralTag(format=AnyTokensFormat(exclude_tokens=[5], max_tokens=3))
+        )
+    )
+    assert "any_tokens[max_tokens=" not in str(
+        xgr.Grammar.from_structural_tag(StructuralTag(format=AnyTokensFormat(exclude_tokens=[5])))
+    )
+
+    with pytest.raises(Exception):
+        AnyTextFormat(max_tokens=-1)
+    with pytest.raises(Exception):
+        AnyTextFormat(max_chars=-1)
+    with pytest.raises(Exception):
+        AnyTokensFormat(max_tokens=-1)
+    with pytest.raises(Exception):
+        AnyTextFormat(max_tokens=2**31)
+    with pytest.raises(Exception):
+        AnyTextFormat(max_chars=2**31)
+    with pytest.raises(Exception):
+        AnyTokensFormat(max_tokens=2**31)
 
 
 def test_token_triggered_tags_missing_triggers():
@@ -4215,6 +4971,20 @@ def test_structural_tag_max_whitespace_cnt_compile_cache():
     g_bounded = compiler.compile_structural_tag(_ws_stag(max_whitespace_cnt=2)).grammar
     assert _is_grammar_accept_string(g_unbounded, _ws_instance(5))
     assert not _is_grammar_accept_string(g_bounded, _ws_instance(5))
+
+
+def test_deeply_nested_formats_rejected():
+    # Formats are walked by several recursive passes; the nesting depth must be bounded instead of
+    # overflowing the stack. The JSON is built as a string so that Python's own recursion limit is
+    # not the thing under test.
+    def nested(depth: int) -> str:
+        fmt = '{"type": "sequence", "elements": [' * depth
+        fmt += '{"type": "const_string", "value": "a"}' + "]}" * depth
+        return '{"type": "structural_tag", "format": ' + fmt + "}"
+
+    xgr.Grammar.from_structural_tag(nested(50))
+    with pytest.raises(Exception, match="nested deeper than"):
+        xgr.Grammar.from_structural_tag(nested(300))
 
 
 if __name__ == "__main__":

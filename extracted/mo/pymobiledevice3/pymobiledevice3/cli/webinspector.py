@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import inspect
 import logging
 import re
@@ -6,6 +8,7 @@ from asyncio import CancelledError
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import update_wrapper
+from pathlib import Path
 from string import Template
 from typing import Annotated, Any, Optional, cast
 
@@ -26,6 +29,7 @@ from typer_injector import InjectingTyper
 from pymobiledevice3.cli.cli_common import ServiceProviderDep, async_command, prompt_selection
 from pymobiledevice3.common import get_home_folder
 from pymobiledevice3.exceptions import (
+    ConnectionTerminatedError,
     InspectorEvaluateError,
     LaunchingApplicationError,
     RemoteAutomationNotEnabledError,
@@ -35,6 +39,7 @@ from pymobiledevice3.exceptions import (
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.services.web_protocol.cdp_server import app, find_chrome
+from pymobiledevice3.services.web_protocol.cdp_trace import ProtocolTrace
 from pymobiledevice3.services.web_protocol.driver import By, Cookie, WebDriver
 from pymobiledevice3.services.web_protocol.inspector_session import InspectorSession
 from pymobiledevice3.services.webinspector import SAFARI, ApplicationPage, WebinspectorService
@@ -133,6 +138,25 @@ JS_RESERVED_WORDS = frozenset({
 
 OSUTILS = get_os_utils()
 logger = logging.getLogger(__name__)
+
+
+class _GetAccessToDebug(logging.Filter):
+    """Treat uvicorn's access log for GET requests as DEBUG.
+
+    The landing page polls GET /api/targets (and fetches icons) every second, which floods the
+    default output; those lines are only useful when debugging. A GET is relabelled DEBUG and
+    dropped unless debug logging is on (the app's stream handler has no level of its own, so
+    relabelling alone would not hide it); POSTs and the rest are left untouched. uvicorn logs
+    access as '%s - "%s %s HTTP/%s" %d' with args (client, method, path, http_version, status).
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 2 and args[1] == "GET":
+            record.levelno = logging.DEBUG
+            record.levelname = "DEBUG"
+            return logging.getLogger().isEnabledFor(logging.DEBUG)
+        return True
 
 
 cli = InjectingTyper(
@@ -406,6 +430,13 @@ async def cdp(
             '"Pause new JSContexts on launch" switch.',
         ),
     ] = False,
+    trace: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--trace",
+            help="Record every protocol message, in both directions, to this JSON-lines file - attach it to a bug report.",
+        ),
+    ] = None,
 ) -> None:
     """
     Start a CDP server for debugging WebViews and inspectable JSContexts.
@@ -445,9 +476,19 @@ async def cdp(
     default install location.
     """
     app.state.inspector = WebinspectorService(lockdown=service_provider)
+    # A device disconnect stops the bridge with a device-disconnected error, which
+    # pymobiledevice3's own --reconnect (a top-level option) then retries by re-running the command.
+    device_disconnected = asyncio.Event()
+    app.state.inspector.on_connection_lost = device_disconnected.set
     app.state.chrome_path = find_chrome(chrome)
     app.state.pause_new_targets = pause_new_targets
+    recorder = ProtocolTrace(trace) if trace is not None else None
+    if recorder is not None:
+        app.state.trace = recorder
+        app.state.inspector.trace = recorder.device_hook
+        typer.echo(f"Recording the protocol trace to {trace}")
     print(f"Web Inspector ready. Open in Google Chrome: http://{host}:{port}/")
+    logging.getLogger("uvicorn.access").addFilter(_GetAccessToDebug())
     server = uvicorn.Server(
         uvicorn.Config(
             app,
@@ -457,7 +498,23 @@ async def cdp(
             ws="wsproto",
         )
     )
-    await server.serve()
+    serve_task = asyncio.ensure_future(server.serve())
+    disconnect_task = asyncio.ensure_future(device_disconnected.wait())
+    try:
+        await asyncio.wait({serve_task, disconnect_task}, return_when=asyncio.FIRST_COMPLETED)
+        if device_disconnected.is_set():
+            server.should_exit = True
+            await serve_task
+            # Raised to pymobiledevice3's top-level handler: with --reconnect it waits for the
+            # device and re-runs the command, otherwise it reports the disconnect and stops.
+            raise ConnectionTerminatedError("the device disconnected")
+        await serve_task
+    finally:
+        disconnect_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await disconnect_task
+        if recorder is not None:
+            recorder.close()
 
 
 async def get_js_completions(jsshell: "JsShell", obj: str, prefix: str) -> AsyncIterator[Completion]:

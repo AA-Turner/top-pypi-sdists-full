@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from airbyte import cloud
+from airbyte._util import api_util
 from airbyte.exceptions import PyAirbyteInputError
 from cyclopts import Parameter
 
@@ -64,7 +65,13 @@ def _workspace(
 
 
 def _get_job_info(workspace: cloud.CloudWorkspace, job_id: int):
-    return workspace.get_job_info(job_id)
+    return api_util.get_job_info(
+        job_id=job_id,
+        api_root=workspace.api_root,
+        client_id=workspace.client_id,
+        client_secret=workspace.client_secret,
+        bearer_token=workspace.bearer_token,
+    )
 
 
 @jobs_app.command(name="list")
@@ -89,7 +96,7 @@ def list_(
     results = workspace.get_connection(connection_id).get_previous_sync_logs(
         limit=limit
     )
-    json_output([job.get_info() for job in results])
+    json_output([job._fetch_latest_job_info() for job in results])
 
 
 @jobs_app.command
@@ -140,4 +147,4 @@ def wait(
     if result is None:
         raise PyAirbyteInputError(message="Sync result is not available.")
     result.wait_for_completion(wait_timeout=wait_timeout)
-    json_output(result.get_info())
+    json_output(result._fetch_latest_job_info())

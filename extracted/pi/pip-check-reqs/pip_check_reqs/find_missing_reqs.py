@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import argparse
-import collections
 import logging
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from packaging.utils import NormalizedName, canonicalize_name
-from pip._internal.network.session import PipSession
-from pip._internal.req.constructors import install_req_from_line
-from pip._internal.req.req_file import parse_requirements
 
-from pip_check_reqs import common
+from pip_check_reqs import common, requirements
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -22,81 +19,128 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+@dataclass
+class MissingRequirements:
+    """The requirements which no requirements file lists."""
+
+    used: list[tuple[NormalizedName, list[common.FoundModule]]]
+    """Distributions the source imports, each with the modules it imports."""
+
+    transitive: dict[NormalizedName, set[NormalizedName]] = field(
+        default_factory=dict[NormalizedName, set[NormalizedName]],
+    )
+    """Dependencies of the used distributions, each with the distributions
+    which require it.
+
+    This is only filled when transitive dependencies are checked.
+    """
+
+
 def find_missing_reqs(
     requirements_filename: Path,
     paths: Iterable[Path],
-    ignore_files_function: Callable[[str], bool],
+    ignore_files_function: Callable[[Path], bool],
     ignore_modules_function: Callable[[str], bool],
-) -> list[tuple[NormalizedName, list[common.FoundModule]]]:
+    additional_requirements_filenames: Iterable[Path] = (),
+    *,
+    transitive: bool = False,
+    use_gitignore: bool,
+) -> MissingRequirements:
     # 1. find files used by imports in the code (as best we can without
     #    executing)
-    used_modules = common.find_imported_modules(
+    imported_modules = common.find_imported_modules(
         paths=paths,
         ignore_files_function=ignore_files_function,
         ignore_modules_function=ignore_modules_function,
+        use_gitignore=use_gitignore,
     )
-
-    installed_files: dict[Path, str] = {}
-    packages_info = common.get_packages_info()
-
-    for package in packages_info:
-        package_name = package.name
-        package_location = package.location
-
-        log.debug(
-            "installed package: %s (at %s)",
-            package_name,
-            package_location,
-        )
-        for item in package.files or []:
-            path = Path(package_location) / item
-            path = common.cached_resolve_path(path=path)
-
-            installed_files[path] = package_name
-            package_path = common.package_path(path=path)
-            if package_path:
-                # we've seen a package file so add the bare package directory
-                # to the installed list as well as we might want to look up
-                # a package by its directory path later
-                installed_files[package_path] = package_name
+    used_modules = imported_modules.found
 
     # 3. match imported modules against those packages
-    used: collections.defaultdict[
-        NormalizedName,
-        list[common.FoundModule],
-    ] = collections.defaultdict(list)
-    for modname, info in used_modules.items():
-        # probably standard library if it's not in the files list
-        if info.filename in installed_files:
-            used_name = canonicalize_name(name=installed_files[info.filename])
-            log.debug(
-                "used module: %s (from package %s)",
-                modname,
-                installed_files[info.filename],
-            )
-            used[used_name].append(info)
-        else:
-            log.debug(
-                "used module: %s (from file %s, assuming stdlib or local)",
-                modname,
-                info.filename,
-            )
+    used = common.used_packages(used_modules=used_modules, paths=paths)
 
     # 4. compare with requirements
     explicit: set[NormalizedName] = set()
-    for requirement in parse_requirements(
-        str(requirements_filename),
-        session=PipSession(),
-    ):
-        requirement_name = install_req_from_line(
-            requirement.requirement,
-        ).name
+    for filename in [
+        requirements_filename,
+        *additional_requirements_filenames,
+    ]:
+        explicit |= requirements.find_required_modules(
+            ignore_requirements_function=common.ignorer(ignore_cfg=[]),
+            skip_incompatible=False,
+            specs=requirements.requirement_specs(path=filename),
+        )
 
-        assert isinstance(requirement_name, str)
-        log.debug("found requirement: %s", requirement_name)
-        explicit.add(canonicalize_name(requirement_name))
+    _report_uninstalled_imports(
+        uninstalled=imported_modules.uninstalled,
+        explicit=explicit,
+    )
 
-    return [(name, used[name]) for name in used if name not in explicit]
+    missing = MissingRequirements(
+        used=[(name, used[name]) for name in used if name not in explicit],
+    )
+    if not transitive:
+        return missing
+
+    # A used distribution is reported with the imports which use it, so we
+    # do not report it a second time as a dependency of another.
+    missing.transitive = {
+        name: required_by
+        for name, required_by in common.transitive_dependencies(
+            names=used,
+        ).items()
+        if name not in explicit and name not in used
+    }
+    return missing
+
+
+def _report_uninstalled_imports(
+    *,
+    uninstalled: dict[str, list[tuple[str, int]]],
+    explicit: set[NormalizedName],
+) -> None:
+    """Warn about imports of modules which are not installed.
+
+    We tell which distribution provides a module from the files of the
+    installed distribution, so we cannot tell whether a module which is not
+    installed is required. Such an import was silently ignored, which hid
+    both an import of the wrong name and a package uninstalled by mistake.
+    """
+    for modname, locations in uninstalled.items():
+        if canonicalize_name(modname) in explicit:
+            # The requirement is listed but not installed, so there is
+            # nothing to report: the import is accounted for.
+            continue
+
+        for filename, lineno in locations:
+            log.warning(
+                "%s:%s module=%s is not installed, so we cannot tell which "
+                "requirement provides it",
+                filename,
+                lineno,
+                modname,
+            )
+
+
+def _report_missing(*, missing: MissingRequirements) -> None:
+    """Warn about each requirement which no requirements file lists."""
+    log.warning("Missing requirements:")
+    for name, uses in missing.used:
+        for use in uses:
+            for filename, lineno in use.locations:
+                log.warning(
+                    "%s:%s dist=%s module=%s",
+                    filename,
+                    lineno,
+                    name,
+                    use.modname,
+                )
+    for name, required_by in sorted(missing.transitive.items()):
+        log.warning(
+            "dist=%s required by %s",
+            name,
+            ", ".join(sorted(required_by)),
+        )
 
 
 def main(arguments: list[str] | None = None) -> None:
@@ -104,11 +148,15 @@ def main(arguments: list[str] | None = None) -> None:
     parser.add_argument("paths", type=Path, nargs="*")
     parser.add_argument(
         "--requirements-file",
-        dest="requirements_filename",
+        dest="requirements_filenames",
         metavar="PATH",
         type=Path,
-        default="requirements.txt",
-        help='path to the requirements file (defaults to "requirements.txt")',
+        action="append",
+        help=(
+            "path to a requirements file, or to a pyproject.toml file; "
+            "may be repeated "
+            '(defaults to "requirements.txt")'
+        ),
     )
     parser.add_argument(
         "-f",
@@ -125,6 +173,25 @@ def main(arguments: list[str] | None = None) -> None:
         action="append",
         default=[],
         help="used module names (globs are ok) to ignore",
+    )
+    parser.add_argument(
+        "-g",
+        "--use-gitignore",
+        dest="use_gitignore",
+        action="store_true",
+        default=False,
+        help="skip files and directories which a .gitignore file ignores",
+    )
+    parser.add_argument(
+        "-t",
+        "--transitive",
+        dest="transitive",
+        action="store_true",
+        default=False,
+        help=(
+            "also report the dependencies of the used distributions, "
+            "recursively, which are not listed"
+        ),
     )
     parser.add_argument(
         "-v",
@@ -160,40 +227,45 @@ def main(arguments: list[str] | None = None) -> None:
     if not parse_result.paths:
         parser.error("no source files or directories specified")
 
-    ignore_files = common.ignorer(ignore_cfg=parse_result.ignore_files)
+    requirements_filenames = parse_result.requirements_filenames or [
+        Path("requirements.txt"),
+    ]
+    ignore_files = common.file_ignorer(
+        ignore_cfg=parse_result.ignore_files,
+    )
     ignore_mods = common.ignorer(ignore_cfg=parse_result.ignore_mods)
 
     logging.basicConfig(format="%(message)s")
-    if parse_result.debug:
-        level = logging.DEBUG
-    elif parse_result.verbose:
-        level = logging.INFO
-    else:
-        level = logging.WARNING
+    level = common.log_level(
+        debug=parse_result.debug,
+        verbose=parse_result.verbose,
+    )
     log.setLevel(level)
     common.log.setLevel(level)
+    requirements.log.setLevel(level)
 
     log.info(common.version_info())
+    common.report_wrong_environment(stream=sys.stderr)
 
-    missing = find_missing_reqs(
-        requirements_filename=parse_result.requirements_filename,
-        paths=parse_result.paths,
-        ignore_files_function=ignore_files,
-        ignore_modules_function=ignore_mods,
-    )
+    try:
+        for requirements_filename in requirements_filenames:
+            requirements.validate_requirements_file(path=requirements_filename)
+        missing = find_missing_reqs(
+            requirements_filename=requirements_filenames[0],
+            paths=parse_result.paths,
+            ignore_files_function=ignore_files,
+            ignore_modules_function=ignore_mods,
+            additional_requirements_filenames=requirements_filenames[1:],
+            transitive=parse_result.transitive,
+            use_gitignore=parse_result.use_gitignore,
+        )
+    except (OSError, ValueError) as error:
+        common.report_input_error(
+            parser=parser,
+            debug=parse_result.debug,
+            error=error,
+        )
 
-    if missing:
-        log.warning("Missing requirements:")
-    for name, uses in missing:
-        for use in uses:
-            for filename, lineno in use.locations:
-                log.warning(
-                    "%s:%s dist=%s module=%s",
-                    filename,
-                    lineno,
-                    name,
-                    use.modname,
-                )
-
-    if missing:
+    if missing.used or missing.transitive:
+        _report_missing(missing=missing)
         sys.exit(1)

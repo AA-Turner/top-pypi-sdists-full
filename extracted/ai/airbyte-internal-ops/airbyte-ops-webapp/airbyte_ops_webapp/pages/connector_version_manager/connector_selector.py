@@ -377,6 +377,16 @@ def _render_active_rollouts_table() -> None:
                     sortable=True,
                 ),
                 DataTableColumn(
+                    key="started_at_display",
+                    header="Started",
+                    sortable=True,
+                ),
+                DataTableColumn(
+                    key="updated_at_display",
+                    header="Updated",
+                    sortable=True,
+                ),
+                DataTableColumn(
                     key="tier_2_display",
                     header="Tier 2",
                     sortable=True,

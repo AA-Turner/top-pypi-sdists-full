@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: vercel-queue
-Version: 0.8.0
+Version: 0.8.1
 Summary: Vercel Queue client for Python
 License-Expression: MIT
 License-File: LICENSE
@@ -9,9 +9,9 @@ Requires-Dist: anyio>=4.0.0
 Requires-Dist: httpx[http2]>=0.27.0
 Requires-Dist: python-multipart>=0.0.20
 Requires-Dist: typing-extensions>=4.0.0
-Requires-Dist: vercel-headers>=0.7.1
-Requires-Dist: vercel-internal-core<0.2.0,>=0.1.2
-Requires-Dist: vercel-oidc>=0.8.0
+Requires-Dist: vercel-headers>=0.7.2
+Requires-Dist: vercel-internal-core<0.2.0,>=0.1.3
+Requires-Dist: vercel-oidc>=0.8.1
 Provides-Extra: devserver
 Requires-Dist: uvicorn; extra == 'devserver'
 Provides-Extra: trio
@@ -27,7 +27,7 @@ designed for seamless integration with Vercel deployments.
 
 ## Features
 
-- **Simple API**: `send`, `subscribe`, and `asgi_app` cover standard workflows.
+- **Simple API**: `send`, `subscribe`, and `poll` cover standard workflows.
 - **Automatic Triggering on Vercel**: Vercel invokes your function when messages are ready.
 - **Works Anywhere**: `send`, decorated subscribers, and manual `poll` loops work on Vercel, self-hosted workers, and locally.
 - **Sync and Async Clients**: Prefer async for applications, use sync for scripts and blocking workers.

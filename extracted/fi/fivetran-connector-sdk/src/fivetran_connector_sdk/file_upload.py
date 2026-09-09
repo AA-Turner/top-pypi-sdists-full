@@ -1,4 +1,3 @@
-import os
 import queue
 import threading
 
@@ -6,7 +5,6 @@ from dataclasses import dataclass
 from typing import Iterator, Optional, Protocol, runtime_checkable
 
 from fivetran_connector_sdk.constants import (
-    CONNECTOR_SDK_SUPPORT_UNSTRUCTURED_DATA,
     FILE_UPLOAD_CHUNK_SIZE_BYTES,
     FILE_UPLOAD_READ_TIMEOUT_SEC,
     JAVA_LONG_MAX_VALUE,
@@ -107,19 +105,13 @@ def _validate_expected_bytes(expected_bytes: Optional[int]) -> None:
 
 
 def validate_file_upload_if_present(file_upload: Optional[FileUpload]) -> None:
-    """Validate FileUpload path, stream interface, expected_bytes, and feature flag.
+    """Validate FileUpload path, stream interface, and expected_bytes.
     
-    Raises RuntimeError if unstructured data is disabled, ValueError for invalid fields.
+    Raises ValueError for invalid fields.
     """
     if file_upload is None:
         return
 
-    if os.environ.get(CONNECTOR_SDK_SUPPORT_UNSTRUCTURED_DATA, "false") != "true":
-        raise RuntimeError(
-            "File uploads are not enabled for this connector. "
-            "To enable file uploads, contact your Fivetran account manager or "
-            "refer to the connector documentation."
-        )
     _validate_path(file_upload.path)
     if not isinstance(file_upload.stream, ByteStream):
         raise ValueError(

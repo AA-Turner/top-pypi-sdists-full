@@ -1318,6 +1318,9 @@ __all__ = (
     "InstancePlacementConfigUnionTypeDef",
     "InstancePoolSummaryTypeDef",
     "InstancePoolTypeDef",
+    "InstancePreferenceOutputTypeDef",
+    "InstancePreferenceTypeDef",
+    "InstancePreferenceUnionTypeDef",
     "InstanceRequirementsEniConfigurationTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
@@ -1841,9 +1844,11 @@ __all__ = (
     "PrefixAwareRoutingConfigTypeDef",
     "PresignedUrlAccessConfigTypeDef",
     "PriorityClassTypeDef",
+    "ProcessingClusterConfigOutputTypeDef",
     "ProcessingClusterConfigTypeDef",
     "ProcessingFeatureStoreOutputTypeDef",
     "ProcessingInputTypeDef",
+    "ProcessingInstancePreferenceTypeDef",
     "ProcessingJobStepMetadataTypeDef",
     "ProcessingJobSummaryTypeDef",
     "ProcessingJobTypeDef",
@@ -1851,7 +1856,9 @@ __all__ = (
     "ProcessingOutputConfigTypeDef",
     "ProcessingOutputConfigUnionTypeDef",
     "ProcessingOutputTypeDef",
+    "ProcessingResourcesOutputTypeDef",
     "ProcessingResourcesTypeDef",
+    "ProcessingResourcesUnionTypeDef",
     "ProcessingS3InputTypeDef",
     "ProcessingS3OutputTypeDef",
     "ProcessingStoppingConditionTypeDef",
@@ -5217,6 +5224,18 @@ class InstancePoolTypeDef(TypedDict):
     ModelNameOverride: NotRequired[str]
 
 
+class InstancePreferenceOutputTypeDef(TypedDict):
+    InstanceType: TrainingInstanceTypeType
+    InstanceCount: NotRequired[int]
+    TrainingPlanArns: NotRequired[list[str]]
+
+
+class InstancePreferenceTypeDef(TypedDict):
+    InstanceType: TrainingInstanceTypeType
+    InstanceCount: NotRequired[int]
+    TrainingPlanArns: NotRequired[Sequence[str]]
+
+
 class IntegerParameterRangeSpecificationTypeDef(TypedDict):
     MinValue: str
     MaxValue: str
@@ -5949,11 +5968,9 @@ class PriorityClassTypeDef(TypedDict):
     Weight: int
 
 
-class ProcessingClusterConfigTypeDef(TypedDict):
-    VolumeSizeInGB: int
+class ProcessingInstancePreferenceTypeDef(TypedDict):
+    InstanceType: ProcessingInstanceTypeType
     InstanceCount: NotRequired[int]
-    InstanceType: NotRequired[ProcessingInstanceTypeType]
-    VolumeKmsKeyId: NotRequired[str]
 
 
 class ProcessingFeatureStoreOutputTypeDef(TypedDict):
@@ -10993,6 +11010,9 @@ class InstancePlacementConfigTypeDef(TypedDict):
     PlacementSpecifications: NotRequired[Sequence[PlacementSpecificationTypeDef]]
 
 
+InstancePreferenceUnionTypeDef = Union[InstancePreferenceTypeDef, InstancePreferenceOutputTypeDef]
+
+
 class ParameterRangeOutputTypeDef(TypedDict):
     IntegerParameterRangeSpecification: NotRequired[IntegerParameterRangeSpecificationTypeDef]
     ContinuousParameterRangeSpecification: NotRequired[ContinuousParameterRangeSpecificationTypeDef]
@@ -11467,8 +11487,24 @@ class SchedulerConfigTypeDef(TypedDict):
     IdleResourceSharing: NotRequired[IdleResourceSharingType]
 
 
-class ProcessingResourcesTypeDef(TypedDict):
-    ClusterConfig: ProcessingClusterConfigTypeDef
+class ProcessingClusterConfigOutputTypeDef(TypedDict):
+    VolumeSizeInGB: int
+    InstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProcessingInstanceTypeType]
+    VolumeKmsKeyId: NotRequired[str]
+    InstancePreferences: NotRequired[list[ProcessingInstancePreferenceTypeDef]]
+    SelectedInstanceType: NotRequired[ProcessingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
+
+
+class ProcessingClusterConfigTypeDef(TypedDict):
+    VolumeSizeInGB: int
+    InstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProcessingInstanceTypeType]
+    VolumeKmsKeyId: NotRequired[str]
+    InstancePreferences: NotRequired[Sequence[ProcessingInstancePreferenceTypeDef]]
+    SelectedInstanceType: NotRequired[ProcessingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
 
 
 class ProcessingOutputTypeDef(TypedDict):
@@ -12636,6 +12672,9 @@ class ResourceConfigOutputTypeDef(TypedDict):
     InstanceGroups: NotRequired[list[InstanceGroupTypeDef]]
     TrainingPlanArn: NotRequired[str]
     InstancePlacementConfig: NotRequired[InstancePlacementConfigOutputTypeDef]
+    InstancePreferences: NotRequired[list[InstancePreferenceOutputTypeDef]]
+    SelectedInstanceType: NotRequired[TrainingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
 
 
 InstancePlacementConfigUnionTypeDef = Union[
@@ -12933,6 +12972,14 @@ class DescribeClusterSchedulerConfigResponseTypeDef(TypedDict):
 
 
 SchedulerConfigUnionTypeDef = Union[SchedulerConfigTypeDef, SchedulerConfigOutputTypeDef]
+
+
+class ProcessingResourcesOutputTypeDef(TypedDict):
+    ClusterConfig: ProcessingClusterConfigOutputTypeDef
+
+
+class ProcessingResourcesTypeDef(TypedDict):
+    ClusterConfig: ProcessingClusterConfigTypeDef
 
 
 class ProcessingOutputConfigOutputTypeDef(TypedDict):
@@ -13783,6 +13830,9 @@ class ResourceConfigTypeDef(TypedDict):
     InstanceGroups: NotRequired[Sequence[InstanceGroupTypeDef]]
     TrainingPlanArn: NotRequired[str]
     InstancePlacementConfig: NotRequired[InstancePlacementConfigUnionTypeDef]
+    InstancePreferences: NotRequired[Sequence[InstancePreferenceUnionTypeDef]]
+    SelectedInstanceType: NotRequired[TrainingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
 
 
 class TrainingSpecificationOutputTypeDef(TypedDict):
@@ -14124,11 +14174,16 @@ class UpdateClusterSchedulerConfigRequestTypeDef(TypedDict):
     Description: NotRequired[str]
 
 
+ProcessingResourcesUnionTypeDef = Union[
+    ProcessingResourcesTypeDef, ProcessingResourcesOutputTypeDef
+]
+
+
 class DescribeProcessingJobResponseTypeDef(TypedDict):
     ProcessingInputs: list[ProcessingInputTypeDef]
     ProcessingOutputConfig: ProcessingOutputConfigOutputTypeDef
     ProcessingJobName: str
-    ProcessingResources: ProcessingResourcesTypeDef
+    ProcessingResources: ProcessingResourcesOutputTypeDef
     StoppingCondition: ProcessingStoppingConditionTypeDef
     AppSpecification: AppSpecificationOutputTypeDef
     Environment: dict[str, str]
@@ -14153,7 +14208,7 @@ class ProcessingJobTypeDef(TypedDict):
     ProcessingInputs: NotRequired[list[ProcessingInputTypeDef]]
     ProcessingOutputConfig: NotRequired[ProcessingOutputConfigOutputTypeDef]
     ProcessingJobName: NotRequired[str]
-    ProcessingResources: NotRequired[ProcessingResourcesTypeDef]
+    ProcessingResources: NotRequired[ProcessingResourcesOutputTypeDef]
     StoppingCondition: NotRequired[ProcessingStoppingConditionTypeDef]
     AppSpecification: NotRequired[AppSpecificationOutputTypeDef]
     Environment: NotRequired[dict[str, str]]
@@ -15093,7 +15148,7 @@ class UpdateWorkteamRequestTypeDef(TypedDict):
 
 class CreateProcessingJobRequestTypeDef(TypedDict):
     ProcessingJobName: str
-    ProcessingResources: ProcessingResourcesTypeDef
+    ProcessingResources: ProcessingResourcesUnionTypeDef
     AppSpecification: AppSpecificationUnionTypeDef
     RoleArn: str
     ProcessingInputs: NotRequired[Sequence[ProcessingInputTypeDef]]

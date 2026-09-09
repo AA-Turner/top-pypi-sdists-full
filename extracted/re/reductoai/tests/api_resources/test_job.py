@@ -1,5 +1,3 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
 from __future__ import annotations
 
 import os
@@ -9,7 +7,7 @@ import pytest
 
 from reducto import Reducto, AsyncReducto
 from tests.utils import assert_matches_type
-from reducto.types import JobGetResponse, JobGetAllResponse
+from reducto.types import JobGetResponse, JobDeleteResponse, JobGetAllResponse
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -33,7 +31,7 @@ class TestJob:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
         job = response.parse()
         assert_matches_type(object, job, path=["response"])
 
@@ -44,7 +42,7 @@ class TestJob:
             "job_id",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
 
             job = response.parse()
             assert_matches_type(object, job, path=["response"])
@@ -56,6 +54,57 @@ class TestJob:
     def test_path_params_cancel(self, client: Reducto) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `job_id` but received ''"):
             client.job.with_raw_response.cancel(
+                "",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete(self, client: Reducto) -> None:
+        job = client.job.delete(
+            "job_id",
+        )
+        assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_with_all_params(self, client: Reducto) -> None:
+        job = client.job.delete(
+            "job_id",
+            include_persisted=True,
+        )
+        assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_delete(self, client: Reducto) -> None:
+        response = client.job.with_raw_response.delete(
+            "job_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
+        job = response.parse()
+        assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_delete(self, client: Reducto) -> None:
+        with client.job.with_streaming_response.delete(
+            "job_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
+
+            job = response.parse()
+            assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_delete(self, client: Reducto) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `job_id` but received ''"):
+            client.job.with_raw_response.delete(
                 "",
             )
 
@@ -75,7 +124,7 @@ class TestJob:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
         job = response.parse()
         assert_matches_type(JobGetResponse, job, path=["response"])
 
@@ -86,7 +135,7 @@ class TestJob:
             "job_id",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
 
             job = response.parse()
             assert_matches_type(JobGetResponse, job, path=["response"])
@@ -123,7 +172,7 @@ class TestJob:
         response = client.job.with_raw_response.get_all()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
         job = response.parse()
         assert_matches_type(JobGetAllResponse, job, path=["response"])
 
@@ -132,7 +181,7 @@ class TestJob:
     def test_streaming_response_get_all(self, client: Reducto) -> None:
         with client.job.with_streaming_response.get_all() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
 
             job = response.parse()
             assert_matches_type(JobGetAllResponse, job, path=["response"])
@@ -161,7 +210,7 @@ class TestAsyncJob:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
         job = await response.parse()
         assert_matches_type(object, job, path=["response"])
 
@@ -172,7 +221,7 @@ class TestAsyncJob:
             "job_id",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
 
             job = await response.parse()
             assert_matches_type(object, job, path=["response"])
@@ -184,6 +233,57 @@ class TestAsyncJob:
     async def test_path_params_cancel(self, async_client: AsyncReducto) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `job_id` but received ''"):
             await async_client.job.with_raw_response.cancel(
+                "",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete(self, async_client: AsyncReducto) -> None:
+        job = await async_client.job.delete(
+            "job_id",
+        )
+        assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_with_all_params(self, async_client: AsyncReducto) -> None:
+        job = await async_client.job.delete(
+            "job_id",
+            include_persisted=True,
+        )
+        assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_delete(self, async_client: AsyncReducto) -> None:
+        response = await async_client.job.with_raw_response.delete(
+            "job_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
+        job = await response.parse()
+        assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_delete(self, async_client: AsyncReducto) -> None:
+        async with async_client.job.with_streaming_response.delete(
+            "job_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
+
+            job = await response.parse()
+            assert_matches_type(JobDeleteResponse, job, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_delete(self, async_client: AsyncReducto) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `job_id` but received ''"):
+            await async_client.job.with_raw_response.delete(
                 "",
             )
 
@@ -203,7 +303,7 @@ class TestAsyncJob:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
         job = await response.parse()
         assert_matches_type(JobGetResponse, job, path=["response"])
 
@@ -214,7 +314,7 @@ class TestAsyncJob:
             "job_id",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
 
             job = await response.parse()
             assert_matches_type(JobGetResponse, job, path=["response"])
@@ -251,7 +351,7 @@ class TestAsyncJob:
         response = await async_client.job.with_raw_response.get_all()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Reducto-Lang") == "python"
         job = await response.parse()
         assert_matches_type(JobGetAllResponse, job, path=["response"])
 
@@ -260,7 +360,7 @@ class TestAsyncJob:
     async def test_streaming_response_get_all(self, async_client: AsyncReducto) -> None:
         async with async_client.job.with_streaming_response.get_all() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Reducto-Lang") == "python"
 
             job = await response.parse()
             assert_matches_type(JobGetAllResponse, job, path=["response"])

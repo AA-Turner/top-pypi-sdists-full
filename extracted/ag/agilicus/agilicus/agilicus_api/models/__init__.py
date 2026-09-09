@@ -193,6 +193,7 @@ from agilicus_api.model.cipher_integrity_algorithm import CipherIntegrityAlgorit
 from agilicus_api.model.clear_file_association_request import ClearFileAssociationRequest
 from agilicus_api.model.clear_file_association_response import ClearFileAssociationResponse
 from agilicus_api.model.client_injection import ClientInjection
+from agilicus_api.model.client_metadata import ClientMetadata
 from agilicus_api.model.cluster import Cluster
 from agilicus_api.model.cluster_config import ClusterConfig
 from agilicus_api.model.cluster_spec import ClusterSpec
@@ -930,6 +931,7 @@ from agilicus_api.model.trusted_certificate_org import TrustedCertificateOrg
 from agilicus_api.model.trusted_certificate_spec import TrustedCertificateSpec
 from agilicus_api.model.trusted_certificate_status import TrustedCertificateStatus
 from agilicus_api.model.trusted_issuer import TrustedIssuer
+from agilicus_api.model.typed_config import TypedConfig
 from agilicus_api.model.uri_parameter_rewrite_filter import URIParameterRewriteFilter
 from agilicus_api.model.upstream_alias import UpstreamAlias
 from agilicus_api.model.upstream_alias_mapping import UpstreamAliasMapping

@@ -41,6 +41,11 @@ from .exceptions import (
     GitAuthException,
     GitUpstreamException,
     BuildException,
+    InvalidImageReferenceException,
+    RegistryAuthenticationException,
+    ImageConfigException,
+    TemplateBuildTimeoutException,
+    SandboxCreateException,
     FileUploadException,
     InvalidArgumentException,
     NotEnoughSpaceException,
@@ -98,6 +103,14 @@ from .sandbox_sync.filesystem.watch_handle import WatchHandle
 from .sandbox_sync.main import Sandbox
 from .sandbox_sync.paginator import SandboxPaginator, SnapshotPaginator
 from .client import Novita
+from .template.image_config import (
+    ImageConfig,
+    clear_image_config_cache,
+    effective_start_cmd,
+    fetch_image_config,
+    parse_image_ref,
+    unsupported_base,
+)
 from .template.logger import (
     LogEntry,
     LogEntryEnd,
@@ -137,6 +150,12 @@ from .volume.types import (
 )
 
 __all__ = [
+    "ImageConfig",
+    "clear_image_config_cache",
+    "effective_start_cmd",
+    "fetch_image_config",
+    "parse_image_ref",
+    "unsupported_base",
     # API
     "ApiClient",
     "client",

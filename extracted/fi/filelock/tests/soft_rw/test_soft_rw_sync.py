@@ -8,7 +8,7 @@ import stat
 import sys
 import threading
 import time
-from contextlib import suppress
+from contextlib import closing, suppress
 from errno import EIO, ENOENT
 from multiprocessing import Event, Process
 from pathlib import Path
@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Final, Literal
 import pytest
 from capabilities import CAPABILITIES
 
-from filelock import Timeout
+from filelock import AsyncSoftReadWriteLock, Timeout
 from filelock import _util as util_mod
 from filelock._soft_rw import SoftReadWriteLock
 from filelock._soft_rw import _sync as sync_mod
@@ -51,6 +51,45 @@ def _clear_singletons() -> Generator[None]:
 @pytest.fixture
 def lock_file(tmp_path: Path) -> str:
     return str(tmp_path / "test.lock")
+
+
+@pytest.mark.parametrize(
+    "lock_type",
+    [pytest.param(SoftReadWriteLock, id="sync"), pytest.param(AsyncSoftReadWriteLock, id="async")],
+)
+@pytest.mark.parametrize("cached", [pytest.param(False, id="new"), pytest.param(True, id="cached")])
+@pytest.mark.parametrize(
+    ("settings", "message"),
+    [
+        pytest.param({name: value}, name, id=f"{name}-{label}")
+        for name in ("heartbeat_interval", "stale_threshold", "poll_interval")
+        for label, value in (("nan", float("nan")), ("infinity", float("inf")), ("negative-infinity", float("-inf")))
+    ]
+    + [
+        pytest.param({"heartbeat_interval": sys.float_info.max}, "stale_threshold", id="default-overflow"),
+    ],
+)
+def test_rejects_invalid_intervals(
+    tmp_path: Path,
+    lock_type: type[SoftReadWriteLock | AsyncSoftReadWriteLock],
+    cached: bool,
+    settings: dict[str, float],
+    message: str,
+) -> None:
+    path: Final = tmp_path / "timing.lock"
+    # Keep the weakly cached instance alive through the second construction.
+    existing: Final = SoftReadWriteLock(path) if cached else None
+    try:
+        with pytest.raises(ValueError, match=rf"{message} must .*finite"):
+            lock_type(
+                path,
+                heartbeat_interval=settings.get("heartbeat_interval", 30),
+                stale_threshold=settings.get("stale_threshold"),
+                poll_interval=settings.get("poll_interval", 0.25),
+            )
+    finally:
+        if existing is not None:
+            existing.close()
 
 
 def test_rejects_non_positive_heartbeat_interval(lock_file: str) -> None:
@@ -1300,3 +1339,78 @@ def test_refresh_marker_stops_once_a_peer_owns_the_marker(lock_file: str) -> Non
         assert lock._refresh_marker() is False
     finally:
         lock.close()
+
+
+@pytest.mark.parametrize("mode", [pytest.param("read", id="read"), pytest.param("write", id="write")])
+@pytest.mark.parametrize(
+    ("timeout", "blocking"),
+    [
+        pytest.param(0.02, True, id="deadline"),
+        pytest.param(0, True, id="zero-timeout"),
+        pytest.param(-1, False, id="nonblocking-unbounded"),
+        pytest.param(10, False, id="nonblocking-finite"),
+    ],
+)
+def test_state_contention_obeys_acquisition_policy(
+    abandoned_state: Path, mocker: MockerFixture, mode: Literal["read", "write"], timeout: float, *, blocking: bool
+) -> None:
+    real_sleep: Final = time.sleep
+
+    def sleep(seconds: float) -> None:
+        assert blocking
+        assert 0 < seconds <= timeout
+        real_sleep(seconds)
+
+    mocker.patch("time.sleep", autospec=True, side_effect=sleep)
+    with closing(SoftReadWriteLock(abandoned_state, timeout=timeout, blocking=blocking, poll_interval=10)) as lock:
+        acquire: Final = lock.acquire_read if mode == "read" else lock.acquire_write
+        with pytest.raises(Timeout) as caught:
+            acquire()
+        assert caught.value.lock_file == str(abandoned_state)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", [pytest.param("read", id="read"), pytest.param("write", id="write")])
+async def test_async_state_contention_reports_public_path(
+    abandoned_state: Path, mode: Literal["read", "write"]
+) -> None:
+    lock: Final = AsyncSoftReadWriteLock(abandoned_state, timeout=0.02)
+    try:
+        acquire: Final = lock.acquire_read if mode == "read" else lock.acquire_write
+        with pytest.raises(Timeout) as caught:
+            await acquire()
+        assert caught.value.lock_file == str(abandoned_state)
+    finally:
+        await lock.close()
+
+
+@pytest.mark.parametrize("blocking", [pytest.param(True, id="deadline"), pytest.param(False, id="nonblocking")])
+def test_writer_timeout_leaves_claim_if_state_is_busy(tmp_path: Path, mocker: MockerFixture, *, blocking: bool) -> None:
+    path: Final = tmp_path / "test.lock"
+    with (
+        closing(SoftReadWriteLock(path, is_singleton=False, heartbeat_interval=10)) as reader,
+        closing(SoftReadWriteLock(path, is_singleton=False, heartbeat_interval=10, poll_interval=0.01)) as writer,
+    ):
+        real_unlink: Final = Path.unlink
+        state: Final = Path(f"{path}.state")
+        writer_marker: Final = Path(f"{path}.write")
+
+        def unlink(marker: Path, *, missing_ok: bool = False) -> None:
+            real_unlink(marker, missing_ok=missing_ok)
+            # A peer claims .state after phase one, before this writer can scan readers or clean up.
+            if marker == state and writer_marker.exists():
+                state.write_text(f"424242\n{socket.gethostname()}-other\n", encoding="utf-8")
+
+        mocker.patch.object(Path, "unlink", autospec=True, side_effect=unlink)
+        reader.acquire_read()
+        with pytest.raises(Timeout) as caught:
+            writer.acquire_write(timeout=0.02, blocking=blocking)
+        assert caught.value.lock_file == str(path)
+        assert writer_marker.exists()
+
+
+@pytest.fixture
+def abandoned_state(tmp_path: Path) -> Path:
+    path: Final = tmp_path / "test.lock"
+    Path(f"{path}.state").write_text(f"424242\n{socket.gethostname()}-other\n", encoding="utf-8")
+    return path

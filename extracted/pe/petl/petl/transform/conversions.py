@@ -181,6 +181,34 @@ def convert(table, *args, **kwargs):
     arguments to the conversion function (so, i.e., the conversion function
     should accept two arguments).
 
+    The row supports attribute, field-name and zero-based index access, as
+    described under :func:`petl.util.base.records`. Use field-name access for
+    column names containing spaces or punctuation, which cannot be written
+    as attributes. For example::
+
+        >>> orders = [['Unit Price', 'Quantity', 'Total'],
+        ...           [5, 2, None], [3, 4, None]]
+        >>> totals = etl.convert(orders, 'Total',
+        ...                      lambda value, row: row['Unit Price'] * row['Quantity'],
+        ...                      pass_row=True)
+        >>> list(totals)
+        [('Unit Price', 'Quantity', 'Total'), (5, 2, 10), (3, 4, 12)]
+
+    The same conversion can use indexes instead of field names::
+
+        >>> totals = etl.convert(orders, 'Total',
+        ...                      lambda value, row: row[0] * row[1],
+        ...                      pass_row=True)
+        >>> list(totals)
+        [('Unit Price', 'Quantity', 'Total'), (5, 2, 10), (3, 4, 12)]
+
+    Return the replacement value from the conversion function; the row is a
+    read-only record, so do not assign to ``row['Total']``. The input table
+    remains unchanged::
+
+        >>> orders
+        [['Unit Price', 'Quantity', 'Total'], [5, 2, None], [3, 4, None]]
+
     When multiple fields are converted in a single call, the conversions
     are independent of each other. Each conversion sees the original row::
 

@@ -29,9 +29,10 @@ extends_documentation_fragment:
 notes:
   - "Data Exchange Workflows:"
   - "  - Workflow 1 (Create Services): Create Data Exchange services that can be shared with customers."
-  - "  - Workflow 2 (Create Customers): Create Data Exchange customers (nonGraphiant peers)."
+  - "  - Workflow 2 (Create Customers): Create Data Exchange customers — Graphiant or non-Graphiant peers."
   - "  - Workflow 3 (Match Services): Match services to customers and establish peering relationships."
-  - "  - Workflow 4 (Accept Invitation): Accept service invitations for non Graphiant customers."
+  - "  - Workflow 4 (Accept Invitation): Accept service invitations, for Graphiant and non-Graphiant"
+  - "    customers alike (a Graphiant customer needs no Site-to-Site VPN)."
   - "Configuration files support Jinja2 templating syntax for dynamic configuration generation."
   - "Match responses are automatically saved to JSON files in the output directory near the configuration file."
   - "The module automatically resolves names to IDs for sites, LAN segments, services, customers, and regions."
@@ -53,9 +54,10 @@ options:
       - "The specific Data Exchange operation to perform."
       - "V(create_services): Create Data Exchange services from YAML configuration (Workflow 1)."
       - "Configuration file must contain I(data_exchange_services) list with service definitions."
-      - "Services define I(type: peering_service) (full network-level routing/segmentation with a"
-      - "partner) or I(type: client_to_server) (partner access to your organization's services) with"
-      - "LAN segments, sites, and service prefixes."
+      - "Services define I(serviceType: peering_service) (full network-level routing/segmentation with a"
+      - "partner) or I(serviceType: client_to_server) (partner access to your organization's services) with"
+      - "LAN segments, sites, and service prefixes. I(type), singular key, is accepted as a legacy alias"
+      - "for I(serviceType)."
       - "Optional I(policy.globalObjectOps): keys are device names (resolved to device IDs) or device IDs;"
       - >-
         values can include I(routingPolicyOps) to attach Graphiant filters per device
@@ -64,15 +66,15 @@ options:
         Configure Graphiant filters first with M(graphiant.naas.graphiant_global_config) and
         I(configure_graphiant_filters).
       - >-
-        For I(type: client_to_server), I(policy.natTranslationMode.centralized.prefixes) (or
+        For I(serviceType: client_to_server), I(policy.natTranslationMode.centralized.prefixes) (or
         I(decentralized)) is required: keys are edge device names (resolved to device IDs), values are
         NAT pool prefixes for that edge. A pool must be provided for every edge of the selected site(s).
       - >-
         V(update_services): Update existing Data Exchange services (Workflow 1b). The service must
         already exist; use V(create_services) for new services. Configuration file must contain
-        I(data_exchange_services) list where each entry has I(serviceName). For I(type: peering_service),
+        I(data_exchange_services) list where each entry has I(serviceName). For I(serviceType: peering_service),
         only I(policy.prefixTags) can be changed, and at least one prefix must remain after the update.
-        For I(type: client_to_server), I(policy.prefixTags) and/or I(policy.natTranslationMode) can be
+        For I(serviceType: client_to_server), I(policy.prefixTags) and/or I(policy.natTranslationMode) can be
         changed; at least one of the two is required. Known API limitation: once an IP is added to a
         device's NAT pool it cannot be removed via update_services — only adding new prefixes is
         supported (confirmed against the portal UI, not specific to this module).
@@ -83,7 +85,9 @@ options:
         I(client_to_server) types.
       - "V(create_customers): Create Data Exchange customers from YAML configuration (Workflow 2)."
       - "Configuration file must contain I(data_exchange_customers) list with customer definitions."
-      - "Customers can be non-Graphiant peers that can be invited to connect to services."
+      - "I(type): V(non_graphiant_peer) connects via a Site-to-Site VPN Connection on acceptance;"
+      - "V(graphiant_peer) marks a customer already on the Graphiant network, needing no such VPN"
+      - "— see V(accept_invitation) below."
       - "Existing customers are skipped (idempotent). When run with C(--check) and C(--diff), detects"
       - "I(invite.adminEmails) drift on existing customers and surfaces it as a diff — no changes are"
       - "made; to apply email changes use V(update_customers) instead."
@@ -147,9 +151,9 @@ options:
         I(data_exchange_customers) list.
       - >-
         For V(match_service_to_customers), file must contain I(data_exchange_matches) list. Each entry needs
-        I(natTranslationMode.peerToPeer.prefixes) (for I(type: peering_service) services, matches the API
+        I(natTranslationMode.peerToPeer.prefixes) (for I(serviceType: peering_service) services, matches the API
         payload directly; the flat I(nat) list is accepted as a legacy alias) or I(consumerPrefixes) (for
-        I(type: client_to_server) services) — the two service types use different match-time fields.
+        I(serviceType: client_to_server) services) — the two service types use different match-time fields.
       - For V(accept_invitation), file must contain I(data_exchange_acceptances) list. Optional
         I(policy.globalObjectOps) per acceptance attaches Graphiant routing policies to gateway
         devices (device names resolved to IDs).
@@ -158,9 +162,15 @@ options:
         directly: everything nests under a top-level I(policy) key — I(policy.sites) (site/siteList names),
         I(policy.consumerLanSegments) (list of I(lanSegment)/I(consumerPrefixes) entries),
         I(policy.siteToSiteVpn), and I(policy.globalObjectOps). I(policy.natTranslationMode.peerToPeer.prefixes)
-        applies only to I(type: peering_service) and must be omitted entirely for I(type: client_to_server)
-        (see sample_data_exchange_acceptance_client_to_server.yaml). I(routingPolicyTable) stays a top-level
+        applies only to I(serviceType: peering_service) and must be omitted entirely for
+        I(serviceType: client_to_server) (see sample_data_exchange_acceptance_client_to_server.yaml).
+        I(routingPolicyTable) stays a top-level
         sibling of I(policy), not nested inside it.
+      - >-
+        I(policy.siteToSiteVpn) is required for a non-Graphiant customer (I(type: non_graphiant_peer),
+        see V(create_customers) above) and must be omitted entirely for a Graphiant customer
+        (I(type: graphiant_peer)) — the module confirms this from the customer's type before
+        proceeding without it (see sample_data_exchange_acceptance_graphiant_peer_client_to_server.yaml).
       - >-
         V(accept_invitation) configs written for the old peering-specific API (flat top-level
         I(siteInformation), I(policy) as a list, I(nat), I(siteToSiteVpn) at the top level) are
@@ -243,7 +253,7 @@ attributes:
 
 requirements:
   - python >= 3.7
-  - graphiant-sdk >= 26.7.0
+  - graphiant-sdk >= 26.8.0
   - tabulate
 
 seealso:
@@ -363,6 +373,15 @@ EXAMPLES = r"""
     password: "{{ graphiant_password }}"
     detailed_logs: true
 
+- name: Workflow 2 - Create a Graphiant-peer customer (already on the Graphiant network)
+  graphiant.naas.graphiant_data_exchange:
+    operation: create_customers
+    config_file: "de_workflows_configs/sample_data_exchange_customers_graphiant_peer.yaml"
+    host: "{{ graphiant_host }}"
+    username: "{{ graphiant_username }}"
+    password: "{{ graphiant_password }}"
+    detailed_logs: true
+
 - name: Workflow 2b - Update adminEmails on an existing Data Exchange customer
   graphiant.naas.graphiant_data_exchange:
     operation: update_customers
@@ -442,6 +461,17 @@ EXAMPLES = r"""
 - name: Display acceptance result
   ansible.builtin.debug:
     msg: "{{ accept_result.msg }}"
+
+- name: Workflow 4 - Accept an invitation for a Graphiant-peer customer (no siteToSiteVpn needed)
+  # matches_file omitted: service is already visible via API, so match ID is looked up by name.
+  graphiant.naas.graphiant_data_exchange:
+    operation: accept_invitation
+    config_file: "de_workflows_configs/sample_data_exchange_acceptance_graphiant_peer_client_to_server.yaml"
+    host: "{{ graphiant_host }}"
+    username: "{{ graphiant_username }}"
+    password: "{{ graphiant_password }}"
+    detailed_logs: true
+  register: accept_result
 
 - name: Workflow 4 - Accept invitation with secrets (BGP MD5 password and custom PSKs)
   # Secrets are fetched from your secrets store and passed as module params (never written to disk).

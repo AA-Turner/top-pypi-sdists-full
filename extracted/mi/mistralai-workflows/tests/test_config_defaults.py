@@ -1,9 +1,16 @@
+from types import SimpleNamespace
+
 import pytest
 from pydantic import ValidationError
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core.config.config import AppConfig, PayloadCompressionConfig, WorkerConfig
-from mistralai.workflows.core.worker import _create_temporal_workers
+from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
+from mistralai.workflows.core.execution.concurrency._concurrency_workflow import (
+    OnBehalfOfParallelExecutionWorkflow,
+    ParallelExecutionWorkflow,
+)
+from mistralai.workflows.core.worker import _create_temporal_workers, _get_parallel_execution_workflows
 
 
 class TestAgentServerUrlDefault:
@@ -63,3 +70,26 @@ class TestAgentServerUrlDefault:
         )
 
         assert {worker.config()["max_concurrent_activities"] for worker in workers} == {1}
+
+
+def test_obo_parallel_workflow_is_only_registered_for_obo_workers() -> None:
+    non_obo_workflow = type(
+        "NonOboWorkflow",
+        (),
+        {"__workflows_workflow_def": SimpleNamespace(on_behalf_of=False)},
+    )
+    obo_workflow = type(
+        "OboWorkflow",
+        (),
+        {"__workflows_workflow_def": SimpleNamespace(on_behalf_of=True)},
+    )
+
+    assert _get_parallel_execution_workflows([non_obo_workflow]) == [ParallelExecutionWorkflow]
+    assert _get_parallel_execution_workflows([obo_workflow]) == [
+        ParallelExecutionWorkflow,
+        OnBehalfOfParallelExecutionWorkflow,
+    ]
+    assert get_workflow_definition(ParallelExecutionWorkflow).is_technical is True
+    assert get_workflow_definition(ParallelExecutionWorkflow).on_behalf_of is False
+    assert get_workflow_definition(OnBehalfOfParallelExecutionWorkflow).is_technical is True
+    assert get_workflow_definition(OnBehalfOfParallelExecutionWorkflow).on_behalf_of is True

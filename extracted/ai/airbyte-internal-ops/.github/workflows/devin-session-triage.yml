@@ -9,7 +9,13 @@ on:
           Devin session URL to triage (e.g., https://app.devin.ai/sessions/abc123).
           This session will be linked via the v3 API so the triage session can
           inspect its full conversation history.
-        required: true
+        required: false
+        type: string
+      thread_url:
+        description: >
+          Existing Slack thread URL for feedback filed on someone else's behalf.
+          When provided, triage findings are posted as replies in this thread.
+        required: false
         type: string
       feedback_context:
         description: >
@@ -55,6 +61,20 @@ on:
           Footer text for the Slack message.
         required: false
         type: string
+      linear_issue_url:
+        description: >
+          URL of the Linear issue tracking this feedback. When provided, the
+          Slack notification links to it and the triage session is told to
+          record its findings there.
+        required: false
+        type: string
+      linear_issue_id:
+        description: >
+          Linear issue identifier of the tracking issue, for MCP calls made by
+          the triage session. Pass the identifier such as `HYD-123`; a UUID is
+          also accepted if available.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -79,16 +99,22 @@ jobs:
 
             ## Session Under Review
 
-            ${{ inputs.session_url }}
+            ${{ inputs.session_url || 'No session link was provided.' }}
+
+            When no session link is provided, diagnose from the feedback narrative
+            only. Do not guess about behavior that cannot be verified.
 
             ## Feedback Context
 
             Reported by: ${{ inputs.reporting_user }}
             Session playbook: ${{ inputs.session_playbook }}
             Related skill name: ${{ inputs.related_skill_name || 'none' }}
+            Linear tracking issue: ${{ inputs.linear_issue_url || 'none' }}
+            Linear issue ID: ${{ inputs.linear_issue_id || 'none' }}
 
             ${{ inputs.feedback_context }}
-          advanced-mode: analyze
+          # `session-links` alone selects analyze mode; leaving both empty lets a
+          # report filed without a session URL run narrative-only.
           session-links: ${{ inputs.session_url }}
           org-id: ${{ vars.DEVIN_AI_ORG_ID }}
           max-acu-limit: 5
@@ -101,9 +127,11 @@ jobs:
         if: steps.launch-triage.outputs.session-url != ''
         env:
           TRIAGE_URL: ${{ steps.launch-triage.outputs.session-url }}
+          LINEAR_URL: ${{ inputs.linear_issue_url }}
         shell: bash
         run: |
-          additional_actions=$(jq -cn --arg url "$TRIAGE_URL" '{"View Auto-Triage Session": $url}')
+          additional_actions=$(jq -cn --arg url "$TRIAGE_URL" --arg linear "$LINEAR_URL" \
+            '{"View Auto-Triage Session": $url} + (if $linear == "" then {} else {"View Linear Issue": $linear} end)')
           {
             echo "additional_actions<<EOF"
             echo "$additional_actions"
@@ -113,7 +141,9 @@ jobs:
   notify-slack:
     name: Notify Slack via HITL
     needs: triage-session
-    if: needs.triage-session.outputs.triage-session-url != ''
+    if: >-
+      needs.triage-session.outputs.triage-session-url != '' &&
+      inputs.thread_url == ''
     uses: ./.github/workflows/human-in-the-loop.yml
     with:
       # `S0BJ4K3LC4X` is the `@oc-hydra` usergroup: default escalation point when no
@@ -133,8 +163,9 @@ jobs:
     name: Forward Slack Thread URL to Triage Session
     needs: [triage-session, notify-slack]
     if: >-
+      always() &&
       needs.triage-session.outputs.triage-session-url != '' &&
-      needs.notify-slack.outputs.thread_url != ''
+      (inputs.thread_url != '' || needs.notify-slack.outputs.thread_url != '')
     runs-on: ubuntu-latest
     steps:
       - name: Send thread URL to triage session
@@ -146,4 +177,6 @@ jobs:
           prompt-text: >-
             Post your triage findings as a reply to this Slack thread using the
             devin_session_feedback_followup MCP tool on the airbyte-ops-mcp
-            server: ${{ needs.notify-slack.outputs.thread_url }}
+            server: ${{ inputs.thread_url || needs.notify-slack.outputs.thread_url }}
+            Also record your findings on, and keep the state current for, the
+            Linear tracking issue: ${{ inputs.linear_issue_url || 'none' }}

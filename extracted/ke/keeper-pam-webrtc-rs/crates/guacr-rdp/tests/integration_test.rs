@@ -11,12 +11,56 @@
 //!   User: linuxuser
 //!   Password: alpine
 
+use guacr_handlers::{video::VideoOutput, EncodedFrame};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
 
 /// Test connection timeout
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// RDP sessions require a negotiated H.264 video track. Tests that do not inspect
+/// video output still need a sink so they exercise a real active session.
+struct DiscardVideoOutput {
+    keyframe_requested: Arc<AtomicBool>,
+    target_bitrate_bps: Arc<AtomicU32>,
+    resolution_scale_pct: Arc<AtomicU32>,
+}
+
+impl DiscardVideoOutput {
+    fn new() -> Self {
+        Self {
+            keyframe_requested: Arc::new(AtomicBool::new(false)),
+            target_bitrate_bps: Arc::new(AtomicU32::new(0)),
+            resolution_scale_pct: Arc::new(AtomicU32::new(100)),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl VideoOutput for DiscardVideoOutput {
+    async fn send_frame(&self, _frame: EncodedFrame) -> guacr_handlers::Result<()> {
+        Ok(())
+    }
+
+    fn keyframe_requested(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.keyframe_requested)
+    }
+
+    fn target_bitrate_bps(&self) -> Arc<AtomicU32> {
+        Arc::clone(&self.target_bitrate_bps)
+    }
+
+    fn resolution_scale_pct(&self) -> Arc<AtomicU32> {
+        Arc::clone(&self.resolution_scale_pct)
+    }
+}
+
+fn discard_video_output() -> Option<Arc<dyn VideoOutput>> {
+    Some(Arc::new(DiscardVideoOutput::new()))
+}
 
 /// Check if a port is open (server is running)
 async fn port_is_open(host: &str, port: u16) -> bool {
@@ -84,7 +128,7 @@ mod rdp_handler_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await
@@ -166,7 +210,7 @@ mod rdp_handler_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await
@@ -217,7 +261,7 @@ mod rdp_handler_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await
@@ -302,7 +346,7 @@ mod rdp_handler_tests {
                         params,
                         to_client_tx,
                         from_client_rx,
-                        None,
+                        discard_video_output(),
                         guacr_handlers::SessionHooks::default(),
                     )
                     .await
@@ -343,7 +387,7 @@ mod rdp_handler_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await
@@ -407,7 +451,7 @@ mod rdp_handler_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await
@@ -482,7 +526,7 @@ mod rdp_handler_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await
@@ -798,6 +842,52 @@ mod unit_tests {
         let health = handler.health_check().await;
         assert!(health.is_ok());
     }
+
+    #[test]
+    fn test_cert_fingerprints_parsing_comma_separated() {
+        let mut params = std::collections::HashMap::new();
+        // Simulate comma-separated fingerprints
+        params.insert(
+            "cert-fingerprints".to_string(),
+            "abc123,def456,ghi789".to_string(),
+        );
+
+        let fingerprints: Vec<String> = params
+            .get("cert-fingerprints")
+            .map(|s| {
+                s.split(',')
+                    .map(|fp| fp.trim().to_string())
+                    .filter(|fp| !fp.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        assert_eq!(fingerprints.len(), 3);
+        assert_eq!(fingerprints[0], "abc123");
+        assert_eq!(fingerprints[1], "def456");
+        assert_eq!(fingerprints[2], "ghi789");
+    }
+
+    #[test]
+    fn test_cert_tofu_parsing() {
+        let mut params = std::collections::HashMap::new();
+        params.insert("cert-tofu".to_string(), "true".to_string());
+
+        let cert_tofu = params
+            .get("cert-tofu")
+            .map(|s| s == "true")
+            .unwrap_or(false);
+
+        assert!(cert_tofu);
+
+        // Test default false
+        let params_empty = std::collections::HashMap::new();
+        let cert_tofu_default = params_empty
+            .get("cert-tofu")
+            .map(|s| s == "true")
+            .unwrap_or(false);
+        assert!(!cert_tofu_default);
+    }
 }
 
 mod disconnect_cleanup_tests {
@@ -876,7 +966,7 @@ mod disconnect_cleanup_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await
@@ -928,7 +1018,7 @@ mod disconnect_cleanup_tests {
                     params,
                     to_client_tx,
                     from_client_rx,
-                    None,
+                    discard_video_output(),
                     guacr_handlers::SessionHooks::default(),
                 )
                 .await

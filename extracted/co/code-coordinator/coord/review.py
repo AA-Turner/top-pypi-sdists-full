@@ -46,7 +46,7 @@ import httpx
 
 from coord import github_ops
 from coord.config import Config, ReviewsConfig
-from coord.dispatch import AGENT_PORT
+from coord.dispatch import AGENT_PORT, ASSIGN_POST_TIMEOUT_SECS
 from coord.models import (
     CLOSES_ISSUE_TYPES,
     SEALED_PATH_AUTHOR_TYPES,
@@ -54,6 +54,7 @@ from coord.models import (
     Assignment,
     Board,
     Machine,
+    Repo,
     coordinator_owned_docs,
     trust_issue_closed_for,
 )
@@ -1757,6 +1758,9 @@ def build_review_briefing(
     review_provider: str | None = None,
     completion_summary: str | None = None,
     commit_messages: list[str] | None = None,
+    gate_a_exempt_warning: str | None = None,
+    exempt_dependency_warnings: list[str] | None = None,
+    oracle_contract_note: str | None = None,
 ) -> str:
     """Assemble the reviewer's prompt. Pure function — easy to test.
 
@@ -1858,6 +1862,45 @@ def build_review_briefing(
     embed" discipline as ``MAX_CLAUDE_MD_CHARS``/``truncate_diff_text`` above,
     since a multi-round fix-review branch can otherwise grow this section
     without bound.
+
+    *gate_a_exempt_warning* (#3202) is the pre-computed
+    :func:`coord.acceptance.gate_a_exempt_warning` text for this issue's
+    milestone, or ``None`` when the milestone has no Gate-A contract, its
+    manifest exempts no issues, or the fetch failed — this function stays
+    pure and never fetches the manifest/contract itself, matching every
+    other pre-fetched-by-the-caller input above (*diff_text*, *sealed_paths*,
+    ...). When given, an advisory (non-blocking) section is rendered so the
+    reviewer sees the same trade-off text the pre-dispatch guard and
+    ``coord doctor``/``coord gates`` show — this is deliberately never a
+    mandatory ``request-changes`` banner: exempting acceptance slices on a
+    milestone with a signed contract can be the right call, this only makes
+    sure the reviewer is not the last human interposed in the loop.
+
+    *oracle_contract_note* (#3212 "Related mitigation") is the pre-computed
+    :func:`coord.acceptance.fetch_oracle_loop_contract_note` text for this
+    issue — the reviewer's copy of the same "read the Gate-A contract/mocks,
+    not just the diff" pointer :func:`coord.acceptance.oracle_loop_contract_block`
+    already gives the worker. ``None``/empty when the issue has neither an
+    authored acceptance slice nor an exemption naming it, or the fetch
+    failed. Before this, the reviewer was never shown the mocks under any
+    circumstance — the exact gap the format-converter ms-1 incident
+    describes ("a reviewer asked 'does this match the approved screen?'
+    would likely have caught it; a reviewer asked 'is this good code?' had
+    no reason to"). Rendered prominently, right after the issue body, since
+    it changes what "correct" means for the whole review — not an advisory
+    footnote like the two blocks above.
+
+    *exempt_dependency_warnings* (#3212) is the pre-computed
+    :func:`coord.acceptance.fetch_exempt_dependency_warnings` list for this
+    issue's milestone — one entry per ``exempt:`` entry whose justification
+    names another issue as covering it (``covered_by``/inline comment) and
+    that promise is unmet: the named issue hasn't landed, or hasn't produced
+    its declared artifact. Empty/``None`` when there's nothing unmet, or the
+    fetch failed — same pure-function, pre-fetched-by-the-caller contract as
+    *gate_a_exempt_warning* immediately above, and same advisory (never
+    mandatory ``request-changes``) posture: a stale dependency doesn't make
+    THIS diff wrong, it means an earlier exemption's promise wasn't kept, so
+    the reviewer is told rather than asked to act on it.
     """
 
     lines: list[str] = []
@@ -1892,6 +1935,16 @@ def build_review_briefing(
         lines.append("")
         lines.append(issue_body.strip())
     lines.append("")
+
+    if oracle_contract_note:
+        # #3212 "Related mitigation": the same contract/mocks pointer the
+        # worker gets, given to the reviewer too — placed right after the
+        # issue, before the generic checklist/diff, since it reframes what
+        # "correct" means for everything that follows.
+        lines.append("## 🔒 Oracle-loop acceptance contract — read before judging correctness (#3212)")
+        lines.append("")
+        lines.append(oracle_contract_note)
+        lines.append("")
 
     if repo_claude_md:
         lines.append("## Project rules (from CLAUDE.md)")
@@ -2117,6 +2170,40 @@ def build_review_briefing(
                 "suggestion, regardless of assignment type."
             )
 
+    if gate_a_exempt_warning:
+        # #3202: advisory only — never a mandatory request-changes banner,
+        # unlike the sealed-path/coordinator-doc sections above. Exempting
+        # acceptance slices on a milestone with a signed Gate-A contract can
+        # be the right call; this just makes sure the reviewer sees the same
+        # trade-off text the pre-dispatch guard and `coord doctor`/`coord
+        # gates` show, instead of the contract's behaviours going unverified
+        # by anything but a human at the UAT gate with nobody having said so.
+        lines.append("")
+        lines.append("## Gate-A contract exempts acceptance slices (#3202)")
+        lines.append("")
+        lines.append(gate_a_exempt_warning)
+        lines.append(
+            "Not a blocking finding on its own — note it in your review "
+            "(non-blocking) so it's visible, rather than silently passing "
+            "over it."
+        )
+
+    if exempt_dependency_warnings:
+        # #3212: same advisory posture as the #3202 block above — an unmet
+        # dependency is a fact about an EARLIER exemption, not a defect in
+        # this diff, so it's surfaced, never a mandatory request-changes.
+        lines.append("")
+        lines.append("## An acceptance exemption's promise is unmet (#3212)")
+        lines.append("")
+        for warning in exempt_dependency_warnings:
+            lines.append(warning)
+            lines.append("")
+        lines.append(
+            "Not a blocking finding on its own — note it in your review "
+            "(non-blocking) so it's visible, rather than silently passing "
+            "over it."
+        )
+
     lines.append("")
     lines.append("## What to do")
     lines.append("")
@@ -2335,6 +2422,81 @@ def _resolve_pr_base_branch(
         milestone_number = fetch_milestone(repo.github, completed.issue_number)
         base_branch = resolve_base_branch(repo, milestone_number)
     return base_branch
+
+
+def _fetch_gate_a_exempt_warning(
+    repo: Repo,
+    config: Config,
+    milestone_number: int | None,
+    *,
+    file_fetcher=None,
+) -> str | None:
+    """(#3202) Thin wrapper over :func:`coord.acceptance.fetch_gate_a_exempt_warning`
+    — kept as a module-level name here (rather than inlined at the one call
+    site below) purely so existing callers/tests that import
+    ``coord.review._fetch_gate_a_exempt_warning`` directly keep working.
+
+    #3202 review: the fetch-and-detect logic used to live here directly and
+    was the ONLY wired caller of ``coord.acceptance``'s detection helpers —
+    `coord.diagnose.gate_a_exempt_exposure_lines` and `coord gates` (see
+    :func:`coord.gates.build_gate_report`) now share the exact same fetch
+    loop via that one function instead of each re-deriving it, so a future
+    edit to the fetch/candidate-resolution rules can't update this copy and
+    silently leave the others stale.
+    """
+    from coord.acceptance import fetch_gate_a_exempt_warning  # noqa: PLC0415
+
+    return fetch_gate_a_exempt_warning(
+        config, repo, milestone_number, file_fetcher=file_fetcher,
+    )
+
+
+def _fetch_exempt_dependency_warnings(
+    repo: Repo,
+    config: Config,
+    milestone_number: int | None,
+    *,
+    file_fetcher=None,
+    issue_is_closed=None,
+) -> list[str]:
+    """(#3212) Thin wrapper over
+    :func:`coord.acceptance.fetch_exempt_dependency_warnings` — sibling to
+    :func:`_fetch_gate_a_exempt_warning` immediately above, same "keep a
+    module-level name here so a test can stub it without reaching into
+    ``coord.acceptance``" rationale, and same discipline: this is the only
+    place :func:`build_review_briefing`'s *exempt_dependency_warnings* input
+    gets computed, never re-derived at the call site.
+    """
+    from coord.acceptance import fetch_exempt_dependency_warnings  # noqa: PLC0415
+
+    return fetch_exempt_dependency_warnings(
+        config, repo, milestone_number,
+        file_fetcher=file_fetcher, issue_is_closed=issue_is_closed,
+    )
+
+
+def _fetch_oracle_loop_contract_note(
+    repo: Repo,
+    config: Config,
+    milestone_number: int | None,
+    issue_number: int,
+    *,
+    file_fetcher=None,
+) -> str | None:
+    """(#3212 "Related mitigation") Thin wrapper over
+    :func:`coord.acceptance.fetch_oracle_loop_contract_note` — sibling to
+    :func:`_fetch_gate_a_exempt_warning` / :func:`_fetch_exempt_dependency_warnings`
+    immediately above, same "keep a module-level name here so a test can
+    stub it without reaching into ``coord.acceptance``" rationale, and same
+    discipline: this is the only place :func:`build_review_briefing`'s
+    *oracle_contract_note* input gets computed, never re-derived at the call
+    site.
+    """
+    from coord.acceptance import fetch_oracle_loop_contract_note  # noqa: PLC0415
+
+    return fetch_oracle_loop_contract_note(
+        config, repo, milestone_number, issue_number, file_fetcher=file_fetcher,
+    )
 
 
 def open_pr_for_completed_work(
@@ -2663,6 +2825,8 @@ def dispatch_review(
     commit_messages_fetcher=None,
     compare_files_fetcher=None,
     compare_diff_fetcher=None,
+    gate_a_manifest_fetcher=None,
+    exempt_dependency_issue_is_closed_fetcher=None,
 ) -> Assignment | None:
     """Open a PR for `completed` and dispatch a review assignment.
 
@@ -2718,6 +2882,27 @@ def dispatch_review(
     tips), can't carry that same staleness, so it is the arbiter: any file
     *diff_fetcher* claims that a fresh compare doesn't corroborate makes its
     whole diff untrustworthy, and the compare's own diff replaces it outright.
+
+    *gate_a_manifest_fetcher* is an optional ``(repo_github: str, path: str,
+    branch: str) -> str`` callable (#3202), the ``file_fetcher`` passed
+    through to :func:`_fetch_gate_a_exempt_warning` — and, since #3212, also
+    to :func:`_fetch_exempt_dependency_warnings` and
+    :func:`_fetch_oracle_loop_contract_note`: all three read the same
+    milestone manifest shape off the same branch, so one injected stub
+    covers every caller rather than three independent ones drifting apart.
+    Defaults to :func:`coord.github_ops.get_repo_file`; inject a stub in
+    tests so this advisory lookup never shells out to a live ``gh``.
+    Entirely fail-open — see that function's docstring.
+
+    *exempt_dependency_issue_is_closed_fetcher* is an optional
+    ``(repo_github: str, issue_number: int) -> bool`` callable (#3212), the
+    ``issue_is_closed`` passed through to
+    :func:`_fetch_exempt_dependency_warnings`. Defaults to
+    :func:`coord.github_ops.issue_is_closed`; inject a stub in tests so this
+    check never shells out to a live ``gh``. Entirely fail-open at the fetch
+    layer (a manifest/parse failure yields no warnings), but the dependency
+    check itself is fail-CLOSED once a manifest is in hand — see
+    :func:`coord.acceptance.verify_exempt_dependency`'s docstring.
     """
     # #1627: every early-exit guard below used to be a bare `return None`,
     # collapsing 11 distinct outcomes into one signal the caller couldn't
@@ -2802,9 +2987,18 @@ def dispatch_review(
     # `completed.assignment_id`; the loser denies here, before spending
     # anything on a candidate machine. Released by every subsequent
     # `_deny(...)` call in this function (see `_claim_held` above) and, once
-    # this call succeeds through to a real dispatch, by the review
-    # assignment's own terminal-status write (`coord.issue_store.
-    # _update_local_state`) — never left permanently held.
+    # this call succeeds through to a real dispatch, by every seam that can
+    # write the review assignment's own terminal status — all of which now
+    # route through the single `coord.state.
+    # release_review_claim_if_row_is_review` check (#3206):
+    # `coord.issue_store._update_local_state` (worker self-report / git-floor
+    # backstop), `coord.state._mark_notified_local` (the `coord notify`
+    # polling path a headless reap's SIGKILL lands through), and
+    # `coord.interactive.reap_stale_interactive_sessions` /
+    # `_mark_stale_reap_in_db` (the local/remote interactive-session
+    # reapers — dispatch_review is also reachable for a `provider_name=
+    # "claude-pty"` type="review" leg, see the Work→Review handoff below).
+    # Never left permanently held by any of them.
     from coord.state import claim_review_dispatch  # noqa: PLC0415
 
     if not claim_review_dispatch(completed.assignment_id):
@@ -3210,6 +3404,54 @@ def dispatch_review(
         # repo actually configuring coordinator_only_files.
         coordinator_doc_paths = coordinator_owned_docs(repo)
 
+        # #3202: advisory-only surfacing — does this issue's milestone carry
+        # a Gate-A contract AND exempt one or more issues from the
+        # acceptance-slice gate? Fetched independently of `base_branch`
+        # above: the acceptance driver / Gate-A machinery applies whether or
+        # not the repo opted into the `develop_branch` git model, so this
+        # can't reuse that milestone lookup. Cheap no-op (no `gh` call) for
+        # every repo with no acceptance driver configured at all.
+        _fetch_ms = milestone_fetcher or _fetch_issue_milestone_number
+        try:
+            _gate_a_milestone_number = (
+                _fetch_ms(repo.github, completed.issue_number)
+                if config.acceptance.has_driver(repo.name)
+                else None
+            )
+        except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
+            _gate_a_milestone_number = None
+        try:
+            gate_a_exempt_warning_text = _fetch_gate_a_exempt_warning(
+                repo, config, _gate_a_milestone_number,
+                file_fetcher=gate_a_manifest_fetcher,
+            )
+        except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
+            gate_a_exempt_warning_text = None
+
+        # #3212: same advisory posture, one hop further down the same promise
+        # chain — does this milestone's `exempt:` list defer coverage to
+        # another issue whose delivery was never actually verified?
+        try:
+            exempt_dependency_warnings_text = _fetch_exempt_dependency_warnings(
+                repo, config, _gate_a_milestone_number,
+                file_fetcher=gate_a_manifest_fetcher,
+                issue_is_closed=exempt_dependency_issue_is_closed_fetcher,
+            )
+        except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
+            exempt_dependency_warnings_text = None
+
+        # #3212 "Related mitigation": the reviewer's own copy of the same
+        # Gate-A contract/mocks pointer the worker's briefing gets (#945) —
+        # the format-converter ms-1 incident's root cause was never showing
+        # this to EITHER of them, exempted or not.
+        try:
+            oracle_contract_note_text = _fetch_oracle_loop_contract_note(
+                repo, config, _gate_a_milestone_number, completed.issue_number,
+                file_fetcher=gate_a_manifest_fetcher,
+            )
+        except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
+            oracle_contract_note_text = None
+
         # #3180: short-circuit BEFORE spending a review leg. `build_review_
         # briefing` below would compute this exact same check purely to
         # decide which paragraph to print in the reviewer's prompt — the
@@ -3314,6 +3556,9 @@ def dispatch_review(
                 assignment_type=completed.type,
                 completion_summary=completed.completion_summary,
                 commit_messages=commit_messages,
+                gate_a_exempt_warning=gate_a_exempt_warning_text,
+                exempt_dependency_warnings=exempt_dependency_warnings_text,
+                oracle_contract_note=oracle_contract_note_text,
             )
 
             payload = {
@@ -3353,7 +3598,7 @@ def dispatch_review(
 
             url = f"http://{machine.host}:{AGENT_PORT}/assign"
             try:
-                resp = client.post(url, json=payload, timeout=15)
+                resp = client.post(url, json=payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
                 resp.raise_for_status()
                 agent_response = resp.json()
             except httpx.HTTPStatusError as exc:
@@ -4197,7 +4442,7 @@ def dispatch_scoped_review(
 
         url = f"http://{machine.host}:{AGENT_PORT}/assign"
         try:
-            resp = client.post(url, json=payload, timeout=15)
+            resp = client.post(url, json=payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
             resp.raise_for_status()
             agent_response = resp.json()
         except (httpx.HTTPError, httpx.TimeoutException) as exc:

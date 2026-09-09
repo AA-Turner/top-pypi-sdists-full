@@ -207,13 +207,20 @@ impl PyTubeRegistry {
         Ok(())
     }
 
-    /// Shutdown the runtime - useful for clean process termination
-    fn shutdown_runtime(&self, _py: Python<'_>) -> PyResult<()> {
+    /// Shutdown the runtime - useful for clean process termination.
+    ///
+    /// Releases the GIL around the synchronous Tokio shutdown so
+    /// worker tasks emitting `log::*!` records (which pyo3-log
+    /// forwards into Python's `logging`, requiring the GIL) can
+    /// finish without deadlocking the join.
+    ///
+    /// On PEP 703 free-threaded builds (`python3.13t`+) py.detach is a near no-op but the fix is still correct.
+    fn shutdown_runtime(&self, py: Python<'_>) -> PyResult<()> {
         debug!(
             "Python requested runtime shutdown (conversation_id: {})",
             "-"
         );
-        shutdown_runtime_from_python();
+        py.detach(shutdown_runtime_from_python);
         Ok(())
     }
 

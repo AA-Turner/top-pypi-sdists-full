@@ -79,9 +79,19 @@ class FlatNode(BaseModel):
         default=None,
         description="Connector names this node uses (activity nodes via Depends, agent nodes via connectors=)",
     )
-    children: list[str] | None = Field(default=None, description="Child node IDs (loop, try_except)")
-    branches: list[list[str]] | None = Field(default=None, description="Per-lane node IDs (parallel)")
+    children: list[str] | None = Field(
+        default=None,
+        description="Child node IDs, in execution order (loop, try_except, lineage)",
+    )
+    branches: list[list[str]] | None = Field(
+        default=None,
+        description="Per-lane node IDs (parallel, lineage)",
+    )
     is_error: bool | None = Field(default=None, description="True for error/raise output nodes")
+    is_early_exit: bool | None = Field(
+        default=None,
+        description="True for a branch's own terminal (output nodes); false/absent on the workflow output",
+    )
     branchTrue: list[str] | None = Field(  # noqa: N815
         default=None,
         description="Node IDs in a container-child conditional's true branch (drives branch layout)",
@@ -92,7 +102,11 @@ class FlatNode(BaseModel):
     )
     branchDescendants: list[str] | None = Field(  # noqa: N815
         default=None,
-        description="IDs of non-terminal nodes in conditional branches",
+        description=(
+            "IDs of nodes in conditional branches. Excludes in-arm terminals, except the "
+            "synthesized early-exit terminal of a container-child conditional, which is listed "
+            "here and on branchTrue/branchFalse so the branch layout places it"
+        ),
     )
     child_workflow_id: str | None = Field(
         default=None,
@@ -182,7 +196,7 @@ _NODE_TYPES_TABLE = """\
 | `workflow` | Rectangle (container) | Synthetic root node wrapping all other nodes |
 | `entrypoint` | Circle | The workflow entry method |
 | `activity` | Rounded rect | A resolved workflow step |
-| `output` | Rounded rect | Workflow output terminus |
+| `output` | Rounded rect | Workflow output terminus, or a branch's own `returns` / `raises` terminal |
 | `unknown` | Dashed rect | Unrecognised code -- rendered as `...` |
 | `conditional` | Diamond (container) | `if/elif/else` branch point |
 | `loop` | Rectangle (container) | `for`/`while` body |
@@ -191,10 +205,12 @@ _NODE_TYPES_TABLE = """\
 | `agent` | Stacked rect | `Runner.run` agent; carries `tools[]` and `handoffs[]` |
 | `human_input` | Rounded rect | `wait_for_input` -- waits for human |
 | `wait_condition` | Rounded rect | `wait_condition` -- event wait |
-| `parallel` | Wide rect | Parallel fan-out |
+| `parallel` | Wide rect (lanes) | Real concurrency read off the source (`gather`, `execute_activities_in_parallel`) |
+| `lineage` | Wide rect (lanes) | Data-flow views: chains derived from one value -- derivation, **not** concurrency |
 | `task` | Rounded rect | Background task |
 | `memory_op` | Rounded rect | Memory operation (save/load) |
-| `continue_as_new` | Rounded rect | `continue_as_new` -- restarts the workflow with fresh history |\
+| `continue_as_new` | Rounded rect | `continue_as_new` -- restarts the workflow with fresh history |
+| `transform` | Rounded rect | Data-flow transform node (leaf, not a container) |\
 """
 
 _EDGE_KINDS_TABLE = """\
@@ -204,7 +220,8 @@ _EDGE_KINDS_TABLE = """\
 | `branch_true` / `branch_false` | Conditional -> first node in each branch |
 | `branch_merge` | Branch rejoins the main flow |
 | `branch_true_skip` / `branch_false_skip` | Empty branch bypass |
-| `branch_exit_true` / `branch_exit_false` | Branch that returns early |\
+| `branch_exit_true` / `branch_exit_false` | Exiting arm converging on the shared workflow output |
+| `data_dep` | Data dependency between nodes (data-flow views); carries optional `label` |\
 """
 
 _SUMMARIES_EXAMPLE = """\
@@ -305,6 +322,14 @@ def generate_wire_format_docs() -> str:
         "## Edge kinds (`WireFlatEdge.kind`)",
         "",
         _EDGE_KINDS_TABLE,
+        "",
+        "A `branch_exit_*` edge is emitted only when both arms exit and nothing at all follows the "
+        "conditional -- then the arm *is* the workflow output, and both arms land on the single "
+        "`output` node. An arm that returns or raises with work still ahead of it is a genuine early "
+        "return: it gets its own `output` node instead, flagged `is_early_exit`, reached by a "
+        "`branch_true` / `branch_false` edge when the arm holds nothing else and by a `sequential` "
+        "edge after the arm's last node. Renderers that walk the branch chain therefore lay it out "
+        "as ordinary branch content.",
         "",
         "## `WireFlatNode` fields",
         "",

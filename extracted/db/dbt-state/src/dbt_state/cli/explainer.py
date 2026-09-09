@@ -24,6 +24,7 @@ from dbt_state.decision_logger import (
     NodeLogEntry,
     RunConfigEntry,
     RunStartEntry,
+    StoredFailuresInfo,
 )
 from dbt_state.grpc.client import QueryCacheGrpcClient
 
@@ -165,6 +166,10 @@ class Explainer:
                 dbt_config.add(f"[dim]--select:[/dim] {' '.join(run_config.select)}")
             if run_config.exclude:
                 dbt_config.add(f"[dim]--exclude:[/dim] {' '.join(run_config.exclude)}")
+            if run_config.store_failures is not None:
+                dbt_config.add(f"[dim]store failures:[/dim] {run_config.store_failures}")
+            if run_config.store_failures_as:
+                dbt_config.add(f"[dim]store failures as:[/dim] {run_config.store_failures_as}")
 
             self._print(tree)
 
@@ -194,9 +199,13 @@ class Explainer:
     ) -> None:
         if log_entry.execution_decision_id and explanation:
             tree = Tree(label=f"[bold]{log_entry.node_name}[/bold]")
+            stored_failures = log_entry.node_info.stored_failures
             decision_display = _display_decision(
                 is_dev_clone=bool(log_entry.node_info.dev_clone),
                 decision_label=explanation.decision.label,
+                stored_failures_decision_label=stored_failures.decision.label
+                if stored_failures
+                else None,
             )
             description_display = _short_description(
                 node_resource_type=log_entry.node_info.node_resource_type,
@@ -204,6 +213,10 @@ class Explainer:
                 decision=explanation.decision,
                 description=explanation.decision_description,
             )
+            if stored_failures:
+                description_display = (
+                    f"{description_display}; {_update_stored_failures_description(stored_failures)}"
+                )
             tree.add(f"[{decision_display}] {description_display}")
             self._print(tree)
         elif log_entry.node_info.is_view:
@@ -222,7 +235,7 @@ class Explainer:
     ) -> None:
         if log_entry.execution_decision_id and explanation:
             tree = Tree(label=f"[bold]{log_entry.node_name}[/bold]")
-
+            stored_failures = log_entry.node_info.stored_failures
             _decorate_explain_lines(
                 run_config=run_config,
                 node_info=log_entry.node_info,
@@ -235,6 +248,9 @@ class Explainer:
             decision_display = _display_decision(
                 is_dev_clone=bool(log_entry.node_info.dev_clone),
                 decision_label=explanation.decision.label,
+                stored_failures_decision_label=stored_failures.decision.label
+                if stored_failures
+                else None,
             )
             description_display = _short_description(
                 node_resource_type=log_entry.node_info.node_resource_type,
@@ -242,6 +258,10 @@ class Explainer:
                 decision=explanation.decision,
                 description=explanation.decision_description,
             )
+            if stored_failures:
+                description_display = (
+                    f"{description_display}; {_update_stored_failures_description(stored_failures)}"
+                )
             self._println(f"[bold]decision: [{decision_display}][/bold] {description_display}")
         elif log_entry.node_info.is_view:
             tree = Tree(label=f"[bold]{log_entry.node_name}[/bold]")
@@ -286,6 +306,11 @@ def _decorate_explain_lines(
         and node_info.node_resource_type == NodeType.Model.value
     ):
         _apply_full_refresh_modifications(is_full_refresh=node_info.is_full_refresh, lines=lines)
+
+    if node_info.stored_failures:
+        _apply_stored_failures_modifications(
+            fqn=node_info.fqn, stored_failures=node_info.stored_failures, lines=lines
+        )
 
 
 def _apply_target_name_to_table_exists(target_name: str, lines: list[ExplainLine]) -> None:
@@ -364,6 +389,36 @@ def _apply_full_refresh_modifications(is_full_refresh: bool, lines: list[Explain
                         )
 
 
+def _update_stored_failures_description(stored_failures: StoredFailuresInfo) -> str:
+    description = stored_failures.decision_description
+    if description is None:
+        return "explanation unavailable"
+    if description.startswith("model"):
+        return f"stored failures {stored_failures.kind}" + description.removeprefix("model")
+    return description
+
+
+def _apply_stored_failures_modifications(
+    fqn: str, stored_failures: StoredFailuresInfo, lines: list[ExplainLine]
+) -> None:
+    decision_display = _display_decision(
+        is_dev_clone=False, decision_label=stored_failures.decision.label
+    )
+    lines.append(
+        ExplainLine(
+            text="stored failures analysis",
+            children=[
+                ExplainLine(
+                    text=f"data test failures stored in [bold]{stored_failures.kind}[/bold] {fqn}"
+                ),
+                ExplainLine(
+                    text=f"[{decision_display}] {_update_stored_failures_description(stored_failures)}"
+                ),
+            ],
+        )
+    )
+
+
 def _add_lines_to_tree(tree: Tree, lines: list[ExplainLine]) -> None:
     for line in lines:
         child = tree.add(_format_line(line))
@@ -371,7 +426,9 @@ def _add_lines_to_tree(tree: Tree, lines: list[ExplainLine]) -> None:
             _add_lines_to_tree(child, line.children)
 
 
-def _display_decision(is_dev_clone: bool, decision_label: str) -> str:
+def _display_decision(
+    is_dev_clone: bool, decision_label: str, stored_failures_decision_label: t.Optional[str] = None
+) -> str:
     colors = {
         SubmitSQLResultType.SKIP_EXECUTION.label: "green",
         SubmitSQLResultType.READY_TO_EXECUTE.label: "yellow",
@@ -383,6 +440,9 @@ def _display_decision(is_dev_clone: bool, decision_label: str) -> str:
 
     if is_dev_clone:
         decision_label = f"{SubmitSQLResultType.READY_TO_CLONE.label}; {decision_label}"
+    if stored_failures_decision_label:
+        stored_failures_color = colors[stored_failures_decision_label]
+        decision_label = f"{decision_label}; [{stored_failures_color}]{stored_failures_decision_label}[/{stored_failures_color}]"
 
     return f"[{color}]{decision_label}[/{color}]"
 

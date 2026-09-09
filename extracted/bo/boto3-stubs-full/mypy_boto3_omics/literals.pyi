@@ -146,6 +146,7 @@ BatchStatusType = Literal[
     "PENDING",
     "PROCESSED",
     "RUNS_DELETED",
+    "RUNS_DELETE_FAILED",
     "RUNS_DELETING",
     "STOPPING",
     "SUBMITTING",

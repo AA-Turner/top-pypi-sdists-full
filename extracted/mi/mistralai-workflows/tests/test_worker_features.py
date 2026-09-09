@@ -6,9 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from mistralai.workflows.core.config import config_discovery
 from mistralai.workflows.core.config.config import (
+    EventsApiVersion,
     GraphConfig,
     RemotelyOverridable,
     TemporalConfig,
+    WorkerConfig,
     apply_remote_defaults,
     config,
 )
@@ -22,7 +24,7 @@ from .utils import create_http_test_worker_client
 BASE_PAYLOAD: dict[str, Any] = {"scheduler_url": "https://temporal.example.com:7233", "namespace": "customer:workspace"}
 
 
-def _runtime_config(**features: bool) -> WorkerRuntimeConfig:
+def _runtime_config(**features: Any) -> WorkerRuntimeConfig:
     return WorkerRuntimeConfig(**BASE_PAYLOAD, features=WorkerFeatures(**features))
 
 
@@ -42,6 +44,22 @@ def graph_config(monkeypatch: pytest.MonkeyPatch):
         graph = GraphConfig()
         monkeypatch.setattr(config.worker, "graph", graph)
         return graph
+
+    return _install
+
+
+@pytest.fixture
+def worker_config(monkeypatch: pytest.MonkeyPatch):
+    """Install a WorkerConfig resolved from the given `EVENTS_API_VERSION`, restored after the test."""
+
+    def _install(events_api_version_env: str | None = None) -> WorkerConfig:
+        if events_api_version_env is None:
+            monkeypatch.delenv("EVENTS_API_VERSION", raising=False)
+        else:
+            monkeypatch.setenv("EVENTS_API_VERSION", events_api_version_env)
+        worker = WorkerConfig()
+        monkeypatch.setattr(config, "worker", worker)
+        return worker
 
     return _install
 
@@ -87,7 +105,7 @@ class TestFeaturePrecedence:
         effective = _runtime_config(upload_graph=True).apply()
 
         assert graph.upload_graph is True
-        assert effective == {"upload_graph": True}
+        assert effective["upload_graph"] is True
 
     @pytest.mark.parametrize(
         ("env_value", "expected"),
@@ -99,7 +117,7 @@ class TestFeaturePrecedence:
         effective = _runtime_config(upload_graph=not expected).apply()
 
         assert graph.upload_graph is expected
-        assert effective == {"upload_graph": expected}
+        assert effective["upload_graph"] is expected
 
     def test_server_silence_leaves_an_unset_value_at_the_sdk_default(self, graph_config) -> None:
         graph = graph_config()
@@ -108,6 +126,33 @@ class TestFeaturePrecedence:
 
         assert graph.upload_graph is False
         assert "upload_graph" not in graph.model_fields_set
+
+
+class TestValueFeaturePrecedence:
+    """A non-boolean flag follows the same precedence as a toggle."""
+
+    def test_unset_adopts_the_server_value(self, worker_config) -> None:
+        worker = worker_config()
+
+        effective = _runtime_config(events_api_version="v2").apply()
+
+        assert worker.events_api_version == EventsApiVersion.V2
+        assert effective["events_api_version"] == EventsApiVersion.V2
+
+    def test_explicit_local_value_wins_over_the_server(self, worker_config) -> None:
+        worker = worker_config("v1")
+
+        _runtime_config(events_api_version="v2").apply()
+
+        assert worker.events_api_version == EventsApiVersion.V1
+
+    def test_server_silence_leaves_an_unset_value_at_the_sdk_default(self, worker_config) -> None:
+        worker = worker_config()
+
+        _runtime_config().apply()
+
+        assert worker.events_api_version == EventsApiVersion.V1
+        assert "events_api_version" not in worker.model_fields_set
 
 
 class TestTemporalPrecedence:

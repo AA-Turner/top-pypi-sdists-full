@@ -107,6 +107,8 @@ const (
 	ServerFeature_SWEEPS_LOCAL_SCHEDULER ServerFeature = 35
 	// Indicates that the server supports queries for an artifact's digest algorithm.
 	ServerFeature_ARTIFACT_DIGEST_ALGORITHM ServerFeature = 36
+	// Indicates that the server supports automation action ARIA.
+	ServerFeature_AUTOMATION_ACTION_ARIA ServerFeature = 37
 )
 
 // Enum value maps for ServerFeature.
@@ -149,6 +151,7 @@ var (
 		34: "FILESTREAM_GZIP",
 		35: "SWEEPS_LOCAL_SCHEDULER",
 		36: "ARTIFACT_DIGEST_ALGORITHM",
+		37: "AUTOMATION_ACTION_ARIA",
 	}
 	ServerFeature_value = map[string]int32{
 		"SERVER_FEATURE_UNSPECIFIED":                           0,
@@ -188,6 +191,7 @@ var (
 		"FILESTREAM_GZIP":                                      34,
 		"SWEEPS_LOCAL_SCHEDULER":                               35,
 		"ARTIFACT_DIGEST_ALGORITHM":                            36,
+		"AUTOMATION_ACTION_ARIA":                               37,
 	}
 )
 
@@ -1754,7 +1758,12 @@ type RunRecord struct {
 	Git          *GitRepoRecord         `protobuf:"bytes,21,opt,name=git,proto3" json:"git,omitempty"`
 	Forked       bool                   `protobuf:"varint,22,opt,name=forked,proto3" json:"forked,omitempty"`
 	// Information about the source if this is a fork or rewind of another run.
-	BranchPoint   *BranchPoint `protobuf:"bytes,23,opt,name=branch_point,json=branchPoint,proto3" json:"branch_point,omitempty"`
+	BranchPoint *BranchPoint `protobuf:"bytes,23,opt,name=branch_point,json=branchPoint,proto3" json:"branch_point,omitempty"`
+	// Whether syncing should resume an existing run.
+	//
+	// This stores pre-sync intention. Distinct from `resumed` which stores what
+	// actually happened.
+	Resume        bool         `protobuf:"varint,24,opt,name=resume,proto3" json:"resume,omitempty"`
 	XInfo         *XRecordInfo `protobuf:"bytes,200,opt,name=_info,json=Info,proto3" json:"_info,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1942,6 +1951,13 @@ func (x *RunRecord) GetBranchPoint() *BranchPoint {
 		return x.BranchPoint
 	}
 	return nil
+}
+
+func (x *RunRecord) GetResume() bool {
+	if x != nil {
+		return x.Resume
+	}
+	return false
 }
 
 func (x *RunRecord) GetXInfo() *XRecordInfo {
@@ -11928,7 +11944,7 @@ const file_wandb_proto_wandb_internal_proto_rawDesc = "" +
 	"\vBranchPoint\x12\x10\n" +
 	"\x03run\x18\x01 \x01(\tR\x03run\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x01R\x05value\x12\x16\n" +
-	"\x06metric\x18\x03 \x01(\tR\x06metric\"\xe1\x06\n" +
+	"\x06metric\x18\x03 \x01(\tR\x06metric\"\xf9\x06\n" +
 	"\tRunRecord\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x16\n" +
 	"\x06entity\x18\x02 \x01(\tR\x06entity\x12\x18\n" +
@@ -11954,7 +11970,8 @@ const file_wandb_proto_wandb_internal_proto_rawDesc = "" +
 	"\aruntime\x18\x14 \x01(\x05R\aruntime\x12/\n" +
 	"\x03git\x18\x15 \x01(\v2\x1d.wandb_internal.GitRepoRecordR\x03git\x12\x16\n" +
 	"\x06forked\x18\x16 \x01(\bR\x06forked\x12>\n" +
-	"\fbranch_point\x18\x17 \x01(\v2\x1b.wandb_internal.BranchPointR\vbranchPoint\x121\n" +
+	"\fbranch_point\x18\x17 \x01(\v2\x1b.wandb_internal.BranchPointR\vbranchPoint\x12\x16\n" +
+	"\x06resume\x18\x18 \x01(\bR\x06resume\x121\n" +
 	"\x05_info\x18\xc8\x01 \x01(\v2\x1b.wandb_internal._RecordInfoR\x04Info\"C\n" +
 	"\rGitRepoRecord\x12\x1a\n" +
 	"\n" +
@@ -12719,7 +12736,7 @@ const file_wandb_proto_wandb_internal_proto_rawDesc = "" +
 	"\finput_source\x18\x01 \x01(\v2\x1e.wandb_internal.JobInputSourceR\vinputSource\x12A\n" +
 	"\rinclude_paths\x18\x02 \x03(\v2\x1c.wandb_internal.JobInputPathR\fincludePaths\x12A\n" +
 	"\rexclude_paths\x18\x03 \x03(\v2\x1c.wandb_internal.JobInputPathR\fexcludePaths\x12!\n" +
-	"\finput_schema\x18\x04 \x01(\tR\vinputSchema*\xb9\n" +
+	"\finput_schema\x18\x04 \x01(\tR\vinputSchema*\xd5\n" +
 	"\n" +
 	"\rServerFeature\x12\x1e\n" +
 	"\x1aSERVER_FEATURE_UNSPECIFIED\x10\x00\x12\x13\n" +
@@ -12760,7 +12777,8 @@ const file_wandb_proto_wandb_internal_proto_rawDesc = "" +
 	"\x1bAUTOMATIONS_ON_ORGANIZATION\x10!\x12\x13\n" +
 	"\x0fFILESTREAM_GZIP\x10\"\x12\x1a\n" +
 	"\x16SWEEPS_LOCAL_SCHEDULER\x10#\x12\x1d\n" +
-	"\x19ARTIFACT_DIGEST_ALGORITHM\x10$B\x1bZ\x19core/pkg/service_go_protob\x06proto3"
+	"\x19ARTIFACT_DIGEST_ALGORITHM\x10$\x12\x1a\n" +
+	"\x16AUTOMATION_ACTION_ARIA\x10%B\x1bZ\x19core/pkg/service_go_protob\x06proto3"
 
 var (
 	file_wandb_proto_wandb_internal_proto_rawDescOnce sync.Once

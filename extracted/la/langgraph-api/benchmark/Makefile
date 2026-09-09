@@ -19,6 +19,14 @@ benchmark-new-revision:
 benchmark-staircase:
 	python staircase.py
 
+benchmark-capacity-ci:
+	npm install
+	node capacity-ci.js
+
+benchmark-capacity-matrix:
+	npm install
+	node capacity-ci.js --all-deployments
+
 benchmark-staircase-reset:
 	python ../../scripts/reset_deployment.py -a $(BENCHMARK_APP_NAME) -n $(BENCHMARK_NAMESPACE) -db $(BENCHMARK_DB_INSTANCE)
 	python staircase.py

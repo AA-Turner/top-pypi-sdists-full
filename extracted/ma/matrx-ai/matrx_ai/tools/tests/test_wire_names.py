@@ -9,6 +9,7 @@ names — sending a canonical name raw produced a hard 400
 the whole request. The fix is a wire seam (``matrx_ai.config.wire_names``)
 applied at the provider boundary and reversed at dispatch.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,7 +23,6 @@ from matrx_ai.config.wire_names import (
     to_wire_name,
 )
 
-
 # ---------------------------------------------------------------------------
 # Primitive
 # ---------------------------------------------------------------------------
@@ -31,6 +31,12 @@ from matrx_ai.config.wire_names import (
 class TestPrimitive:
     def test_colon_converts_to_double_underscore(self):
         assert to_wire_name("bundle:list_agent-core") == "bundle__list_agent-core"
+
+    def test_external_mcp_dots_convert_to_double_underscore(self):
+        canonical = "mcp.docker-hub.listRepositoryTags"
+        wire = "mcp__docker-hub__listRepositoryTags"
+        assert to_wire_name(canonical) == wire
+        assert resolve_wire_name(wire, [canonical]) == canonical
 
     def test_plain_name_unchanged(self):
         assert to_wire_name("web_search") == "web_search"
@@ -170,10 +176,7 @@ class TestOutboundSeam:
             assert names == ["bundle__list_agent-core"], (provider, names)
 
         ex = ToolExecutor(registry=registry_with_lister)
-        assert (
-            ex._normalize_called_name("bundle__list_agent-core")
-            == "bundle:list_agent-core"
-        )
+        assert ex._normalize_called_name("bundle__list_agent-core") == "bundle:list_agent-core"
 
     def test_original_declaration_not_mutated(self, translator):
         tool = _InlineTool("bundle:list_x")
@@ -212,9 +215,7 @@ class TestHistorySerializers:
     def test_tool_result_content_google_pairs_with_wire_call_name(self):
         from matrx_ai.config.tools_config import ToolResultContent
 
-        tr = ToolResultContent(
-            tool_use_id="call_1", name="bundle:list_agent-core", content="done"
-        )
+        tr = ToolResultContent(tool_use_id="call_1", name="bundle:list_agent-core", content="done")
         assert tr.to_google()["functionResponse"]["name"] == "bundle__list_agent-core"
 
     def test_wire_form_passes_through_unchanged(self):
@@ -280,8 +281,7 @@ def app_ctx_set():
 class TestInboundSeam:
     def test_wire_name_normalizes_to_canonical(self, executor):
         assert (
-            executor._normalize_called_name("bundle__list_agent-core")
-            == "bundle:list_agent-core"
+            executor._normalize_called_name("bundle__list_agent-core") == "bundle:list_agent-core"
         )
 
     def test_direct_registry_hit_wins_over_reversal(self, executor):
@@ -298,9 +298,7 @@ class TestInboundSeam:
         assert executor._normalize_called_name("ghost__tool") == "ghost__tool"
 
     @pytest.mark.asyncio
-    async def test_allowlist_accepts_wire_call_for_canonical_entry(
-        self, executor, app_ctx_set
-    ):
+    async def test_allowlist_accepts_wire_call_for_canonical_entry(self, executor, app_ctx_set):
         """The full regression: the model calls the wire name of a canonical
         colon-named tool that IS in the allowed set (stored canonically).
         The call must clear the allowlist and resolve to the canonical
@@ -324,9 +322,7 @@ class TestInboundSeam:
         assert result.tool_name != ""
 
     @pytest.mark.asyncio
-    async def test_unlisted_tool_still_rejected_without_error_log(
-        self, executor, caplog
-    ):
+    async def test_unlisted_tool_still_rejected_without_error_log(self, executor, caplog):
         from matrx_ai.tools.models import ToolContext
 
         ctx = ToolContext(call_id="call_y", tool_name="bundle__list_agent-core")
@@ -477,21 +473,15 @@ class TestDelegationCheckpoint:
             role="assistant",
             content=[ToolCallContent(id="c1", name="acme__ask_user", arguments={})],
         )
-        assert _response_has_client_delegated_call(
-            _Resp([msg]), frozenset({"acme:ask_user"})
-        )
+        assert _response_has_client_delegated_call(_Resp([msg]), frozenset({"acme:ask_user"}))
         # Plain names keep working.
         msg2 = UnifiedMessage(
             role="assistant",
             content=[ToolCallContent(id="c2", name="take_screenshot", arguments={})],
         )
-        assert _response_has_client_delegated_call(
-            _Resp([msg2]), frozenset({"take_screenshot"})
-        )
+        assert _response_has_client_delegated_call(_Resp([msg2]), frozenset({"take_screenshot"}))
         # Non-delegated call → False.
-        assert not _response_has_client_delegated_call(
-            _Resp([msg2]), frozenset({"other_tool"})
-        )
+        assert not _response_has_client_delegated_call(_Resp([msg2]), frozenset({"other_tool"}))
         # Text-only response → False.
         msg3 = UnifiedMessage(role="assistant", content=[TextContent(text="hi")])
         assert not _response_has_client_delegated_call(
@@ -533,9 +523,7 @@ class TestDelegationCheckpoint:
 
             # Mirrors drain_pending replacing the request ContextVar while the
             # executor's original exec_ctx object remains unchanged.
-            set_app_context(
-                stale_ctx.with_overrides(client_tools=["new_desktop_tool"])
-            )
+            set_app_context(stale_ctx.with_overrides(client_tools=["new_desktop_tool"]))
 
             assert stale_ctx.client_tools == []
             assert _response_has_live_client_delegated_call(response)

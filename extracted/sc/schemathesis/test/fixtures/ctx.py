@@ -254,6 +254,9 @@ class OpenAPIApps:
     def wfc_login(self) -> OpenAPIServer:
         return _start(self.parent, openapi_wfc.wfc_login())
 
+    def wfc_expiring_token(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_wfc.wfc_expiring_token())
+
     def wfc_login_failing(self) -> OpenAPIServer:
         return _start(self.parent, openapi_wfc.wfc_login_failing())
 
@@ -262,6 +265,9 @@ class OpenAPIApps:
 
     def wfc_role_gated(self) -> OpenAPIServer:
         return _start(self.parent, openapi_wfc.wfc_role_gated())
+
+    def wfc_role_gated_401(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_wfc.wfc_role_gated_401())
 
     def planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.planted_bug())

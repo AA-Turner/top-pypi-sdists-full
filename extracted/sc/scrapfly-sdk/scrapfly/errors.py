@@ -1,5 +1,5 @@
 import base64
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 from requests import Request, Response
 
 
@@ -149,6 +149,16 @@ class ScrapflyAspError(ScraperAPIError):
     pass
 
 
+# The customer-facing name of the feature is now "Unblocker"; the error class
+# keeps its `Asp` name because the API status it carries is still `ERR::ASP::*`.
+# This alias is the SAME class object, not a subclass, so `except
+# ScrapflyAspError` keeps catching everything it caught before and the two names
+# are interchangeable in `except`, `isinstance` and `issubclass`. Matches the Go
+# SDK's `ErrUnblockerBypassFailed` and the TypeScript SDK's
+# `ScrapflyUnblockerError`, which are aliases of their Asp-named originals too.
+ScrapflyUnblockerError = ScrapflyAspError
+
+
 class ScrapflyScheduleError(ScraperAPIError):
     pass
 
@@ -187,6 +197,40 @@ class ScrapflyCrawlerError(CrawlerError):
     pass
 
 
+class CrawlerSearchError(CrawlerError):
+    """
+    Exception raised when ``POST /crawl/search`` cannot answer.
+
+    Carries the API code, e.g. ``ERR::CRAWLER::SEARCH_NOT_ENABLED``,
+    ``ERR::CRAWLER::SEARCH_NOT_READY``, ``ERR::CRAWLER::SEARCH_TOO_MANY_CRAWLS``.
+    A crawl that is merely skipped is *not* an error: it is reported in
+    ``CrawlerSearchResponse.skipped`` and the search still answers.
+    """
+    pass
+
+
+class CrawlerPromptError(CrawlerError):
+    """
+    Exception raised when ``POST /crawl/prompt`` fails.
+
+    Also raised mid-stream when the server sends an ``event: error`` frame:
+    generation can fail after tokens have already been delivered, so a caller
+    consuming the iterator must be ready for this on any ``next()``.
+    """
+    pass
+
+
+class CrawlerRefreshError(CrawlerError):
+    """
+    Exception raised when a crawl refresh call fails.
+
+    Carries the API code, e.g. ``ERR::CRAWLER::REFRESH_NOT_ENABLED``,
+    ``ERR::CRAWLER::REFRESH_IN_PROGRESS``,
+    ``ERR::CRAWLER::REFRESH_INTERVAL_INVALID``.
+    """
+    pass
+
+
 class ErrorFactory:
     RESOURCE_TO_ERROR = {
         ScrapflyError.RESOURCE_SCRAPE: ScrapflyScrapeError,
@@ -206,11 +250,11 @@ class ErrorFactory:
     }
 
     @staticmethod
-    def _get_resource(code: str) -> Optional[Tuple[str, str]]:
-
+    def _get_resource(code: str) -> Optional[str]:
+        # Codes are ERR::<RESOURCE>::<REASON>, but the segment count is the
+        # API's to change, so index rather than unpack.
         if isinstance(code, str) and '::' in code:
-            _, resource, _ = code.split('::')
-            return resource
+            return code.split('::')[1]
 
         return None
 
@@ -292,9 +336,72 @@ class ErrorFactory:
             return ScrapflyError(**args)
 
 
+def _documentation_url(envelope: Dict) -> Optional[str]:
+    doc_url = envelope.get('doc_url')
+
+    if isinstance(doc_url, str) and doc_url:
+        return doc_url
+
+    links = envelope.get('links')
+
+    # `links` maps a human label to a URL while documentation_url holds a
+    # single string, so only one survives: the error-specific entry, not the
+    # generic "Getting Started" that ships alongside it.
+    if isinstance(links, dict):
+        for label, value in links.items():
+            if isinstance(value, str) and value and 'error' in str(label).lower():
+                return value
+
+        return next((value for value in links.values() if isinstance(value, str) and value), None)
+
+    if isinstance(links, list):
+        return next((value for value in links if isinstance(value, str) and value), None)
+
+    return None
+
+
+def api_error_args(envelope: Optional[Dict], http_status_code: int) -> Dict:
+    """Map an API-level error envelope onto ScrapflyError constructor kwargs.
+
+    Every field is optional on the wire - a 401 envelope carries neither `code`
+    nor `links` - so nothing here may index into it. Kept in one place because
+    both the single-request path (ApiResponse.raise_for_result) and the batch
+    part path decode the same envelope.
+    """
+
+    if not isinstance(envelope, dict):
+        envelope = {}
+
+    code = envelope.get('code')
+
+    if not isinstance(code, str):
+        code = ''
+
+    message = envelope.get('message') or envelope.get('reason') or 'API error'
+
+    if not isinstance(message, str):
+        message = str(message)
+
+    status_code = envelope.get('http_code')
+
+    if not isinstance(status_code, int) or isinstance(status_code, bool):
+        status_code = http_status_code
+
+    return {
+        'message': message,
+        'code': code,
+        'resource': ErrorFactory._get_resource(code=code),
+        'http_status_code': status_code,
+        'is_retryable': envelope.get('retryable') is True,
+        'documentation_url': _documentation_url(envelope),
+    }
+
+
 __all__:Tuple[str, ...] = [
+    'EncoderError',
     'ScrapflyError',
     'ScrapflyAspError',
+    'ScrapflyUnblockerError',
     'ScrapflyProxyError',
     'ScrapflyScheduleError',
     'ScrapflyScrapeError',
@@ -307,4 +414,7 @@ __all__:Tuple[str, ...] = [
     'ApiHttpServerError',
     'CrawlerError',
     'ScrapflyCrawlerError',
+    'CrawlerSearchError',
+    'CrawlerPromptError',
+    'CrawlerRefreshError',
 ]

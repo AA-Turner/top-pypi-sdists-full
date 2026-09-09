@@ -5,7 +5,7 @@
 //! exhaustion evidence; they never weaken completed-route integrity checks or
 //! stock identity. See Issue #239.
 
-use crate::chem_env::{ChemEnv, PreparedRuleSet, RetroRule};
+use crate::chem_env::{ChemEnv, PreparedRuleSet, RetroRule, TemplateBondIndex};
 use crate::coverage_mode::validate_coverage_mode_config;
 use crate::search::{
     self, BeamDiversityPolicy, ElementAccountingGatePolicy, SearchConfig, SearchControl,
@@ -21,9 +21,27 @@ use std::time::{Duration, Instant};
 pub enum RecoveryStage {
     Baseline,
     ElementAccounting,
+    BeamWidth,
     BeamDiversity,
     Depth,
+    /// Deeper search with the wider beam in one pass. This targets routes
+    /// whose useful branch is both deeper than the baseline and crowded out
+    /// by the baseline beam; neither independent retry can recover it.
+    CombinedDepthBeam,
     Coverage,
+}
+
+/// Controls which retry arms are eligible after the baseline search.
+///
+/// `Full` preserves the original audit cascade. `Native` is for the
+/// route-found objective: it keeps the baseline integrity checks and retries
+/// only the two search-budget dimensions that can add a native route without
+/// changing chemistry policy (beam width and depth).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryStagePolicy {
+    Full,
+    Native,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,18 +84,49 @@ pub struct RecoveryModeResult {
 
 #[derive(Debug, Clone)]
 pub struct RecoveryOptions {
+    /// Retry-arm policy. Defaults to `Full` at call sites for backwards
+    /// compatibility; native-focused profiles may select `Native`.
+    pub stage_policy: RecoveryStagePolicy,
     /// Must be greater than the baseline depth. The CLI defaults this to
     /// baseline depth + 1.
     pub recovery_depth: u32,
     /// Zero skips the diversity stage; a positive value reserves that many
     /// slots in the otherwise unchanged beam.
     pub beam_diversity_slots: usize,
+    /// Optional wider beam used after baseline beam exhaustion.
+    pub recovery_beam_width: Option<usize>,
+    /// Optional whole-cascade cooperative deadline. Stage attempts share this
+    /// deadline so a slow recovery cannot multiply the per-target budget.
+    pub recovery_timeout: Option<Duration>,
     /// Optional final-stage rule-set ladder, ordered from narrower to broader.
     /// Every tier starts from a fresh frontier. This remains caller supplied
     /// so no research-only template asset becomes a package/default dependency.
     pub coverage_rule_tiers: Vec<Vec<RetroRule>>,
     pub coverage_timeout: Option<Duration>,
     pub coverage_beam_width: Option<usize>,
+}
+
+/// Immutable recovery assets reusable across many targets in one batch.
+/// Building these once avoids repeating template preparation for every target.
+pub struct RecoveryContext {
+    prepared_rules: PreparedRuleSet,
+    prepared_bond_index: Option<TemplateBondIndex>,
+}
+
+impl RecoveryContext {
+    pub fn new(
+        baseline_rules: &[RetroRule],
+        coverage_rule_tiers: &[Vec<RetroRule>],
+        bond_index: bool,
+    ) -> Self {
+        let mut all_rule_sets = Vec::with_capacity(1 + coverage_rule_tiers.len());
+        all_rule_sets.push(baseline_rules);
+        all_rule_sets.extend(coverage_rule_tiers.iter().map(Vec::as_slice));
+        Self {
+            prepared_rules: PreparedRuleSet::from_rule_sets(&all_rule_sets),
+            prepared_bond_index: bond_index.then(|| TemplateBondIndex::build(baseline_rules)),
+        }
+    }
 }
 
 fn rules_sha256(rules: &[RetroRule]) -> String {
@@ -107,6 +156,7 @@ fn diversity_policy_name(policy: BeamDiversityPolicy) -> &'static str {
         BeamDiversityPolicy::Off => "off",
         BeamDiversityPolicy::DiagnosticsOnly => "diagnostics_only",
         BeamDiversityPolicy::Active => "active",
+        BeamDiversityPolicy::Adaptive => "adaptive",
     }
 }
 
@@ -166,6 +216,7 @@ fn run_stage(
     config: &SearchConfig,
     control: &SearchControl,
     prepared_rules: &PreparedRuleSet,
+    prepared_bond_index: Option<&TemplateBondIndex>,
 ) -> Result<(SearchRunResult, f64)> {
     let start = Instant::now();
     let result = search::find_routes_with_control_prepared(
@@ -175,9 +226,23 @@ fn run_stage(
         config,
         control,
         prepared_rules,
-        None,
+        prepared_bond_index,
     )?;
     Ok((result, start.elapsed().as_secs_f64() * 1000.0))
+}
+
+fn recovery_control(deadline: Option<Instant>) -> SearchControl {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        deadline
+            .map(SearchControl::with_deadline)
+            .unwrap_or_else(SearchControl::unlimited)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = deadline;
+        SearchControl::unlimited()
+    }
 }
 
 /// Run a bounded, auditable recovery cascade.
@@ -194,6 +259,29 @@ pub fn run_recovery_mode(
     config: &SearchConfig,
     options: &RecoveryOptions,
 ) -> Result<RecoveryModeResult> {
+    let context = RecoveryContext::new(
+        baseline_rules,
+        &options.coverage_rule_tiers,
+        config.bond_index,
+    );
+    run_recovery_mode_with_context(
+        target_smiles,
+        env,
+        baseline_rules,
+        config,
+        options,
+        &context,
+    )
+}
+
+pub fn run_recovery_mode_with_context(
+    target_smiles: &str,
+    env: &ChemEnv,
+    baseline_rules: &[RetroRule],
+    config: &SearchConfig,
+    options: &RecoveryOptions,
+    context: &RecoveryContext,
+) -> Result<RecoveryModeResult> {
     if options.recovery_depth <= config.max_depth {
         bail!(
             "recovery_depth ({}) must be greater than baseline max_depth ({})",
@@ -203,6 +291,14 @@ pub fn run_recovery_mode(
     }
     if options.beam_diversity_slots > 0 && config.beam_width == 0 {
         bail!("beam diversity recovery requires a bounded baseline beam_width");
+    }
+    if let Some(width) = options.recovery_beam_width
+        && (width == 0 || width <= config.beam_width)
+    {
+        bail!(
+            "recovery_beam_width ({width}) must be positive and greater than baseline beam_width ({})",
+            config.beam_width
+        );
     }
     if let Some(width) = options.coverage_beam_width
         && width == 0
@@ -220,11 +316,11 @@ pub fn run_recovery_mode(
         validate_coverage_mode_config(config)?;
     }
 
-    let mut all_rule_sets = Vec::with_capacity(1 + options.coverage_rule_tiers.len());
-    all_rule_sets.push(baseline_rules);
-    all_rule_sets.extend(options.coverage_rule_tiers.iter().map(Vec::as_slice));
-    let prepared_rules = PreparedRuleSet::from_rule_sets(&all_rule_sets);
     let total_start = Instant::now();
+    let recovery_deadline = options
+        .recovery_timeout
+        .and_then(|timeout| total_start.checked_add(timeout));
+    let recovery_control = recovery_control(recovery_deadline);
     let mut attempts = Vec::new();
 
     let mut baseline_config = config.clone();
@@ -236,8 +332,9 @@ pub fn run_recovery_mode(
         env,
         baseline_rules,
         &baseline_config,
-        &SearchControl::unlimited(),
-        &prepared_rules,
+        &recovery_control,
+        &context.prepared_rules,
+        context.prepared_bond_index.as_ref(),
     )?;
     attempts.push(recovery_attempt(
         RecoveryStage::Baseline,
@@ -260,8 +357,13 @@ pub fn run_recovery_mode(
     let integrity_triggered = baseline.stats.route_integrity.unaccounted_target_element > 0;
     let beam_triggered = baseline.stats.beam_limit_hit;
     let depth_triggered = baseline.stats.max_depth_reached;
+    // If the baseline rule set produced no applicable templates at the root,
+    // deeper/ wider retries with that same set cannot create a first edge.
+    // Keep coverage tiers eligible below because they may contain different
+    // rules; this only prunes futile retries within the baseline rule set.
+    let baseline_has_no_templates = baseline.stats.matched_templates == 0;
 
-    if integrity_triggered {
+    if options.stage_policy == RecoveryStagePolicy::Full && integrity_triggered {
         let mut gated_config = baseline_config.clone();
         gated_config.element_accounting_policy = ElementAccountingGatePolicy::Gated;
         let (gated, elapsed_ms) = run_stage(
@@ -269,8 +371,9 @@ pub fn run_recovery_mode(
             env,
             baseline_rules,
             &gated_config,
-            &SearchControl::unlimited(),
-            &prepared_rules,
+            &recovery_control,
+            &context.prepared_rules,
+            context.prepared_bond_index.as_ref(),
         )?;
         attempts.push(recovery_attempt(
             RecoveryStage::ElementAccounting,
@@ -291,7 +394,41 @@ pub fn run_recovery_mode(
         }
     }
 
-    if beam_triggered && options.beam_diversity_slots > 0 {
+    if !baseline_has_no_templates
+        && beam_triggered
+        && let Some(width) = options.recovery_beam_width
+    {
+        let mut wider_config = baseline_config.clone();
+        wider_config.beam_width = width;
+        let (wider, elapsed_ms) = run_stage(
+            target_smiles,
+            env,
+            baseline_rules,
+            &wider_config,
+            &recovery_control,
+            &context.prepared_rules,
+            context.prepared_bond_index.as_ref(),
+        )?;
+        attempts.push(recovery_attempt(
+            RecoveryStage::BeamWidth,
+            "baseline_beam_exhaustion",
+            &wider_config,
+            baseline_rules,
+            &wider,
+            elapsed_ms,
+            None,
+        ));
+        if !wider.routes.is_empty() || wider.termination != SearchTermination::Completed {
+            return Ok(finish(
+                wider,
+                RecoveryStage::BeamWidth,
+                attempts,
+                total_start,
+            ));
+        }
+    }
+
+    if !baseline_has_no_templates && beam_triggered && options.beam_diversity_slots > 0 {
         let mut diversity_config = baseline_config.clone();
         diversity_config.beam_diversity_policy = BeamDiversityPolicy::Active;
         diversity_config.beam_diversity_slots = options.beam_diversity_slots;
@@ -300,8 +437,9 @@ pub fn run_recovery_mode(
             env,
             baseline_rules,
             &diversity_config,
-            &SearchControl::unlimited(),
-            &prepared_rules,
+            &recovery_control,
+            &context.prepared_rules,
+            context.prepared_bond_index.as_ref(),
         )?;
         attempts.push(recovery_attempt(
             RecoveryStage::BeamDiversity,
@@ -322,16 +460,18 @@ pub fn run_recovery_mode(
         }
     }
 
-    if depth_triggered {
+    if !baseline_has_no_templates && depth_triggered {
         let mut depth_config = baseline_config.clone();
         depth_config.max_depth = options.recovery_depth;
+
         let (depth, elapsed_ms) = run_stage(
             target_smiles,
             env,
             baseline_rules,
             &depth_config,
-            &SearchControl::unlimited(),
-            &prepared_rules,
+            &recovery_control,
+            &context.prepared_rules,
+            context.prepared_bond_index.as_ref(),
         )?;
         attempts.push(recovery_attempt(
             RecoveryStage::Depth,
@@ -345,6 +485,46 @@ pub fn run_recovery_mode(
         if !depth.routes.is_empty() || depth.termination != SearchTermination::Completed {
             return Ok(finish(depth, RecoveryStage::Depth, attempts, total_start));
         }
+        if options.stage_policy == RecoveryStagePolicy::Native {
+            // Preserve the historical depth-only retry first: some routes
+            // depend on the narrower frontier and would regress if the
+            // combined retry replaced it. Only then try the combined budget,
+            // which targets branches that are both deeper and crowded out.
+            if let Some(width) = options.recovery_beam_width {
+                let mut combined_config = depth_config.clone();
+                combined_config.beam_width = width;
+                let (combined, elapsed_ms) = run_stage(
+                    target_smiles,
+                    env,
+                    baseline_rules,
+                    &combined_config,
+                    &recovery_control,
+                    &context.prepared_rules,
+                    context.prepared_bond_index.as_ref(),
+                )?;
+                attempts.push(recovery_attempt(
+                    RecoveryStage::CombinedDepthBeam,
+                    "baseline_depth_and_beam_exhaustion",
+                    &combined_config,
+                    baseline_rules,
+                    &combined,
+                    elapsed_ms,
+                    None,
+                ));
+                return Ok(finish(
+                    combined,
+                    RecoveryStage::CombinedDepthBeam,
+                    attempts,
+                    total_start,
+                ));
+            }
+            return Ok(finish(depth, RecoveryStage::Depth, attempts, total_start));
+        }
+        if options.coverage_rule_tiers.is_empty() {
+            // No later stage can run. Preserve the actual final attempt in
+            // the result and audit instead of falling back to baseline.
+            return Ok(finish(depth, RecoveryStage::Depth, attempts, total_start));
+        }
     }
 
     for (tier_index, coverage_rules) in options.coverage_rule_tiers.iter().enumerate() {
@@ -352,17 +532,22 @@ pub fn run_recovery_mode(
         if let Some(width) = options.coverage_beam_width {
             coverage_config.beam_width = width;
         }
-        let control = options
-            .coverage_timeout
-            .map(SearchControl::with_timeout)
-            .unwrap_or_else(SearchControl::unlimited);
+        let control = if options.recovery_timeout.is_some() {
+            recovery_control
+        } else {
+            options
+                .coverage_timeout
+                .map(SearchControl::with_timeout)
+                .unwrap_or_else(SearchControl::unlimited)
+        };
         let (coverage, elapsed_ms) = run_stage(
             target_smiles,
             env,
             coverage_rules,
             &coverage_config,
             &control,
-            &prepared_rules,
+            &context.prepared_rules,
+            None,
         )?;
         attempts.push(recovery_attempt(
             RecoveryStage::Coverage,
@@ -392,7 +577,8 @@ pub fn run_recovery_mode(
                 coverage_rules,
                 &diversity_config,
                 &control,
-                &prepared_rules,
+                &context.prepared_rules,
+                None,
             )?;
             attempts.push(recovery_attempt(
                 RecoveryStage::Coverage,
@@ -422,7 +608,8 @@ pub fn run_recovery_mode(
                     coverage_rules,
                     &deep_diversity_config,
                     &control,
-                    &prepared_rules,
+                    &context.prepared_rules,
+                    None,
                 )?;
                 attempts.push(recovery_attempt(
                     RecoveryStage::Coverage,
@@ -494,8 +681,11 @@ mod tests {
             &rules,
             &config(2, 100),
             &RecoveryOptions {
+                stage_policy: RecoveryStagePolicy::Full,
                 recovery_depth: 3,
                 beam_diversity_slots: 20,
+                recovery_beam_width: None,
+                recovery_timeout: None,
                 coverage_rule_tiers: vec![rules.clone()],
                 coverage_timeout: Some(Duration::from_secs(1)),
                 coverage_beam_width: Some(100),
@@ -517,8 +707,11 @@ mod tests {
             &rules,
             &config(5, 100),
             &RecoveryOptions {
+                stage_policy: RecoveryStagePolicy::Full,
                 recovery_depth: 5,
                 beam_diversity_slots: 20,
+                recovery_beam_width: None,
+                recovery_timeout: None,
                 coverage_rule_tiers: Vec::new(),
                 coverage_timeout: None,
                 coverage_beam_width: None,
@@ -538,8 +731,11 @@ mod tests {
             &rules,
             &config(1, 100),
             &RecoveryOptions {
+                stage_policy: RecoveryStagePolicy::Full,
                 recovery_depth: 2,
                 beam_diversity_slots: 20,
+                recovery_beam_width: None,
+                recovery_timeout: None,
                 coverage_rule_tiers: vec![rules.clone(), rules.clone()],
                 coverage_timeout: Some(Duration::ZERO),
                 coverage_beam_width: Some(100),

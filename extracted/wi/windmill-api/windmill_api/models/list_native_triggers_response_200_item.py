@@ -27,6 +27,7 @@ class ListNativeTriggersResponse200Item:
         is_flow (bool): Whether the trigger targets a flow (true) or a script (false)
         service_config (ListNativeTriggersResponse200ItemServiceConfig): Configuration for the trigger including
             event_type and service_config
+        enabled (bool): Whether the trigger starts a job when it fires
         error (Union[Unset, None, str]): Error message if the trigger is in an error state
         summary (Union[Unset, None, str]): Short summary to be displayed when listed
     """
@@ -37,6 +38,7 @@ class ListNativeTriggersResponse200Item:
     script_path: str
     is_flow: bool
     service_config: "ListNativeTriggersResponse200ItemServiceConfig"
+    enabled: bool
     error: Union[Unset, None, str] = UNSET
     summary: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -50,6 +52,7 @@ class ListNativeTriggersResponse200Item:
         is_flow = self.is_flow
         service_config = self.service_config.to_dict()
 
+        enabled = self.enabled
         error = self.error
         summary = self.summary
 
@@ -63,6 +66,7 @@ class ListNativeTriggersResponse200Item:
                 "script_path": script_path,
                 "is_flow": is_flow,
                 "service_config": service_config,
+                "enabled": enabled,
             }
         )
         if error is not UNSET:
@@ -91,6 +95,8 @@ class ListNativeTriggersResponse200Item:
 
         service_config = ListNativeTriggersResponse200ItemServiceConfig.from_dict(d.pop("service_config"))
 
+        enabled = d.pop("enabled")
+
         error = d.pop("error", UNSET)
 
         summary = d.pop("summary", UNSET)
@@ -102,6 +108,7 @@ class ListNativeTriggersResponse200Item:
             script_path=script_path,
             is_flow=is_flow,
             service_config=service_config,
+            enabled=enabled,
             error=error,
             summary=summary,
         )

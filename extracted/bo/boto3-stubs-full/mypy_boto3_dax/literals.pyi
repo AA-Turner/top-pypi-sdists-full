@@ -505,6 +505,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "ap-northeast-1",
     "ap-south-1",
+    "ap-south-2",
     "ap-southeast-1",
     "ap-southeast-2",
     "eu-central-1",

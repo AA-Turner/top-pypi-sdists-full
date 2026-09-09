@@ -407,6 +407,47 @@ class ManifestData:
     gate_a_exempt_reason: str = ""
     #: #2164 — see the class docstring's ``expected_red`` paragraph.
     expected_red: "dict[int, frozenset[str]]" = field(default_factory=dict)
+    #: #3212 — ``{issue_number: ExemptDependency}`` for every ``exempt:``
+    #: entry whose justification names another issue as covering it, either
+    #: declared structurally (``{issue: N, covered_by: M, artifact: "..."}``)
+    #: or inferred from a plain entry's inline ``# ... #M`` comment. See
+    #: :class:`ExemptDependency`'s docstring for why this exists at all: an
+    #: exemption that defers coverage to another issue is a promise nobody
+    #: was checking.
+    exempt_deps: "dict[int, ExemptDependency]" = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ExemptDependency:
+    """(#3212) One ``exempt:`` entry's promise that *covered_by* delivers the
+    coverage *issue*'s exemption defers to — e.g. format-converter ms-1's
+
+        exempt:
+          - 6  # One-page UI — covered by the harness #2 stands up
+
+    Nothing previously checked that #2 actually landed, let alone that it
+    produced anything. This makes that promise machine-readable so
+    :func:`verify_exempt_dependency` can check it instead of trusting it
+    forever.
+
+    *source* is ``"declared"`` for a structured entry
+    (``{issue: N, covered_by: M, artifact: "glob"}``) and ``"comment"`` for
+    one inferred from a plain integer entry's trailing ``#M`` reference in
+    its comment — best-effort, since a comment is prose, not a contract;
+    surfaced so a caller can say "this promise was never actually declared,
+    only implied" rather than reporting it with the same confidence as an
+    explicit one. A comment-derived dependency never carries an *artifact*
+    (a free-text comment doesn't name a glob), so it can only be checked
+    against "did the named issue land", never "did it produce the thing".
+    """
+
+    issue: int
+    covered_by: int
+    #: Repo-relative glob the covering issue was supposed to produce (e.g.
+    #: ``"tests/**/*.spec.ts"``), or ``None`` when the exemption's promise
+    #: only names an issue, not an artifact.
+    artifact: "str | None" = None
+    source: Literal["declared", "comment"] = "declared"
 
 
 def parse_manifest_text(text: str, *, source: str = "<manifest>") -> ManifestData:
@@ -422,7 +463,14 @@ def parse_manifest_text(text: str, *, source: str = "<manifest>") -> ManifestDat
     - ``tests: {<test-id>: <issue-number>, ...}`` — flat, one issue per test.
     - ``issues: {<issue-number>: [<test-id>, ...], ...}`` — grouped by issue.
     - ``exempt: [<issue-number>, ...]`` — issues exempted from the #1138
-      issue-level oracle gate (no slice required before Work dispatch).
+      issue-level oracle gate (no slice required before Work dispatch). An
+      entry may instead be a mapping, ``{issue: N, covered_by: M, artifact:
+      "glob"}`` (#3212) — same exemption, plus a machine-readable promise
+      that issue *M* covers it, checked by :func:`verify_exempt_dependency`
+      rather than trusted forever. A plain integer entry followed by a
+      trailing comment naming another issue (``- 6  # covered by #2``) has
+      that promise inferred best-effort (``ExemptDependency.source ==
+      "comment"``) — see :func:`_extract_exempt_comment_deps`.
 
     Plus two milestone-level blocks:
 
@@ -460,10 +508,43 @@ def parse_manifest_text(text: str, *, source: str = "<manifest>") -> ManifestDat
             for test_id in test_ids:
                 mapping[str(test_id)] = int(issue)
 
-    exempt: frozenset[int] = frozenset()
+    exempt_nums: set[int] = set()
+    exempt_deps: dict[int, ExemptDependency] = {}
     exempt_raw = raw.get("exempt")
     if isinstance(exempt_raw, list):
-        exempt = frozenset(int(x) for x in exempt_raw)
+        for entry in exempt_raw:
+            if isinstance(entry, bool):
+                continue
+            if isinstance(entry, int):
+                exempt_nums.add(entry)
+                continue
+            if isinstance(entry, dict):
+                try:
+                    issue_num = int(entry["issue"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                exempt_nums.add(issue_num)
+                covered_by_raw = entry.get("covered_by")
+                if covered_by_raw is None:
+                    continue
+                try:
+                    covered_by = int(covered_by_raw)
+                except (TypeError, ValueError):
+                    continue
+                artifact_raw = entry.get("artifact")
+                exempt_deps[issue_num] = ExemptDependency(
+                    issue=issue_num,
+                    covered_by=covered_by,
+                    artifact=str(artifact_raw) if artifact_raw else None,
+                    source="declared",
+                )
+    exempt = frozenset(exempt_nums)
+    # #3212: fill in comment-inferred dependencies for entries that didn't
+    # already get a structured one above — a declared `covered_by` is never
+    # overridden by a best-effort comment guess.
+    for issue_num, dep in _extract_exempt_comment_deps(text).items():
+        if issue_num in exempt_nums and issue_num not in exempt_deps:
+            exempt_deps[issue_num] = dep
 
     gate_a_exempt = False
     gate_a_reason = ""
@@ -492,7 +573,70 @@ def parse_manifest_text(text: str, *, source: str = "<manifest>") -> ManifestDat
         gate_a_exempt=gate_a_exempt,
         gate_a_exempt_reason=gate_a_reason,
         expected_red=expected_red,
+        exempt_deps=exempt_deps,
     )
+
+
+# #3212: a plain `- 6  # ... covered by ... #2 ...` entry's dependency is only
+# visible in the raw text -- `yaml.safe_load` above discards every comment,
+# so a structured `{issue: 6, covered_by: 2}` mapping is the only shape the
+# parsed `raw` dict could ever carry it in. This scans the `exempt:` block's
+# source lines directly (best-effort: prose in a comment, not a contract) so
+# the many manifests that already write the promise as a comment -- exactly
+# the format-converter ms-1 incident this issue describes -- get *some*
+# machine-readable signal without a hand-edit, matching the issue's "cheaper
+# interim" suggestion #2 (option #1, a mandatory structured field, is left to
+# whoever authors a new `exempt:` entry going forward; this only recovers
+# what's already on disk).
+_EXEMPT_BLOCK_START_RE = re.compile(r"^exempt:\s*(#.*)?$")
+_EXEMPT_PLAIN_ITEM_RE = re.compile(r"^\s*-\s*(\d+)\s*(#(?P<comment>.*))?$")
+_ISSUE_REF_RE = re.compile(r"#(\d+)")
+
+
+def _extract_exempt_comment_deps(text: str) -> "dict[int, ExemptDependency]":
+    """Best-effort ``{issue_number: ExemptDependency}`` for every plain
+    ``exempt:`` list entry whose trailing comment names a *different* issue
+    number (``- 6  # ... covered by ... #2 ...`` -> ``{6: ExemptDependency(
+    issue=6, covered_by=2, source="comment")}``). The first ``#N`` reference
+    in the comment wins when more than one appears. An entry with no comment,
+    or whose comment names only itself, is left out of the result — nothing
+    to infer.
+
+    Scans line-by-line rather than parsing YAML: once ``yaml.safe_load`` has
+    run, the comment is already gone, so this is the only place in the parse
+    pipeline that can still see it. The ``exempt:`` block is considered ended
+    only once a non-blank line dedents all the way back to column 0 (a
+    sibling top-level key) — a structured ``- issue: 6`` entry's own indented
+    ``covered_by:``/``artifact:`` sub-lines don't match the plain-item regex
+    below, but must NOT end the block early (they're just not plain-item
+    lines this function extracts anything from; the structured path above
+    already handles them), or a later plain entry in the SAME list would be
+    missed entirely.
+    """
+    deps: dict[int, ExemptDependency] = {}
+    in_block = False
+    for line in text.splitlines():
+        if _EXEMPT_BLOCK_START_RE.match(line):
+            in_block = True
+            continue
+        if not in_block:
+            continue
+        if not line.strip():
+            continue
+        if not line[:1].isspace():
+            in_block = False
+            continue
+        m = _EXEMPT_PLAIN_ITEM_RE.match(line)
+        if m is None:
+            continue
+        issue_num = int(m.group(1))
+        comment = m.group("comment") or ""
+        refs = [int(r) for r in _ISSUE_REF_RE.findall(comment) if int(r) != issue_num]
+        if refs:
+            deps[issue_num] = ExemptDependency(
+                issue=issue_num, covered_by=refs[0], artifact=None, source="comment",
+            )
+    return deps
 
 
 def merge_manifest_data(*datas: ManifestData) -> ManifestData:
@@ -515,11 +659,15 @@ def merge_manifest_data(*datas: ManifestData) -> ManifestData:
     are milestone-level, not per-issue, so they come from whichever entry
     sets ``gate_a_exempt=True`` last — in practice always the legacy shared
     file, since only that carries the ``gate_a:`` block (#2543 keeps it
-    there by choice; per-issue fragments never set it).
+    there by choice; per-issue fragments never set it). ``exempt_deps``
+    (#3212) is per-issue-keyed like ``expected_red``: a later entry's
+    dependency for the same issue number overwrites an earlier one's rather
+    than being dropped or unioned incoherently.
     """
     tests: dict[str, int] = {}
     exempt: set[int] = set()
     expected_red: dict[int, frozenset[str]] = {}
+    exempt_deps: dict[int, ExemptDependency] = {}
     gate_a_exempt = False
     gate_a_exempt_reason = ""
     for data in datas:
@@ -527,6 +675,7 @@ def merge_manifest_data(*datas: ManifestData) -> ManifestData:
         exempt |= set(data.exempt)
         for issue_number, test_ids in data.expected_red.items():
             expected_red[issue_number] = expected_red.get(issue_number, frozenset()) | test_ids
+        exempt_deps.update(data.exempt_deps)
         if data.gate_a_exempt:
             gate_a_exempt = True
             gate_a_exempt_reason = data.gate_a_exempt_reason or gate_a_exempt_reason
@@ -536,6 +685,7 @@ def merge_manifest_data(*datas: ManifestData) -> ManifestData:
         gate_a_exempt=gate_a_exempt,
         gate_a_exempt_reason=gate_a_exempt_reason,
         expected_red=expected_red,
+        exempt_deps=exempt_deps,
     )
 
 
@@ -655,6 +805,33 @@ def ms_dir_for_issue(acceptance_root: Path, issue_number: int) -> str | None:
     return None
 
 
+def ms_dir_for_exempt_issue(acceptance_root: Path, issue_number: int) -> str | None:
+    """(#3212) Sibling to :func:`ms_dir_for_issue`: the ``ms-NN`` directory
+    name (under *acceptance_root*) whose manifest's ``exempt:`` list names
+    *issue_number*, or ``None`` if no manifest exempts it.
+
+    Exists so :func:`oracle_loop_contract_block` can still point an exempted
+    issue's worker at the milestone's Gate-A contract/mocks even though the
+    issue itself has no test mapping (:func:`ms_dir_for_issue` returns
+    ``None`` for it) — an exemption waives the *automated gate*, not the
+    *design contract* the milestone's mocks define (issue #3212's "more
+    damaging half": before this, an exempted issue's worker briefing carried
+    zero pointer to either).
+
+    Same per-file scan discipline as :func:`ms_dir_for_issue` (never merges
+    manifests first) — recovering *which* directory did the exempting is the
+    whole point, same as recovering which directory owns a test mapping.
+    """
+    for path in _manifest_paths(acceptance_root):
+        try:
+            data = parse_manifest_text(path.read_text(), source=str(path))
+        except Exception:  # noqa: BLE001 — a malformed manifest is skipped, not raised
+            continue
+        if issue_number in data.exempt:
+            return _ms_dir_for_manifest_path(path).name
+    return None
+
+
 def oracle_loop_contract_block(
     acceptance_root: Path,
     repo_name: str,
@@ -665,13 +842,18 @@ def oracle_loop_contract_block(
     """The worker briefing contract (#945, docs/ORACLE_LOOP.md "The worker
     briefing contract") prepended to the TOP of a Work briefing when
     *issue_number* has a sealed acceptance slice authored for it under
-    *acceptance_root*.
+    *acceptance_root* — or (#3212) is exempted from one, in which case a
+    variant of the same block still points at the milestone's Gate-A
+    contract/mocks, just worded for "no automated gate checks you against
+    this, but the design contract still applies" rather than "run `coord
+    acceptance run` against your own slice".
 
-    Returns ``""`` when the issue has no authored slice yet (nothing to
-    point the worker at — Gate A/#931 hasn't run for it) or on any read
-    error. Fully fail-soft — mirrors ``coord.state.issue_context_block``
-    (#603): this runs on the dispatch hot path, so a manifest hiccup must
-    degrade to "no block" rather than break dispatch.
+    Returns ``""`` when the issue has neither an authored slice nor an
+    exemption naming it (nothing to point the worker at — Gate A/#931 hasn't
+    run for it) or on any read error. Fully fail-soft — mirrors
+    ``coord.state.issue_context_block`` (#603): this runs on the dispatch hot
+    path, so a manifest hiccup must degrade to "no block" rather than break
+    dispatch.
 
     *acceptance_dirname* (#2896) is the repo-relative dirname the returned
     text should NAME (``contract.md``/``mocks/`` paths, the "may not edit"
@@ -684,8 +866,12 @@ def oracle_loop_contract_block(
     repo-relative name to print — or the printed path won't match where the
     scan actually found the slice.
     """
+    exempt = False
     try:
         ms_dir = ms_dir_for_issue(acceptance_root, issue_number)
+        if ms_dir is None:
+            ms_dir = ms_dir_for_exempt_issue(acceptance_root, issue_number)
+            exempt = ms_dir is not None
     except Exception:  # noqa: BLE001 — never let a manifest read break dispatch
         return ""
     if ms_dir is None:
@@ -694,6 +880,35 @@ def oracle_loop_contract_block(
     dirname = acceptance_dirname.rstrip("/") if acceptance_dirname else ACCEPTANCE_DIRNAME
     contract_path = f"{dirname}/{ms_dir}/contract.md"
     mocks_dir = f"{dirname}/{ms_dir}/mocks"
+
+    if exempt:
+        # #3212: the issue's OWN slice is waived, but the milestone's Gate-A
+        # contract/mocks are still the design truth — an exemption from
+        # verification is not an exemption from the spec. Deliberately drops
+        # the "run `coord acceptance run --issue N`" instruction below (there
+        # is no slice of this issue's own to run) but keeps the "don't touch
+        # the sealed tree" and "write your own tests" bullets, since both
+        # still apply verbatim to an exempted issue.
+        return (
+            "## 🔒 Oracle-loop acceptance contract — READ THIS FIRST "
+            "(exempted issue, #3212)\n\n"
+            f"This issue is **exempted** from its own acceptance-slice gate "
+            f"(`{dirname}/{ms_dir}/manifest.*`'s `exempt:` list) — but "
+            "exemption waives the automated *verification*, not the "
+            f"*design*. Treat `{contract_path}` (the black-box surface) — "
+            f"and, if present, the rendered mock(s) under `{mocks_dir}/` — "
+            "as the spec for what you build, exactly as if your own slice "
+            "were being checked against them. No automated suite verifies "
+            "this issue at all (that is what the exemption means), so a "
+            "human at UAT is the only thing left between a mismatch and the "
+            "customer — match the mocks precisely.\n\n"
+            f"- You **may not** edit `{dirname}/**` (contract, mocks, or any "
+            "sealed suite), even though your own slice is exempt from it.\n"
+            "- Write your own unit / internal tests — that is still your "
+            "job, and the only automated coverage this issue will get.\n\n"
+            "---\n\n"
+        )
+
     return (
         "## 🔒 Oracle-loop acceptance contract — READ THIS FIRST\n\n"
         "This issue has a sealed acceptance slice authored for it. Treat "
@@ -885,6 +1100,623 @@ def dump_manifest_error_hint(acceptance_root: Path) -> str:
         "suite has not been authored yet for this repo (see docs/ORACLE_LOOP.md "
         "/ #931)."
     )
+
+
+# ── #3202: Gate-A contract exempt-exposure warning ──────────────────────────
+#
+# A milestone can carry a Gate-A contract (the customer-facing behaviour
+# spec a human signed off on, docs/ORACLE_LOOP.md) while ALSO exempting some
+# or all of its issues from the acceptance-slice gate via manifest.yml's
+# `exempt:` list (the #1138 issue-level opt-out — see `ManifestData`'s
+# docstring above). Each is individually reasonable — the decomposition may
+# judge the work not oracle-shaped, and the contract may exist only because
+# a customer needed a design round — but the combination means NOTHING
+# checks the contract's behaviours except a human at the UAT gate, one step
+# before merge. The format-converter ms-1 incident (#3202) shipped a UI with
+# no source pane at all, contradicting the approved mock's primary screen,
+# through Review, CI and unit tests, caught only by a human looking.
+#
+# Neither side refuses the combination — a refusal here would just get
+# worked around, and it is sometimes the right call. This only makes the
+# trade VISIBLE, with the SAME wording, at every seam that reads this state:
+#
+# - the pre-dispatch guard that suggests the exemption in the first place
+#   (`coord.milestone_dispatch.issue_oracle_ready`'s "add it to `exempt:`"
+#   refusal reason, via `_gate_a_exempt_trade_off_note`) — also where "say
+#   it in the manifest too" is delivered: that note hands the operator
+#   `manifest_exempt_generated_comment`'s ready-to-paste text alongside the
+#   suggestion, since nothing in this codebase edits `exempt:` on a human's
+#   behalf (it is "rare, hand-edited" by design — see
+#   `MANIFEST_FRAGMENTS_DIRNAME`'s comment below);
+# - `coord gates` for a milestone already in that state
+#   (`coord.gates._gate_a_exempt_note_for_winner`, via
+#   :func:`fetch_gate_a_exempt_warning` below — the shared fetch-and-detect
+#   seam this module exposes so neither caller re-derives the manifest/
+#   contract fetch loop independently); and
+# - the reviewer's own briefing (`coord.review.build_review_briefing`, via
+#   the same :func:`fetch_gate_a_exempt_warning`).
+#
+# `gate_a_exempt_warning` below is the single canonical text every one of
+# those seams renders — never re-derive the wording independently, or a
+# future edit updates one copy and silently leaves the others stale (the
+# same "one question, one answer" discipline as #3180's mechanical-verdict
+# helpers in `coord.review`). `coord.diagnose.gate_a_exempt_exposure_lines`
+# renders the same detection + wording for a caller that already has a
+# manifest/contract in hand (no fetch of its own) — not yet called from
+# `coord doctor`, which has no existing per-milestone iteration to hang it
+# off without new fleet-wide scanning plumbing that is out of scope here.
+
+_BEHAVIOUR_LABEL_RE = re.compile(r"\*\*(§\d+[a-zA-Z]?|[A-Za-z]{1,3}\d{1,3})\*\*")
+
+
+def count_declared_behaviours(contract_text: str) -> int:
+    """Best-effort count of individually-labelled behaviours in a Gate-A
+    ``contract.md``'s prose (#3202).
+
+    Every contract this codebase has authored anchors one assertable
+    behaviour with a short bold label — ``**§4a**`` (this repo's own
+    ``tests/acceptance/ms-51/contract.md``) or ``**B4**`` (the
+    format-converter ms-1 incident #3202 describes) — so a distinct-label
+    count is a reasonable proxy for "how much of this contract exists"
+    without this module needing to parse, or agree on, one fixed markdown
+    dialect across repos. Labels are deduplicated (a label referenced
+    twice — e.g. once in prose and again in a footnote — counts once).
+
+    Returns ``0`` for text with no such labels — a contract written in some
+    other style, an empty string, or no contract at all — rather than
+    falling back to a heading count or another guess: ``0`` is a visible
+    "this heuristic found nothing", not a silently wrong number.
+    """
+    if not contract_text:
+        return 0
+    return len({m.group(1) for m in _BEHAVIOUR_LABEL_RE.finditer(contract_text)})
+
+
+@dataclass(frozen=True)
+class GateAExemptExposure:
+    """One milestone's #3202 exposure: it exempts one or more issues from
+    the acceptance-slice gate, so a Gate-A contract's behaviours go
+    unverified by anything but UAT for that exempted work.
+
+    Built by :func:`gate_a_exempt_exposure`; a caller that wants the
+    canonical detection rule applied should go through that function rather
+    than constructing this directly — it is the one place "does this
+    milestone have this exposure" is answered (see the module note above).
+    """
+
+    milestone_number: int
+    exempt_issues: "tuple[int, ...]"
+    #: :func:`count_declared_behaviours` applied to the milestone's
+    #: contract.md, or ``0`` when the contract couldn't be fetched/parsed —
+    #: see that function's docstring for why ``0`` is left visible rather
+    #: than hidden behind a fallback guess.
+    behaviour_count: int
+
+
+def gate_a_exempt_exposure(
+    milestone_number: int,
+    manifest: ManifestData,
+    contract_text: str | None,
+) -> "GateAExemptExposure | None":
+    """Detect #3202's exposure for one milestone: does *manifest* exempt any
+    issue from the acceptance-slice gate at all?
+
+    Returns ``None`` when ``manifest.exempt`` is empty — the ordinary case,
+    nothing to warn about. *contract_text* is optional: pass ``None`` when
+    the contract couldn't be fetched (every caller here is fail-open) and
+    the returned exposure just carries ``behaviour_count=0`` rather than
+    blocking detection on a fetch that failed — UNLESS *manifest* itself
+    says there is no contract to fetch in the first place (see below), in
+    which case ``None`` (no exposure at all) is returned instead.
+
+    This function does not itself CONFIRM a Gate-A contract exists for
+    *milestone_number* — a caller with a genuinely-fetched *contract_text*
+    already knows one does (the same "only call this once contract.md
+    exists" precondition every other Gate-A-gated check in this module
+    already applies, e.g. :func:`gate_a_contract_candidates`'s callers) and
+    gets an exposure back regardless of ``manifest.gate_a_exempt``.
+
+    #3202 review: a caller that could NOT fetch a contract (*contract_text*
+    is ``None``) is in a genuinely ambiguous spot — a transient fetch
+    failure and "no contract.md was ever authored" look identical from out
+    here. *manifest* itself resolves that ambiguity in exactly the one case
+    it can: ``manifest.gate_a_exempt`` (``gate_a: {exempt: true, ...}`` —
+    docs/ORACLE_LOOP.md) is the milestone's own declared, reviewable opt-out
+    from Gate-A, recorded in the same file this function already reads. When
+    it's set, "couldn't fetch a contract" is read as "there isn't one to
+    fetch" rather than "unknown" — so this returns ``None`` (no exposure,
+    nothing to warn about) instead of asserting "has a Gate-A contract" with
+    a fabricated "count unavailable". A fetch failure with
+    ``gate_a_exempt`` unset keeps the prior fail-loud behaviour (warn with
+    "count unavailable") — the plain network-hiccup case, where hiding the
+    warning would be the wrong direction to fail in.
+    """
+    if not manifest.exempt:
+        return None
+    if contract_text is None and manifest.gate_a_exempt:
+        return None
+    return GateAExemptExposure(
+        milestone_number=milestone_number,
+        exempt_issues=tuple(sorted(manifest.exempt)),
+        behaviour_count=count_declared_behaviours(contract_text or ""),
+    )
+
+
+def gate_a_exempt_warning(exposure: GateAExemptExposure) -> str:
+    """The single canonical #3202 warning text for *exposure* — rendered
+    verbatim (never re-derived) by every surface that reads this state: the
+    pre-dispatch guard's exemption suggestion, ``coord doctor``/``coord
+    gates``, the reviewer's briefing (``coord.review.build_review_briefing``),
+    and :func:`manifest_exempt_generated_comment` below.
+    """
+    n = len(exposure.exempt_issues)
+    issues_str = ", ".join(f"#{i}" for i in exposure.exempt_issues)
+    behaviours_str = (
+        f"{exposure.behaviour_count} declared behaviour"
+        f"{'s' if exposure.behaviour_count != 1 else ''}"
+        if exposure.behaviour_count
+        else "declared behaviours (count unavailable)"
+    )
+    return (
+        f"⚠️ ms-{exposure.milestone_number} has a Gate-A contract "
+        f"({behaviours_str}) but exempts {n} issue{'s' if n != 1 else ''} "
+        f"({issues_str}) from acceptance slices — nothing but a human at the "
+        "UAT gate verifies the contract's behaviours for that work (#3202). "
+        "This can be the right call (the work may not be oracle-shaped), but "
+        "make it deliberately, not as a silent side effect of the exempt: "
+        "list."
+    )
+
+
+def manifest_exempt_generated_comment(exposure: GateAExemptExposure) -> str:
+    """Generated ``#`` comment block (#3202) recording, in the manifest
+    itself, exactly what an ``exempt:`` list trades away — so the next
+    person reading ``manifest.yml`` sees the consequence stated in writing,
+    rather than an unstated side effect of a bare list of issue numbers.
+
+    Pure text generation; this module never auto-edits a hand-maintained
+    manifest (``exempt:`` is "rare, hand-edited" — see the
+    :data:`MANIFEST_FRAGMENTS_DIRNAME` comment above) — a caller (a human
+    author, or `coord acceptance author` tooling) is responsible for
+    actually inserting the returned text next to the ``exempt:`` block.
+    """
+    issues_str = ", ".join(f"#{i}" for i in exposure.exempt_issues)
+    behaviours = (
+        f"{exposure.behaviour_count}" if exposure.behaviour_count
+        else "an unknown number of"
+    )
+    return (
+        "# ── #3202: this exempts the contract's behaviours from verification ──\n"
+        f"# ms-{exposure.milestone_number}'s Gate-A contract declares "
+        f"{behaviours} behaviour(s).\n"
+        f"# This exempt: list opts {issues_str} out of authoring an "
+        "acceptance slice, so none\n"
+        "# of those behaviours are checked by anything but a human at the "
+        "UAT gate for\n"
+        "# that work. Confirmed intentional, not an oversight.\n"
+    )
+
+
+# (repo_github: str, path: str, branch: str) -> file content. Raises on
+# not-found (mirrors ``coord.github_ops.get_repo_file``) — every caller here
+# treats any exception as "this candidate doesn't exist" and tries the next
+# one, so a fetcher that instead returned ``None``/``""`` on a miss would be
+# indistinguishable from a genuinely empty file.
+GateAExemptFileFetcher = Callable[[str, str, str], str]
+
+
+def fetch_gate_a_exempt_warning(
+    config: Config,
+    repo: Repo,
+    milestone_number: int | None,
+    *,
+    file_fetcher: GateAExemptFileFetcher | None = None,
+) -> str | None:
+    """(#3202) Fetch *milestone_number*'s manifest + Gate-A contract off
+    *repo*'s default branch and, if the manifest exempts one or more issues
+    from needing an acceptance slice, return the canonical
+    :func:`gate_a_exempt_warning` text — or ``None`` when there's nothing to
+    warn about, or nothing to check at all.
+
+    THE single fetch-and-detect seam for this state (#3202 review finding:
+    the reviewer's briefing, ``coord gates``, and any future ``coord
+    doctor`` surfacing must all call this rather than re-deriving the
+    manifest/contract fetch loop each independently — a second copy is
+    exactly how the reviewer-briefing-only version of this fix drifted from
+    the "every seam" claim in this module's own docstring).
+
+    Fail-open like every other best-effort fetch this module makes ahead of
+    a briefing/report: a missing manifest/contract, a repo with no
+    acceptance driver configured, no milestone in hand, or a transient
+    network hiccup all return ``None`` rather than raise — this is an
+    advisory surfacing, never a gate, so a fetch failure must never affect
+    whether or how a review/report proceeds.
+
+    *file_fetcher* defaults to :func:`coord.github_ops.get_repo_file` (a
+    real ``gh`` call); inject a stub in tests so this advisory lookup never
+    shells out live.
+
+    ``exempt:`` is milestone-level and lives only in the legacy single
+    ``manifest.(yml|yaml|json)`` file, never a per-issue ``manifest.d/``
+    fragment (see :data:`MANIFEST_FRAGMENTS_DIRNAME`'s comment: "rare,
+    hand-edited... stays a single shared file by choice"), so only that file
+    needs checking here — unlike a full manifest load, no fragment merge is
+    needed.
+
+    #3202 review (non-blocking): tries ``.yml``/``.yaml``/``.json`` under
+    every :func:`search_roots_for_repo` root, breaking out of the extension
+    loop the moment any fetch succeeds — even if the fetched text then fails
+    to parse (``manifest_data`` resets to ``None`` and the loop moves to the
+    next root, never trying a sibling extension under the SAME root that
+    might have parsed). Accepted: a root carrying two same-named manifests
+    at different extensions, one malformed, is not a shape this codebase
+    produces — not incidental, a deliberate simplicity/rare-edge-case trade.
+    """
+    if milestone_number is None or not config.acceptance.has_driver(repo.name):
+        return None
+
+    from coord import github_ops  # noqa: PLC0415
+
+    fetch = file_fetcher or github_ops.get_repo_file
+
+    manifest_data = _fetch_milestone_manifest_data(config, repo, milestone_number, fetch)
+    if manifest_data is None or not manifest_data.exempt:
+        return None
+
+    contract_text: str | None = None
+    for path in gate_a_contract_candidates(config, repo.name, milestone_number):
+        try:
+            contract_text = fetch(repo.github, path, repo.default_branch)
+            break
+        except Exception:  # noqa: BLE001 — try the next candidate root
+            continue
+
+    exposure = gate_a_exempt_exposure(milestone_number, manifest_data, contract_text)
+    if exposure is None:
+        return None
+    return gate_a_exempt_warning(exposure)
+
+
+def _fetch_milestone_manifest_data(
+    config: Config,
+    repo: Repo,
+    milestone_number: int,
+    fetch: GateAExemptFileFetcher,
+) -> "ManifestData | None":
+    """Fetch + parse *milestone_number*'s legacy single-file manifest off
+    *repo*'s default branch, trying every :func:`search_roots_for_repo` root
+    and ``.yml``/``.yaml``/``.json`` extension in turn — the exact loop
+    :func:`fetch_gate_a_exempt_warning` used to run inline, extracted so
+    :func:`fetch_exempt_dependency_warnings` (#3212) can reuse it rather than
+    re-deriving a second copy (the same "one fetch-and-detect seam" discipline
+    the #3202 module note above already asks for).
+
+    ``None`` when nothing fetchable parses — the caller's existing fail-open
+    convention, unchanged from the inline version. Only the legacy shared
+    file is read, never a per-issue ``manifest.d/`` fragment — see
+    :func:`fetch_gate_a_exempt_warning`'s docstring for why that's the
+    deliberate scope, not an oversight.
+    """
+    manifest_data: ManifestData | None = None
+    for root in search_roots_for_repo(config, repo.name):
+        ms_dir = f"{root.rstrip('/')}/{ms_dirname(milestone_number)}"
+        for ext in (".yml", ".yaml", ".json"):
+            try:
+                text = fetch(repo.github, f"{ms_dir}/manifest{ext}", repo.default_branch)
+            except Exception:  # noqa: BLE001 — this extension/root doesn't exist
+                continue
+            try:
+                manifest_data = parse_manifest_text(
+                    text, source=f"{ms_dir}/manifest{ext}"
+                )
+            except Exception:  # noqa: BLE001 — malformed manifest: fail open
+                manifest_data = None
+            break
+        if manifest_data is not None:
+            break
+    return manifest_data
+
+
+# ── #3212: exempt-dependency verification ───────────────────────────────────
+#
+# `exempt:`'s promise can be bare ("this issue needs no acceptance slice") or
+# conditional ("... because #M covers it" — format-converter ms-1's own
+# `exempt: [6]  # ... covered by the harness #2 stands up`). Nothing
+# previously re-checked the conditional case: #2 merged, produced no spec
+# files, and #6's slice stayed silently waived forever — through Review, CI
+# and Test, caught only by a human at UAT. This section makes that specific
+# promise (:class:`ExemptDependency`, parsed above) checkable: did the named
+# issue actually land, and — when declared — did it produce the artifact it
+# promised.
+#
+# Same posture as the #3202 block above: this does not REFUSE anything (an
+# exempt issue's slice stays skipped either way — #3212's suggested shape
+# explicitly keeps this a report, not a new gate, since retroactively
+# un-exempting a shipped issue has nowhere left to go). It only makes the
+# unmet promise VISIBLE, with one canonical wording, wherever this state is
+# read — mirroring the #3202 "make it deliberately, not silently" posture
+# one hop further down the same promise chain.
+
+
+@dataclass(frozen=True)
+class ExemptDependencyStatus:
+    """(#3212) One :class:`ExemptDependency`, checked against live state.
+
+    *unmet* is the single bit every caller acts on: ``True`` means the
+    exemption's promise is unverified and should be reported loudly (the
+    issue's "at minimum" bar) — the named issue hasn't landed, or (when an
+    artifact was declared) it landed without producing it.
+    """
+
+    dep: ExemptDependency
+    #: Whether ``dep.covered_by`` is closed on GitHub (this repo's
+    #: convention: an issue closes when its work merges — see
+    #: ``coord.hooks._close_merged_issues``).
+    covered_by_closed: bool
+    #: ``None`` when ``dep.artifact`` is unset (nothing declared to check);
+    #: otherwise whether the glob matched anything under the checked root.
+    artifact_found: "bool | None" = None
+
+    @property
+    def unmet(self) -> bool:
+        if not self.covered_by_closed:
+            return True
+        return self.artifact_found is False
+
+
+def verify_exempt_dependency(
+    dep: ExemptDependency,
+    repo_github: str,
+    *,
+    issue_is_closed: "Callable[[str, int], bool] | None" = None,
+    artifact_root: "Path | None" = None,
+) -> ExemptDependencyStatus:
+    """(#3212) Check whether *dep*'s promise actually held.
+
+    *issue_is_closed* defaults to :func:`coord.github_ops.issue_is_closed` —
+    the same "did this land" answer this codebase already asks elsewhere
+    (this repo's convention: an issue closes when its work merges, see
+    ``coord.hooks._close_merged_issues``); never re-derived independently
+    here. Inject a stub in tests so this never shells out live.
+
+    *artifact_root* is a local checkout to glob ``dep.artifact`` against —
+    best-effort and optional, since not every caller has one in hand (a
+    dispatch-time or review-briefing fetch only has GitHub API reads, not a
+    clone). ``artifact_found`` stays ``None`` ("not checked") rather than
+    ``False`` ("checked and missing") when no root is given, so a caller can
+    tell the two apart instead of reading an un-checked artifact as absent.
+
+    Unlike the #3202 warnings above (advisory, fail-open on a fetch error),
+    this fails CLOSED on the dependency check itself:
+    :func:`~coord.github_ops.issue_is_closed` already fails open toward
+    ``False`` on any transient error (per its own docstring), so an
+    unreachable GitHub reads here as "hasn't landed" rather than being caught
+    and silently trusted — the entire point of #3212 is that this promise
+    was never being checked at all; a network hiccup must not reintroduce
+    that same silence under a new name.
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    is_closed = issue_is_closed or github_ops.issue_is_closed
+    covered_by_closed = bool(is_closed(repo_github, dep.covered_by))
+
+    artifact_found: "bool | None" = None
+    if dep.artifact:
+        artifact_found = False
+        if artifact_root is not None:
+            try:
+                artifact_found = artifact_root.exists() and any(
+                    artifact_root.glob(dep.artifact)
+                )
+            except (OSError, ValueError):
+                artifact_found = False
+
+    return ExemptDependencyStatus(
+        dep=dep, covered_by_closed=covered_by_closed, artifact_found=artifact_found,
+    )
+
+
+def exempt_dependency_warning(status: ExemptDependencyStatus) -> str:
+    """The canonical #3212 warning text for one unmet
+    :class:`ExemptDependencyStatus` — rendered verbatim by every surface
+    that reports it (``coord gates``, the reviewer's briefing), same
+    "one canonical wording" discipline as :func:`gate_a_exempt_warning`."""
+    dep = status.dep
+    reasons: list[str] = []
+    if not status.covered_by_closed:
+        reasons.append(f"#{dep.covered_by} has not landed (still open)")
+    if status.artifact_found is False:
+        reasons.append(f"no file matching {dep.artifact!r} was found")
+    reason_str = "; ".join(reasons) if reasons else "its promise is unverified"
+    origin = (
+        "" if dep.source == "declared"
+        else " (inferred from the exempt: entry's own comment, not a declared dependency)"
+    )
+    return (
+        f"⚠️ #{dep.issue}'s acceptance-slice exemption defers coverage to "
+        f"#{dep.covered_by}{origin}, but that promise is unmet: {reason_str} "
+        "(#3212). The exemption is still in effect and the gate stays "
+        f"disarmed — this is reported, not enforced — so treat #{dep.issue}'s "
+        "acceptance slice as unverified until a human checks it by hand."
+    )
+
+
+def unmet_exempt_dependency_warnings(
+    statuses: "Sequence[ExemptDependencyStatus]",
+) -> list[str]:
+    """:func:`exempt_dependency_warning` for every *statuses* entry whose
+    promise is unmet, in the caller's given order — the shared filter+render
+    step every surface above should call instead of re-checking ``.unmet``
+    and re-rendering the text independently."""
+    return [exempt_dependency_warning(s) for s in statuses if s.unmet]
+
+
+def fetch_exempt_dependency_warnings(
+    config: Config,
+    repo: Repo,
+    milestone_number: int | None,
+    *,
+    file_fetcher: GateAExemptFileFetcher | None = None,
+    issue_is_closed: "Callable[[str, int], bool] | None" = None,
+    artifact_root: "Path | None" = None,
+) -> list[str]:
+    """(#3212) Fetch *milestone_number*'s manifest off *repo*'s default
+    branch and report every ``exempt:`` entry whose named dependency
+    (:class:`ExemptDependency`) is unmet — the "at minimum" bar the issue
+    asks for: an exemption naming an issue that hasn't delivered is reported
+    loudly rather than silently disarming the gate forever.
+
+    Fail-open like :func:`fetch_gate_a_exempt_warning`: a missing manifest, a
+    repo with no acceptance driver, no milestone in hand, or a fetch/parse
+    hiccup all return ``[]`` — this is a reporting surface, not a gate, so a
+    lookup failure must never itself become a new failure mode. Once a
+    dependency IS in hand, though, :func:`verify_exempt_dependency` checks it
+    fail-closed, per its own docstring.
+
+    *artifact_root* is normally left ``None`` here (this is a GitHub-API-only
+    fetch seam, same as :func:`fetch_gate_a_exempt_warning`) — a caller
+    running against a local checkout (``coord acceptance run``/``record``)
+    should call :func:`verify_exempt_dependency` directly per-dependency
+    instead, passing its own checkout root.
+    """
+    if milestone_number is None or not config.acceptance.has_driver(repo.name):
+        return []
+
+    from coord import github_ops  # noqa: PLC0415
+
+    fetch = file_fetcher or github_ops.get_repo_file
+    manifest_data = _fetch_milestone_manifest_data(config, repo, milestone_number, fetch)
+    if manifest_data is None or not manifest_data.exempt_deps:
+        return []
+
+    statuses = [
+        verify_exempt_dependency(
+            dep, repo.github, issue_is_closed=issue_is_closed, artifact_root=artifact_root,
+        )
+        for dep in manifest_data.exempt_deps.values()
+    ]
+    return unmet_exempt_dependency_warnings(statuses)
+
+
+# ── #3212 "Related mitigation" — the reviewer never sees the mocks ─────────
+#
+# docs/ORACLE_LOOP.md's worker briefing contract (oracle_loop_contract_block
+# above) points the WORKER at a milestone's Gate-A contract/mocks. The
+# reviewer never got the same pointer — issue #3212's own words: "Today the
+# reviewer gets the diff, the repo's CLAUDE.md, the generic checklist and the
+# issue — but not mocks/index.html, the one artifact that defines what
+# 'correct' means for that screen." A reviewer asked "does this match the
+# approved screen?" would likely catch a mismatch a reviewer asked "is this
+# good code?" has no reason to. This section is the reviewer-facing rendering
+# of that same pointer, fetched via the GitHub API (the reviewer briefing has
+# no local checkout in hand — see fetch_gate_a_exempt_warning's identical
+# GateAExemptFileFetcher shape immediately above).
+
+
+def oracle_loop_contract_reviewer_note(
+    *, contract_path: str, mocks_dir: str, exempt: bool,
+) -> str:
+    """(#3212) The reviewer-facing rendering of the same pointer
+    :func:`oracle_loop_contract_block` gives the worker. Same canonical-
+    wording discipline as :func:`gate_a_exempt_warning` /
+    :func:`exempt_dependency_warning` — one function renders this text,
+    every caller (currently just :func:`fetch_oracle_loop_contract_note`)
+    uses it verbatim rather than re-wording it independently.
+    """
+    lines = [
+        "This issue's milestone carries a signed Gate-A design contract. "
+        f"Before judging correctness, read `{contract_path}` (the black-box "
+        f"surface) and, if present, the rendered mock(s) under `{mocks_dir}/` "
+        "— not just the diff, CLAUDE.md and the issue. A diff can pass every "
+        "generic check and still contradict the approved screen; only the "
+        "contract/mocks say what \"correct\" means here."
+    ]
+    if exempt:
+        lines.append(
+            "This issue's OWN acceptance slice is exempted from the "
+            "automated gate (see the milestone manifest's `exempt:` list) — "
+            "which makes this review the only automated check left before a "
+            "human sees it at UAT. Read the contract/mocks with that in "
+            "mind."
+        )
+    return "\n\n".join(lines)
+
+
+def fetch_oracle_loop_contract_note(
+    config: Config,
+    repo: Repo,
+    milestone_number: int | None,
+    issue_number: int,
+    *,
+    file_fetcher: GateAExemptFileFetcher | None = None,
+) -> str | None:
+    """(#3212) Fetch *milestone_number*'s manifest off *repo*'s default
+    branch and, if *issue_number* has an authored acceptance slice OR is
+    named in an ``exempt:`` list, return
+    :func:`oracle_loop_contract_reviewer_note` for it — the reviewer's copy
+    of the same pointer :func:`oracle_loop_contract_block` gives the worker.
+
+    ``None`` when there's nothing to point at (no milestone in hand, no
+    acceptance driver configured, or the issue is neither sliced nor
+    exempted in any root's manifest) or on any fetch/parse hiccup —
+    fail-open, same as :func:`fetch_gate_a_exempt_warning` /
+    :func:`fetch_exempt_dependency_warnings`: this is advisory, never a gate,
+    so a lookup failure must never affect whether a review proceeds.
+
+    Tries every :func:`search_roots_for_repo` root in turn — like
+    :func:`gate_a_contract_candidates`, which root actually governs a bare
+    milestone number isn't knowable ahead of time. Only the legacy
+    single-file ``manifest.(yml|yaml|json)`` is checked per root (same scope
+    as :func:`_fetch_milestone_manifest_data`, which this deliberately does
+    NOT reuse: that helper only tells the caller whether the milestone's
+    manifest parsed, not which root it parsed from, and the contract/mocks
+    paths below must come from the SAME root the match was found under) —
+    an issue whose test mapping lives *only* in a per-issue
+    ``manifest.d/<issue>.(yml|json)`` fragment (#2543) and carries no
+    ``exempt:`` entry is not detected here. Accepted, matching the identical
+    documented scope of the #3202 machinery this sits alongside.
+
+    *file_fetcher* defaults to :func:`coord.github_ops.get_repo_file`;
+    inject a stub in tests so this never shells out to a live ``gh``.
+    """
+    if milestone_number is None or not config.acceptance.has_driver(repo.name):
+        return None
+
+    from coord import github_ops  # noqa: PLC0415
+
+    fetch = file_fetcher or github_ops.get_repo_file
+    for root in search_roots_for_repo(config, repo.name):
+        dirname = root.rstrip("/") or ACCEPTANCE_DIRNAME
+        ms_dir = ms_dirname(milestone_number)
+        manifest_data: ManifestData | None = None
+        for ext in (".yml", ".yaml", ".json"):
+            try:
+                text = fetch(
+                    repo.github, f"{dirname}/{ms_dir}/manifest{ext}", repo.default_branch,
+                )
+            except Exception:  # noqa: BLE001 — this extension/root doesn't exist
+                continue
+            try:
+                manifest_data = parse_manifest_text(
+                    text, source=f"{dirname}/{ms_dir}/manifest{ext}"
+                )
+            except Exception:  # noqa: BLE001 — malformed manifest: try next root
+                manifest_data = None
+            break
+        if manifest_data is None:
+            continue
+
+        exempt = issue_number in manifest_data.exempt
+        has_slice = bool(test_ids_for_issue(manifest_data.tests, issue_number))
+        if not exempt and not has_slice:
+            continue
+
+        return oracle_loop_contract_reviewer_note(
+            contract_path=f"{dirname}/{ms_dir}/contract.md",
+            mocks_dir=f"{dirname}/{ms_dir}/mocks",
+            exempt=exempt,
+        )
+    return None
 
 
 def acceptance_capability_gap(

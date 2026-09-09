@@ -5,15 +5,17 @@ import json
 import re
 import time
 from dataclasses import asdict, dataclass, field, replace
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import schemathesis
+from schemathesis.config._output import DEFAULT_REPLACEMENT
 from schemathesis.core import NOT_SET
 from schemathesis.core.failures import Failure, is_reproducible_failure
 from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION
-from schemathesis.core.storage import atomic_write_text
+from schemathesis.core.storage import atomic_write_text, retry_while_locked
 from schemathesis.core.timing import format_timestamp
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import HttpMethod
@@ -184,6 +186,15 @@ class CrashFile:
     code_sample: str
     sequence: list[CrashStep]
 
+    def has_sanitized_values(self) -> bool:
+        """Whether a stored request lost values to sanitization, so a replay cannot be faithful."""
+        return any(
+            DEFAULT_REPLACEMENT in str(value)
+            for step in self.sequence
+            for container in (step.request_headers, step.query, step.case_headers, step.path_parameters)
+            for value in container.values()
+        )
+
     def filename(self) -> str:
         terminal = self.sequence[-1]
         check_name = terminal.checks[0].name if terminal.checks else "unknown"
@@ -251,7 +262,11 @@ class CrashWriter:
             except (OSError, json.JSONDecodeError):
                 continue
             if isinstance(data, dict) and data.get("operation") == operation:
-                path.unlink()
+                try:
+                    retry_while_locked(partial(path.unlink, missing_ok=True))
+                except PermissionError:
+                    # Healing is best-effort: a file still locked after the budget is left for the next run.
+                    continue
 
     def remove_files(self, filenames: set[str]) -> None:
         for filename in filenames:

@@ -14,6 +14,7 @@ The work-on-jira-issue workflow uses a state-machine approach with:
 - Automatic workflow advancement from commands
 """
 
+import argparse
 import json
 import logging
 import os
@@ -74,6 +75,45 @@ def _parse_bool_interactive(value: str) -> str:
     if normalised in ("true", "false"):
         return normalised
     raise argparse.ArgumentTypeError(f"invalid value '{value}' — must be 'true' or 'false'")
+
+
+def _add_terminal_argument(parser: object) -> None:
+    """Add the opt-in dedicated-terminal launch flags to a workflow parser."""
+    parser.add_argument(  # type: ignore[attr-defined]
+        "--copilot-terminal",
+        "--terminal",
+        dest="terminal",
+        action="store_true",
+        default=False,
+        help="Launch Copilot in a dedicated terminal window instead of VS Code.",
+    )
+
+
+def _resolve_terminal(terminal: bool | None, parsed_terminal: bool) -> bool:
+    """Resolve a programmatic terminal selection before the CLI default."""
+    return parsed_terminal if terminal is None else bool(terminal)
+
+
+def _add_headless_options(parser: argparse.ArgumentParser) -> None:
+    """Add the opt-in flags that prevent workflow commands from opening VS Code."""
+    parser.add_argument(
+        "--headless",
+        "--no-vscode",
+        dest="headless",
+        action="store_true",
+        default=False,
+        help="Run without opening VS Code or using VS Code task/terminal fallbacks.",
+    )
+
+
+def _headless_session_kwargs(headless: bool) -> dict[str, bool]:
+    """Keep the default session-launch call shape while enabling headless mode."""
+    return {"headless": True} if headless else {}
+
+
+def _resolve_headless_option(headless: bool | None, cli_headless: bool) -> bool:
+    """Resolve a programmatic headless value before the parsed CLI value."""
+    return cli_headless if headless is None else headless
 
 
 def _parse_pr_review_engine(value: str) -> str:
@@ -213,22 +253,34 @@ def _read_scoped_execution_signals(issue_key: str | None) -> tuple[str | None, o
     return state_mode, payload.get("dry_run")
 
 
-def _format_auto_setup_success_message(workflow_name: str, issue_key: str, starts_copilot_session: bool = True) -> str:
+def _format_auto_setup_success_message(
+    workflow_name: str,
+    issue_key: str,
+    starts_copilot_session: bool = True,
+    headless: bool = False,
+) -> str:
     """Return a formatted message block shown after a successful worktree auto-setup.
 
     Args:
         workflow_name: The workflow name (e.g., "work-on-jira-issue")
         issue_key: The Jira issue key or other identifier (e.g., "PROJECT-1234")
         starts_copilot_session: Whether the background setup will eventually
-            start a Copilot session in VS Code. LangChain PR review runs set
-            this to ``False`` because they continue headlessly in the
-            background instead.
+            start a Copilot session after the worktree is prepared. When this
+            is ``True``, ``headless`` decides whether that session runs in the
+            background without VS Code or through the usual VS Code-backed
+            workflow. LangChain PR review runs set this to ``False`` because
+            they continue headlessly in the background instead.
+        headless: Whether Copilot session startup, when enabled, should bypass
+            VS Code and continue in non-interactive background mode.
 
     Returns:
         A formatted string to print to stdout.
     """
     sep = "=" * 80
-    if starts_copilot_session:
+    if headless and starts_copilot_session:
+        status_line = "A headless Copilot session will continue automatically in the background."
+        fallback_line = "Monitor progress with: agdt-task-log or the log path printed by the setup task"
+    elif starts_copilot_session:
         status_line = "A Copilot session will start automatically in the VS Code integrated terminal."
         fallback_line = "If the session doesn't appear, run: agdt-task-log"
     else:
@@ -442,8 +494,10 @@ def initiate_pull_request_review_workflow(
     issue_key: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
     force_rereview: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
@@ -455,8 +509,9 @@ def initiate_pull_request_review_workflow(
 
     If not in the correct worktree/branch context, automatically creates
     a worktree and installs agentic-devtools, then continues by engine:
-    Copilot opens VS Code and starts a gh copilot session; LangChain runs
-    headlessly in the background without launching Copilot.
+    Copilot opens VS Code and starts a gh copilot session by default, or
+    starts a direct non-interactive session when ``headless`` is enabled;
+    LangChain runs headlessly in the background without launching Copilot.
 
     Usage:
         agdt-initiate-pull-request-review-workflow --pull-request-id 12345
@@ -500,6 +555,8 @@ Examples:
   agdt-initiate-pull-request-review-workflow --pull-request-id 12345 --interactive false
         """,
     )
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--pull-request-id",
         "-p",
@@ -588,8 +645,10 @@ Examples:
             issue_key,
             interactive,
             model,
+            terminal,
             skip_copilot_session,
             force_rereview,
+            headless,
         )
     )
 
@@ -602,6 +661,10 @@ Examples:
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
@@ -685,6 +748,7 @@ Examples:
     # parent process survives.
     clear_state_for_workflow_initiation(preserve_run_id=bool(skip_copilot_session))
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
     # Persist execution mode if provided via CLI — must happen AFTER bootstrap
     # scope is established so set_value() writes to the correctly scoped
     # state directory rather than the _unscoped fallback.
@@ -703,7 +767,8 @@ Examples:
     repo_root_early = get_git_repo_root() or os.getcwd()
     from .worktree_setup import _cleanup_stale_auto_start_task_for_worktree
 
-    _cleanup_stale_auto_start_task_for_worktree(repo_root_early)
+    if not headless:
+        _cleanup_stale_auto_start_task_for_worktree(repo_root_early)
 
     # Set provided values in state using the NORMALIZED identifiers.  When both issue_key
     # and pull_request_id are provided, write jira.issue_key FIRST so that the engine-side
@@ -843,6 +908,8 @@ Examples:
         if resolved_issue_key:
             auto_execute_command.extend(["--issue-key", resolved_issue_key])
         auto_execute_command.extend(["--interactive", "true" if interactive else "false"])
+        if headless:
+            auto_execute_command.append("--headless")
         if model and (not use_langchain or model_was_explicit):
             auto_execute_command.extend(["--model", model])
         auto_execute_command.append("--skip-copilot-session")
@@ -864,12 +931,14 @@ Examples:
             interactive=interactive,
             model=model,
             starts_copilot_session=not use_langchain,
+            headless=headless,
         ):
             print(
                 _format_auto_setup_success_message(
                     "pull-request-review",
                     worktree_identifier,
                     starts_copilot_session=not use_langchain,
+                    headless=headless,
                 )
             )
             return
@@ -914,14 +983,22 @@ Examples:
         # Use the git repo/worktree root (not cwd) so the prompt file is found
         # even when the command is invoked from a subdirectory.
         repo_root = get_git_repo_root() or os.getcwd()
-        _start_copilot_session_for_pr_review(repo_root, interactive=interactive, model=model)
+        _start_copilot_session_for_pr_review(
+            repo_root,
+            interactive=interactive,
+            model=model,
+            headless=headless,
+            **({"terminal": True} if terminal else {}),
+        )
 
 
 def initiate_work_on_jira_issue_workflow(
     issue_key: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
@@ -929,7 +1006,9 @@ def initiate_work_on_jira_issue_workflow(
 
     This workflow uses a state-machine approach:
     1. Pre-flight: Validates worktree folder & branch contain issue key
-    2. Auto-setup (if preflight fails): Creates worktree, installs helpers, opens VS Code
+    2. Auto-setup (if preflight fails): Creates worktree, installs helpers,
+       and opens VS Code by default (or starts a direct background Copilot
+       session when ``headless`` is enabled)
     3. Retrieve (if preflight passes): Auto-fetches Jira issue details
     4. Planning: Analyze issue and post plan comment
     5. Implementation: Code changes, tests, docs
@@ -939,7 +1018,8 @@ def initiate_work_on_jira_issue_workflow(
     9. Completion: Post final Jira comment
 
     If not in the correct worktree/branch context, automatically creates
-    a worktree, installs agentic-devtools, and opens VS Code.
+    a worktree, installs agentic-devtools, and opens VS Code by default
+    (or starts a direct background Copilot session when ``headless`` is enabled).
 
     Usage:
         agdt-initiate-work-on-jira-issue-workflow [--issue-key PROJECT-1234]
@@ -960,6 +1040,8 @@ def initiate_work_on_jira_issue_workflow(
 
     # Parse CLI arguments first — no state I/O at this point.
     parser = argparse.ArgumentParser(description="Initiate the work-on-jira-issue workflow")
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--issue-key",
         dest="issue_key",
@@ -1023,7 +1105,9 @@ def initiate_work_on_jira_issue_workflow(
         default=None,
         help="Execution mode for safety policy (live/dry_run/restricted). Default: resolved from state/env.",
     )
-    args = parser.parse_args(_effective_argv(_argv, issue_key, interactive, model, skip_copilot_session))
+    args = parser.parse_args(
+        _effective_argv(_argv, issue_key, interactive, model, terminal, skip_copilot_session, headless)
+    )
 
     # CLI values override programmatic values only when not already set
     if issue_key is None and args.issue_key:
@@ -1032,6 +1116,7 @@ def initiate_work_on_jira_issue_workflow(
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
@@ -1089,7 +1174,11 @@ def initiate_work_on_jira_issue_workflow(
 
     # Resolve identity/scope and clear state in the correct order.
     issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
     # Persist the effective execution mode if provided via CLI — must happen
     # AFTER bootstrap scope is established so set_value() writes to the
     # correctly scoped state directory rather than the _unscoped fallback.
@@ -1142,6 +1231,7 @@ def initiate_work_on_jira_issue_workflow(
             issue_key,
             "--interactive",
             "true" if interactive else "false",
+            *(["--headless"] if headless else []),
             "--model",
             model,
             "--skip-copilot-session",
@@ -1154,9 +1244,10 @@ def initiate_work_on_jira_issue_workflow(
             auto_execute_command=auto_execute_command,
             interactive=interactive,
             model=model,
+            headless=headless,
         ):
             # Setup successful - Copilot session will start automatically
-            print(_format_auto_setup_success_message("work-on-jira-issue", issue_key))
+            print(_format_auto_setup_success_message("work-on-jira-issue", issue_key, headless=headless))
             return
         else:
             # Setup failed - exit with error
@@ -1170,7 +1261,13 @@ def initiate_work_on_jira_issue_workflow(
         from .worktree_setup import _start_copilot_session_for_work_on_jira_issue
 
         repo_root = get_git_repo_root() or os.getcwd()
-        _start_copilot_session_for_work_on_jira_issue(repo_root, interactive=interactive, model=model)
+        _start_copilot_session_for_work_on_jira_issue(
+            repo_root,
+            interactive=interactive,
+            model=model,
+            headless=headless,
+            **({"terminal": True} if terminal else {}),
+        )
 
 
 def _execute_retrieve_step(issue_key: str, branch_name: str) -> None:
@@ -1858,14 +1955,17 @@ def initiate_create_jira_issue_workflow(
     user_request: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
     Initiate the create-jira-issue workflow.
 
     If no issue_key is provided, creates a placeholder issue in Jira first,
-    then sets up a worktree and opens VS Code for the user to continue.
+    then sets up a worktree and opens VS Code for the user to continue by
+    default (or starts a direct background Copilot session when ``headless`` is enabled).
 
     If issue_key is provided (after worktree setup), continues the workflow
     to populate the issue with full details based on the user's request.
@@ -1906,6 +2006,8 @@ def initiate_create_jira_issue_workflow(
 
     # Parse CLI arguments first — no state I/O at this point.
     parser = argparse.ArgumentParser(description="Initiate the create-jira-issue workflow")
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--project-key",
         dest="project_key",
@@ -1951,7 +2053,16 @@ def initiate_create_jira_issue_workflow(
     )
     args = parser.parse_args(
         _effective_argv(
-            _argv, project_key, issue_key, issue_type, user_request, interactive, model, skip_copilot_session
+            _argv,
+            project_key,
+            issue_key,
+            issue_type,
+            user_request,
+            interactive,
+            model,
+            terminal,
+            skip_copilot_session,
+            headless,
         )
     )
 
@@ -1968,6 +2079,7 @@ def initiate_create_jira_issue_workflow(
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
@@ -1985,7 +2097,11 @@ def initiate_create_jira_issue_workflow(
     if not issue_key:
         _clear_stale_issue_keys_for_create()
 
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
 
     # If project_key provided via CLI, set it in state
     if project_key:  # pragma: no cover
@@ -2051,7 +2167,13 @@ def initiate_create_jira_issue_workflow(
                 from .worktree_setup import _start_copilot_session_for_create_jira_issue
 
                 repo_root = get_git_repo_root() or os.getcwd()
-                _start_copilot_session_for_create_jira_issue(repo_root, interactive=interactive, model=model)
+                _start_copilot_session_for_create_jira_issue(
+                    repo_root,
+                    interactive=interactive,
+                    model=model,
+                    headless=headless,
+                    **({"terminal": True} if terminal else {}),
+                )
             return
         else:
             # Not in correct context - auto-setup
@@ -2067,6 +2189,7 @@ def initiate_create_jira_issue_workflow(
                 resolved_project_key,
                 "--interactive",
                 "true" if interactive else "false",
+                *(["--headless"] if headless else []),
                 "--model",
                 model,
                 "--skip-copilot-session",
@@ -2082,8 +2205,9 @@ def initiate_create_jira_issue_workflow(
                 auto_execute_command=auto_execute_command,
                 interactive=interactive,
                 model=model,
+                headless=headless,
             ):
-                print(_format_auto_setup_success_message("create-jira-issue", resolved_issue_key))
+                print(_format_auto_setup_success_message("create-jira-issue", resolved_issue_key, headless=headless))
                 return
             else:
                 print(_format_degraded_setup_message(resolved_issue_key, auto_execute_command))
@@ -2122,6 +2246,7 @@ def initiate_create_jira_issue_workflow(
         created_issue_key,
         "--interactive",
         "true" if interactive else "false",
+        *(["--headless"] if headless else []),
         "--model",
         model,
         "--skip-copilot-session",
@@ -2144,8 +2269,9 @@ def initiate_create_jira_issue_workflow(
         auto_execute_command=auto_execute_command,
         interactive=interactive,
         model=model,
+        headless=headless,
     ):
-        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key))
+        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key, headless=headless))
     else:
         print(_format_degraded_setup_message(created_issue_key, auto_execute_command))
         sys.exit(1)
@@ -2157,14 +2283,17 @@ def initiate_create_jira_epic_workflow(
     user_request: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
     Initiate the create-jira-epic workflow.
 
     If no issue_key is provided, creates a placeholder Epic in Jira first,
-    then sets up a worktree and opens VS Code for the user to continue.
+    then sets up a worktree and opens VS Code for the user to continue by
+    default (or starts a direct background Copilot session when ``headless`` is enabled).
 
     If issue_key is provided (after worktree setup), continues the workflow
     to populate the epic with full details based on the user's request.
@@ -2203,6 +2332,8 @@ def initiate_create_jira_epic_workflow(
 
     # Parse CLI arguments first — no state I/O at this point.
     parser = argparse.ArgumentParser(description="Initiate the create-jira-epic workflow")
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--project-key",
         dest="project_key",
@@ -2241,7 +2372,9 @@ def initiate_create_jira_epic_workflow(
         help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
     )
     args = parser.parse_args(
-        _effective_argv(_argv, project_key, issue_key, user_request, interactive, model, skip_copilot_session)
+        _effective_argv(
+            _argv, project_key, issue_key, user_request, interactive, model, terminal, skip_copilot_session, headless
+        )
     )
 
     # CLI values override programmatic values only when not already set
@@ -2255,12 +2388,16 @@ def initiate_create_jira_epic_workflow(
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
         model = model.strip() or None
     if model is None:
         model = get_default_copilot_model()
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     if not skip_copilot_session and args.skip_copilot_session:
         skip_copilot_session = True
 
@@ -2273,6 +2410,7 @@ def initiate_create_jira_epic_workflow(
         _clear_stale_issue_keys_for_create()
 
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
 
     # If project_key provided via CLI, set it in state
     if project_key:  # pragma: no cover
@@ -2333,7 +2471,13 @@ def initiate_create_jira_epic_workflow(
                 from .worktree_setup import _start_copilot_session_for_create_jira_epic
 
                 repo_root = get_git_repo_root() or os.getcwd()
-                _start_copilot_session_for_create_jira_epic(repo_root, interactive=interactive, model=model)
+                _start_copilot_session_for_create_jira_epic(
+                    repo_root,
+                    interactive=interactive,
+                    model=model,
+                    headless=headless,
+                    **({"terminal": True} if terminal else {}),
+                )
             return
         else:
             # Not in correct context - auto-setup
@@ -2349,6 +2493,7 @@ def initiate_create_jira_epic_workflow(
                 resolved_project_key,
                 "--interactive",
                 "true" if interactive else "false",
+                *(["--headless"] if headless else []),
                 "--model",
                 model,
                 "--skip-copilot-session",
@@ -2363,8 +2508,9 @@ def initiate_create_jira_epic_workflow(
                 auto_execute_command=auto_execute_command,
                 interactive=interactive,
                 model=model,
+                headless=headless,
             ):
-                print(_format_auto_setup_success_message("create-jira-epic", resolved_issue_key))
+                print(_format_auto_setup_success_message("create-jira-epic", resolved_issue_key, headless=headless))
                 return
             else:
                 sys.exit(1)
@@ -2402,6 +2548,7 @@ def initiate_create_jira_epic_workflow(
         created_issue_key,
         "--interactive",
         "true" if interactive else "false",
+        *(["--headless"] if headless else []),
         "--model",
         model,
         "--skip-copilot-session",
@@ -2424,8 +2571,9 @@ def initiate_create_jira_epic_workflow(
         auto_execute_command=auto_execute_command,
         interactive=interactive,
         model=model,
+        headless=headless,
     ):
-        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key))
+        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key, headless=headless))
     else:
         sys.exit(1)
 
@@ -2436,14 +2584,17 @@ def initiate_create_jira_subtask_workflow(
     user_request: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
     Initiate the create-jira-subtask workflow.
 
     If no issue_key is provided, creates a placeholder Sub-task in Jira first,
-    then sets up a worktree and opens VS Code for the user to continue.
+    then sets up a worktree and opens VS Code for the user to continue by
+    default (or starts a direct background Copilot session when ``headless`` is enabled).
 
     If issue_key is provided (after worktree setup), continues the workflow
     to populate the subtask with full details based on the user's request.
@@ -2480,6 +2631,8 @@ def initiate_create_jira_subtask_workflow(
 
     # Parse CLI arguments first — no state I/O at this point.
     parser = argparse.ArgumentParser(description="Initiate the create-jira-subtask workflow")
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--parent-key",
         dest="parent_key",
@@ -2518,7 +2671,9 @@ def initiate_create_jira_subtask_workflow(
         help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
     )
     args = parser.parse_args(
-        _effective_argv(_argv, parent_key, issue_key, user_request, interactive, model, skip_copilot_session)
+        _effective_argv(
+            _argv, parent_key, issue_key, user_request, interactive, model, terminal, skip_copilot_session, headless
+        )
     )
 
     # CLI values override programmatic values only when not already set
@@ -2532,12 +2687,16 @@ def initiate_create_jira_subtask_workflow(
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
         model = model.strip() or None
     if model is None:
         model = get_default_copilot_model()
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     if not skip_copilot_session and args.skip_copilot_session:
         skip_copilot_session = True
 
@@ -2550,6 +2709,7 @@ def initiate_create_jira_subtask_workflow(
         _clear_stale_issue_keys_for_create()
 
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
 
     # If parent_key provided via CLI, set it in state
     if parent_key:
@@ -2608,7 +2768,13 @@ def initiate_create_jira_subtask_workflow(
                 from .worktree_setup import _start_copilot_session_for_create_jira_subtask
 
                 repo_root = get_git_repo_root() or os.getcwd()
-                _start_copilot_session_for_create_jira_subtask(repo_root, interactive=interactive, model=model)
+                _start_copilot_session_for_create_jira_subtask(
+                    repo_root,
+                    interactive=interactive,
+                    model=model,
+                    headless=headless,
+                    **({"terminal": True} if terminal else {}),
+                )
             return
         else:
             # Not in correct context - auto-setup
@@ -2628,6 +2794,7 @@ def initiate_create_jira_subtask_workflow(
                 resolved_parent_key,
                 "--interactive",
                 "true" if interactive else "false",
+                *(["--headless"] if headless else []),
                 "--model",
                 model,
                 "--skip-copilot-session",
@@ -2643,8 +2810,9 @@ def initiate_create_jira_subtask_workflow(
                 auto_execute_command=auto_execute_command,
                 interactive=interactive,
                 model=model,
+                headless=headless,
             ):
-                print(_format_auto_setup_success_message("create-jira-subtask", resolved_issue_key))
+                print(_format_auto_setup_success_message("create-jira-subtask", resolved_issue_key, headless=headless))
                 return
             else:
                 sys.exit(1)
@@ -2694,6 +2862,7 @@ def initiate_create_jira_subtask_workflow(
         created_issue_key,
         "--interactive",
         "true" if interactive else "false",
+        *(["--headless"] if headless else []),
         "--model",
         model,
         "--skip-copilot-session",
@@ -2717,8 +2886,9 @@ def initiate_create_jira_subtask_workflow(
         auto_execute_command=auto_execute_command,
         interactive=interactive,
         model=model,
+        headless=headless,
     ):
-        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key))
+        print(_format_auto_setup_success_message("update-jira-issue", created_issue_key, headless=headless))
     else:
         sys.exit(1)
 
@@ -2873,14 +3043,17 @@ def initiate_update_jira_issue_workflow(
     user_request: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
     Initiate the update-jira-issue workflow.
 
     If not in the correct worktree/branch context, automatically creates
-    a worktree, installs agentic-devtools, and opens VS Code.
+    a worktree, installs agentic-devtools, and opens VS Code by default
+    (or starts a direct background Copilot session when ``headless`` is enabled).
 
     Usage:
         # Initial call - sets up worktree if needed:
@@ -2912,6 +3085,8 @@ def initiate_update_jira_issue_workflow(
 
     # Parse CLI arguments first — no state I/O at this point.
     parser = argparse.ArgumentParser(description="Initiate the update-jira-issue workflow")
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--issue-key",
         dest="issue_key",
@@ -2943,7 +3118,9 @@ def initiate_update_jira_issue_workflow(
         default=False,
         help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
     )
-    args = parser.parse_args(_effective_argv(_argv, issue_key, user_request, interactive, model, skip_copilot_session))
+    args = parser.parse_args(
+        _effective_argv(_argv, issue_key, user_request, interactive, model, terminal, skip_copilot_session, headless)
+    )
 
     # CLI values override programmatic values only when not already set
     if issue_key is None:
@@ -2954,18 +3131,23 @@ def initiate_update_jira_issue_workflow(
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
         model = model.strip() or None
     if model is None:
         model = get_default_copilot_model()
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     if not skip_copilot_session and args.skip_copilot_session:
         skip_copilot_session = True
 
     # Resolve identity/scope and clear state in the correct order.
     issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
 
     # If issue_key provided via CLI, set it in state
     if issue_key:
@@ -3005,6 +3187,7 @@ def initiate_update_jira_issue_workflow(
             resolved_issue_key,
             "--interactive",
             "true" if interactive else "false",
+            *(["--headless"] if headless else []),
             "--model",
             model,
             "--skip-copilot-session",
@@ -3019,8 +3202,9 @@ def initiate_update_jira_issue_workflow(
             auto_execute_command=auto_execute_command,
             interactive=interactive,
             model=model,
+            headless=headless,
         ):
-            print(_format_auto_setup_success_message("update-jira-issue", resolved_issue_key))
+            print(_format_auto_setup_success_message("update-jira-issue", resolved_issue_key, headless=headless))
             return
         else:
             sys.exit(1)
@@ -3068,7 +3252,14 @@ def initiate_update_jira_issue_workflow(
         from .worktree_setup import _start_copilot_session_for_update_jira_issue
 
         repo_root = get_git_repo_root() or os.getcwd()
-        _start_copilot_session_for_update_jira_issue(repo_root, interactive=interactive, model=model, step=step)
+        _start_copilot_session_for_update_jira_issue(
+            repo_root,
+            interactive=interactive,
+            model=model,
+            step=step,
+            headless=headless,
+            **({"terminal": True} if terminal else {}),
+        )
 
 
 def initiate_apply_pull_request_review_suggestions_workflow(
@@ -3076,15 +3267,18 @@ def initiate_apply_pull_request_review_suggestions_workflow(
     issue_key: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
     Initiate the apply-pull-request-review-suggestions workflow.
 
     If not in the correct worktree/branch context, automatically creates
-    a worktree, installs agentic-devtools, and opens VS Code, then starts
-    a Copilot session with the integrated prompt.
+    a worktree, installs agentic-devtools, and opens VS Code by default
+    before starting a Copilot session with the integrated prompt (or starts
+    a direct background Copilot session when ``headless`` is enabled).
 
     Usage:
         agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345
@@ -3123,6 +3317,8 @@ Examples:
   agdt-initiate-apply-pr-suggestions-workflow --pull-request-id 12345 --interactive false
         """,
     )
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--pull-request-id",
         dest="pull_request_id",
@@ -3155,7 +3351,7 @@ Examples:
         help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
     )
     args = parser.parse_args(
-        _effective_argv(_argv, pull_request_id, issue_key, interactive, model, skip_copilot_session)
+        _effective_argv(_argv, pull_request_id, issue_key, interactive, model, terminal, skip_copilot_session, headless)
     )
 
     # CLI values override programmatic values only when not already set
@@ -3167,12 +3363,16 @@ Examples:
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
         model = model.strip() or None
     if model is None:
         model = get_default_copilot_model()
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     if not skip_copilot_session and args.skip_copilot_session:
         skip_copilot_session = True
 
@@ -3216,6 +3416,7 @@ Examples:
     # is set; load_state()/save_state() will use the correctly scoped directory.
     clear_state_for_workflow_initiation()
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
 
     # Set provided values in state.  When both issue_key and pull_request_id are provided,
     # write jira.issue_key FIRST so that the engine-side priority guard in set_value()
@@ -3275,6 +3476,8 @@ Examples:
             if resolved_issue_key:  # pragma: no branch
                 auto_execute_command.extend(["--issue-key", resolved_issue_key])
             auto_execute_command.extend(["--interactive", "true" if interactive else "false"])
+            if headless:
+                auto_execute_command.append("--headless")
             auto_execute_command.extend(["--model", model])
             auto_execute_command.append("--skip-copilot-session")
 
@@ -3286,8 +3489,13 @@ Examples:
                 auto_execute_command=auto_execute_command,
                 interactive=interactive,
                 model=model,
+                headless=headless,
             ):
-                print(_format_auto_setup_success_message("apply-pull-request-review-suggestions", resolved_issue_key))
+                print(
+                    _format_auto_setup_success_message(
+                        "apply-pull-request-review-suggestions", resolved_issue_key, headless=headless
+                    )
+                )
                 return
             else:
                 sys.exit(1)  # pragma: no cover
@@ -3319,7 +3527,13 @@ Examples:
         # Use the git repo/worktree root (not cwd) so the prompt file is found
         # even when the command is invoked from a subdirectory.
         repo_root = get_git_repo_root() or os.getcwd()
-        _start_copilot_session_for_apply_pr_suggestions(repo_root, interactive=interactive, model=model)
+        _start_copilot_session_for_apply_pr_suggestions(
+            repo_root,
+            interactive=interactive,
+            model=model,
+            headless=headless,
+            **({"terminal": True} if terminal else {}),
+        )
 
 
 def _copy_review_state_to_apply_suggestions() -> None:
@@ -3369,14 +3583,17 @@ def initiate_optimize_issue_for_ai_agent_workflow(
     user_request: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
     Initiate the optimize-issue-for-ai-agent workflow.
 
     If not in the correct worktree/branch context, automatically creates
-    a worktree, installs agentic-devtools, and opens VS Code.
+    a worktree, installs agentic-devtools, and opens VS Code by default
+    (or starts a direct background Copilot session when ``headless`` is enabled).
 
     Usage:
         # Initial call - sets up worktree if needed:
@@ -3413,6 +3630,8 @@ def initiate_optimize_issue_for_ai_agent_workflow(
 
     # Parse CLI arguments first — no state I/O at this point.
     parser = argparse.ArgumentParser(description="Initiate the optimize-issue-for-ai-agent workflow")
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--issue-key",
         dest="issue_key",
@@ -3444,7 +3663,9 @@ def initiate_optimize_issue_for_ai_agent_workflow(
         default=False,
         help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
     )
-    args = parser.parse_args(_effective_argv(_argv, issue_key, user_request, interactive, model, skip_copilot_session))
+    args = parser.parse_args(
+        _effective_argv(_argv, issue_key, user_request, interactive, model, terminal, skip_copilot_session, headless)
+    )
 
     # CLI values override programmatic values only when not already set
     if issue_key is None:
@@ -3455,12 +3676,16 @@ def initiate_optimize_issue_for_ai_agent_workflow(
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
         model = model.strip() or None
     if model is None:
         model = get_default_copilot_model()
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     if not skip_copilot_session and args.skip_copilot_session:
         skip_copilot_session = True
 
@@ -3468,6 +3693,7 @@ def initiate_optimize_issue_for_ai_agent_workflow(
     # Context keys (jira.issue_key, jira.user_request, etc.) are intentionally preserved.
     issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
 
     # If issue_key provided via CLI, set it in state
     if issue_key:
@@ -3507,6 +3733,7 @@ def initiate_optimize_issue_for_ai_agent_workflow(
             resolved_issue_key,
             "--interactive",
             "true" if interactive else "false",
+            *(["--headless"] if headless else []),
             "--model",
             model,
             "--skip-copilot-session",
@@ -3521,8 +3748,11 @@ def initiate_optimize_issue_for_ai_agent_workflow(
             auto_execute_command=auto_execute_command,
             interactive=interactive,
             model=model,
+            headless=headless,
         ):
-            print(_format_auto_setup_success_message("optimize-issue-for-ai-agent", resolved_issue_key))
+            print(
+                _format_auto_setup_success_message("optimize-issue-for-ai-agent", resolved_issue_key, headless=headless)
+            )
             return
         else:
             sys.exit(1)  # pragma: no cover
@@ -3555,14 +3785,17 @@ def initiate_break_down_issue_into_subtasks_workflow(
     user_request: str | None = None,
     interactive: bool | None = None,
     model: str | None = None,
+    terminal: bool | None = None,
     skip_copilot_session: bool | None = None,
+    headless: bool | None = None,
     _argv: list[str] | None = None,
 ) -> None:
     """
     Initiate the break-down-issue-into-subtasks workflow.
 
     If not in the correct worktree/branch context, automatically creates
-    a worktree, installs agentic-devtools, and opens VS Code.
+    a worktree, installs agentic-devtools, and opens VS Code by default
+    (or starts a direct background Copilot session when ``headless`` is enabled).
 
     Usage:
         # Initial call - sets up worktree if needed:
@@ -3599,6 +3832,8 @@ def initiate_break_down_issue_into_subtasks_workflow(
 
     # Parse CLI arguments first — no state I/O at this point.
     parser = argparse.ArgumentParser(description="Initiate the break-down-issue-into-subtasks workflow")
+    _add_terminal_argument(parser)
+    _add_headless_options(parser)
     parser.add_argument(
         "--issue-key",
         dest="issue_key",
@@ -3630,7 +3865,9 @@ def initiate_break_down_issue_into_subtasks_workflow(
         default=False,
         help="Skip starting a Copilot session (used by auto-execute to avoid duplicate sessions).",
     )
-    args = parser.parse_args(_effective_argv(_argv, issue_key, user_request, interactive, model, skip_copilot_session))
+    args = parser.parse_args(
+        _effective_argv(_argv, issue_key, user_request, interactive, model, terminal, skip_copilot_session, headless)
+    )
 
     # CLI values override programmatic values only when not already set
     if issue_key is None:
@@ -3641,12 +3878,16 @@ def initiate_break_down_issue_into_subtasks_workflow(
         interactive = args.interactive == "true"
     if interactive is None:
         interactive = False
+    headless = _resolve_headless_option(headless, args.headless)
     if model is None and args.model is not None:
         model = args.model
     if isinstance(model, str):
         model = model.strip() or None
     if model is None:
         model = get_default_copilot_model()
+    terminal = _resolve_terminal(terminal, args.terminal)
+    if headless:
+        terminal = False
     if not skip_copilot_session and args.skip_copilot_session:
         skip_copilot_session = True
 
@@ -3654,6 +3895,7 @@ def initiate_break_down_issue_into_subtasks_workflow(
     # Context keys (jira.issue_key, jira.user_request, etc.) are intentionally preserved.
     issue_key = _ensure_scoped_bootstrap_and_clear(issue_key)
     set_value("copilot.model_id", model)
+    set_value("copilot.terminal", bool(terminal))
 
     # If issue_key provided via CLI, set it in state
     if issue_key:
@@ -3693,6 +3935,7 @@ def initiate_break_down_issue_into_subtasks_workflow(
             resolved_issue_key,
             "--interactive",
             "true" if interactive else "false",
+            *(["--headless"] if headless else []),
             "--model",
             model,
             "--skip-copilot-session",
@@ -3707,8 +3950,13 @@ def initiate_break_down_issue_into_subtasks_workflow(
             auto_execute_command=auto_execute_command,
             interactive=interactive,
             model=model,
+            headless=headless,
         ):
-            print(_format_auto_setup_success_message("break-down-issue-into-subtasks", resolved_issue_key))
+            print(
+                _format_auto_setup_success_message(
+                    "break-down-issue-into-subtasks", resolved_issue_key, headless=headless
+                )
+            )
             return
         else:
             sys.exit(1)  # pragma: no cover
@@ -4051,6 +4299,7 @@ def setup_worktree_background_cmd(_argv: list[str] | None = None) -> None:
     from .worktree_setup import setup_worktree_in_background_sync
 
     parser = argparse.ArgumentParser(description="Background worktree setup (internal)")
+    _add_headless_options(parser)
     parser.add_argument(
         "--issue-key",
         required=True,
@@ -4091,13 +4340,79 @@ def setup_worktree_background_cmd(_argv: list[str] | None = None) -> None:
         except json.JSONDecodeError:
             print(f"Warning: Could not parse additional-params JSON: {args.additional_params}", file=sys.stderr)
 
-    setup_worktree_in_background_sync(
+    setup_kwargs = dict(
         issue_key=args.issue_key,
         branch_prefix=args.branch_prefix,
         workflow_name=args.workflow_name,
         user_request=args.user_request,
         additional_params=additional_params,
     )
+    if args.headless:
+        setup_kwargs["headless"] = True
+    setup_worktree_in_background_sync(**setup_kwargs)
+
+
+def setup_worktree_cmd(_argv: list[str] | None = None):
+    """Prepare a worktree without starting Copilot or opening VS Code."""
+    import argparse
+    import contextlib
+    import io
+    import json
+
+    from .worktree_setup import setup_worktree_in_background_sync
+
+    parser = argparse.ArgumentParser(description="Prepare a worktree without starting Copilot")
+    parser.add_argument("--issue-key", required=True, help="Issue key (for example, DFLY-1234)")
+    parser.add_argument("--branch-name", default=None, help="Exact branch name to use")
+    parser.add_argument("--branch-prefix", default="feature", help="Branch prefix (default: feature)")
+    parser.add_argument(
+        "--use-existing-branch",
+        action="store_true",
+        help="Use the existing branch from origin instead of creating a new branch",
+    )
+    args = parser.parse_args(_argv)
+    branch_name = args.branch_name or f"{args.branch_prefix}/{args.issue_key}/implementation"
+    try:
+        setup_output = io.StringIO()
+        with contextlib.redirect_stdout(setup_output):
+            result = setup_worktree_in_background_sync(
+                issue_key=args.issue_key,
+                branch_prefix=args.branch_prefix,
+                branch_name=branch_name,
+                use_existing_branch=args.use_existing_branch,
+                workflow_name="setup-worktree",
+                auto_execute_command=None,
+                start_copilot_session=False,
+            )
+        if setup_output.getvalue():
+            print(setup_output.getvalue(), file=sys.stderr, end="")
+        output: dict[str, object] = {
+            "status": "success" if result.success else "failure",
+            "success": result.success,
+            "worktree_path": result.worktree_path,
+            "branch_name": result.branch_name,
+        }
+        if not result.success:
+            output["error"] = result.error_message
+        print(json.dumps(output))
+        if not result.success:
+            sys.exit(1)
+        return result
+    except Exception as exc:
+        if "setup_output" in locals() and setup_output.getvalue():
+            print(setup_output.getvalue(), file=sys.stderr, end="")
+        print(
+            json.dumps(
+                {
+                    "status": "failure",
+                    "success": False,
+                    "worktree_path": "",
+                    "branch_name": branch_name,
+                    "error": str(exc),
+                }
+            )
+        )
+        sys.exit(1)
 
 
 def initiate_pr_merge_orchestrator_workflow(

@@ -93,7 +93,7 @@ options:
       - The default choice is V(auto), which tries to use C(cryptography) if available.
       - If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/) library.
       - Note that with community.crypto 3.0.0, all values behave the same.
-        This option will be deprecated in a later version.
+        This option is deprecated and will be removed from community.crypto 4.0.0.
         We recommend to not set it explicitly.
     type: str
     default: auto
@@ -123,8 +123,7 @@ options:
       - Allows to configure in which situations the module is allowed to regenerate private keys. The module will always generate
         a new key if the destination file does not exist.
       - By default, the key will be regenerated when it does not match the module's options, except when the key cannot be
-        read or the passphrase does not match. Please note that this B(changed) for Ansible 2.10. For Ansible 2.9, the behavior
-        was as if V(full_idempotence) is specified.
+        read or the passphrase does not match.
       - If set to V(never), the module will fail if the key cannot be read or the passphrase is not matching, and will never
         regenerate an existing key.
       - If set to V(fail), the module will fail if the key does not correspond to the module's options.

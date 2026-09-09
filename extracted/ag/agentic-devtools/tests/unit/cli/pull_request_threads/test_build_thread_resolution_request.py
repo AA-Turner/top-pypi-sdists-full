@@ -309,9 +309,9 @@ def test_uses_azure_repository_from_configuration() -> None:
     assert request.repository == "configured-repo"
 
 
-@patch("agentic_devtools.cli.pull_request_threads.get_azure_devops_context_from_git_remote", return_value=None)
+@patch("agentic_devtools.cli.pull_request_threads.get_azure_devops_context_from_git_remote")
 @patch("agentic_devtools.cli.pull_request_threads.get_value")
-def test_uses_explicit_azure_devops_state_without_remote_context(mock_get_value, _mock_remote_context) -> None:
+def test_uses_explicit_azure_devops_state_without_remote_context(mock_get_value, mock_remote_context) -> None:
     mock_get_value.side_effect = lambda key: {
         "platform.code_hosting": "azure_devops",
         "organization": "https://dev.azure.com/org",
@@ -325,6 +325,35 @@ def test_uses_explicit_azure_devops_state_without_remote_context(mock_get_value,
     assert request.azure_devops_organization == "https://dev.azure.com/org"
     assert request.azure_devops_project == "project"
     assert request.repository == "repo"
+    mock_remote_context.assert_not_called()
+
+
+@pytest.mark.parametrize("missing", ["organization", "project", "repository"])
+def test_fills_in_incomplete_azure_devops_state_from_remote(missing: str) -> None:
+    """Incomplete Azure DevOps state is completed from the git remote."""
+    values: dict[str, str | None] = {
+        "organization": "https://dev.azure.com/state-org",
+        "project": "state-project",
+        "repository": "state-repo",
+    }
+    values[missing] = None
+    with (
+        patch(
+            "agentic_devtools.cli.pull_request_threads.get_value",
+            side_effect=lambda key: {"platform.code_hosting": "azure_devops", **values}.get(key),
+        ),
+        patch(
+            "agentic_devtools.cli.pull_request_threads.get_azure_devops_context_from_git_remote",
+            return_value=("https://dev.azure.com/remote-org", "remote-project", "remote-repo"),
+        ),
+    ):
+        request = build_thread_resolution_request(provider="azure_devops", pull_request_id=7, thread_id=9)
+
+    assert request.azure_devops_organization == (
+        "https://dev.azure.com/remote-org" if missing == "organization" else "https://dev.azure.com/state-org"
+    )
+    assert request.azure_devops_project == ("remote-project" if missing == "project" else "state-project")
+    assert request.repository == ("remote-repo" if missing == "repository" else "state-repo")
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: reductoai
-Version: 0.23.0
+Version: 0.24.0
 Summary: The official Python library for the reducto API
 Project-URL: Homepage, https://github.com/reductoai/reducto-python-sdk
 Project-URL: Repository, https://github.com/reductoai/reducto-python-sdk
@@ -41,8 +41,6 @@ Description-Content-Type: text/markdown
 The Reducto Python library provides convenient access to the Reducto REST API from any Python 3.9+
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
-
-It is generated with [Stainless](https://www.stainless.com/).
 
 ## Documentation
 

@@ -575,6 +575,9 @@ pub struct Deprecated {
     /// wandb.integration.kfp.wandb_log used with kfp\<2.0.0
     #[prost(bool, tag = "31")]
     pub kfp_v1_wandb_log: bool,
+    /// wandb.api or wandb.ensure_configured() used
+    #[prost(bool, tag = "32")]
+    pub wandb_api: bool,
 }
 /// A sequence of Records fully defines a run.
 ///
@@ -826,6 +829,12 @@ pub struct RunRecord {
     /// Information about the source if this is a fork or rewind of another run.
     #[prost(message, optional, tag = "23")]
     pub branch_point: ::core::option::Option<BranchPoint>,
+    /// Whether syncing should resume an existing run.
+    ///
+    /// This stores pre-sync intention. Distinct from `resumed` which stores what
+    /// actually happened.
+    #[prost(bool, tag = "24")]
+    pub resume: bool,
     #[prost(message, optional, tag = "200")]
     pub info: ::core::option::Option<RecordInfo>,
 }
@@ -3003,6 +3012,8 @@ pub enum ServerFeature {
     SweepsLocalScheduler = 35,
     /// Indicates that the server supports queries for an artifact's digest algorithm.
     ArtifactDigestAlgorithm = 36,
+    /// Indicates that the server supports automation action ARIA.
+    AutomationActionAria = 37,
 }
 impl ServerFeature {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -3072,6 +3083,7 @@ impl ServerFeature {
             Self::FilestreamGzip => "FILESTREAM_GZIP",
             Self::SweepsLocalScheduler => "SWEEPS_LOCAL_SCHEDULER",
             Self::ArtifactDigestAlgorithm => "ARTIFACT_DIGEST_ALGORITHM",
+            Self::AutomationActionAria => "AUTOMATION_ACTION_ARIA",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -3146,6 +3158,7 @@ impl ServerFeature {
             "FILESTREAM_GZIP" => Some(Self::FilestreamGzip),
             "SWEEPS_LOCAL_SCHEDULER" => Some(Self::SweepsLocalScheduler),
             "ARTIFACT_DIGEST_ALGORITHM" => Some(Self::ArtifactDigestAlgorithm),
+            "AUTOMATION_ACTION_ARIA" => Some(Self::AutomationActionAria),
             _ => None,
         }
     }

@@ -614,6 +614,14 @@ DATADOG_METRICS_ENABLED = bool(LSD_DD_API_KEY)
 EXPOSE_INTERNAL_METRICS_PROMETHEUS = env(
     "EXPOSE_INTERNAL_METRICS_PROMETHEUS", cast=bool, default=False
 )
+
+# These are only set for internal agents (polly/insights/engine/etc..) deployed in byoc so we can fetch logs (see api/langgraph_api/self_hosted_logs.py)
+DATA_PLANE_ID: str | None = env("DATA_PLANE_ID", cast=str, default=None)
+DATA_PLANE_ORG_ID: str | None = env("DATA_PLANE_ORG_ID", cast=str, default=None)
+DATA_PLANE_JWT_SECRET: str | None = env("DATA_PLANE_JWT_SECRET", cast=str, default=None)
+BYOC_HOST = env("BYOC_HOST", cast=str, default="byoc")
+BYOC_ENV = env("BYOC_ENV", cast=str, default="byoc")
+
 LANGGRAPH_LOGS_ENDPOINT = env("LANGGRAPH_LOGS_ENDPOINT", cast=str, default=None)
 LANGGRAPH_LOGS_ENABLED = env("LANGGRAPH_LOGS_ENABLED", cast=bool, default=False)
 
@@ -633,7 +641,9 @@ FF_PROFILE_IMPORTS = env("FF_PROFILE_IMPORTS", cast=bool, default=False)
 
 JS_READY_TIMEOUT_SECS = env("LANGGRAPH_JS_READY_TIMEOUT_SECS", cast=int, default=120)
 
-SELF_HOSTED_OBSERVABILITY_SERVICE_NAME = "LGP_Self_Hosted"
+SELF_HOSTED_OBSERVABILITY_SERVICE_NAME = env(
+    "SELF_HOSTED_OBSERVABILITY_SERVICE_NAME", cast=str, default="LGP_Self_Hosted"
+)
 
 IS_QUEUE_ENTRYPOINT = False
 IS_EXECUTOR_ENTRYPOINT = False
@@ -660,6 +670,8 @@ __all__ = [
     "BG_JOB_MAX_RETRIES",
     "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS",
     "BG_JOB_TIMEOUT_SECS",
+    "BYOC_ENV",
+    "BYOC_HOST",
     "CHECKPOINTER_CONFIG",
     "CHECKPOINTER_POSTGRES_POOL_MIN_SIZE",
     "CHECKPOINTER_POSTGRES_POOL_TIMEOUT_SECONDS",
@@ -670,6 +682,9 @@ __all__ = [
     "CRON_SCHEDULER_SLEEP_TIME",
     "DATABASE_URI",
     "DATADOG_METRICS_ENABLED",
+    "DATA_PLANE_ID",
+    "DATA_PLANE_JWT_SECRET",
+    "DATA_PLANE_ORG_ID",
     "DB_MIGRATION_BY_CORE_API",
     "EXPOSE_INTERNAL_METRICS_PROMETHEUS",
     "FF_CRONS_ENABLED",

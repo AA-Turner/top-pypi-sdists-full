@@ -19674,7 +19674,7 @@ function GuardHero(props) {
             /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm leading-relaxed text-brand-dark/70", children: props.subheadline })
           ] })
         ] }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-start gap-3", children: [
           props.cta,
           props.secondaryCta
         ] })
@@ -19734,6 +19734,9 @@ function buildApprovalProofCredentials(gate, credentials, requireFreshTotp = fal
   return { approval_totp_code: credentials.approvalTotpCode };
 }
 function ApprovalProofFieldInputs(props) {
+  const instanceId = reactExports.useId();
+  const passwordFieldId = `${instanceId}-approval-proof-password`;
+  const totpFieldId = `${instanceId}-approval-proof-totp`;
   const handleTotpChange = reactExports.useCallback((event) => {
     const digits = event.target.value.replace(/\D/g, "").slice(0, 6);
     event.target.value = digits;
@@ -19743,31 +19746,37 @@ function ApprovalProofFieldInputs(props) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm leading-6 text-brand-dark/75", children: "Recently confirmed with your authenticator. A new code is not needed yet." });
   }
   const needsPassword = approvalProofRequiresPassword(props.approvalGate);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-3", children: needsPassword ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-3", children: needsPassword ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", htmlFor: passwordFieldId, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-semibold text-brand-dark", children: "Approval password" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       "input",
       {
         ref: props.passwordRef,
+        id: passwordFieldId,
         type: "password",
         autoComplete: "current-password",
+        name: "password",
+        enterKeyHint: "done",
         value: props.approvalPassword,
         onChange: props.onApprovalPasswordChange,
         className: "mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-brand-dark focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
       }
     )
-  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
+  ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", htmlFor: totpFieldId, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-semibold text-brand-dark", children: "Authenticator code" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       "input",
       {
+        id: totpFieldId,
         type: "text",
         inputMode: "numeric",
         pattern: "[0-9]*",
         maxLength: 6,
         autoComplete: "one-time-code",
         name: "one-time-code",
+        enterKeyHint: "done",
         autoFocus: true,
+        "aria-required": "true",
         value: props.approvalTotpCode,
         onChange: handleTotpChange,
         className: "mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-lg font-semibold tracking-[0.35em] text-brand-dark focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
@@ -20035,14 +20044,15 @@ function useFocusTrap(active, containerRef) {
     const container2 = containerRef.current;
     if (!container2) return;
     previouslyFocusedRef.current = document.activeElement;
-    const focusable = getFocusableElements(container2);
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (first) {
-      first.focus();
+    const initial = getFocusableElements(container2);
+    if (initial[0]) {
+      initial[0].focus();
     }
     function handleKeyDown(event) {
       if (event.key !== "Tab") return;
+      const focusable = getFocusableElements(container2);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
       if (focusable.length === 0) {
         event.preventDefault();
         return;
@@ -20052,11 +20062,9 @@ function useFocusTrap(active, containerRef) {
           event.preventDefault();
           last?.focus();
         }
-      } else {
-        if (document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
-        }
+      } else if (document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
       }
     }
     container2.addEventListener("keydown", handleKeyDown);
@@ -25955,7 +25963,7 @@ function CommandActivityDetail(props) {
           controlling: match.rule_id === props.activity.controlling_rule_id
         },
         `${match.ordinal}:${safeEvidenceId(match.rule_id)}`
-      )) }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm text-slate-500", children: "No rule match was recorded." })
+      )) }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-sm text-slate-500", children: props.activity.decision_reason_code === "no_match" ? "No rule matched this action." : "Rule evidence is unavailable for this record." })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-t border-slate-100 pt-4", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(SectionLabel, { children: "Was this interaction expected?" }),
@@ -26392,13 +26400,19 @@ function CommandRow(props) {
     props.onSelect(props.item.activity_id);
   }, [props.item.activity_id, props.onSelect]);
   const firstRule = props.item.matches[0];
+  let ruleLabel = "Rule evidence unavailable";
+  if (firstRule) {
+    ruleLabel = safeEvidenceId(firstRule.rule_id);
+  } else if (props.item.decision_reason_code === "no_match") {
+    ruleLabel = "No rule match";
+  }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { className: props.selected ? "bg-brand-blue/[0.04]" : "hover:bg-slate-50/70", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "whitespace-nowrap px-3 py-3 text-xs text-slate-600", children: recordedTime(props.item.occurred_at) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-3 text-sm font-medium text-brand-dark", children: safeEvidenceId(props.item.harness) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-3 text-sm text-brand-dark", children: commandDecisionLabel(props.item.policy_action) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-3 text-sm text-brand-dark", children: commandExecutionLabel(props.item.execution_status) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { className: "px-3 py-3 text-sm text-slate-600", children: [
-      firstRule ? safeEvidenceId(firstRule.rule_id) : "No rule match",
+      ruleLabel,
       props.item.match_count > 1 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(Badge, { tone: "info", children: [
         "+",
         props.item.match_count - 1

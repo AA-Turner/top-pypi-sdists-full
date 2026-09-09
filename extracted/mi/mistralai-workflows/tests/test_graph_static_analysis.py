@@ -755,8 +755,8 @@ class NestedLoopWorkflow:
 
 
 def test_return_inside_loop_conditional_emits_exit_not_merge() -> None:
-    """A branch that ends with ``return`` inside a loop should emit a
-    branch_exit edge to the output node, not a branch_merge."""
+    """A branch that ends with ``return`` inside a loop terminates on its own exit
+    node, and must not merge back into the loop."""
     source = """
 from mistralai.workflows import workflow, activity
 
@@ -778,10 +778,11 @@ class ReturnLoop:
 
     graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
 
-    output = next(n for n in graph.nodes if n.type == "output")
-    true_exit = [e for e in graph.edges if e.kind == "branch_exit_true"]
+    exit_node = next(n for n in graph.nodes if n.id == "ReturnLoop::cond_0::exit_true")
+    assert exit_node.type == "output"
+    true_exit = [e for e in graph.edges if e.to == exit_node.id]
     assert len(true_exit) == 1
-    assert true_exit[0].to == output.id
+    assert true_exit[0].kind == "branch_true"
     merge_edges = [e for e in graph.edges if e.kind == "branch_merge"]
     assert merge_edges == []
 

@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="xpander-sdk",
-    version="2.0.506",
+    version="2.0.507",
     author="xpanderAI",
     author_email="dev@xpander.ai",
     description="xpander.ai Backend-as-a-service for AI Agents - SDK",
@@ -41,6 +41,8 @@ setup(
             "psycopg[binary,pool]",
             "greenlet",
             "aioboto3==15.5.0",
+            # agno 2.5.14 tools/mcp imports the pre-2.x streamablehttp_client
+            "mcp<2",
         ],
         "test": [
             "pytest",
@@ -57,6 +59,9 @@ setup(
             "aioboto3==15.5.0",
             # gemini llm_api_base routing tests construct the real client
             "google-genai>=1.52.0",
+            # openai-agents pulls mcp<3; mcp 2.x renamed streamablehttp_client,
+            # which agno 2.5.14 and mcp_connect still import
+            "mcp<2",
         ],
         "dev": [
             "black",
@@ -65,7 +70,7 @@ setup(
             "pytest-asyncio",
             "pytest-cov",
             "anthropic<1",
-            "mcp",
+            "mcp<2",
             "openai",
             "fireworks-ai",
             "aioboto3==15.5.0",

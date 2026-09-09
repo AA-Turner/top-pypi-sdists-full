@@ -1024,7 +1024,7 @@ class WindowManager(bpy.types.ID):
         """
 
     def invoke_popup(self, *args, **kwargs) -> None:
-        """WindowManager.invoke_popup(operator, width=300)
+        """WindowManager.invoke_popup(operator, width=300, auto_keymap=False)
         Operator popup invoke (only shows operators properties, without executing it)
 
                 :param args:
@@ -1110,17 +1110,20 @@ class WindowManager(bpy.types.ID):
         ui_units_x: int = 0,
         keymap: None | bpy.types.KeyMap | None = None,
         from_active_button: bool = False,
+        auto_keymap: bool = False,
     ) -> None:
         """Display a popover populated by draw_func.
 
-        :param draw_func: Function to populate the popover layout.
-        :param ui_units_x: Width of the popover in UI units (0 for the default).
-        :param keymap: Optional keymap to attach to the popover.
-        :param from_active_button: Anchor the popover to the active button.
+                :param draw_func: Function to populate the popover layout.
+                :param ui_units_x: Width of the popover in UI units (0 for the default).
+                :param keymap: Optional keymap to attach to the popover.
+                :param from_active_button: Anchor the popover to the active button.
+                :param auto_keymap: Assign accelerator keys to buttons,
+        shown as underlined characters.
         """
 
     def popover_begin__internal(self, *args, **kwargs) -> None:
-        """WindowManager.popover_begin__internal(ui_units_x=0, from_active_button=False)
+        """WindowManager.popover_begin__internal(ui_units_x=0, from_active_button=False, auto_keymap=False)
         popover_begin__internal
 
                 :param args:

@@ -18,7 +18,10 @@ from fivetran_connector_sdk.type_coercion import (
     _parse_utc_datetime_str, _parse_naive_datetime_str, _parse_naive_date_str,
 )
 
-_USE_ROW_DATA = os.environ.get("ConnectorSdkRemoveValueType", "false").lower() == "true"
+def _use_row_data() -> bool:
+    # Read lazily, not once at import -- `fivetran debug` sets this env var after this module has
+    # already been imported, so a frozen module-level constant would never see it.
+    return os.environ.get("ConnectorSdkRemoveValueType", "false").lower() == "true"
 
 
 class Operations:
@@ -35,7 +38,7 @@ class Operations:
             file (FileUpload, optional): A file upload to stream before the metadata row.
         """
         _validate_table_name(table)
-        if _USE_ROW_DATA:
+        if _use_row_data():
             record = _build_row_data_record(table, data, UPSERT_TYPE, file)
         else:
             record = _build_record(table, data, UPSERT_TYPE, file)
@@ -51,7 +54,7 @@ class Operations:
             file (FileUpload, optional): A file upload to stream before the metadata row.
         """
         _validate_table_name(table)
-        if _USE_ROW_DATA:
+        if _use_row_data():
             record = _build_row_data_record(table, modified, UPDATE_TYPE, file)
         else:
             record = _build_record(table, modified, UPDATE_TYPE, file)
@@ -93,7 +96,7 @@ class Operations:
         """
         _validate_table_name(table)
         columns = _get_columns(table)
-        if _USE_ROW_DATA:
+        if _use_row_data():
             encoded_data = _encode_row_data(columns, keys)
             record = connector_sdk_pb2.StructuredRecord(
                 schema_name=None,

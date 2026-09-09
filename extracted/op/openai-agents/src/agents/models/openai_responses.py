@@ -91,6 +91,12 @@ from ..util._error_tracing import (
 from ..util._json import _to_dump_compatible
 from ..version import __version__
 from ._openai_retry import get_openai_retry_advice
+from ._openai_websocket import (
+    get_openai_websocket_logger,
+    merge_openai_client_websocket_headers,
+    prepare_openai_client_websocket_base_url,
+    refresh_openai_client_api_key_if_supported,
+)
 from ._response_terminal import response_error_event_failure_error, response_terminal_failure_error
 from ._retry_runtime import (
     should_disable_provider_managed_retries,
@@ -177,10 +183,8 @@ def _materialize_responses_tool_params(
 
 
 async def _refresh_openai_client_api_key_if_supported(client: Any) -> None:
-    """Refresh client auth if the current OpenAI SDK exposes a refresh hook."""
-    refresh_api_key = getattr(client, "_refresh_api_key", None)
-    if callable(refresh_api_key):
-        await refresh_api_key()
+    """Backward-compatible wrapper around shared WebSocket client credential refresh."""
+    await refresh_openai_client_api_key_if_supported(client)
 
 
 def _construct_response_stream_event_from_payload(
@@ -498,6 +502,9 @@ class OpenAIResponsesModel(Model):
     def _non_null_or_omit(self, value: Any) -> Any:
         return value if value is not None else omit
 
+    def _uses_official_openai_endpoint(self) -> bool:
+        return is_official_openai_client(self._get_client())
+
     def _supports_default_prompt_cache_key(self) -> bool:
         return is_official_openai_client(self._get_client())
 
@@ -568,6 +575,11 @@ class OpenAIResponsesModel(Model):
     ) -> ModelResponse:
         with response_span(disabled=tracing.is_disabled()) as span_response:
             try:
+                redacted_response_id_endpoint_is_trusted = (
+                    not tracing.include_data()
+                    and not tracing.is_disabled()
+                    and self._uses_official_openai_endpoint()
+                )
                 response = await self._fetch_response(
                     system_instructions,
                     input,
@@ -600,6 +612,11 @@ class OpenAIResponsesModel(Model):
                 if tracing.include_data():
                     span_response.span_data.response = response
                     span_response.span_data.input = input
+                elif (
+                    redacted_response_id_endpoint_is_trusted
+                    and self._uses_official_openai_endpoint()
+                ):
+                    span_response.span_data._response_id = response.id
             except asyncio.CancelledError:
                 record_current_task_model_timeout_on_span(
                     span_response,
@@ -654,6 +671,11 @@ class OpenAIResponsesModel(Model):
         """
         with response_span(disabled=tracing.is_disabled()) as span_response:
             try:
+                redacted_response_id_endpoint_is_trusted = (
+                    not tracing.include_data()
+                    and not tracing.is_disabled()
+                    and self._uses_official_openai_endpoint()
+                )
                 stream = await self._fetch_response(
                     system_instructions,
                     input,
@@ -676,6 +698,11 @@ class OpenAIResponsesModel(Model):
                         chunk_type = getattr(chunk, "type", None)
                         if isinstance(chunk, ResponseCompletedEvent):
                             final_response = chunk.response
+                            if (
+                                redacted_response_id_endpoint_is_trusted
+                                and self._uses_official_openai_endpoint()
+                            ):
+                                span_response.span_data._response_id = chunk.response.id
                             if model_settings.preserve_raw_usage is True:
                                 _attach_raw_usage_snapshot(chunk.response, chunk.response.usage)
                             usage = _usage_from_response(chunk.response)
@@ -683,6 +710,12 @@ class OpenAIResponsesModel(Model):
                                 # Record before yielding the terminal event because consumers may
                                 # close the generator immediately after receiving it.
                                 span_response.span_data.usage = model_usage_to_span_usage(usage)
+                            if tracing.include_data():
+                                # Same reason as usage: a consumer that stops at the terminal
+                                # event closes the generator and never reaches the post-loop
+                                # assignment, so record the model I/O before yielding.
+                                span_response.span_data.response = chunk.response
+                                span_response.span_data.input = input
                         elif chunk_type in {
                             "response.failed",
                             "response.incomplete",
@@ -1106,6 +1139,13 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
             None
         )
         self._ws_client_close_generation = 0
+
+    def _uses_official_openai_endpoint(self) -> bool:
+        base_url = prepare_openai_client_websocket_base_url(
+            self._client,
+            context="Responses websocket",
+        )
+        return is_official_openai_base_url(base_url, websocket=True)
 
     def _supports_default_prompt_cache_key(self) -> bool:
         if self._client.websocket_base_url is not None:
@@ -1533,76 +1573,19 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
         return frame, ws_url, handshake_headers
 
     def _merge_websocket_headers(self, extra_headers: Mapping[str, Any]) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        for source in (
-            getattr(self._client, "auth_headers", {}),
-            self._client.default_headers,
-        ):
-            for key, value in source.items():
-                if _is_openai_omitted_value(value):
-                    continue
-                header_key = str(key)
-                for existing_key in list(headers):
-                    if existing_key.lower() == header_key.lower():
-                        del headers[existing_key]
-                headers[header_key] = str(value)
-
-        for key, value in extra_headers.items():
-            if isinstance(value, NotGiven):
-                continue
-            header_key = str(key)
-            for existing_key in list(headers):
-                if existing_key.lower() == header_key.lower():
-                    del headers[existing_key]
-            if isinstance(value, Omit):
-                continue
-            headers[header_key] = str(value)
-
-        return headers
+        return merge_openai_client_websocket_headers(
+            self._client,
+            extra_headers=extra_headers,
+        )
 
     def _prepare_websocket_url(self, extra_query: Any) -> str:
-        if self._client.websocket_base_url is not None:
-            websocket_base_url = self._client.websocket_base_url
-            if is_legacy_httpx_instance(websocket_base_url, "URL"):
-                websocket_base_url = str(websocket_base_url)
-            base_url = httpx2.URL(websocket_base_url)
-            ws_scheme = {"http": "ws", "https": "wss"}.get(base_url.scheme, base_url.scheme)
-            base_url = base_url.copy_with(scheme=ws_scheme)
-        else:
-            client_base_url = self._client.base_url
-            ws_scheme = {"http": "ws", "https": "wss"}.get(
-                client_base_url.scheme, client_base_url.scheme
-            )
-            base_url = client_base_url.copy_with(scheme=ws_scheme)
-
-        params: dict[str, Any] = dict(base_url.params)
-        default_query = getattr(self._client, "default_query", None)
-        if default_query is not None and not _is_openai_omitted_value(default_query):
-            if not isinstance(default_query, Mapping):
-                raise UserError("Responses websocket client default_query must be a mapping.")
-            for key, value in default_query.items():
-                query_key = str(key)
-                if isinstance(value, Omit):
-                    params.pop(query_key, None)
-                    continue
-                if isinstance(value, NotGiven):
-                    continue
-                params[query_key] = value
-
-        if extra_query is not None and not _is_openai_omitted_value(extra_query):
-            if not isinstance(extra_query, Mapping):
-                raise UserError("Responses websocket extra_query must be a mapping.")
-            for key, value in extra_query.items():
-                query_key = str(key)
-                if isinstance(value, Omit):
-                    params.pop(query_key, None)
-                    continue
-                if isinstance(value, NotGiven):
-                    continue
-                params[query_key] = value
-
+        base_url = prepare_openai_client_websocket_base_url(
+            self._client,
+            extra_query=extra_query,
+            context="Responses websocket",
+        )
         path = base_url.path.rstrip("/") + "/responses"
-        return str(base_url.copy_with(path=path, params=params))
+        return str(base_url.copy_with(path=path))
 
     async def _ensure_websocket_connection(
         self,
@@ -1746,6 +1729,7 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
         connect_kwargs: dict[str, Any] = {
             "user_agent_header": None,
             "additional_headers": dict(headers),
+            "logger": get_openai_websocket_logger(),
             "max_size": None,
             "open_timeout": connect_timeout,
         }
@@ -2205,9 +2189,18 @@ class Converter:
             }
             if tool.external_web_access is not None:
                 web_search_tool["external_web_access"] = tool.external_web_access
+            if tool.search_content_types is not None:
+                web_search_tool["search_content_types"] = list(tool.search_content_types)
+            if tool.image_settings is not None:
+                web_search_tool["image_settings"] = dict(tool.image_settings)
+            web_search_include: ResponseIncludable | None = (
+                "web_search_call.results"
+                if tool.search_content_types is not None and "image" in tool.search_content_types
+                else None
+            )
             return (
                 _require_responses_tool_param(web_search_tool),
-                None,
+                web_search_include,
             )
         elif isinstance(tool, FileSearchTool):
             file_search_tool_param: FileSearchToolParam = {

@@ -20,6 +20,7 @@ import threading
 from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
+from typing import Any
 
 from agentic_devtools.cli.vscode_tasks import remove_auto_start_task
 from agentic_devtools.file_locking import FileLockError, locked_file
@@ -27,6 +28,12 @@ from agentic_devtools.state import BOOTSTRAP_FILENAME, IDENTITY_CACHE_FILENAME
 
 # Exported for dynamic invocation by run_function_in_background
 __all__ = ["_setup_worktree_from_state"]
+
+
+def _terminal_kwargs(terminal: bool) -> dict[str, Any]:
+    """Return terminal-only keyword arguments without changing default calls."""
+    return {"terminal": True} if terminal else {}
+
 
 # ---------------------------------------------------------------------------
 # Copilot-safe prompt design best practices
@@ -314,6 +321,23 @@ def get_current_branch() -> str | None:
     try:
         result = subprocess.run(
             ["git", "branch", "--show-current"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip() or None
+        return None
+    except (FileNotFoundError, OSError):  # pragma: no cover
+        return None
+
+
+def get_worktree_branch(worktree_path: str) -> str | None:
+    """Return the currently checked-out branch name for ``worktree_path``."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", worktree_path, "branch", "--show-current"],
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -2042,7 +2066,7 @@ _SETUP_STDERR_READ_LIMIT = 4096
 # the longest configured value-based secret for the current process so that a
 # full secret is always present for redaction before the final bounded slice.
 _SETUP_STDERR_SANITIZE_OVERLAP = 512
-_SETUP_SCRIPT_TIMEOUT_SECONDS = 60
+_SETUP_SCRIPT_TIMEOUT_SECONDS = 1800
 _SETUP_SCRIPT_KILL_WAIT_SECONDS = 5
 _SETUP_CLEANUP_TIMEOUT_SECONDS = 30
 _SETUP_CLEANUP_CONFIRMATION_TIMEOUT_SECONDS = 10
@@ -2345,7 +2369,7 @@ def setup_worktree_environment(
         defer_task_permission_settings: Leave automatic-task permission
             injection to the caller (default: False).
         target_setup_timeout: Maximum time in seconds for the target setup
-            script (default: 60).
+            script (default: 1800).
 
     Returns:
         WorktreeSetupResult with success status and details.  A present target
@@ -2567,12 +2591,14 @@ def get_worktree_continuation_prompt(
     user_request: str | None = None,
     additional_params: dict | None = None,
     model: str | None = None,
+    headless: bool = False,
 ) -> str:
     """
-    Generate a prompt for continuing a workflow in a new VS Code window.
+    Generate a prompt for continuing a workflow after worktree setup.
 
-    This generates a copy/paste ready command that the user can paste into
-    the AI chat in the new VS Code window to continue the workflow.
+    This generates a copy/paste-ready command for the appropriate continuation
+    path: a new VS Code window in the default mode, or a terminal-based
+    headless restart command when VS Code integration is disabled.
 
     Args:
         issue_key: The issue key
@@ -2583,9 +2609,10 @@ def get_worktree_continuation_prompt(
             (e.g., {"pull_request_id": "12345"})
         model: Optional Copilot model identifier to preserve in the
             continuation command.
+        headless: Whether the continuation command should preserve headless mode.
 
     Returns:
-        A formatted prompt string to paste in the new VS Code window
+        A formatted prompt string for the continuation path.
     """
     # Build the base command for each workflow
     workflow_base_commands = {
@@ -2603,6 +2630,8 @@ def get_worktree_continuation_prompt(
     base_command = workflow_base_commands.get(workflow_name, "")
 
     if not base_command:
+        if headless:
+            return f"Continue working on issue {issue_key} in the current terminal."
         return f"Continue working on issue {issue_key} in the new VS Code window."
 
     # Build the full command with all parameters
@@ -2627,8 +2656,26 @@ def get_worktree_continuation_prompt(
 
     if isinstance(model, str) and model.strip():
         command_parts.append(f"--model {_quote_recovery_argument(model.strip())}")
+    if headless:
+        command_parts.append("--headless")
 
     full_command = " ".join(command_parts)
+
+    if headless:
+        return f"""
+================================================================================
+📋 WORKFLOW CONTINUATION
+================================================================================
+
+The headless Copilot session should start automatically in the background.
+If it did not start, run this command from the worktree to continue in headless mode:
+
+```
+{full_command}
+```
+
+This command is a fallback — normally the background session starts automatically.
+================================================================================"""
 
     # Generate a friendly description of what to do
     return f"""
@@ -2653,12 +2700,13 @@ def get_ai_agent_continuation_prompt(
     user_request: str | None = None,
     additional_params: dict | None = None,
     model: str | None = None,
+    headless: bool = False,
 ) -> str:
     """
     Generate a detailed prompt for AI agents to continue working on an issue.
 
-    This is used when a new VS Code window is opened in a worktree to provide
-    the AI agent with clear instructions on how to proceed.
+    This is used to provide the AI agent with clear continuation instructions
+    after worktree setup, including headless manual-start fallback text.
 
     Args:
         issue_key: The Jira issue key (e.g., "PROJECT-1234") or PR identifier (e.g., "PR24031")
@@ -2667,6 +2715,7 @@ def get_ai_agent_continuation_prompt(
         additional_params: Additional parameters for the command (e.g., {"pull_request_id": "24031"})
         model: Optional Copilot model identifier to preserve in the
             continuation command.
+        headless: Whether the continuation command should preserve headless mode.
 
     Returns:
         A detailed prompt string formatted for AI agents
@@ -2705,6 +2754,8 @@ def get_ai_agent_continuation_prompt(
 
     if isinstance(model, str) and model.strip():
         command_parts.append(f"--model {_quote_recovery_argument(model.strip())}")
+    if headless:
+        command_parts.append("--headless")
 
     full_command = " ".join(command_parts)
 
@@ -2739,8 +2790,15 @@ def get_ai_agent_continuation_prompt(
         task_description = "assigned an issue to work on"
         action_description = "work on the issue until you have completed the workflow"
 
-    return f"""NOTE: A Copilot session should start automatically in the VS Code integrated terminal. \
-The instructions below are a fallback in case the auto-start did not succeed.
+    intro = (
+        "NOTE: A Copilot session should start automatically in the background. "
+        "The instructions below are a fallback in case the automatic start did not succeed."
+        if headless
+        else "NOTE: A Copilot session should start automatically in the VS Code integrated terminal. "
+        "The instructions below are a fallback in case the auto-start did not succeed."
+    )
+
+    return f"""{intro}
 
 You are a senior software engineer and expert architect who has been {task_description}.
 
@@ -2957,10 +3015,12 @@ def _start_copilot_session_for_workflow(
     workflow_name: str,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
     autostart_injected: bool = False,
     run_id: str | None = None,
     recovery_start_prompt: str | None = None,
     is_recovery_failure: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Wait for the workflow setup to complete, then start a ``gh copilot`` session.
 
@@ -3026,7 +3086,9 @@ def _start_copilot_session_for_workflow(
     Returns:
         ``True`` when a Copilot session was started successfully or the
         VS Code auto-start task was confirmed running.  ``False`` when
-        the prompt file was not found or was not a regular file.
+        the prompt file was not found, the prompt path was not a regular
+        file, or a headless/manual-fallback start did not produce a live
+        Copilot process for this call.
     """
     from ..copilot.session import start_copilot_session
 
@@ -3052,6 +3114,10 @@ def _start_copilot_session_for_workflow(
         # directory layout (scoped, _unscoped, or AGENTIC_DEVTOOLS_STATE_DIR override).
         start_prompt = _build_session_start_prompt(prompt_file_relative_path)
 
+    if headless:
+        interactive = False
+        terminal = False
+
     # Non-interactive mode when VS Code is not available (pipeline scenario),
     # or when there is no TTY attached (e.g. running inside run_function_in_background
     # where stdin/stdout are redirected to DEVNULL/log files).
@@ -3065,7 +3131,7 @@ def _start_copilot_session_for_workflow(
     # we spawn a non-daemon thread that waits for the run ID to appear in state
     # (proving the task ran).  If it doesn't appear within the grace period,
     # the thread starts a non-interactive background session as a safety net.
-    if autostart_injected and not has_tty:
+    if not terminal and not headless and autostart_injected and not has_tty:
         print(
             "\n--- VS Code auto-start task was successfully injected. "
             f"A delayed verification (up to {_AUTOSTART_VERIFICATION_DELAY_S:.0f}s) "
@@ -3095,7 +3161,7 @@ def _start_copilot_session_for_workflow(
     # Injection happens regardless of the interactive flag (see
     # _maybe_inject_auto_start_before_vscode), so we must check for the
     # auto-start task even when interactive=False.
-    if not has_tty and is_vscode_available():
+    if not terminal and not headless and not has_tty and is_vscode_available():
         tasks_path = os.path.join(worktree_path, ".vscode", "tasks.json")
         if os.path.exists(tasks_path):
             try:
@@ -3170,14 +3236,14 @@ def _start_copilot_session_for_workflow(
             except (json.JSONDecodeError, OSError):
                 pass  # Fall through to starting the session directly
 
-    if not has_tty and not is_vscode_available():
+    if not terminal and not headless and not has_tty and not is_vscode_available():
         print(
             "NOTE: VS Code integrated terminal auto-start not available. "
             "Copilot session will run in the background. "
             "Run agdt-task-log to view output."
         )
 
-    effective_interactive = interactive and is_vscode_available() and has_tty
+    effective_interactive = not terminal and not headless and interactive and is_vscode_available() and has_tty
 
     # Remove any stale auto-start task from tasks.json BEFORE starting a new
     # session. A leftover runOn:folderOpen task from a previous workflow
@@ -3186,13 +3252,11 @@ def _start_copilot_session_for_workflow(
     #
     # For recovery failures we intentionally avoid mutating tracked workspace
     # files before the nested recovery command reruns reset_branch_to_origin().
-    if not is_recovery_failure:
+    if not headless and not is_recovery_failure:
         _cleanup_stale_auto_start_task_for_worktree(worktree_path)
 
-    print(
-        f"\n--- Starting gh copilot session for {workflow_name} "
-        f"(mode: {'interactive' if effective_interactive else 'non-interactive'}) ---"
-    )
+    launch_mode = "terminal" if terminal else ("interactive" if effective_interactive else "non-interactive")
+    print(f"\n--- Starting gh copilot session for {workflow_name} (mode: {launch_mode}) ---")
     # start_copilot_session() resolves paths via get_state_dir(), so we enter
     # worktree_state_context(worktree_path), which changes into the target worktree
     # and clears both AGENTIC_DEVTOOLS_STATE_DIR and the legacy
@@ -3209,13 +3273,17 @@ def _start_copilot_session_for_workflow(
             working_directory=worktree_path,
             interactive=effective_interactive,
             model=model,
+            **_terminal_kwargs(terminal),
         )
-        # Open the log file in VS Code for non-interactive sessions so the
-        # user can watch Copilot output in real time.  Skip in CI (no VS Code
-        # or no TTY on the *original* caller — here we check is_vscode_available
-        # which is False in headless CI).
+        # Open the log file in VS Code for successful non-headless
+        # background-session fallback launches so the user can watch Copilot
+        # output in real time. Skip in CI (no VS Code or no TTY on the
+        # *original* caller — here we check is_vscode_available which is False
+        # in headless CI).
         if (
-            not effective_interactive
+            not terminal
+            and not headless
+            and not effective_interactive
             and session_result is not None
             and session_result.log_file
             and is_vscode_available()
@@ -3223,13 +3291,41 @@ def _start_copilot_session_for_workflow(
             and not is_recovery_failure
         ):
             _open_log_in_vscode(session_result.log_file, worktree_path)
-        return True
+        session_started = effective_interactive or (session_result is not None and session_result.pid is not None)
+        if headless:
+            if (
+                session_result is not None
+                and session_result.pid is not None
+                and session_result.process is None
+                and session_result.log_file
+            ):
+                print(
+                    f"Headless Copilot session already running (session ID: {session_result.session_id}). "
+                    f"Monitor log: {session_result.log_file}"
+                )
+            elif session_result is not None and session_result.pid is not None and session_result.log_file:
+                print(
+                    f"Headless Copilot session started (session ID: {session_result.session_id}). "
+                    f"Monitor log: {session_result.log_file}"
+                )
+            elif session_result is not None and session_result.pid is not None:
+                status = "already running" if session_result.process is None else "started"
+                print(f"Headless Copilot session {status} (session ID: {session_result.session_id}).")
+            else:
+                print(
+                    "Headless Copilot session could not be started automatically. "
+                    "Manual fallback instructions will be printed below."
+                )
+            return session_started
+        return session_started
 
 
 def _start_copilot_session_for_pr_review(
     worktree_path: str,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Start a Copilot session for the pull-request-review workflow.
 
@@ -3254,6 +3350,8 @@ def _start_copilot_session_for_pr_review(
         workflow_name="pull-request-review",
         interactive=interactive,
         model=model,
+        headless=headless,
+        **_terminal_kwargs(terminal),
     )
 
 
@@ -3307,6 +3405,8 @@ def _start_copilot_session_for_apply_pr_suggestions(
     worktree_path: str,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Start a Copilot session for the apply-pull-request-review-suggestions workflow.
 
@@ -3330,6 +3430,8 @@ def _start_copilot_session_for_apply_pr_suggestions(
         workflow_name="apply-pull-request-review-suggestions",
         interactive=interactive,
         model=model,
+        headless=headless,
+        **_terminal_kwargs(terminal),
     )
 
 
@@ -3337,6 +3439,8 @@ def _start_copilot_session_for_work_on_jira_issue(
     worktree_path: str,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Start a Copilot session for the work-on-jira-issue workflow.
 
@@ -3360,6 +3464,8 @@ def _start_copilot_session_for_work_on_jira_issue(
         workflow_name="work-on-jira-issue",
         interactive=interactive,
         model=model,
+        headless=headless,
+        **_terminal_kwargs(terminal),
     )
 
 
@@ -3367,6 +3473,8 @@ def _start_copilot_session_for_create_jira_issue(
     worktree_path: str,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Start a Copilot session for the create-jira-issue workflow.
 
@@ -3390,6 +3498,8 @@ def _start_copilot_session_for_create_jira_issue(
         workflow_name="create-jira-issue",
         interactive=interactive,
         model=model,
+        headless=headless,
+        **_terminal_kwargs(terminal),
     )
 
 
@@ -3397,6 +3507,8 @@ def _start_copilot_session_for_create_jira_epic(
     worktree_path: str,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Start a Copilot session for the create-jira-epic workflow.
 
@@ -3418,6 +3530,8 @@ def _start_copilot_session_for_create_jira_epic(
         workflow_name="create-jira-epic",
         interactive=interactive,
         model=model,
+        headless=headless,
+        **_terminal_kwargs(terminal),
     )
 
 
@@ -3425,6 +3539,8 @@ def _start_copilot_session_for_create_jira_subtask(
     worktree_path: str,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Start a Copilot session for the create-jira-subtask workflow.
 
@@ -3448,6 +3564,8 @@ def _start_copilot_session_for_create_jira_subtask(
         workflow_name="create-jira-subtask",
         interactive=interactive,
         model=model,
+        headless=headless,
+        **_terminal_kwargs(terminal),
     )
 
 
@@ -3456,6 +3574,8 @@ def _start_copilot_session_for_update_jira_issue(
     interactive: bool = False,
     model: str | None = None,
     step: str = "initiate",
+    terminal: bool = False,
+    headless: bool = False,
 ) -> bool:
     """Start a Copilot session for the update-jira-issue workflow.
 
@@ -3487,6 +3607,8 @@ def _start_copilot_session_for_update_jira_issue(
         workflow_name="update-jira-issue",
         interactive=interactive,
         model=model,
+        headless=headless,
+        **_terminal_kwargs(terminal),
     )
 
 
@@ -4157,12 +4279,17 @@ def _print_agent_instructions_block(
     user_request: str | None = None,
     additional_params: dict | None = None,
     model: str | None = None,
+    headless: bool = False,
 ) -> None:
     """Print the AI agent instructions block with conditional messaging.
 
-    The header and introductory text vary depending on whether the VS Code
-    auto-start task was successfully injected:
+    The header and introductory text vary depending on whether this is a
+    headless fallback or whether the VS Code auto-start task was successfully
+    injected:
 
+    * **Headless fallback** (``headless=True``): header says
+      ``(MANUAL START REQUIRED)`` and the text tells the user to start the
+      headless session manually.
     * **Injected** (``autostart_injected=True``): header says ``(FALLBACK)``
       and the text explains that an auto-start task was injected and the
       session will start when the VS Code window opens.
@@ -4173,7 +4300,15 @@ def _print_agent_instructions_block(
     The ``--- BEGIN/END PROMPT ---`` markers and the prompt itself are always
     printed regardless of the injection result.
     """
-    if autostart_injected:
+    if headless:
+        print("\n" + "=" * 80)
+        print("AI AGENT INSTRUCTIONS (MANUAL START REQUIRED)")
+        print("=" * 80)
+        print(
+            "\nAutomatic headless startup was not successful.\n"
+            "Provide the prompt below to the user to start the Copilot session manually in headless mode:\n"
+        )
+    elif autostart_injected:
         print("\n" + "=" * 80)
         print("AI AGENT INSTRUCTIONS (FALLBACK)")
         print("=" * 80)
@@ -4191,7 +4326,16 @@ def _print_agent_instructions_block(
             "Provide the prompt below to the user to start the Copilot session manually:\n"
         )
     print("--- BEGIN PROMPT FOR USER TO COPY ---")
-    print(get_ai_agent_continuation_prompt(issue_key, workflow_name, user_request, additional_params, model=model))
+    print(
+        get_ai_agent_continuation_prompt(
+            issue_key,
+            workflow_name,
+            user_request,
+            additional_params,
+            model=model,
+            headless=headless,
+        )
+    )
     print("--- END PROMPT FOR USER TO COPY ---")
 
 
@@ -4204,10 +4348,13 @@ def setup_worktree_in_background_sync(
     user_request: str | None = None,
     additional_params: dict | None = None,
     auto_execute_command: list[str] | None = None,
-    auto_execute_timeout: int = 60,
+    auto_execute_timeout: int = _SETUP_SCRIPT_TIMEOUT_SECONDS,
     interactive: bool = False,
     model: str | None = None,
-) -> None:
+    terminal: bool = False,
+    headless: bool = False,
+    start_copilot_session: bool = True,
+) -> WorktreeSetupResult:
     """
     Perform worktree setup synchronously (called from background task).
 
@@ -4233,13 +4380,23 @@ def setup_worktree_in_background_sync(
             creation. If the command fails, the error is logged but setup continues.
         auto_execute_timeout: Timeout in seconds for the auto-execute command
             and, for newly created worktrees, the target setup script
-            (default: 60).
+            (default: 1800).
         interactive: Whether to start the Copilot session interactively after
             setup (default: False). Set to True for interactive mode.
         model: Copilot model identifier to use for the session (e.g.
             ``"claude-3.5-sonnet"``).  Passed through to
             ``_maybe_inject_auto_start_before_vscode()`` so the model is
             resolved from the caller's context rather than from state.
+        headless: Whether to skip all VS Code integration and run Copilot in the
+            background.
+        terminal: Whether to launch Copilot in a dedicated terminal host
+            instead of injecting a VS Code auto-start task or opening VS Code.
+        start_copilot_session: Whether to inject a VS Code auto-start task,
+            open VS Code, start a Copilot session, and print continuation
+            prompt/instruction output (default: True).
+
+    Returns:
+        The worktree setup result.
     """
     import uuid
 
@@ -4314,7 +4471,7 @@ def setup_worktree_in_background_sync(
     print("BACKGROUND WORKTREE SETUP")
     print("=" * 80)
 
-    defer_workspace_path_settings = auto_execute_command is not None
+    defer_workspace_path_settings = headless or auto_execute_command is not None
 
     # Check if worktree already exists
     existing_path = check_worktree_exists(issue_key)
@@ -4326,7 +4483,7 @@ def setup_worktree_in_background_sync(
         # auto-execute command.  With nested auto-execute these writes are
         # deferred until the command succeeds, so a tracked workspace file
         # stays clean for recovery reruns that call reset_branch_to_origin().
-        if not defer_workspace_path_settings:
+        if not headless and not defer_workspace_path_settings:
             inject_git_path_settings(existing_path)
             inject_python_path_settings(existing_path)
 
@@ -4356,80 +4513,100 @@ def setup_worktree_in_background_sync(
         # changes, so tracked workspace files must remain clean on the failure
         # path.
         if not auto_execute_failed:
-            if defer_workspace_path_settings:
+            if not headless and defer_workspace_path_settings:
                 inject_git_path_settings(existing_path)
                 inject_python_path_settings(existing_path)
-            inject_task_permission_settings(existing_path)
+            if not headless:
+                inject_task_permission_settings(existing_path)
 
-        # Resolve the exact prompt filename and build the session start prompt
-        # *after* the auto-execute command has run.  For workflows such as
-        # update-jira-issue the step (initiate vs make-updates) is only written
-        # to state by the auto-execute Jira prefetch; resolving before that
-        # command runs would pick the wrong filename if the prefetch fails.
-        prompt_filename, is_headless_langchain = _resolve_prompt_filename(
-            existing_path, auto_execute_failed=auto_execute_failed
-        )
-        prompt_relative_path: str | None = None
-        if prompt_filename:
-            prompt_relative_path = _prompt_file_relative_path(existing_path, prompt_filename)
-        if auto_execute_failed:
-            wf_prompt = _build_recovery_start_prompt(auto_execute_command)
-        elif prompt_relative_path:
-            wf_prompt = _build_session_start_prompt(prompt_relative_path)
-        else:
-            wf_prompt = _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT
-
-        # Guard session startup on is_headless_langchain — not on prompt_filename.
-        # An unknown/custom workflow also produces prompt_filename=None (by design,
-        # so _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT is used), but it still needs a
-        # Copilot session; only a successful headless LangChain invocation skips it.
-        # Skip auto-start injection on the failure path: _maybe_inject_auto_start_before_vscode
-        # writes .vscode/tasks.json and .vscode/pending-auto-start.json, which can include
-        # tracked files that dirty the worktree and cause reset_branch_to_origin() to reject
-        # the recovery rerun.  The direct-session fallback in _start_copilot_session_for_workflow
-        # handles launching the recovery session without writing those files.
         autostart_injected = False
-        if not is_headless_langchain and not auto_execute_failed:
-            autostart_injected = _maybe_inject_auto_start_before_vscode(
-                existing_path, start_prompt=wf_prompt, model=model, run_id=pre_run_id
-            )
-
-        # Open VS Code only for workflows that launch a Copilot session.
         vscode_opened = False
-        if not is_headless_langchain and not auto_execute_failed:
-            print("Opening VS Code in the existing worktree (using the workspace file if available)...")
-            vscode_opened = open_vscode_workspace(existing_path)
-        print(f"   VS Code opened: {'Yes' if vscode_opened else 'No'}")
-
-        # Start Copilot session as a secondary fallback. The primary
-        # mechanism is the VS Code ``runOn: folderOpen`` task injected above.
-        # When autostart_injected=True and VS Code was successfully opened,
-        # the helper returns immediately after spawning delayed verification
-        # instead of launching a direct background session here.
-        if not is_headless_langchain:
-            _start_copilot_session_for_workflow(
-                worktree_path=existing_path,
-                prompt_file_relative_path=_prompt_file_relative_path(existing_path, prompt_filename)
-                if prompt_filename
-                else "",
-                workflow_name=workflow_name,
-                interactive=interactive,
-                model=model,
-                autostart_injected=autostart_injected and vscode_opened,
-                run_id=pre_run_id,
-                recovery_start_prompt=wf_prompt if not prompt_filename or auto_execute_failed else None,
-                is_recovery_failure=auto_execute_failed,
+        is_headless_langchain = False
+        session_started = True
+        if start_copilot_session:
+            # Resolve the exact prompt filename and build the session start prompt
+            # *after* the auto-execute command has run. For workflows such as
+            # update-jira-issue the step (initiate vs make-updates) is only written
+            # to state by the auto-execute Jira prefetch; resolving before that
+            # command runs would pick the wrong filename if the prefetch fails.
+            prompt_filename, is_headless_langchain = _resolve_prompt_filename(
+                existing_path, auto_execute_failed=auto_execute_failed
             )
+            prompt_relative_path: str | None = None
+            if prompt_filename:
+                prompt_relative_path = _prompt_file_relative_path(existing_path, prompt_filename)
+            if auto_execute_failed:
+                wf_prompt = _build_recovery_start_prompt(auto_execute_command)
+            elif prompt_relative_path:
+                wf_prompt = _build_session_start_prompt(prompt_relative_path)
+            else:
+                wf_prompt = _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT
+
+            # An unknown/custom workflow still needs a Copilot session, while a
+            # successful headless LangChain invocation does not.
+            if not terminal and not headless and not is_headless_langchain and not auto_execute_failed:
+                autostart_injected = _maybe_inject_auto_start_before_vscode(
+                    existing_path, start_prompt=wf_prompt, model=model, run_id=pre_run_id
+                )
+
+            if not terminal and not headless and not is_headless_langchain and not auto_execute_failed:
+                print("Opening VS Code in the existing worktree (using the workspace file if available)...")
+                vscode_opened = open_vscode_workspace(existing_path)
+                print(f"   VS Code opened: {'Yes' if vscode_opened else 'No'}")
+
+            # Start Copilot session as a secondary fallback. The primary
+            # mechanism is the VS Code ``runOn: folderOpen`` task injected above.
+            # When autostart_injected=True and VS Code was successfully opened,
+            # the helper returns immediately after spawning delayed verification
+            # instead of launching a direct background session here.
+            if not is_headless_langchain:
+                session_started = _start_copilot_session_for_workflow(
+                    worktree_path=existing_path,
+                    prompt_file_relative_path=_prompt_file_relative_path(existing_path, prompt_filename)
+                    if prompt_filename
+                    else "",
+                    workflow_name=workflow_name,
+                    interactive=interactive,
+                    model=model,
+                    **_terminal_kwargs(terminal),
+                    autostart_injected=autostart_injected and vscode_opened,
+                    run_id=pre_run_id,
+                    recovery_start_prompt=wf_prompt if not prompt_filename or auto_execute_failed else None,
+                    is_recovery_failure=auto_execute_failed,
+                    headless=headless,
+                )
 
         print("\n✅ Environment ready!")
-        if not is_headless_langchain:
-            print(
-                get_worktree_continuation_prompt(issue_key, workflow_name, user_request, additional_params, model=model)
-            )
-            _print_agent_instructions_block(
-                autostart_injected, issue_key, workflow_name, user_request, additional_params, model=model
-            )
-        return
+        result = WorktreeSetupResult(
+            success=True,
+            worktree_path=existing_path,
+            branch_name=get_worktree_branch(existing_path)
+            or branch_name
+            or f"{branch_prefix}/{issue_key}/implementation",
+            vscode_opened=vscode_opened,
+        )
+        if start_copilot_session and not is_headless_langchain:
+            if not headless or not session_started:
+                print(
+                    get_worktree_continuation_prompt(
+                        issue_key,
+                        workflow_name,
+                        user_request,
+                        additional_params,
+                        model=model,
+                        headless=headless,
+                    )
+                )
+                _print_agent_instructions_block(
+                    autostart_injected,
+                    issue_key,
+                    workflow_name,
+                    user_request,
+                    additional_params,
+                    model=model,
+                    headless=headless,
+                )
+        return result
 
     # Create new worktree environment
     print(f"\nCreating worktree for issue {issue_key}...")
@@ -4461,6 +4638,8 @@ def setup_worktree_in_background_sync(
         raise RuntimeError(f"Target setup script failure: {error_message}")
 
     if result.success:
+        if not start_copilot_session:
+            result.vscode_opened = False
         # When a data-fetching command is provided, run it first so that all
         # workflow context is ready before VS Code opens.  The auto-start task
         # fires on ``folderOpen``, so completing data-fetching before opening
@@ -4487,82 +4666,91 @@ def setup_worktree_in_background_sync(
         # changes, so tracked workspace files must remain clean on the failure
         # path.
         if not auto_execute_failed:
-            if defer_workspace_path_settings:
+            if not headless and defer_workspace_path_settings:
                 inject_git_path_settings(result.worktree_path)
                 inject_python_path_settings(result.worktree_path)
-            inject_task_permission_settings(result.worktree_path)
+            if not headless:
+                inject_task_permission_settings(result.worktree_path)
 
-        # Resolve the exact prompt filename and build the session start prompt
-        # *after* the auto-execute command has run.  For workflows such as
-        # update-jira-issue the step (initiate vs make-updates) is only written
-        # to state by the auto-execute Jira prefetch; resolving before that
-        # command runs would pick the wrong filename if the prefetch fails.
-        prompt_filename, is_headless_langchain = _resolve_prompt_filename(
-            result.worktree_path, auto_execute_failed=auto_execute_failed
-        )
-        prompt_relative_path = None
-        if prompt_filename:
-            prompt_relative_path = _prompt_file_relative_path(result.worktree_path, prompt_filename)
-        if auto_execute_failed:
-            wf_prompt = _build_recovery_start_prompt(auto_execute_command)
-        elif prompt_relative_path:
-            wf_prompt = _build_session_start_prompt(prompt_relative_path)
-        else:
-            wf_prompt = _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT
-
-        # Guard session startup on is_headless_langchain — not on prompt_filename.
-        # An unknown/custom workflow also produces prompt_filename=None (by design,
-        # so _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT is used), but it still needs a
-        # Copilot session; only a successful headless LangChain invocation skips it.
-        # Skip auto-start injection on the failure path: _maybe_inject_auto_start_before_vscode
-        # writes .vscode/tasks.json and .vscode/pending-auto-start.json, which can include
-        # tracked files that dirty the worktree and cause reset_branch_to_origin() to reject
-        # the recovery rerun.  The direct-session fallback in _start_copilot_session_for_workflow
-        # handles launching the recovery session without writing those files.
         autostart_injected = False
-        if not is_headless_langchain and not auto_execute_failed:
-            autostart_injected = _maybe_inject_auto_start_before_vscode(
-                result.worktree_path,
-                start_prompt=wf_prompt,
-                model=model,
-                run_id=pre_run_id,
+        is_headless_langchain = False
+        session_started = True
+        if start_copilot_session:
+            # Resolve the exact prompt filename only when a session is requested.
+            prompt_filename, is_headless_langchain = _resolve_prompt_filename(
+                result.worktree_path, auto_execute_failed=auto_execute_failed
             )
+            prompt_relative_path = None
+            if prompt_filename:
+                prompt_relative_path = _prompt_file_relative_path(result.worktree_path, prompt_filename)
+            if auto_execute_failed:
+                wf_prompt = _build_recovery_start_prompt(auto_execute_command)
+            elif prompt_relative_path:
+                wf_prompt = _build_session_start_prompt(prompt_relative_path)
+            else:
+                wf_prompt = _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT
 
-        # Open VS Code after task injection, except for headless LangChain runs.
-        if not is_headless_langchain and not auto_execute_failed:
-            result.vscode_opened = open_vscode_workspace(result.worktree_path)
+            if not terminal and not headless and not is_headless_langchain and not auto_execute_failed:
+                autostart_injected = _maybe_inject_auto_start_before_vscode(
+                    result.worktree_path,
+                    start_prompt=wf_prompt,
+                    model=model,
+                    run_id=pre_run_id,
+                )
 
-        # Start Copilot session as a secondary fallback. The primary
-        # mechanism is the VS Code ``runOn: folderOpen`` task injected above.
-        # When autostart_injected=True and VS Code was successfully opened,
-        # the helper returns immediately after spawning delayed verification
-        # instead of launching a direct background session here.
-        if not is_headless_langchain:
-            _start_copilot_session_for_workflow(
-                worktree_path=result.worktree_path,
-                prompt_file_relative_path=_prompt_file_relative_path(result.worktree_path, prompt_filename)
-                if prompt_filename
-                else "",
-                workflow_name=workflow_name,
-                interactive=interactive,
-                model=model,
-                autostart_injected=autostart_injected and result.vscode_opened,
-                run_id=pre_run_id,
-                recovery_start_prompt=wf_prompt if not prompt_filename or auto_execute_failed else None,
-                is_recovery_failure=auto_execute_failed,
-            )
+            # Open VS Code after task injection only for non-headless Copilot runs.
+            if not terminal and not headless and not is_headless_langchain and not auto_execute_failed:
+                result.vscode_opened = open_vscode_workspace(result.worktree_path)
+
+            # Start Copilot session as a secondary fallback. The primary
+            # mechanism is the VS Code ``runOn: folderOpen`` task injected above.
+            # When autostart_injected=True and VS Code was successfully opened,
+            # the helper returns immediately after spawning delayed verification
+            # instead of launching a direct background session here.
+            if not is_headless_langchain:
+                session_started = _start_copilot_session_for_workflow(
+                    worktree_path=result.worktree_path,
+                    prompt_file_relative_path=_prompt_file_relative_path(result.worktree_path, prompt_filename)
+                    if prompt_filename
+                    else "",
+                    workflow_name=workflow_name,
+                    interactive=interactive,
+                    model=model,
+                    **_terminal_kwargs(terminal),
+                    autostart_injected=autostart_injected and result.vscode_opened,
+                    run_id=pre_run_id,
+                    recovery_start_prompt=wf_prompt if not prompt_filename or auto_execute_failed else None,
+                    is_recovery_failure=auto_execute_failed,
+                    headless=headless,
+                )
 
         print("\n✅ Environment setup complete!")
         print(f"   Worktree: {result.worktree_path}")
         print(f"   Branch: {result.branch_name}")
-        print(f"   VS Code opened: {'Yes' if result.vscode_opened else 'No'}")
-        if not is_headless_langchain:
-            print(
-                get_worktree_continuation_prompt(issue_key, workflow_name, user_request, additional_params, model=model)
-            )
-            _print_agent_instructions_block(
-                autostart_injected, issue_key, workflow_name, user_request, additional_params, model=model
-            )
+        if not terminal and not headless and not is_headless_langchain and not auto_execute_failed:
+            print(f"   VS Code opened: {'Yes' if result.vscode_opened else 'No'}")
+        if start_copilot_session and not is_headless_langchain:
+            if not headless or not session_started:
+                print(
+                    get_worktree_continuation_prompt(
+                        issue_key,
+                        workflow_name,
+                        user_request,
+                        additional_params,
+                        model=model,
+                        headless=headless,
+                    )
+                )
+                _print_agent_instructions_block(
+                    autostart_injected,
+                    issue_key,
+                    workflow_name,
+                    user_request,
+                    additional_params,
+                    model=model,
+                    headless=headless,
+                )
+        return result
     else:
         print(f"\n❌ Setup failed: {result.error_message}")
         raise RuntimeError(f"Worktree setup failed: {result.error_message}")
@@ -4593,6 +4781,8 @@ def _setup_worktree_from_state() -> None:
     auto_execute_command_str = get_value("worktree_setup.auto_execute_command")
     auto_execute_timeout_str = get_value("worktree_setup.auto_execute_timeout")
     interactive_str = get_value("worktree_setup.interactive")
+    headless_str = get_value("worktree_setup.headless")
+    terminal_str = get_value("worktree_setup.terminal")
     # Normalize to str | None — get_value() returns Any.
     model_raw = get_value("worktree_setup.model")
     model = (model_raw.strip() or None) if isinstance(model_raw, str) else None
@@ -4611,7 +4801,7 @@ def _setup_worktree_from_state() -> None:
         except json.JSONDecodeError:
             pass
 
-    auto_execute_timeout = 60
+    auto_execute_timeout = _SETUP_SCRIPT_TIMEOUT_SECONDS
     if auto_execute_timeout_str:
         try:
             auto_execute_timeout = int(auto_execute_timeout_str)
@@ -4620,12 +4810,16 @@ def _setup_worktree_from_state() -> None:
 
     # Default interactive to False; stored as "true" string to enable
     interactive = interactive_str == "true"
+    headless = headless_str == "true"
+    terminal = terminal_str == "true"
+    if headless:
+        terminal = False
 
     if not issue_key:
         raise ValueError("worktree_setup.issue_key not set in state")
 
     # Call the actual setup function
-    setup_worktree_in_background_sync(
+    setup_kwargs = dict(
         issue_key=issue_key,
         branch_prefix=branch_prefix,
         branch_name=branch_name,
@@ -4637,7 +4831,11 @@ def _setup_worktree_from_state() -> None:
         auto_execute_timeout=auto_execute_timeout,
         interactive=interactive,
         model=model,
+        **_terminal_kwargs(terminal),
     )
+    if headless:
+        setup_kwargs["headless"] = True
+    setup_worktree_in_background_sync(**setup_kwargs)
 
 
 def start_worktree_setup_background(
@@ -4649,16 +4847,19 @@ def start_worktree_setup_background(
     user_request: str | None = None,
     additional_params: dict | None = None,
     auto_execute_command: list[str] | None = None,
-    auto_execute_timeout: int = 60,
+    auto_execute_timeout: int = _SETUP_SCRIPT_TIMEOUT_SECONDS,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool = False,
+    headless: bool = False,
 ) -> str:
     """
     Start worktree setup as a background task.
 
     This spawns a background process to create the worktree, install helpers,
-    and open VS Code. The calling process returns immediately, allowing the
-    command line to be available.
+    and then either open VS Code, launch Copilot in a dedicated terminal host,
+    or start the Copilot session headlessly. The calling process returns
+    immediately, allowing the command line to be available.
 
     Args:
         issue_key: The Jira issue key
@@ -4675,11 +4876,15 @@ def start_worktree_setup_background(
             creation. Passed through to setup_worktree_in_background_sync.
         auto_execute_timeout: Timeout in seconds for the auto-execute command
             and, for newly created worktrees, the target setup script
-            (default: 60).
+            (default: 1800).
         interactive: Whether to start the Copilot session interactively after
             setup (default: False). Set to True for interactive mode.
         model: The Copilot model ID to use. When provided (non-None, non-empty
             after stripping), takes precedence over copilot.model_id in state.
+        terminal: Whether to launch Copilot in a dedicated terminal host
+            instead of using VS Code auto-start/open behavior.
+        headless: Whether to skip all VS Code integration, suppress dedicated
+            terminal launches, and run Copilot in the background.
 
     Returns:
         The background task ID for tracking progress
@@ -4688,6 +4893,9 @@ def start_worktree_setup_background(
 
     from ...background_tasks import run_function_in_background
     from ...state import delete_value, get_value, set_value
+
+    if headless:
+        terminal = False
 
     # Store parameters in state for the background function to read.
     # Every optional key is explicitly set or deleted so stale values from
@@ -4720,6 +4928,8 @@ def start_worktree_setup_background(
     # prior runs (e.g. 300s for PR review) cannot leak into later invocations.
     set_value("worktree_setup.auto_execute_timeout", str(auto_execute_timeout))
     set_value("worktree_setup.interactive", "true" if interactive else "false")
+    set_value("worktree_setup.terminal", "true" if terminal else "false")
+    set_value("worktree_setup.headless", "true" if headless else "false")
 
     # Prefer explicit model parameter; fall back to state for backward compatibility.
     effective_model: str | None = None

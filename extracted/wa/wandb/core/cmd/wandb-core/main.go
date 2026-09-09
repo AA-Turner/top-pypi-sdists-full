@@ -20,11 +20,11 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/getsentry/sentry-go"
 	"github.com/mattn/go-isatty"
 
 	"github.com/wandb/wandb/core/internal/analytics"
@@ -128,24 +128,9 @@ func serviceMain() int {
 		shutdownOnParentExitEnabled = processlib.ShutdownOnParentExit(*pid)
 	}
 
-	// Sentry (disabled if --no-observability)
-	var sentryDSN string
-	if !*disableAnalytics {
-		sentryDSN = observability.WandbCoreDSN
-	} else {
+	// Datadog telemetry is disabled if --no-observability.
+	if *disableAnalytics {
 		analytics.Disable()
-	}
-	err := sentry.Init(sentry.ClientOptions{
-		Dsn:              sentryDSN,
-		AttachStacktrace: true,
-		Release:          version.Version,
-		Dist:             commit,
-		Environment:      version.Environment,
-	})
-	if err != nil {
-		slog.Error("main: failed to init Sentry", "error", err)
-	} else {
-		defer sentry.Flush(2 * time.Second)
 	}
 
 	// Structured logging to file selected by observability package.
@@ -178,7 +163,7 @@ func serviceMain() int {
 		defer func() { _ = file.Close() }()
 	}
 
-	analytics.ConfigureOTelErrorHandler()
+	analytics.ConfigureOTelErrorHandler(slog.Default())
 
 	// Record certain signals in the log file for debugging.
 	signalCh := make(chan os.Signal, 1)
@@ -238,22 +223,46 @@ func leetMain(args []string) int {
 	}
 	defer stopLeetPprof(pprofStop)
 
-	flushSentry := configureLeetSentry(opts.disableAnalytics, leetSentryMessage(&opts))
-	defer flushSentry()
+	recorder, stopTelemetry := leet.ConfigureTelemetry(leet.TelemetryParams{
+		Disabled: opts.disableAnalytics,
+		Mode:     leetMode(&opts),
+		Commit:   commit,
+		BaseURL:  opts.baseURL,
+	})
+	defer stopTelemetry()
 
-	logger, closeLogger, err := newLeetLogger(opts.logLevel)
+	logger, closeLogger, err := newLeetLogger(opts.logLevel, recorder)
 	if err != nil {
-		fmt.Println("fatal:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		return exitCodeErrorInternal
 	}
 	defer closeLogger()
 
-	return runLeetCommand(&opts, logger)
+	analytics.ConfigureOTelErrorHandler(logger.Logger)
+	logger.RecordTelemetry("leet_launch", nil)
+
+	started := time.Now()
+	exitCode := runLeetCommand(&opts, logger)
+	duration := time.Since(started)
+	recorder.RecordDuration(
+		context.Background(),
+		"leet_session_duration",
+		duration,
+		analytics.LowCardinalityAttributes{},
+	)
+
+	sessionAttributes := leet.SessionAttributes()
+	sessionAttributes["duration_seconds"] = strconv.FormatInt(
+		int64(duration/time.Second), 10)
+	sessionAttributes["exit_code"] = strconv.Itoa(exitCode)
+	logger.RecordTelemetry("leet_session", sessionAttributes)
+	return exitCode
 }
 
 type leetOptions struct {
 	logLevel         int
 	disableAnalytics bool
+	baseURL          string
 	runFile          string
 	pprofAddr        string
 	editConfig       bool
@@ -296,13 +305,21 @@ func bindLeetFlags(fs *flag.FlagSet, opts *leetOptions) {
 		&opts.logLevel,
 		"log-level",
 		0,
-		"Specifies the log level to use for logging. -4: debug, 0: info, 4: warn, 8: error.",
+		"Specifies the log level to use for logging. -4: debug, 0: info, 4: warn, 8: error."+
+			" Debug logs are written to wandb-leet.debug.log next to the LEET config file.",
 	)
 	fs.BoolVar(
 		&opts.disableAnalytics,
 		"no-observability",
 		false,
 		"Disables observability features such as metrics and logging analytics.",
+	)
+	fs.StringVar(
+		&opts.baseURL,
+		"base-url",
+		"",
+		"URL of the W&B server to upload telemetry to."+
+			" Defaults to the public W&B API.",
 	)
 	fs.StringVar(
 		&opts.runFile,
@@ -420,49 +437,31 @@ func stopLeetPprof(pprofStop func(context.Context) error) {
 	_ = pprofStop(ctx)
 }
 
-func configureLeetSentry(disableAnalytics bool, message string) func() {
-	var sentryDSN string
-	if !disableAnalytics {
-		sentryDSN = observability.LeetSentryDSN
-	}
-
-	err := sentry.Init(sentry.ClientOptions{
-		Dsn:              sentryDSN,
-		AttachStacktrace: true,
-		Release:          version.Version,
-		Dist:             commit,
-		Environment:      version.Environment,
-	})
-	if err != nil {
-		slog.Error("main: failed to init Sentry", "error", err)
-		return func() {}
-	}
-
-	sentry.CaptureMessage(message)
-	return func() { sentry.Flush(2 * time.Second) }
-}
-
-func leetSentryMessage(opts *leetOptions) string {
+// leetMode names the launch mode for telemetry.
+func leetMode(opts *leetOptions) string {
 	switch {
 	case opts.editConfig:
-		return "wandb-leet-config"
+		return "config"
 	case opts.symonMode:
-		return "wandb-symon"
+		return "symon"
 	case opts.inspect:
-		return "wandb-leet-inspect"
+		return "inspect"
 	default:
-		return "wandb-leet"
+		return "leet"
 	}
 }
 
-func newLeetLogger(logLevel int) (*observability.CoreLogger, func(), error) {
+func newLeetLogger(
+	logLevel int,
+	recorder *analytics.TelemetryRecorder,
+) (*observability.CoreLogger, func(), error) {
 	logWriter := io.Discard
 	closeLogWriter := func() {}
 
 	// TODO: Create a log file not only if debug logging is requested.
 	if logLevel == -4 {
 		loggerFile, err := os.OpenFile(
-			"wandb-leet.debug.log",
+			leet.DebugLogPath(),
 			os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
 			0o644,
 		)
@@ -478,8 +477,7 @@ func newLeetLogger(logLevel int) (*observability.CoreLogger, func(), error) {
 			logWriter,
 			&slog.HandlerOptions{Level: slog.Level(logLevel)},
 		)),
-		observability.NewSentryContext(sentry.CurrentHub()),
-		analytics.NewTelemetryRecorder(nil, analytics.NewTelemetryContext()),
+		recorder,
 	)
 	return logger, closeLogWriter, nil
 }
@@ -518,6 +516,7 @@ func runLeetInspector(opts *leetOptions, logger *observability.CoreLogger) int {
 	_, err := program.Run()
 	m.Cleanup()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		logger.CaptureError(
 			"main",
 			fmt.Errorf("wandb-leet-inspect: %v", err),
@@ -537,7 +536,7 @@ func runLeetConfigEditor(logger *observability.CoreLogger) int {
 	editor := leet.NewConfigEditor(leet.ConfigEditorParams{Logger: logger})
 	program := tea.NewProgram(editor)
 	if _, err := program.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		return exitCodeErrorInternal
 	}
 	return exitCodeSuccess
@@ -554,6 +553,7 @@ func runSymon(opts *leetOptions, logger *observability.CoreLogger) int {
 		finalModel, err := program.Run()
 		m.Cleanup()
 		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			logger.CaptureError(
 				"main",
 				fmt.Errorf("wandb-symon: %v", err),
@@ -586,6 +586,7 @@ func runLeetWorkspace(opts *leetOptions, logger *observability.CoreLogger) int {
 
 		finalModel, err := program.Run()
 		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
 			logger.CaptureError(
 				"main",
 				fmt.Errorf("wandb-leet: %v", err),

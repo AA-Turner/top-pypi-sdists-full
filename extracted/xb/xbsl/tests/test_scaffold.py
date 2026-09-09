@@ -717,6 +717,75 @@ def test_a_base_is_refused_for_a_kind_that_has_no_markup(tmp_path):
         scaffold.op_new_object(tmp_path, "Справочник", "Товары", base="Группа")
 
 
+def test_an_escaped_base_is_read_as_the_brackets_it_stands_for(tmp_path):
+    """The escaping comes from the CLIENT of the tool, so the file must not carry it.
+
+    Written as it arrived, `Тип: Форма&lt;Булево?&gt;` looks like a finished file and the
+    compiler meets the garbage only at deploy time.
+    """
+    result = scaffold.op_new_object(
+        tmp_path, "КомпонентИнтерфейса", "Флажок", base="Форма&lt;Булево?&gt;")
+    apply_result(result)
+    text = (tmp_path / "Флажок.yaml").read_text(encoding="utf-8")
+    assert "&lt;" not in text and "&gt;" not in text
+    parsed = _valid_yaml(text)
+    assert parsed["Наследует"]["Тип"] == "Форма<Булево?>"
+    # A form base, so the template wrapper is there - the escaping used to hide that too.
+    assert parsed["Наследует"]["Содержимое"]["Тип"] == "ПроизвольныйШаблонФормы"
+
+
+def test_a_base_that_is_not_a_type_expression_is_refused(tmp_path):
+    """What the transport mangled beyond the two brackets has no place in a type name."""
+    with pytest.raises(ScaffoldError, match="базового типа"):
+        scaffold.op_new_object(
+            tmp_path, "КомпонентИнтерфейса", "Проба", base="Форма&amp;lt;Булево&amp;gt;")
+    assert not (tmp_path / "Проба.yaml").exists()
+
+
+@pytest.mark.needs_data
+def test_a_base_given_in_english_is_written_in_the_project_language(tmp_path):
+    """`base` is documented in English words, and a Russian project must not get `Тип: Group`."""
+    subsystem = _make_project(tmp_path)
+    result = scaffold.op_new_object(subsystem, "КомпонентИнтерфейса", "ШапкаКарточки",
+                                    base="Group")
+    apply_result(result)
+    parsed = _valid_yaml((subsystem / "ШапкаКарточки.yaml").read_text(encoding="utf-8"))
+    assert parsed["Наследует"] == {"Тип": "Группа"}
+
+
+@pytest.mark.needs_data
+def test_an_english_base_still_recognises_a_form(tmp_path):
+    """Which base is a FORM is decided on one spelling, so the wrapper is not lost."""
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "КомпонентИнтерфейса", "СписокПробы",
+                                        base="ListForm<Undefined>"))
+    parsed = _valid_yaml((subsystem / "СписокПробы.yaml").read_text(encoding="utf-8"))
+    assert parsed["Наследует"]["Тип"] == "ФормаСписка<Неопределено>"
+    assert parsed["Наследует"]["Содержимое"]["Тип"] == "ПроизвольныйШаблонФормы"
+
+
+@pytest.mark.needs_data
+def test_a_russian_base_in_an_english_project_is_written_in_english(tmp_path):
+    """The mirror of the same defect: an English project must not get a Russian island."""
+    subsystem = _make_english_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "КомпонентИнтерфейса", "CardHeader",
+                                        base="ФормаСписка<Неопределено>"))
+    parsed = _valid_yaml((subsystem / "CardHeader.yaml").read_text(encoding="utf-8"))
+    assert parsed["Inherits"]["Type"] == "ListForm<Undefined>"
+    assert parsed["Inherits"]["Content"]["Type"] == "CustomFormTemplate"
+    assert parsed["Inherits"]["Content"]["Content"] == {"Type": "Group", "Layout": "Vertical"}
+
+
+@pytest.mark.needs_data
+def test_russian_type_leaves_an_author_name_alone():
+    """Only what the platform knows as a TYPE is turned around - see russian_type."""
+    assert scaffold.russian_type("ObjectForm<Goods.Object>") == "ФормаОбъекта<Goods.Объект>"
+    # The compiler dictionary answers both of those words in another role; only the type
+    # role is asked here, which is what keeps an author's name out of the substitution.
+    assert scaffold.russian_type("Number") == "Число"
+    assert scaffold.russian_type("Goods") == "Goods"
+
+
 def test_add_forms_skips_existing(tmp_path):
     subsystem = _make_project(tmp_path)
     apply_result(scaffold.op_new_object(subsystem, "Справочник", "Товары"))
@@ -2001,8 +2070,9 @@ def test_object_info_of_an_english_object(tmp_path):
     subsystem = _make_english_project(tmp_path)
     info = scaffold.object_info(tmp_path, name="Tasks")
     assert info["kind"] == "Справочник"
-    # The standard Наименование is added because this catalog does not declare it.
-    assert [f["name"] for f in info["fields"]] == ["Наименование", "DueDate"]
+    # The standard `Name` attribute is added because this catalog does not declare it - and it
+    # arrives under the spelling of the FILE, so an English project gets `Name`.
+    assert [f["name"] for f in info["fields"]] == ["Name", "DueDate"]
     assert info["tabulars"] == [{"name": "Steps", "fields": [{"name": "Step", "type": "String"}]}]
     # The same object addressed by file - the other entry point into the same reading.
     by_path = scaffold.object_info(tmp_path, yaml_path=subsystem / "Tasks.yaml")
@@ -2044,7 +2114,7 @@ def test_object_info_of_an_english_register(tmp_path):
     )
     info = scaffold.object_info(tmp_path, name="Sales")
     assert info["kind"] == "РегистрНакопления"
-    assert [f["name"] for f in info["fields"]] == ["Период", "Регистратор", "Product", "Amount"]
+    assert [f["name"] for f in info["fields"]] == ["Period", "Recorder", "Product", "Amount"]
     # A turnover register has no ВидЗаписи - reading the value in either spelling decides it.
     assert info["register"]["needs_record_type"] is False
 
@@ -2234,12 +2304,18 @@ def test_generated_form_stays_russian_in_a_russian_project(tmp_path):
 
 
 @pytest.mark.needs_data
-def test_untranslated_enum_values_are_named_in_the_notes(tmp_path):
-    """Значения интерфейсных перечислений данные пишут только по-русски – об этом говорят."""
+def test_an_enumerated_value_is_written_in_english_and_needs_no_note(tmp_path):
+    """The value of an interface enumeration has a dictionary of its own (uiterms).
+
+    It used to have none here: the term tables know type NAMES, so a generated English form
+    carried `WidthInColumns: Одинарная` and the notes apologised for it. Now the value is
+    spelled from the schema, and the note is left for values the data really cannot pair.
+    """
     directory = _make_english_project(tmp_path)
     result = scaffold.op_add_form(directory, name="Tasks", forms=("object",))
-    notes = " ".join(result.notes)
-    assert "Одинарная" in notes and "нет в данных платформы" in notes
+    text = next(c.content for c in result.changes if str(c.path).endswith("ObjectForm.yaml"))
+    assert "WidthInColumns: Single" in text
+    assert not [note for note in result.notes if "нет в данных платформы" in note]
 
 
 @pytest.mark.needs_data

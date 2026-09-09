@@ -1,7 +1,8 @@
 import asyncio
 import json
 import uuid
-from typing import Any, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar, cast
 
 import httpx
 from pydantic import BaseModel, TypeAdapter
@@ -20,8 +21,70 @@ from mistralai.workflows.testing.constants import TEST_TASK_QUEUE
 SSE_DATA_PREFIX = "data:"
 SSE_RETRY_PREFIX = "retry:"
 
+# Long-running polls against a real deployment go through the public gateway, where a
+# single 5xx or dropped connection is expected occasionally. Only give up once the
+# errors persist, so one blip does not fail a run that polls for several minutes.
+_MAX_CONSECUTIVE_POLL_ERRORS = 5
+
+_TERMINAL_STATUSES = frozenset({"COMPLETED", "FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"})
+
 sse_payload_adapter: TypeAdapter[StreamEventSsePayload] = TypeAdapter(StreamEventSsePayload)
 workflow_event_adapter: TypeAdapter[WorkflowEvent] = TypeAdapter(WorkflowEvent)
+
+_T = TypeVar("_T")
+
+
+def _is_transient_poll_error(exc: Exception) -> bool:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.is_server_error
+    return isinstance(exc, httpx.TransportError)
+
+
+def _is_transient_query_poll_error(exc: Exception) -> bool:
+    """Querying an execution the worker has not picked up yet fails with a 4xx, so client
+    errors are expected here and cannot be told apart from a genuine regression."""
+    return isinstance(exc, (httpx.HTTPError, ValueError, KeyError))
+
+
+async def _poll(
+    probe: Callable[[], Awaitable[_T | None]],
+    *,
+    attempts: int,
+    delay: float,
+    timeout_message: Callable[[], str],
+    is_transient: Callable[[Exception], bool] = _is_transient_poll_error,
+    max_consecutive_errors: int | None = _MAX_CONSECUTIVE_POLL_ERRORS,
+) -> _T:
+    """Call `probe` until it returns something other than `None`, or run out of attempts.
+
+    Errors `is_transient` accepts are retried, up to `max_consecutive_errors` in a row
+    (`None` tolerates them for the whole poll). Anything else propagates untouched, so a
+    genuine failure is not reported as a timeout.
+    """
+    consecutive_errors = 0
+    last_error: Exception | None = None
+    for _ in range(attempts):
+        await asyncio.sleep(delay)
+
+        try:
+            result = await probe()
+        except Exception as exc:
+            if not is_transient(exc):
+                raise
+            last_error = exc
+            consecutive_errors += 1
+            if max_consecutive_errors is not None and consecutive_errors > max_consecutive_errors:
+                raise
+            continue
+
+        consecutive_errors = 0
+        if result is not None:
+            return result
+
+    message = timeout_message()
+    if last_error is not None:
+        raise TimeoutError(f"{message} (last poll error: {last_error!r})") from last_error
+    raise TimeoutError(message)
 
 
 async def create_workflow(
@@ -309,21 +372,26 @@ async def poll_workflow_status(
     timeout_seconds: int = 30,
 ) -> dict[str, Any]:
     last_status: str | None = None
-    for _ in range(timeout_seconds):
-        await asyncio.sleep(1)
-        status_response = await client.get(f"/v1/workflows/executions/{execution_id}")
-        status_response.raise_for_status()
-        status_data = status_response.json()
+
+    async def probe() -> dict[str, Any] | None:
+        nonlocal last_status
+        status_data = await get_workflow_status(client, execution_id)
         last_status = status_data.get("status")
 
         if last_status == expected_status:
-            return cast(dict[str, Any], status_data)
-        elif last_status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED", "COMPLETED"]:
-            if last_status != expected_status:
-                raise RuntimeError(f"Workflow ended with status: {last_status}, expected: {expected_status}")
+            return status_data
+        if last_status in _TERMINAL_STATUSES:
+            raise RuntimeError(f"Workflow ended with status: {last_status}, expected: {expected_status}")
+        return None
 
-    raise TimeoutError(
-        f"Workflow did not reach {expected_status} status within {timeout_seconds}s (last known status: {last_status})"
+    return await _poll(
+        probe,
+        attempts=timeout_seconds,
+        delay=1,
+        timeout_message=lambda: (
+            f"Workflow did not reach {expected_status} status within {timeout_seconds}s "
+            f"(last known status: {last_status})"
+        ),
     )
 
 
@@ -335,25 +403,30 @@ async def poll_pending_inputs(
     exclude_task_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     _exclude = exclude_task_ids or set()
-    for _ in range(timeout_seconds * 10):
-        await asyncio.sleep(0.1)
-        try:
-            pending_response = await client.post(
-                f"/v1/workflows/executions/{execution_id}/queries",
-                json={"name": "__get_pending_inputs"},
-            )
-            pending_response.raise_for_status()
-            pending_data = pending_response.json()
-            pending_inputs = [
-                p for p in pending_data.get("result", {}).get("pending_inputs", []) if p.get("task_id") not in _exclude
-            ]
 
-            if len(pending_inputs) >= expected_count:
-                return cast(list[dict[str, Any]], pending_inputs)
-        except (httpx.HTTPError, ValueError, KeyError):
-            pass
+    async def probe() -> list[dict[str, Any]] | None:
+        pending_response = await client.post(
+            f"/v1/workflows/executions/{execution_id}/queries",
+            json={"name": "__get_pending_inputs"},
+        )
+        pending_response.raise_for_status()
+        pending_data = pending_response.json()
+        pending_inputs = [
+            p for p in pending_data.get("result", {}).get("pending_inputs", []) if p.get("task_id") not in _exclude
+        ]
 
-    raise TimeoutError(f"Did not receive {expected_count} pending inputs within {timeout_seconds}s")
+        if len(pending_inputs) >= expected_count:
+            return cast(list[dict[str, Any]], pending_inputs)
+        return None
+
+    return await _poll(
+        probe,
+        attempts=timeout_seconds * 10,
+        delay=0.1,
+        timeout_message=lambda: f"Did not receive {expected_count} pending inputs within {timeout_seconds}s",
+        is_transient=_is_transient_query_poll_error,
+        max_consecutive_errors=None,
+    )
 
 
 async def poll_worker_activity_status(
@@ -546,21 +619,25 @@ async def execute_workflow_and_wait(
         raise ValueError(f"No execution_id returned: {data}")
 
     last_status: str | None = None
-    for _ in range(timeout_seconds):
-        await asyncio.sleep(1)
 
-        status_response = await client.get(f"/v1/workflows/executions/{execution_id}")
-        status_response.raise_for_status()
-        status_data = status_response.json()
-
+    async def probe() -> dict[str, Any] | None:
+        nonlocal last_status
+        status_data = await get_workflow_status(client, execution_id)
         last_status = status_data.get("status")
-        if last_status == "COMPLETED":
-            return cast(dict[str, Any], status_data)
-        elif last_status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"]:
-            raise RuntimeError(f"Workflow {workflow_name} ended with status: {last_status}")
 
-    raise TimeoutError(
-        f"Workflow {workflow_name} did not complete within {timeout_seconds}s (last known status: {last_status})"
+        if last_status == "COMPLETED":
+            return status_data
+        if last_status in _TERMINAL_STATUSES:
+            raise RuntimeError(f"Workflow {workflow_name} ended with status: {last_status}")
+        return None
+
+    return await _poll(
+        probe,
+        attempts=timeout_seconds,
+        delay=1,
+        timeout_message=lambda: (
+            f"Workflow {workflow_name} did not complete within {timeout_seconds}s (last known status: {last_status})"
+        ),
     )
 
 

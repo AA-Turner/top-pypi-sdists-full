@@ -129,6 +129,8 @@ class ApiClient(AuthenticatedClient):
         more_headers: Optional[dict] = kwargs.pop("headers", None)
         if more_headers:
             headers.update(more_headers)
+        headers["X-Novita-SDK-Name"] = "sdk_py"
+        headers["X-Novita-SDK-Version"] = default_headers["X-Novita-SDK-Version"]
         kwargs.pop("token", None)
         kwargs.pop("auth_header_name", None)
         kwargs.pop("prefix", None)

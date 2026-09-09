@@ -13,6 +13,7 @@ from seltz import (
     Citation,
     Citations,
     Document,
+    Fields,
     SearchResponse,
 )
 from seltz._types import Omit
@@ -185,6 +186,8 @@ async def test_search_forwards_filter_params(monkeypatch):
             to_date="2026-05-01",
             include_domains=["techcrunch.com", "wired.com"],
             exclude_domains=["wikipedia.org"],
+            tier="base",
+            fields=Fields(content=True, snippets=True),
         )
     finally:
         await client.close()
@@ -193,6 +196,8 @@ async def test_search_forwards_filter_params(monkeypatch):
     assert captured["to_date"] == "2026-05-01"
     assert captured["include_domains"] == ["techcrunch.com", "wired.com"]
     assert captured["exclude_domains"] == ["wikipedia.org"]
+    assert captured["tier"] == "base"
+    assert captured["fields"] == Fields(content=True, snippets=True)
 
 
 async def test_search_omitted_filters_use_sentinel(monkeypatch):
@@ -215,6 +220,8 @@ async def test_search_omitted_filters_use_sentinel(monkeypatch):
     assert isinstance(captured["exclude_domains"], Omit)
     assert isinstance(captured["from_date"], Omit)
     assert isinstance(captured["to_date"], Omit)
+    assert isinstance(captured["tier"], Omit)
+    assert isinstance(captured["fields"], Omit)
 
 
 async def test_search_builds_request_and_returns_response():
@@ -273,6 +280,7 @@ async def test_search_omits_filters_when_not_provided():
     assert not req.HasField("scope")
     assert not req.HasField("from_date")
     assert not req.HasField("to_date")
+    assert not req.HasField("tier")
     assert list(req.include_domains) == []
     assert list(req.exclude_domains) == []
 

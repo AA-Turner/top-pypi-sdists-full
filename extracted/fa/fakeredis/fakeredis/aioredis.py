@@ -24,8 +24,7 @@ class AsyncFakeSocket(_fakesocket.FakeSocket):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.responses: asyncio.Queue = asyncio.Queue()  # type:ignore
-        # Set whenever a response is enqueued so can_read() can wait on it
-        # instead of polling the queue (see can_read).
+        # Set whenever a response is enqueued so can_read() can wait on it instead of polling the queue (see can_read).
         self._response_available: asyncio.Event = asyncio.Event()
         self._event_loop = asyncio.get_running_loop()
         self._loop_thread_ident = threading.get_ident()
@@ -41,10 +40,9 @@ class AsyncFakeSocket(_fakesocket.FakeSocket):
         if threading.get_ident() == self._loop_thread_ident:
             self._response_available.set()
         else:
-            # Called from another thread, e.g. a sync client publishing to a
-            # channel this socket subscribes to on a shared FakeServer: a plain
-            # set() would not wake this socket's sleeping event loop, so the
-            # wakeup must be marshalled through it.
+            # Called from another thread, e.g. a sync client publishing to a channel this socket subscribes to on a
+            # shared FakeServer: a plain set() would not wake this socket's sleeping event loop, so the wakeup must be
+            # marshalled through it.
             try:
                 self._event_loop.call_soon_threadsafe(self._response_available.set)
             except RuntimeError:  # the loop is already closed
@@ -56,15 +54,17 @@ class AsyncFakeSocket(_fakesocket.FakeSocket):
         func: Callable[[bool], Any],
         event: asyncio.Event,
         callback: Callable[[], None],
+        shape: Callable[[Any], Any] | None = None,
     ) -> None:
-        result = None
+        # The reply for an empty outcome -- a timeout, or an unblock with TIMEOUT.
+        result = None if shape is None else self._decode_result(shape(None))
         try:
             async with async_timeout(timeout if timeout else None):
                 while True:
                     await event.wait()
                     event.clear()
-                    # This is a coroutine outside the normal control flow that
-                    # locks the server, so we have to take our own lock.
+                    # This is a coroutine outside the normal control flow that locks the server, so we have to take our
+                    # own lock.
                     with self._server.lock:
                         if self._unblock_reason is not None:
                             try:
@@ -74,7 +74,7 @@ class AsyncFakeSocket(_fakesocket.FakeSocket):
                             break
                         ret = func(False)
                         if ret is not None:
-                            result = self._decode_result(ret)
+                            result = self._decode_result(ret if shape is None else shape(ret))
                             break
         except asyncio.TimeoutError:
             pass
@@ -90,11 +90,12 @@ class AsyncFakeSocket(_fakesocket.FakeSocket):
         self,
         timeout: float | None,
         func: Callable[[bool], None],
+        shape: Callable[[Any], Any] | None = None,
     ) -> Any:
         loop = asyncio.get_event_loop()
         ret = func(True)
         if ret is not None or self._in_transaction:
-            return ret
+            return ret if shape is None else shape(ret)
         event = asyncio.Event()
 
         def callback() -> None:
@@ -103,7 +104,9 @@ class AsyncFakeSocket(_fakesocket.FakeSocket):
         self._db.add_change_callback(callback)
         self._blocked = True
         self.pause()
-        loop.create_task(self._async_blocking(timeout, func, event, callback))
+        # `shape` travels with the task: the reply is put on the queue from there, past the point where the command that
+        # blocked could still touch it.
+        loop.create_task(self._async_blocking(timeout, func, event, callback, shape))
         return _helpers.NoResponse()
 
 
@@ -169,17 +172,13 @@ class FakeBaseAsyncConnection(FakeBaseConnectionMixin):
             await self.connect()
         if timeout == 0:
             return self._sock is not None and not self._sock.responses.empty()
-        # asyncio.Queue has no "wait until non-empty without consuming" API, so
-        # wait on the socket's _response_available event (set by put_response)
-        # rather than polling. timeout=None waits indefinitely.
+        # asyncio.Queue has no "wait until non-empty without consuming" API, so wait on the socket's _response_available
+        # event (set by put_response) rather than polling. timeout=None waits indefinitely.
         #
-        # The event is only cleared here, never by the consumers that drain the
-        # queue (responses.get / get_nowait), so "event set" does NOT imply
-        # "queue non-empty" -- it may be left set after the queue was drained.
-        # The recheck of empty() immediately after clear() is therefore
-        # mandatory, not an optimization: it both closes the lost-wakeup race
-        # (an item enqueued between the empty() check and the wait) and absorbs
-        # a stale set. Do not remove it.
+        # The event is only cleared here, never by the consumers that drain the queue (responses.get / get_nowait), so
+        # "event set" does NOT imply "queue non-empty" -- it may be left set after the queue was drained. The recheck of
+        # empty() immediately after clear() is therefore mandatory, not an optimization: it both closes the lost-wakeup
+        # race (an item enqueued between the empty() check and the wait) and absorbs a stale set. Do not remove it.
         loop = asyncio.get_event_loop()
         start = loop.time()
         while True:
@@ -202,24 +201,37 @@ class FakeBaseAsyncConnection(FakeBaseConnectionMixin):
         return None
 
     async def read_response(self, **kwargs: Any) -> Any:
-        if not self._sock:
-            raise self._connection_error_class(msgs.CONNECTION_ERROR_MSG)
-        if not self._server.connected:
-            try:
-                response = self._sock.responses.get_nowait()
-            except asyncio.QueueEmpty:
-                if kwargs.get("disconnect_on_error", True):
-                    await self.disconnect()
-                raise self._connection_error_class(msgs.CONNECTION_ERROR_MSG)
-        else:
-            timeout: float | None = kwargs.pop("timeout", None)
-            can_read = await self.can_read(timeout)
-            response = await self._reader.read(0) if can_read and self._reader else None
+        try:
+            response = await self._read_response(**kwargs)
+        except BaseException:
+            # redis-py's own read_response closes the connection on any BaseException, cancellation included, so that a
+            # half-consumed command/reply pair never goes back to the pool. Without it, cancelling a blocking command
+            # hands the socket back still paused and mid-block, and every later command on it hangs.
+            #
+            # Like redis-py, this covers only the read itself: an error *reply* is raised below, outside the guard, so a
+            # WRONGTYPE or the like propagates without tearing the connection down.
+            if kwargs.get("disconnect_on_error", True):
+                await self.disconnect(nowait=True)
+            raise
         if isinstance(response, RaiseErrorTypes):
             raise response
         if kwargs.get("disable_decoding", False):
             return response
         return self._decode(response)
+
+    async def _read_response(self, **kwargs: Any) -> Any:
+        if not self._sock:
+            raise self._connection_error_class(msgs.CONNECTION_ERROR_MSG)
+        if not self._server.connected:
+            try:
+                return self._sock.responses.get_nowait()
+            except asyncio.QueueEmpty:
+                if kwargs.get("disconnect_on_error", True):
+                    await self.disconnect()
+                raise self._connection_error_class(msgs.CONNECTION_ERROR_MSG)
+        timeout: float | None = kwargs.pop("timeout", None)
+        can_read = await self.can_read(timeout)
+        return await self._reader.read(0) if can_read and self._reader else None
 
 
 class FakeAsyncRedisConnection(FakeBaseAsyncConnection, redis_async.Connection):
@@ -271,9 +283,8 @@ class FakeAsyncRedisMixin:
         return self
 
 
-# Deprecated alias: kept so existing imports of aioredis.FakeRedisMixin keep
-# working; it shadowed the (different) sync mixin of the same name in
-# _connection.py.
+# Deprecated alias: kept so existing imports of aioredis.FakeRedisMixin keep working; it shadowed the (different) sync
+# mixin of the same name in _connection.py.
 FakeRedisMixin = FakeAsyncRedisMixin
 
 

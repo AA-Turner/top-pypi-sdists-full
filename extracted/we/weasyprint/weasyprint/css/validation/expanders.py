@@ -30,7 +30,7 @@ class PendingExpander(Pending):
         super().__init__(tokens, validator.keywords['name'])
         self.validator = validator
 
-    def validate(self, tokens, wanted_key):
+    def validate(self, tokens, wanted_key, base_url):
         for key, value in self.validator(tokens):
             if key.startswith('-'):
                 key = f'{self.validator.keywords["name"]}{key}'
@@ -537,8 +537,7 @@ def expand_background(tokens, name, base_url):
                 continue
             raise InvalidValues
 
-        color = results.pop(
-            'background-color', INITIAL_VALUES['background_color'])
+        color = results.pop('background-color', 'transparent')
         for name in expanded_names:
             if name not in results and name != 'background-color':
                 results[name] = INITIAL_VALUES[name.replace('-', '_')][0]

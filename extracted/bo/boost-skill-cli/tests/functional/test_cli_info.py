@@ -6,11 +6,56 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
 import sys
+import types
 
 import pytest
 
+from boost_cli.commands import info
 from boost_cli.core import paths
+
+
+def _git_rule_tap(fixture_tap_src, dest, name="dep-mgmt",
+                  description="Keep dependency manifests in sync with lockfiles.",
+                  heading="Pin transitive versions",
+                  body="Always pin transitive dependency versions."):
+    """A real, tappable git repo carrying one rule with real frontmatter.
+
+    Copied from the shared fixture tap rather than built from scratch so the
+    result taps and scans exactly like a normal registry; the one rule added
+    on top is what a test actually wants to install.
+    """
+    shutil.copytree(fixture_tap_src, dest)
+    (dest / "rules").mkdir()
+    (dest / "rules" / (name + ".mdc")).write_text(
+        "---\nname: %s\nversion: 1.0.0\ndescription: %s\n---\n\n"
+        "## %s\n\n%s\n" % (name, description, heading, body),
+        encoding="utf-8")
+    subprocess.run(["git", "-C", str(dest), "add", "-A"],
+                   check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(dest), "commit", "-qm", "add rule"],
+                   check=True, capture_output=True)
+    return dest
+
+def _force_tty(monkeypatch):
+    """Make `info.sys.stdout.isatty()` report True for this test.
+
+    `boost preview` (and `cat`/`home`) branch on `sys.stdout.isatty()` to
+    decide between a rendered and a raw/piped output — right for a real
+    terminal vs. a pipe, but pytest's `capsys` stream is never a tty, and it
+    is also not a stable object to monkeypatch directly: pytest re-wraps
+    `sys.stdout` in a new object between fixture setup and the test body
+    (observed by id()), so a patch applied to "the" object during fixture
+    setup lands on an object the test body no longer sees. Swapping the
+    *command module's* `sys` reference instead (the same pattern already
+    used for `discovery.py`'s curses tests) sidesteps that entirely: nothing
+    here touches the real, capsys-captured `sys.stdout` that `print()`
+    still writes to.
+    """
+    monkeypatch.setattr(info, "sys", types.SimpleNamespace(
+        stdout=types.SimpleNamespace(isatty=lambda: True), stderr=sys.stderr))
 
 
 def _lock():
@@ -32,6 +77,18 @@ def _skill_dir(tmp_path, name):
     (d / "SKILL.md").write_text(
         "---\nname: %s\ndescription: locally imported test skill\n"
         "version: 0.1.0\n---\n\n# %s\n\nBody.\n" % (name, name), encoding="utf-8")
+    return d
+
+
+def _skill_dir_extra(tmp_path, name, extra_frontmatter):
+    """Like ``_skill_dir`` but with extra raw frontmatter lines (e.g. a
+    ``requires:`` block) spliced in before the closing ``---``."""
+    d = tmp_path / name
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text(
+        "---\nname: %s\ndescription: locally imported test skill\n"
+        "version: 0.1.0\n%s---\n\n# %s\n\nBody.\n"
+        % (name, extra_frontmatter, name), encoding="utf-8")
     return d
 
 
@@ -496,12 +553,34 @@ class TestEdit:
         r = boost("edit", "brainstorming")
         assert ("local edits diverge from the tap source — "
                 "boost drift will flag this") in r.out
+        # The lock sha stays the tap-pinned value — rewriting it here would
+        # make the store always match its own lock, which is exactly what
+        # hid the edit from `boost drift` (see the drift-classification fix).
         sha_after = _lock()["brainstorming"]["sha256"]
-        assert sha_after != sha_before
+        assert sha_after == sha_before
         assert "- extra line" in (paths.store_dir() / "brainstorming" /
                                   "SKILL.md").read_text(encoding="utf-8")
         assert any(e["subject"] == "brainstorming"
                    for e in _journal_events("edit"))
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="POSIX shebang script isn't directly executable on Windows")
+    def test_editor_change_is_reported_as_local_edits_not_upstream_moved(
+            self, boost, installed, tmp_path, monkeypatch):
+        # The bug this pins: cmd_edit used to rewrite the lock sha to the
+        # post-edit hash, so `boost drift` fell through to UPSTREAM_MOVED
+        # (or IN_SYNC) instead of ever reporting LOCAL_EDITS for an edit made
+        # through `boost edit` itself.
+        script = tmp_path / "fake-editor.sh"
+        script.write_text('#!/bin/sh\necho "- extra line" >> "$1"\n', encoding="utf-8")
+        script.chmod(0o755)
+        monkeypatch.setenv("EDITOR", str(script))
+        monkeypatch.delenv("VISUAL", raising=False)
+        boost("edit", "brainstorming")
+        r = boost("drift")
+        assert "local-edits" in r.out
+        assert "upstream-moved" not in r.out
+        assert "1 local-edits" in r.out
 
     @pytest.mark.skipif(sys.platform == "win32",
                         reason="POSIX shebang script isn't directly executable on Windows")
@@ -513,9 +592,9 @@ class TestEdit:
         monkeypatch.setenv("EDITOR", str(script))
         monkeypatch.delenv("VISUAL", raising=False)
         sha_before = _lock()["brainstorming"]["sha256"]
-        r = boost("edit", "brainstorming")
+        r = boost("edit", "brainstorming", expect=1)
         assert "editor exited with status 1" in r.out
-        assert "no changes" in r.out
+        assert "no changes" not in r.out
         assert _lock()["brainstorming"]["sha256"] == sha_before
 
     def test_not_installed_rc1(self, boost, tapped):
@@ -546,6 +625,13 @@ class TestEdit:
 # ── preview ──────────────────────────────────────────────────────────────
 
 class TestPreview:
+    @pytest.fixture(autouse=True)
+    def _tty(self, monkeypatch):
+        # `boost preview` renders when stdout is a terminal and dumps raw
+        # Markdown otherwise (see TestPreviewPiped below) — every test in
+        # this class wants the rendered path, so force it once here.
+        _force_tty(monkeypatch)
+
     def test_renders_headings_and_fences(self, boost, installed):
         r = boost("preview", "brainstorming")
         assert "brainstorming · v1.4.0 · fixture-tap" in r.out
@@ -600,6 +686,78 @@ class TestPreview:
         assert lines[idx + 1].startswith("  ")
         assert "clustering." in lines[idx + 1]
 
+    def test_bold_span_survives_a_narrow_wrap(self, boost, sandbox, tmp_path,
+                                              monkeypatch):
+        # Regression: `_render_markdown` wraps a line and then colorizes each
+        # wrapped chunk, so a `**bold**` span split across that boundary used
+        # to leave its `**` markers stranded in two different chunks — neither
+        # matched `_inline`'s regex, so the literal asterisks leaked into the
+        # rendered output instead of becoming bold text.
+        skill = tmp_path / "bold-wrap-skill"
+        skill.mkdir()
+        (skill / "SKILL.md").write_text(
+            "---\nname: bold-wrap-skill\ndescription: d\nversion: 1.0.0\n---\n\n"
+            "# Bold Wrap Skill\n\n"
+            "This paragraph has a **very important warning** buried inside it "
+            "that must stay bold across a narrow terminal.\n",
+            encoding="utf-8")
+        boost("import", str(skill))
+        # Wide enough that the atomic span itself ("very important warning",
+        # 23 cols) fits on one line — narrow enough that the surrounding
+        # sentence still has to wrap around it, which is what used to split
+        # the span's `**` markers into two different chunks.
+        monkeypatch.setenv("COLUMNS", "30")
+        r = boost("preview", "bold-wrap-skill")
+        assert "**" not in r.out
+        # the titlebar is a separate, pre-existing, never-wrapped decorative
+        # element (see test_list_item_wraps_and_continuation_aligns_under_
+        # the_bullet above) — scope the width check to the body below it
+        body_lines = r.out.split("\n")[2:]
+        assert len(body_lines) > 1, "the paragraph did not actually wrap"
+        for ln in body_lines:
+            assert len(ln) <= 30, ln
+        assert "very important warning" in " ".join(body_lines)
+
+    def test_version_falls_back_to_the_catalog_normalized_value(
+            self, boost, sandbox, tmp_path):
+        # A SKILL.md with no `version:` key must show the same "0.0.0" that
+        # `boost info`/`catalog.scan_dir` already normalize a missing version
+        # to — not the raw-frontmatter "v?" preview used to show while every
+        # other command agreed on 0.0.0.
+        skill = tmp_path / "versionless-skill"
+        skill.mkdir()
+        (skill / "SKILL.md").write_text(
+            "---\nname: versionless-skill\ndescription: d\n---\n\n"
+            "# Versionless Skill\n\nBody text.\n", encoding="utf-8")
+        boost("import", str(skill))
+        r = boost("preview", "versionless-skill")
+        assert "versionless-skill · v0.0.0 ·" in r.out
+        assert "· v? ·" not in r.out
+
+
+class TestPreviewPiped:
+    """Piped/redirected `preview` dumps raw Markdown, mirroring `boost cat`.
+
+    pytest's capsys stream is never a tty, so these run with no monkeypatch —
+    that IS the piped state `TestPreview` above has to override.
+    """
+
+    def test_piped_output_equals_the_raw_body(self, boost, installed):
+        from boost_cli.core import frontmatter
+        text = (paths.store_dir() / "brainstorming" / "SKILL.md").read_text(
+            encoding="utf-8")
+        _meta, body = frontmatter.parse(text)
+        r = boost("preview", "brainstorming")
+        assert r.out == (body if body.endswith("\n") else body + "\n")
+
+    def test_piped_output_has_no_titlebar_and_keeps_the_heading_marker(
+            self, boost, installed):
+        r = boost("preview", "brainstorming")
+        # the raw body, unlike the rendered path, keeps its "#" heading
+        # marker verbatim rather than stripping it with no styled substitute
+        assert "# Brainstorming" in r.out
+        assert "fixture-tap" not in r.out
+
 
 # ── explain (no AI) ──────────────────────────────────────────────────────
 
@@ -651,6 +809,19 @@ class TestExplain:
         assert "ungrounded" not in r.out
         assert "Key rules:" not in r.out          # showed the AI reply, no fallback
 
+    def test_a_failed_ai_call_warns_instead_of_falling_back_silently(
+            self, boost, installed, monkeypatch):
+        # The audit bug this card fixes: AI was available and the call was
+        # made, but produced nothing (an expired login, an untrusted
+        # workspace, ...) — distinct from "no backend", and previously
+        # reported with no note at all.
+        from boost_cli.core import ai
+        monkeypatch.setattr(ai, "available", lambda: True)
+        monkeypatch.setattr(ai, "ask", lambda *a, **k: None)
+        r = boost("explain", "brainstorming")
+        assert "using the heuristic fallback" in r.err
+        assert "Key rules:" in r.out
+
     def test_ungrounded_ai_reply_falls_back_to_extractive(self, boost, installed,
                                                           monkeypatch):
         from boost_cli.core import ai
@@ -687,12 +858,13 @@ class TestExplain:
 class TestLog:
     def test_journal_feed_shows_install(self, boost, installed):
         r = boost("log")
+        assert "==> activity" in r.out          # parity with --diagnostics/--crashes
         assert "install brainstorming" in r.out
         assert "tap fixture-tap" in r.out
 
     def test_limit_one(self, boost, installed):
         r = boost("log", "-n", "1")
-        lines = [l for l in r.out.splitlines() if l.strip()]
+        lines = [l for l in r.out.splitlines() if l.strip() and "==>" not in l]
         assert len(lines) == 1
         assert "install brainstorming" in lines[0]
 
@@ -706,10 +878,23 @@ class TestLog:
         assert "brainstorming — history in fixture-tap" in r.out
         assert "fixture skills" in r.out            # the fixture commit subject
 
+    def test_qualified_name_shows_bare_name_once_not_twice(self, boost, rival_tap):
+        r = boost("log", "rival-tap:brainstorming")
+        assert "brainstorming — history in rival-tap" in r.out
+        assert "rival-tap:brainstorming" not in r.out
+
     def test_local_import_no_upstream(self, boost, sandbox, tmp_path):
         boost("import", _skill_dir(tmp_path, "local-one"))
         r = boost("log", "local-one")
         assert "no upstream history (imported locally)" in r.out
+
+    def test_name_with_diagnostics_or_crashes_is_a_usage_error(self, boost, installed):
+        # `log NAME --diagnostics` used to silently drop NAME and show the
+        # unfiltered diagnostic trail instead.
+        r = boost("log", "brainstorming", "--diagnostics", expect=2)
+        assert "NAME is not used with --diagnostics/--crashes" in r.err
+        r = boost("log", "brainstorming", "--crashes", expect=2)
+        assert "NAME is not used with --diagnostics/--crashes" in r.err
 
 
 # ── home ─────────────────────────────────────────────────────────────────
@@ -765,6 +950,7 @@ class TestDeps:
         assert data == {"name": "jira-integration",
                         "requires": [{"name": "commit-messages",
                                       "installed": True, "requires": []}],
+                        "mcp": [],
                         "conflicts": []}
 
     def test_scan_all_installed(self, boost, tapped):
@@ -774,6 +960,48 @@ class TestDeps:
         boost("uninstall", "commit-messages")
         r = boost("deps", expect=1)
         assert "jira-integration requires commit-messages ✗ not installed" in r.out
+        assert "boost install commit-messages" in r.out
+
+    def test_transitive_unmet_requirement_flips_exit_code(self, boost, sandbox,
+                                                          tmp_path):
+        # The bug: `chain-parent` directly requires `chain-child`, which IS
+        # installed, so the top-level check passed — but `chain-child` itself
+        # requires `phantom-dep`, which is installed nowhere. The renderer
+        # already showed that as a "✗ not installed" nested line; only the
+        # exit code (and --json) failed to count it.
+        boost("import", _skill_dir_extra(tmp_path, "chain-child",
+                                         "requires: [phantom-dep]\n"))
+        boost("import", _skill_dir_extra(tmp_path, "chain-parent",
+                                         "requires: [chain-child]\n"))
+        r = boost("deps", "chain-parent", expect=1)
+        assert "requires: chain-child ✓ installed" in r.out
+        assert "↳ phantom-dep ✗ not installed" in r.out
+        assert "boost install phantom-dep" in r.out
+        data = json.loads(boost("deps", "chain-parent", "--json", expect=1).out)
+        assert data["requires"] == [
+            {"name": "chain-child", "installed": True,
+             "requires": [{"name": "phantom-dep", "installed": False,
+                          "requires": []}]}]
+
+    def test_mcp_only_requirement_shown_not_none(self, boost, sandbox, tmp_path):
+        # A real shipped shape (seismic-automation-style): `requires:` nested
+        # under a `mcp:` mapping. boost's frontmatter parser has no nested-
+        # mapping support, so it hoists `mcp:` to the top level and leaves the
+        # parsed `requires` an empty string — which used to render as a flat
+        # lie, "requires: (none)", for a skill that plainly needs an MCP
+        # server. No bundled .mcp.json here, so the server is declared by
+        # name only and boost cannot register it — "(not registered)".
+        boost("import", _skill_dir_extra(
+            tmp_path, "mcp-consumer", "requires:\n  mcp: [rube]\n"))
+        r = boost("deps", "mcp-consumer")
+        assert "requires: (none)" not in r.out
+        assert "requires: mcp rube" in r.out
+        assert "not registered" in r.out
+        data = json.loads(boost("deps", "mcp-consumer", "--json").out)
+        assert data["mcp"] == [{"name": "rube", "registrable": False}]
+        # A name-only MCP declaration is informational, not a satisfiable
+        # requirement — it must not by itself flip the exit code.
+        assert boost("deps", "mcp-consumer", expect=0)
 
 
 # ── tag ──────────────────────────────────────────────────────────────────
@@ -949,7 +1177,9 @@ class TestMaterializedKinds:
         assert "Always use two-space indents." in r.out
         assert "my own notes" not in r.out   # the managed block, not the file
 
-    def test_preview_titles_the_rule_with_its_tap(self, boost, sandbox):
+    def test_preview_titles_the_rule_with_its_tap(self, boost, sandbox,
+                                                   monkeypatch):
+        _force_tty(monkeypatch)
         self._seed_claude_rule()
         r = boost("preview", "house")
         assert "house" in r.out and "some-tap" in r.out
@@ -1003,3 +1233,50 @@ class TestMaterializedKinds:
         assert "requires: commit-messages ✓ installed" in r.out
         r = boost("deps")
         assert "no unmet requirements or conflicts" in r.out
+
+    def test_info_json_carries_description_from_the_tap(
+            self, boost, fixture_tap_src, tmp_path):
+        # docs/roadmap/items/audit-info-stats-explain-render-a-different-
+        # smaller-shape-for-rule.md: the materialized JSON envelope had
+        # "name"/"kind"/"installed" only — three keys against a skill's
+        # thirteen, and no description even though the tap still has one.
+        tap = _git_rule_tap(fixture_tap_src, tmp_path / "rule-tap")
+        boost("tap", str(tap))
+        boost("install", "dep-mgmt", "--agent", "claude-code")
+        r = boost("info", "dep-mgmt")
+        assert re.search(r"description\s+Keep dependency manifests", r.out)
+        data = json.loads(boost("info", "dep-mgmt", "--json").out)
+        assert data["kind"] == "rule"
+        assert data["description"] == \
+            "Keep dependency manifests in sync with lockfiles."
+
+    def test_info_not_installed_rule_shows_kind_badge_and_file_source(
+            self, boost, fixture_tap_src, tmp_path):
+        # Before this fix a not-installed rule/workflow showed no kind badge
+        # or line at all, and its "source" was `cat['rel_dir']` — the tap's
+        # whole rules/ directory, not the one file this item actually is.
+        tap = _git_rule_tap(fixture_tap_src, tmp_path / "rule-tap")
+        boost("tap", str(tap))
+        r = boost("info", "dep-mgmt")
+        assert "not installed" in r.out and "rule" in r.out
+        assert re.search(r"kind\s+rule", r.out)
+        assert re.search(r"source\s+rules/dep-mgmt\.mdc", r.out)
+        assert not re.search(r"source\s+rules\s*$", r.out, re.MULTILINE)
+        data = json.loads(boost("info", "dep-mgmt", "--json").out)
+        assert data["kind"] == "rule"
+
+    def test_explain_installed_rule_keeps_description_and_a_real_outline(
+            self, boost, fixture_tap_src, tmp_path):
+        # After install, `explain` used to lose the description entirely
+        # (the materialized CLAUDE.md block carries no frontmatter) and its
+        # "Outline:" started at the block's own "# dep-mgmt" managed-block
+        # header instead of the rule's real first heading.
+        tap = _git_rule_tap(fixture_tap_src, tmp_path / "rule-tap")
+        boost("tap", str(tap))
+        boost("install", "dep-mgmt", "--agent", "claude-code")
+        r = boost("explain", "dep-mgmt")
+        assert "Keep dependency manifests in sync with lockfiles." in r.out
+        assert "Outline:" in r.out
+        outline = r.out.split("Outline:", 1)[1]
+        assert "dep-mgmt" not in outline
+        assert "Pin transitive versions" in outline

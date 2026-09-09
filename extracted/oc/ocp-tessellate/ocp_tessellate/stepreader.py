@@ -28,14 +28,14 @@ try:
 except ImportError:
     pass
 
-import OCP  # noqa: F401
+import OCP
 from OCP.IFSelect import IFSelect_RetDone
 from OCP.Quantity import Quantity_ColorRGBA
 from OCP.STEPCAFControl import STEPCAFControl_Reader
 from OCP.STEPControl import STEPControl_Reader
 from OCP.TCollection import TCollection_AsciiString, TCollection_ExtendedString
 from OCP.TDataStd import TDataStd_Name
-from OCP.TDF import TDF_ChildIterator, TDF_Label, TDF_LabelSequence
+from OCP.TDF import TDF_ChildIterator, TDF_Label
 from OCP.TDocStd import TDocStd_Document
 from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_FACE, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
@@ -49,6 +49,11 @@ from OCP.XCAFDoc import (
     XCAFDoc_DocumentTool,
     XCAFDoc_ShapeTool,
 )
+
+if OCP.__version__.startswith("7"):
+    from OCP.TDF import TDF_LabelSequence
+else:
+    from OCP.collections import Sequence_TDF_Label as TDF_LabelSequence
 
 # from ocp_tessellate.ocp_utils import deserialize, loc_to_tq, serialize, tq_to_loc
 from ocp_tessellate.utils import warn
@@ -361,14 +366,14 @@ class StepReader:
             a = cq.Assembly(name=name, loc=loc)
             names = {}
             for obj in objs:
-                name = obj["name"]
+                child_name = obj["name"]
 
-                # Create a unique name by postfixing the enumerator index if needed
-                if names.get(name) is None:
-                    names[name] = 0
+                # Create a unique name by postfixing the enumerator index
+                if names.get(child_name) is None:
+                    names[child_name] = 0
                 else:
-                    names[name] += 1
-                name = f"{obj['name']}_{names[name]}"
+                    names[child_name] += 1
+                child_name = f"{obj['name']}_{names[child_name]}"
 
                 a.add(
                     (
@@ -376,7 +381,7 @@ class StepReader:
                         if obj["shapes"] is None
                         else walk(obj["shapes"])
                     ),
-                    name=name,
+                    name=child_name,
                     color=None if obj["color"] is None else cq.Color(*obj["color"]),
                     loc=to_loc(obj.get("loc")),
                 )
@@ -425,14 +430,14 @@ class StepReader:
             a = []
             names = {}
             for obj in objs:
-                label = obj["name"]
+                child_label = obj["name"]
 
-                # Create a unique name by postfixing the enumerator index if needed
-                if names.get(label) is None:
-                    names[label] = 0
+                # Create a unique name by postfixing the enumerator index
+                if names.get(child_label) is None:
+                    names[child_label] = 0
                 else:
-                    names[label] += 1
-                label = f"{obj['name']}_{names[label]}"
+                    names[child_label] += 1
+                child_label = f"{obj['name']}_{names[child_label]}"
 
                 if obj["shapes"] is None:
                     shape = obj["shape"]
@@ -445,7 +450,7 @@ class StepReader:
                 a.append(
                     clone(
                         child,
-                        label=label,
+                        label=child_label,
                         color=None if obj["color"] is None else Color(*obj["color"]),
                         location=to_loc(obj.get("loc")),
                     )

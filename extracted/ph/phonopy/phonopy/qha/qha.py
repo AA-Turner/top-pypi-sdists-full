@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Quasi-harmonic approximation driver returning immutable results.
 
 The public entry point is run_qha(), which takes one Phonopy instance per
@@ -24,7 +25,7 @@ from phonopy.qha.calc import (
     compute_heat_capacity_p_polyfit,
     compute_volumetric_thermal_expansion,
 )
-from phonopy.qha.electron import ElectronicStates
+from phonopy.qha.electron_states import ElectronicStates
 from phonopy.qha.eos import fit_to_eos, get_eos
 from phonopy.qha.lattice import LatticeParametersFit, compute_axial_thermal_expansion
 from phonopy.qha.thermal import (
@@ -229,7 +230,7 @@ def run_qha(
         F_el(T, V) = internal_energies + fe(T) - fe(0) are
         computed internally within the fixed density-of-states (Mermin)
         approximation, which is intended for metals (see
-        phonopy.qha.electron.ElectronFreeEnergy). The electronic
+        phonopy.qha.electron_kpoint_sum.ElectronFreeEnergy). The electronic
         entropies are obtained analytically and the heat capacities by a
         single numerical differentiation; both enter C_P and the
         Gruneisen parameters.
@@ -272,8 +273,11 @@ def run_qha(
     units = get_physical_units()
     fe_phonon_ev = fe_phonon / units.EvTokJmol
     if electronic_structures is not None:
+        # No conversion here: the volume check in _validate_inputs has
+        # already established that the states are on the same cell as the
+        # phonons, whichever cell ph.primitive is.
         fe_el_rel, s_el = compute_electronic_contributions_from_states(
-            electronic_structures, temps_in
+            electronic_structures, temps_in, primitive_volumes=None
         )
         el = el + fe_el_rel
         cv_el = temps_in[:, None] * np.gradient(s_el, temps_in, axis=0, edge_order=2)

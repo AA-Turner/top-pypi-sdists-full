@@ -43,9 +43,11 @@ from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
 )
 from airbyte_ops_mcp.connector_ops.rollouts.ci import build_ci_run_url
 from airbyte_ops_mcp.connector_ops.rollouts.constants import (
+    AUTO_CLOSE_MARKER,
     FAILURE_THRESHOLD_EXCEEDED_MARKER,
     FINALIZING_GRACE_MINUTES,
     NO_OP_EMPTY_TIER_MARKER,
+    REGISTRY_CANDIDATE_LAG_GRACE_MINUTES,
     STRATEGY_DEFAULT,
     STRATEGY_STEP_MAP,
     TIER_ORDER,
@@ -268,6 +270,9 @@ def blocking_sibling_reason(
     The release-candidate scope is the actor definition plus repository and image
     tag, across all tiers. The sibling's recorded state and reason are used
     directly; this helper never re-derives health from sync information.
+    AutoPilot bookkeeping cancellations carry no information about RC health,
+    so no-op and auto-close cancellations are exempt; if the RC is obsolete,
+    auto-close closes the restarted rollout again on the same tick.
     """
     for sibling in siblings:
         if sibling.rollout_id == rollout.rollout_id:
@@ -281,11 +286,11 @@ def blocking_sibling_reason(
         recorded_outcome = (
             sibling.error_msg or sibling.failed_reason or sibling.paused_reason
         )
-        is_no_op_cancellation = (
-            sibling.error_msg is not None
-            and sibling.error_msg.startswith(NO_OP_EMPTY_TIER_MARKER)
+        is_benign_cancellation = sibling.error_msg is not None and (
+            sibling.error_msg.startswith(NO_OP_EMPTY_TIER_MARKER)
+            or sibling.error_msg.startswith(AUTO_CLOSE_MARKER)
         )
-        if sibling.state == "canceled" and not is_no_op_cancellation:
+        if sibling.state == "canceled" and not is_benign_cancellation:
             return HoldDecision(
                 kind="sibling",
                 message=(
@@ -2489,8 +2494,11 @@ def _rc_matches_highest_candidate(
 
     `candidates` is the connector's `releases.releaseCandidates` version list
     from the compiled registry. The highest-priority candidate is the max
-    semver among them. Returns `False` when `candidates` is empty (nothing is
-    advertised, so no RC can match) or when the RC / candidates are unparseable.
+    semver among them. Returns `False` when `candidates` is empty or when the
+    RC / candidates are unparseable. Callers are expected to handle the empty
+    case before calling; `_find_obsolete_rollout_reasons` treats it as registry
+    lag or `no_candidate_advertised`, so a `False` here is not by itself
+    grounds to close a rollout.
 
     Matching is prerelease-aware to avoid two failure modes: when the rollout tag
     carries an explicit prerelease suffix (e.g. `0.2.5-rc.2`), it must match the
@@ -2517,8 +2525,9 @@ def _find_obsolete_rollout_reasons(
     """Return auto-close reasons for rollouts that are no longer live candidates.
 
     This is the same candidate determination used by `run_auto_close`: a newer
-    active RC, an RC already equal to the registry GA default, or an RC that is
-    not the highest advertised candidate.
+    active RC, an RC already equal to the registry GA default, an RC whose
+    registry candidate is not advertised after the lag grace period, or an RC
+    that is not the highest advertised candidate.
     """
     by_connector: dict[str, list[ConnectorRolloutRecord]] = defaultdict(list)
     for rollout in eligible:
@@ -2564,6 +2573,15 @@ def _find_obsolete_rollout_reasons(
             continue
         if candidates and not _parse_candidate_versions(candidates):
             continue
+        if not candidates:
+            created_at = parse_db_timestamp(rollout.created_at)
+            if created_at is None:
+                continue
+            age_minutes = (datetime.now(timezone.utc) - created_at).total_seconds() / 60
+            if age_minutes < REGISTRY_CANDIDATE_LAG_GRACE_MINUTES:
+                continue
+            reasons[rollout.rollout_id] = "no_candidate_advertised"
+            continue
         if not _rc_matches_highest_candidate(rollout, candidates):
             reasons[rollout.rollout_id] = "not_highest_candidate"
     return reasons
@@ -2577,7 +2595,7 @@ def run_auto_close(
 ) -> AutopilotResult:
     """Close rollouts a connector no longer needs, so only its active candidate remains.
 
-    Three conditions close a rollout (all with `retain_pins_on_cancellation=True`,
+    Four conditions close a rollout (all with `retain_pins_on_cancellation=True`,
     so pinned actors are left undisturbed — pin cleanup is a separate step and
     auto-close never removes pins):
 
@@ -2588,15 +2606,20 @@ def run_auto_close(
       the connector's registry default version, the version is generally
       available and the rollout is closed. This clears the zombie rollout the
       platform re-creates for an already-promoted version.
-    - **Else — not the highest advertised candidate** (`not_highest_candidate`):
-      the registry-driven catch-all. If a rollout survives A and B but its RC is
-      not the highest-priority candidate in the connector's compiled
-      `releaseCandidates` (including the case where none is advertised), it is
-      obsolete and closed. This absorbs race-condition leftovers.
+    - **Case C — no candidate advertised** (`no_candidate_advertised`): when a
+      rollout survives A and B, its RC is not advertised in the connector's
+      compiled `releaseCandidates`, and the rollout is older than the
+      `REGISTRY_CANDIDATE_LAG_GRACE_MINUTES` registry-lag grace period, it is
+      obsolete and closed.
+    - **Case D — not the highest advertised candidate**
+      (`not_highest_candidate`): when a rollout survives A, B, and C but its RC
+      is not the highest-priority candidate in the connector's compiled
+      `releaseCandidates`, it is obsolete and closed.
 
-    All three fail closed: when the registry can't be resolved for a connector,
-    its rollout is left untouched. Only rollouts whose connector has
-    `defaultRolloutMode == autopilot` are acted on.
+    All four fail closed: when the registry can't be resolved, the rollout's
+    creation timestamp is unparseable, or an empty candidate list is still
+    within the grace period, the rollout is left untouched. Only rollouts whose
+    connector has `defaultRolloutMode == autopilot` are acted on.
     """
     result = AutopilotResult(command="auto-close", dry_run=dry_run)
 
@@ -2652,7 +2675,7 @@ def run_auto_close(
             reason_msg = f"RC {rc_version} is already the registry GA default"
             failed_reason = "already_ga"
             error_msg = (
-                "AutoPilot auto-close: RC already GA (registry default); "
+                f"{AUTO_CLOSE_MARKER} RC already GA (registry default); "
                 "closing obsolete rollout"
             )
         elif reason == "not_highest_candidate":
@@ -2662,7 +2685,17 @@ def run_auto_close(
             )
             failed_reason = "not_highest_candidate"
             error_msg = (
-                "AutoPilot auto-close: RC is not the highest registry release "
+                f"{AUTO_CLOSE_MARKER} RC is not the highest registry release "
+                "candidate; closing obsolete rollout"
+            )
+        elif reason == "no_candidate_advertised":
+            reason_msg = (
+                f"the registry advertises no release candidate for "
+                f"{rollout.connector_name}"
+            )
+            failed_reason = "no_candidate_advertised"
+            error_msg = (
+                f"{AUTO_CLOSE_MARKER} registry advertises no release "
                 "candidate; closing obsolete rollout"
             )
         else:
@@ -2672,7 +2705,7 @@ def run_auto_close(
             )
             failed_reason = "superseded_by_newer_rc"
             error_msg = (
-                "AutoPilot auto-close: newer RC version published; "
+                f"{AUTO_CLOSE_MARKER} newer RC version published; "
                 "retaining pins for progressive migration"
             )
 

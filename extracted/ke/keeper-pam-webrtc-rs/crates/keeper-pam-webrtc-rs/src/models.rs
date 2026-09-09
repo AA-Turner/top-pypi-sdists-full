@@ -768,7 +768,10 @@ mod guacd_protocol_name_tests {
 
     #[test]
     fn postgresql_uses_the_installed_plugin_name() {
-        assert_eq!("postgres", ConversationType::Postgresql.guacd_protocol_name());
+        assert_eq!(
+            "postgres",
+            ConversationType::Postgresql.guacd_protocol_name()
+        );
     }
 
     #[test]
@@ -798,7 +801,11 @@ mod guacd_protocol_name_tests {
             ConversationType::Mysql,
             ConversationType::SqlServer,
         ] {
-            assert_eq!(ct.to_string(), ct.guacd_protocol_name(), "{ct} must not be remapped");
+            assert_eq!(
+                ct.to_string(),
+                ct.guacd_protocol_name(),
+                "{ct} must not be remapped"
+            );
         }
     }
 

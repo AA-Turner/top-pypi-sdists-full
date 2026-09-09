@@ -77,12 +77,16 @@ def cmd_config(argv) -> int:
     p.add_argument("--json", action="store_true",
                    help="machine-readable output")
     args = p.parse_args(argv)
+    if args.action == "list" and (args.key or args.value is not None):
+        p.error("config list takes no KEY/VALUE")
     if args.action in ("get", "set", "unset") and not args.key:
         raise BoostError("config %s requires a KEY" % args.action,
                         hint="e.g. `boost config %s ai.enabled`" % args.action)
     if args.action == "set" and args.value is None:
         raise BoostError("config set requires a VALUE",
                         hint="e.g. `boost config set ai.enabled false`")
+    if args.action in ("get", "unset") and args.value is not None:
+        p.error("config %s takes no VALUE" % args.action)
 
     if args.action == "list":
         cfg = config.load()
@@ -121,13 +125,21 @@ def cmd_config(argv) -> int:
                                  "`boost config unset` it first") from e
         val = config.get(args.key)
         journal.log("config", args.key, op="set")
+        if args.json:
+            print(json.dumps({"key": args.key, "value": val}))
+            return 0
         out.ok("set %s = %s"
                % (args.key, val if isinstance(val, str) else json.dumps(val)))
         return 0
 
     # unset
-    if config.unset(args.key):
+    was_set = config.unset(args.key)
+    if was_set:
         journal.log("config", args.key, op="unset")
+    if args.json:
+        print(json.dumps({"key": args.key, "unset": was_set}))
+        return 0
+    if was_set:
         out.ok("unset %s" % args.key)
     else:
         out.info("%s not set" % args.key)
@@ -397,7 +409,7 @@ def cmd_create(argv) -> int:
                    help="install the new skill immediately")
     args = p.parse_args(argv)
 
-    name = util.slugify(args.name)
+    name = util.resolve_slug(args.name)
     parent = paths.expand(args.dir) if args.dir else Path.cwd()
     target = parent / name
     skill_md = target / "SKILL.md"
@@ -476,6 +488,9 @@ def cmd_policy(argv) -> int:
                    help="machine-readable output")
     args = p.parse_args(argv)
 
+    if args.action in ("list", "check") and (args.key or args.value is not None):
+        p.error("policy %s takes no KEY/VALUE" % args.action)
+
     if args.action in ("set", "unset"):
         if not args.key:
             raise BoostError("policy %s requires a KEY" % args.action,
@@ -483,6 +498,8 @@ def cmd_policy(argv) -> int:
         if args.key not in policy.DEFAULTS:
             raise BoostError("unknown policy key %r" % args.key,
                             hint="keys: " + ", ".join(sorted(policy.DEFAULTS)))
+        if args.action == "unset" and args.value is not None:
+            p.error("policy unset takes no VALUE")
 
     if args.action == "list":
         pol = policy.load()
@@ -503,6 +520,9 @@ def cmd_policy(argv) -> int:
         pol[args.key] = _parse_policy_value(args.key, args.value)
         policy.save(pol)
         journal.log("policy", args.key, op="set")
+        if args.json:
+            print(json.dumps({"key": args.key, "value": pol[args.key]}))
+            return 0
         out.ok("set %s = %s" % (args.key, json.dumps(pol[args.key])))
         return 0
 
@@ -511,6 +531,9 @@ def cmd_policy(argv) -> int:
         pol[args.key] = policy.DEFAULTS[args.key]
         policy.save(pol)
         journal.log("policy", args.key, op="unset")
+        if args.json:
+            print(json.dumps({"key": args.key, "value": policy.DEFAULTS[args.key]}))
+            return 0
         out.ok("reset %s to default (%s)"
                % (args.key, json.dumps(policy.DEFAULTS[args.key])))
         return 0
@@ -519,25 +542,60 @@ def cmd_policy(argv) -> int:
     pol = policy.load()
     everything = lockfile.all_installed()
     min_score = int(pol.get("min_quality_score") or 0)
-    violations = []  # (name, problem)
+    # name/kind are None for the one environment-level violation below;
+    # every per-item row carries both.
+    violations: list[tuple[str | None, str | None, str, str]] = []
+    not_checked: set[str] = set()
     total = 0
+    skill_count = len(everything.get("skill", {}))
     for kind, section in everything.items():
         for name, entry in sorted(section.items()):
             total += 1
             label = name if kind == "skill" else "%s (%s)" % (name, kind)
             tap = entry.get("tap", "local")
             if name in pol["blocked_skills"]:
-                violations.append((label, "on the blocklist"))
+                violations.append((name, kind, label, "on the blocklist"))
             if tap in pol["blocked_taps"]:
-                violations.append((label, "tap %s is blocked" % tap))
+                violations.append((name, kind, label, "tap %s is blocked" % tap))
             if pol["allowed_taps"] and tap not in pol["allowed_taps"] and tap != "local":
-                violations.append((label, "tap %s is not on the allowlist" % tap))
+                violations.append((name, kind, label,
+                                   "tap %s is not on the allowlist" % tap))
+            violations.extend(
+                (name, kind, label, msg)
+                for msg in policy.check_installed_version(entry))
+            # require_description and denied_capabilities need the item's
+            # own content, which only a skill has on disk (see
+            # store.read_skill_meta) — a rule or workflow lands in a shared
+            # agent file with no per-item body to check.
+            if kind == "skill" and (pol["require_description"] or pol["denied_capabilities"]):
+                meta_body = store.read_skill_meta(name)
+                if meta_body is None:
+                    not_checked.add(
+                        "require_description/denied_capabilities "
+                        "(store copy unreadable)")
+                else:
+                    meta, body = meta_body
+                    violations.extend(
+                        (name, kind, label, msg)
+                        for msg in policy.check_installed_meta(meta, body))
+            elif kind != "skill" and (pol["require_description"] or pol["denied_capabilities"]):
+                not_checked.add(
+                    "require_description/denied_capabilities for %s items "
+                    "(no on-disk body to check)" % kind)
             # Quality scoring reads a store directory, which only skills have.
             if min_score and kind == "skill":
                 score, _notes = util.score_skill(store.skill_store_dir(name))
                 if score < min_score:
                     violations.append(
-                        (label, "quality score %d < required %d" % (score, min_score)))
+                        (name, kind, label,
+                         "quality score %d < required %d" % (score, min_score)))
+    max_skills_msg = policy.max_skills_violation(skill_count)
+    if max_skills_msg:
+        # Not an installed item — this one is about the environment as a
+        # whole, so it carries no name/kind. A consumer filtering on either
+        # field can tell it from a per-item violation; "(environment)" is
+        # the label the table has always shown.
+        violations.append((None, None, "(environment)", max_skills_msg))
     unpinned = sorted(
         n if k == "skill" else "%s (%s)" % (n, k)
         for k, section in everything.items()
@@ -551,6 +609,8 @@ def cmd_policy(argv) -> int:
                else ", ".join("%d %s%s" % (n, kind, _s(n))
                               for kind, n in counts.items()))
 
+    enforce = config.get("policy_enforce", True)
+
     if args.json:
         print(json.dumps({
             # "skills" keeps its original meaning — the skill count — with the
@@ -558,19 +618,33 @@ def cmd_policy(argv) -> int:
             "skills": counts["skill"],
             "counts": counts,
             "total": total,
-            "violations": [{"skill": s, "violation": v} for s, v in violations],
+            # "skill" keeps the pre-fix shape (name+kind folded together) as a
+            # deprecated alias for an existing JSON consumer; "name"/"kind"
+            # are the machine-clean fields a new consumer should read.
+            "violations": [{"name": n, "kind": k, "skill": label,
+                            "violation": v} for n, k, label, v in violations],
             "pin_only": bool(pol["pin_only"]),
             "unpinned": unpinned if pol["pin_only"] else [],
+            "enforce": enforce,
+            "not_checked": sorted(not_checked),
         }, indent=2))
         return 1 if violations else 0
 
     _warn_invalid_policy_values()
+    if not enforce:
+        out.warn("policy_enforce is off — `boost install` does not enforce "
+                 "any of the rules below; this report names what would be "
+                 "flagged, not what is currently blocked")
     if pol["pin_only"]:
-        out.info("pin-only mode is on — installs/updates are frozen"
+        out.info("pin-only mode is on — new installs and skill updates are "
+                 "frozen (tap refreshes via `boost update` are unaffected)"
                  + (" (%d unpinned item(s): %s)"
                     % (len(unpinned), ", ".join(unpinned)) if unpinned else ""))
+    for note in sorted(not_checked):
+        out.dim("  not checked: %s" % note)
     if violations:
-        out.table(violations, headers=("ITEM", "VIOLATION"))
+        out.table([(label, v) for _n, _k, label, v in violations],
+                  headers=("ITEM", "VIOLATION"))
         print()
         out.err("%d policy violation(s) across %d installed item(s)"
                 % (len(violations), total),
@@ -669,7 +743,7 @@ def cmd_onboard(argv) -> int:
     """boost onboard [--repo DIR] [--pr] [--dry-run] [--force]"""
     p = cliparse.parser(
         prog="boost onboard",
-        description="Add skill-tracker telemetry to a repo & open a PR")
+        description="Add skill-tracker telemetry to a repo (optionally open a PR with --pr)")
     p.add_argument("--repo", default=".", help="repository directory (default: .)")
     p.add_argument("--pr", action="store_true",
                    help="commit on a branch and open a PR with `gh`")
@@ -694,7 +768,8 @@ def cmd_onboard(argv) -> int:
     files = [(_TELEMETRY_REL, telemetry), (_WORKFLOW_REL, _WORKFLOW_YML)]
     if repo != paths.store_dir().resolve():
         files.append((".skill-lock.json",
-                      json.dumps(lockfile.read(), indent=2, sort_keys=True) + "\n"))
+                      json.dumps(lockfile.portable(lockfile.read()),
+                                indent=2, sort_keys=True) + "\n"))
 
     if args.dry_run:
         for rel, content in files:
@@ -814,6 +889,17 @@ def cmd_completions(argv) -> int:
 
     detected = args.shell or Path(os.environ.get("SHELL", "")).name
 
+    # Fixed once, here, rather than in each branch below: an empty $SHELL
+    # used to fall through silently to the bash script (print path) or to
+    # `_rc_path("")`'s confusing "no one-shot install for  yet" (install
+    # path) — neither ever told the user *why*. Raising here means every
+    # path downstream — print, --install, --uninstall, --dry-run — sees the
+    # same clear error instead of reinventing it.
+    if not detected:
+        raise BoostError(
+            "cannot detect your shell ($SHELL unset)",
+            hint="pass bash, zsh or fish, e.g. `boost completions bash`")
+
     if args.dry_run and not (args.install or args.uninstall):
         p.error("--dry-run qualifies --install or --uninstall; "
                 "pass one of them")
@@ -842,6 +928,15 @@ def cmd_completions(argv) -> int:
         return 0
 
     shell = detected if detected in ("bash", "zsh", "fish") else "bash"
+    if shell != detected:
+        # A real shell boost has no script for (e.g. nu, xonsh) — silently
+        # substituting bash used to look like success while handing the user
+        # a script their shell cannot source. stderr, not stdout: stdout here
+        # is the completion script itself (piped to a file or `eval`'d), and
+        # a warning line mixed into it would corrupt both uses.
+        out.warn("%s is not a supported shell (bash, zsh, fish) — showing "
+                 "bash's completion script instead" % detected,
+                 stream=sys.stderr)
     # The script is a thin shim that calls `boost __complete`; the candidate
     # rules live in core/complete.py so all three shells share one tested
     # implementation instead of three hand-maintained static lists.
@@ -931,6 +1026,21 @@ def _interval_label(seconds) -> str:
     return "%ss" % seconds
 
 
+def _plist_interval_seconds(text: str) -> int | None:
+    """Parse a usable ``StartInterval`` out of plist ``text``.
+
+    None for both "no ``StartInterval`` key" and "``StartInterval`` present
+    but not positive" — a zero or negative interval can never fire, and
+    treating it as usable is what let the next-run loop in ``cmd_schedule``
+    spin forever advancing ``nxt`` by zero seconds each pass.
+    """
+    m = re.search(r"<key>StartInterval</key>\s*<integer>(-?\d+)</integer>", text)
+    if not m:
+        return None
+    secs = int(m.group(1))
+    return secs if secs > 0 else None
+
+
 def cmd_schedule(argv) -> int:
     """boost schedule [status|enable [--interval 6h|12h|daily]|disable]"""
     p = cliparse.parser(
@@ -939,11 +1049,13 @@ def cmd_schedule(argv) -> int:
     p.add_argument("action", nargs="?", default="status",
                    choices=("status", "enable", "disable"),
                    help="what to do (default: status)")
-    p.add_argument("--interval", choices=tuple(_INTERVALS), default="6h",
-                   help="how often to run `boost update` (default: 6h)")
+    p.add_argument("--interval", choices=tuple(_INTERVALS), default=None,
+                   help="how often to run `boost update` (default: 6h; enable only)")
     p.add_argument("--json", action="store_true",
                    help="machine-readable output (status only)")
     args = p.parse_args(argv)
+    if args.interval is not None and args.action != "enable":
+        p.error("--interval only applies to `schedule enable`")
 
     darwin = sys.platform == "darwin"
     shim = paths.launcher()
@@ -954,10 +1066,8 @@ def cmd_schedule(argv) -> int:
             plist = _plist_path()
             if plist.exists():
                 present = True
-                m = re.search(r"<key>StartInterval</key>\s*<integer>(\d+)</integer>",
-                              plist.read_text(encoding="utf-8"))
-                if m:
-                    secs = int(m.group(1))
+                secs = _plist_interval_seconds(plist.read_text(encoding="utf-8"))
+                if secs is not None:
                     interval = _interval_label(secs)
                     nxt = datetime.fromtimestamp(plist.stat().st_mtime + secs)
                     while nxt < datetime.now():
@@ -984,7 +1094,8 @@ def cmd_schedule(argv) -> int:
         out.kv("platform", "%s (%s)" % (sys.platform, "launchd" if darwin else "cron"))
         out.kv("scheduled", "yes" if present else "no")
         if present:
-            out.kv("interval", "every %s" % interval)
+            out.kv("interval", "every %s" % interval if interval is not None
+                   else "unknown (plist has no usable StartInterval)")
             out.kv("next run", next_run.strftime("%Y-%m-%d %H:%M (approx)")
                    if next_run else "unknown")
         else:
@@ -992,6 +1103,7 @@ def cmd_schedule(argv) -> int:
         return 0
 
     if args.action == "enable":
+        args.interval = args.interval or "6h"
         seconds = _INTERVALS[args.interval]
         paths.ensure_dirs()
         if darwin:
@@ -1607,29 +1719,26 @@ def _mcp_tool(tool: str, args: dict):
     return REGISTRY.call(tool, args)
 
 
-#: Substrings an agent CLI uses to say "this server is already registered".
-#: Registering twice is not a failure — it is the state the user asked for —
-#: and treating it as one is what made `--host auto` abort on host one and
-#: never reach host two on any machine where boost was already in Claude.
-_ALREADY = ("already exists", "already registered", "already configured")
-
-
 def _run_mcp_host(host: str, action: str, cmd) -> tuple[str, str]:
     """Run one host's register/unregister argv.
 
     Returns ``(status, detail)`` where status is:
 
-    * ``"ran"``      — the CLI ran and succeeded;
-    * ``"already"``  — it reported the server is already in the state asked
-      for, which is success with a different wording;
-    * ``"missing"``  — the CLI is not installed. Not an error: most machines
-      have one agent CLI, not all of them;
-    * ``"failed"``   — it is installed and something else went wrong.
+    * ``"ran"``            — the CLI ran and did what was asked;
+    * ``"already"``        — register reported the server is already in that
+      state, which is success with a different wording;
+    * ``"not_registered"`` — unregister reported there was nothing to remove,
+      likewise success with a different wording;
+    * ``"missing"``        — the CLI is not installed. Not an error: most
+      machines have one agent CLI, not all of them;
+    * ``"failed"``         — it is installed and something else went wrong.
 
     It **returns** rather than raises so one host cannot end the sweep. That
     was the bug: a present CLI exiting non-zero raised straight out of the
     loop, so with boost already registered in Claude, `--host auto` died on
-    "already exists" and never reached the second agent.
+    "already exists" and never reached the second agent. The text
+    classification itself lives in :func:`mcphost.classify_result`, which is
+    pure and mutation-tested without a real agent CLI on PATH.
     """
     exe = mcphost.cli(host)
     if not shutil.which(exe):
@@ -1640,13 +1749,8 @@ def _run_mcp_host(host: str, action: str, cmd) -> tuple[str, str]:
         return "failed", str(e)
     for ln in (proc.stdout or "").strip().splitlines():
         out.info(ln)
-    if proc.returncode == 0:
-        return "ran", ""
-    blob = ((proc.stderr or "") + (proc.stdout or "")).lower()
-    if action == "register" and any(k in blob for k in _ALREADY):
-        return "already", ""
-    tail = (proc.stderr or "").strip().splitlines()
-    return "failed", tail[-1] if tail else "unknown error"
+    return mcphost.classify_result(action, proc.returncode,
+                                   proc.stdout, proc.stderr)
 
 
 def _seed_catalog_for_mcp(force: bool) -> None:
@@ -1755,7 +1859,7 @@ def _offer_boost_first(hosts: list[str]) -> None:
 
 
 def cmd_mcp(argv) -> int:
-    """boost mcp [register|unregister] [--host H] [--stdio] [--seed|--no-seed]"""
+    """boost mcp [register|unregister] [--host H] [--stdio] [--seed|--no-seed] [--dry-run]"""
     p = cliparse.parser(
         prog="boost mcp",
         description="Register boost as an MCP server for your agent CLIs")
@@ -1763,11 +1867,15 @@ def cmd_mcp(argv) -> int:
                    choices=("register", "unregister"),
                    help="what to do (default: register)")
     p.add_argument("--host", metavar="H", default="auto",
-                   help="agent CLI to (un)register with: %s, or `auto` "
-                        "(default) for every one that is installed"
+                   help="agent CLI to (un)register with: %s, `auto` "
+                        "(default) for every one that is installed, or "
+                        "`all` for every known host regardless of install"
                         % ", ".join(mcphost.hosts()))
     p.add_argument("--stdio", action="store_true",
                    help="run the MCP server on stdin/stdout (used by the agent)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="print the resolved command and install status per "
+                        "host; register or tap nothing")
     # Mutually exclusive: `--seed --no-seed` used to resolve silently to the
     # network-touching side, which is the wrong way for an ambiguous pair of
     # explicitly typed flags to break.
@@ -1789,6 +1897,25 @@ def cmd_mcp(argv) -> int:
         raise BoostError("unknown MCP host %r" % args.host,
                         hint="known hosts: %s" % ", ".join(mcphost.hosts())) from e
 
+    shim = str(paths.launcher())
+    verb = "register" if args.action == "register" else "unregister"
+
+    if args.dry_run:
+        # Before seeding and before any subprocess runs — the flag exists so
+        # the argv boost would run is visible in the one case that mattered
+        # (`--host gemini` with `gemini` on PATH), not only the one case that
+        # was already visible for free (the CLI missing entirely).
+        for host in targets:
+            installed = shutil.which(mcphost.cli(host)) is not None
+            cmd = mcphost.argv(host, args.action, shim)
+            out.info("%s %s: %s" % (
+                mcphost.label(host),
+                out.role("(installed)" if installed else "(not installed)",
+                         "muted"),
+                " ".join(cmd)))
+        out.dim("  dry run — nothing was %sed, nothing tapped" % verb)
+        return 0
+
     # After the host name is validated and before anything is registered. The
     # ordering is not cosmetic in either direction: seeding first meant a
     # typo'd `--host` spent 14-45s and half a gigabyte before argparse's own
@@ -1797,12 +1924,14 @@ def cmd_mcp(argv) -> int:
     if args.action == "register" and (args.seed_ok or args.seed):
         _seed_catalog_for_mcp(args.seed)
 
-    shim = str(paths.launcher())
     # `auto` skips hosts that are not installed; naming a host explicitly (or
     # `all`) always reports it, so a user setting up a machine can see the argv
-    # for an agent CLI they have not installed yet.
+    # for an agent CLI they have not installed yet. `named` is narrower than
+    # `explicit`: it excludes `all`, which — like `auto` — deliberately shows
+    # every host's argv without treating "not installed" as a failure.
     explicit = args.host not in (None, "", "auto")
-    done, already, missing, failed = [], [], [], {}
+    named = mcphost.is_named(args.host)
+    done, already, not_registered, missing, failed = [], [], [], [], {}
     for host in targets:
         cmd = mcphost.argv(host, args.action, shim)
         status, detail = _run_mcp_host(host, args.action, cmd)
@@ -1810,6 +1939,8 @@ def cmd_mcp(argv) -> int:
             done.append(host)
         elif status == "already":
             already.append(host)
+        elif status == "not_registered":
+            not_registered.append(host)
         elif status == "failed":
             # Collected, not raised: the next host is a different agent on a
             # different config file and has nothing to do with this failure.
@@ -1821,7 +1952,6 @@ def cmd_mcp(argv) -> int:
                          % mcphost.cli(host))
                 out.info(" ".join(cmd))
 
-    verb = "register" if args.action == "register" else "unregister"
     for host in done:
         # agy has no scopes — one global file — so claiming "(scope: user)"
         # would describe a distinction its CLI does not have.
@@ -1831,6 +1961,8 @@ def cmd_mcp(argv) -> int:
     for host in already:
         out.ok("already registered with %s — nothing to do"
                % mcphost.label(host))
+    for host in not_registered:
+        out.ok("%s: not registered — nothing to do" % mcphost.label(host))
     for host, detail in failed.items():
         out.warn("%s: %s mcp %s failed — %s"
                  % (mcphost.label(host), mcphost.cli(host), args.action,
@@ -1838,7 +1970,7 @@ def cmd_mcp(argv) -> int:
         out.info(out.role("run it yourself: %s"
                           % " ".join(mcphost.argv(host, args.action, shim)),
                           "muted"))
-    settled = done + already
+    settled = done + already + not_registered
     if not settled:
         if failed:
             # Every installed CLI failed. That is a real error — but only after
@@ -1853,7 +1985,10 @@ def cmd_mcp(argv) -> int:
             for host in missing:
                 out.info(" ".join(mcphost.argv(host, args.action, shim)))
         journal.log("mcp", args.action, hosts="")
-        return 0
+        # A single named host whose CLI is missing is a no-op, not a success:
+        # `--host all` and `auto` both tolerate an absent CLI by design (see
+        # `mcphost.is_named`), so only a one-host request fails here.
+        return 1 if named else 0
     if args.action == "register":
         _offer_boost_first(settled)
     journal.log("mcp", args.action, hosts=",".join(settled))

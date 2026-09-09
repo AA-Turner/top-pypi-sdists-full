@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Dict, List, Optional, Union, Literal
 from pathlib import Path
 
@@ -6,7 +7,17 @@ from pathlib import Path
 from novita_sandbox.core.exceptions import BuildException
 from novita_sandbox.core.template.consts import STACK_TRACE_DEPTH, RESOLVE_SYMLINKS
 from novita_sandbox.core.template.dockerfile_parser import parse_dockerfile
-from novita_sandbox.core.template.readycmd import ReadyCmd, wait_for_file
+from novita_sandbox.core.template.env_files import env_files_command
+from novita_sandbox.core.template.image_config import (
+    effective_start_cmd,
+    fetch_image_config,
+)
+from novita_sandbox.core.template.logger import LogEntry
+from novita_sandbox.core.template.readycmd import (
+    ReadyCmd,
+    wait_for_file,
+    wait_for_timeout,
+)
 from novita_sandbox.core.template.types import (
     CopyItem,
     Instruction,
@@ -687,6 +698,11 @@ class TemplateBuilder:
             "forceUpload": None,
         }
         self._template._instructions.append(instruction)
+        # The ENV instruction above only reaches the *build*. A sandbox started
+        # from the finished template does not inherit it, so the values are also
+        # written to the filesystem at the end of the build -- see
+        # TemplateBase._runtime_env_instruction and env_files.py.
+        self._template._envs.update(envs)
         self._template._collect_stack_trace()
         return self
 
@@ -819,6 +835,26 @@ class TemplateBase:
         # Force the next layer to be rebuilt
         self._force_next_layer: bool = False
         self._instructions: List[Instruction] = []
+        # Everything passed to set_envs, accumulated across calls. The declared
+        # value is kept, not the resolved one: `/opt/venv/bin:$PATH` is expanded
+        # during the build, since the platform ignores an ENV instruction for PATH
+        # and the build's own PATH is therefore not the declared one (see
+        # env_files.py). Accumulated rather than written per call because the file
+        # is written once from the full set -- a per-call write would clobber the
+        # previous call's file.
+        self._envs: Dict[str, str] = {}
+        # Whether to restore what the base image declares. Applied at build time
+        # rather than in from_image, because from_image has to stay chainable and
+        # reading a registry is not free. See _resolve_inherited_config().
+        self._inherit_image_config: bool = False
+        self._image_username: Optional[str] = None
+        self._image_password: Optional[str] = None
+        # Why the image's config is missing, when it is. Recorded rather than only
+        # logged: build() has a log channel and to_json() does not, so a dry run
+        # or a CLI conversion would otherwise show a clean template that silently
+        # lacks the image's PATH -- the exact failure this reading prevents.
+        self._image_config_error: Optional[str] = None
+        self._image_unusable: Optional[str] = None
         # If no file_context_path is provided, use the caller's directory
         self._file_context_path = (
             file_context_path.as_posix()
@@ -1015,6 +1051,7 @@ class TemplateBase:
         image: str,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        inherit_config: bool = True,
     ) -> TemplateBuilder:
         """
         Start template from a Docker image.
@@ -1022,6 +1059,10 @@ class TemplateBase:
         :param image: Docker image name (e.g., 'ubuntu:24.04')
         :param username: Username for private registry authentication
         :param password: Password for private registry authentication
+        :param inherit_config: Restore the ENV, WORKDIR and effective command the
+            image declares, so the sandbox matches what ``docker run`` would give.
+            The image's config is read from its registry at build time; anything
+            set on the builder overrides it. Pass False to skip the read.
 
         :return: `TemplateBuilder` class
 
@@ -1035,6 +1076,12 @@ class TemplateBase:
         """
         self._base_image = image
         self._base_template = None
+
+        # Restore what the image declares, unless the caller opted out. Deferred:
+        # from_image has to stay chainable, and reading a registry is not.
+        self._inherit_image_config = inherit_config
+        self._image_username = username
+        self._image_password = password
 
         # Set the registry config if provided
         if username and password:
@@ -1102,6 +1149,18 @@ class TemplateBase:
             stack_trace_override,
         )
         self._base_image = base_image
+        # The parser records only the ENV the Dockerfile itself declares, so a
+        # Dockerfile that relies on its base image's environment -- the ordinary
+        # case, since ``docker build`` inherits it -- got none of it. Measured on
+        # ``FROM continuumio/miniconda3:latest`` with no ENV of its own: the sandbox
+        # reported PATH=/opt/conda/condabin:/usr/local/bin:... with /opt/conda/bin
+        # absent, so ``which conda`` failed while /opt/conda/bin/conda existed.
+        #
+        # The parser has already run, so its own instructions are in place and take
+        # precedence: it always sets a WORKDIR, and sets a start command whenever
+        # the Dockerfile has one. Only the image's ENV is actually restored here,
+        # under any name the Dockerfile declared itself.
+        self._inherit_image_config = True
 
         # If we should force the next layer and it's a FROM command, invalidate whole template
         if self._force_next_layer:
@@ -1301,6 +1360,9 @@ class TemplateBase:
         json_str = TemplateBase.to_json(template)
         ```
         """
+        # Before the instructions are assembled: this can add a WORKDIR step and
+        # set the start command, both of which have to be in the payload.
+        template._template._resolve_inherited_config()
         return json.dumps(
             template._template._serialize(
                 template._template._instructions_with_hashes()
@@ -1415,6 +1477,121 @@ class TemplateBase:
 
         return steps
 
+    def _resolve_inherited_config(self, on_build_logs=None) -> None:
+        """Restore what the base image declares: ENV, WORKDIR and its command.
+
+        ``from_image`` records only the reference -- the platform pulls the image
+        server-side, and nothing ever read its config. So the image's own ENV is
+        as absent at runtime as a template's own: measured, ``python:3.11-slim``
+        declares ``PATH=/usr/local/bin:...`` and a sandbox built from it reported
+        a different PATH entirely. Same for WORKDIR, and for ENTRYPOINT/CMD,
+        which is what ``docker run`` would have launched.
+
+        Runs at build time because reading a registry is not free and
+        ``from_image`` has to stay chainable. **The caller always wins**: anything
+        set explicitly on the builder overrides what the image declared, which is
+        the same precedence a Dockerfile has over its own base image.
+
+        A failed read is not fatal -- the template still builds, just without the
+        restored config -- but it is reported, since an image whose toolchain
+        lives behind its ENV will otherwise look installed and behave as though
+        it is not.
+
+        Kept behaviourally identical to the JS SDK's ``resolveInheritedConfig``.
+        """
+        if not self._inherit_image_config or self._base_image is None:
+            return
+        # Only once: build() and to_json() both call this, and a second read would
+        # re-apply the image's values over any the caller set in between.
+        self._inherit_image_config = False
+
+        config = fetch_image_config(
+            self._base_image, self._image_username, self._image_password
+        )
+
+        if config.error:
+            # Reported rather than raised. The build can still succeed, and one
+            # unreachable registry must not fail a batch conversion -- but a
+            # template silently missing the image's PATH is the failure this
+            # exists to prevent, so it must not pass unmentioned.
+            self._image_config_error = config.error
+            self._image_unusable = config.unusable
+            if on_build_logs:
+                on_build_logs(
+                    LogEntry(
+                        timestamp=datetime.now(),
+                        level="warn",
+                        message=(
+                            f"Could not read {self._base_image}: {config.error}. "
+                            "The template will build without the environment, "
+                            "working directory and start command the image declares."
+                        ),
+                    )
+                )
+            return
+
+        # The image is the base, the caller's own calls override it -- so the
+        # inherited names go under whatever set_envs already recorded.
+        self._envs = {**config.env, **self._envs}
+
+        if config.workdir and not any(
+            i["type"] == InstructionType.WORKDIR for i in self._instructions
+        ):
+            self._instructions.append(
+                Instruction(
+                    type=InstructionType.WORKDIR,
+                    args=[config.workdir],
+                    force=False,
+                    forceUpload=None,
+                    filesHash=None,
+                )
+            )
+
+        start_cmd = effective_start_cmd(config.entrypoint, config.cmd)
+        if start_cmd and self._start_cmd is None:
+            self._start_cmd = start_cmd
+            # set_start_cmd requires a readiness check, and without one the SDK's
+            # own Dockerfile parser pairs the command with a 20s timer. Kept
+            # identical so an image built through from_image behaves the same as
+            # one built from its Dockerfile -- note this is a timer, not a health
+            # check: pass set_ready_cmd for a real one.
+            if self._ready_cmd is None:
+                self._ready_cmd = wait_for_timeout(20_000).get_cmd()
+
+    def image_config_failure(self) -> Optional[Dict[str, Optional[str]]]:
+        """Why the base image's declared config is missing, or None if nothing was.
+
+        Populated once the template has been serialized or built.
+
+        ``unusable`` means the read succeeded and the image still cannot be used
+        here -- no linux/amd64 variant, or the reference names nothing. A retry
+        cannot change it, and the build would fail for the same reason minutes
+        later, so a caller converting images in bulk should skip rather than build.
+
+        ``error`` alone means the read itself failed. The template builds without
+        the image's environment, working directory and start command.
+        """
+        if self._image_config_error is None:
+            return None
+        return {"error": self._image_config_error, "unusable": self._image_unusable}
+
+    def _runtime_env_instruction(self) -> Optional[Instruction]:
+        """The instruction that makes :meth:`set_envs` visible at runtime.
+
+        Returns None when no environment was set, or when no name can be carried
+        over -- see :mod:`novita_sandbox.core.template.env_files`.
+        """
+        command, _skipped = env_files_command(self._envs)
+        if command is None:
+            return None
+
+        return {
+            "type": InstructionType.RUN,
+            "args": [command, "root"],
+            "force": self._force_next_layer,
+            "forceUpload": None,
+        }
+
     def _serialize(self, steps: List[Instruction]) -> TemplateType:
         """
         Serialize the template to the API request format.
@@ -1424,6 +1601,15 @@ class TemplateBase:
         :return: Template data formatted for the API
         """
         _steps: List[Instruction] = []
+
+        runtime_env = self._runtime_env_instruction()
+        if runtime_env is not None:
+            # Appended here rather than inside set_envs: the file is written once
+            # from the complete set, and the write must land after any USER
+            # instruction the caller added, since it needs root. Serializing does
+            # not mutate self._instructions, so building a template that was
+            # already serialized does not append the layer twice.
+            steps = list(steps) + [runtime_env]
 
         for _, instruction in enumerate(steps):
             step: Instruction = {

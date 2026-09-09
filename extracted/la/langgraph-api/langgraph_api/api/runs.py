@@ -584,6 +584,8 @@ async def join_run(request: ApiRequest):
     """Wait for a run to finish."""
     thread_id = request.path_params["thread_id"]
     run_id = request.path_params["run_id"]
+    cancel_on_disconnect_str = request.query_params.get("cancel_on_disconnect", "false")
+    cancel_on_disconnect = cancel_on_disconnect_str.lower() in {"true", "yes", "1"}
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
@@ -594,6 +596,7 @@ async def join_run(request: ApiRequest):
         run_id=run_id,
         thread_id=thread_id,
         sub=sub,
+        cancel_on_disconnect=cancel_on_disconnect,
         fallback=_thread_values_fallback(thread_id),
     )
 

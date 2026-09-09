@@ -282,7 +282,7 @@ async fn close_tube_async(
         let active_labels: std::collections::HashSet<String> =
             { tube.active_channels.read().await.keys().cloned().collect() };
         let data_channels_snapshot = tube.data_channels.read().await.clone();
-        for (label, _dc) in data_channels_snapshot.iter() {
+        for label in data_channels_snapshot.keys() {
             if !active_labels.contains(label) {
                 // Channel already closed naturally and sent its own signal.
                 debug!(

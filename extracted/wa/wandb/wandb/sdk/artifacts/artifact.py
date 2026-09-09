@@ -2331,13 +2331,14 @@ class Artifact:
             ArtifactNotLoggedError: If the artifact is not logged.
             ValueError: If the verification fails.
         """
-        from wandb.analytics import TelemetryRecorder
+        from wandb.analytics import get_telemetry_recorder
         from wandb.analytics.opentelemetry.opentelemetry_proxy import (
             LowCardinalityAttributes,
         )
 
-        TelemetryRecorder(service_api=self._get_service_api()).increment_counter(
-            "artifact_verify", LowCardinalityAttributes()
+        get_telemetry_recorder().increment_counter(
+            "artifact_verify",
+            LowCardinalityAttributes(),
         )
 
         root = root or self._default_root()
@@ -2508,7 +2509,6 @@ class Artifact:
             The linked artifact.
         """
         from wandb import Api
-        from wandb.sdk.internal.internal_api import Api as InternalApi
 
         from ._generated import LINK_ARTIFACT_GQL, LinkArtifact, LinkArtifactInput
         from ._validators import ArtifactPath, FullArtifactPath, validate_aliases
@@ -2531,11 +2531,9 @@ class Artifact:
         if (service_api := self._service_api) is None:
             raise RuntimeError("Client not initialized for artifact mutations")
 
-        # FIXME: Find a way to avoid using InternalApi here, due to the perf overhead
-        settings = InternalApi().settings()
-
+        global_settings = wandb_setup.singleton().settings
         target = ArtifactPath.from_str(target_path).with_defaults(
-            project=settings.get("project") or "uncategorized",
+            project=env.get_project(global_settings.project) or "uncategorized",
         )
 
         # Parse the entity (first part of the path) appropriately,
@@ -2543,7 +2541,11 @@ class Artifact:
         if target.is_registry_path():
             # In a Registry linking, the entity is used to fetch the organization of the
             # artifact, therefore the source artifact's entity is passed to the backend
-            org = target.prefix or settings.get("organization") or None
+            org = (
+                target.prefix
+                or env.get_organization(global_settings.organization)
+                or None
+            )
             target.prefix = resolve_org_entity_name(
                 service_api, self.source_entity, org
             )

@@ -16,6 +16,23 @@ from typing import Dict, Optional
 import requests
 
 
+class DockerHubAnonymousPaginationLimitError(requests.HTTPError):
+    """Raised when Docker Hub refuses to page further without authentication."""
+
+
+_ANONYMOUS_OFFSET_CAP_MESSAGE = "pagination offset too large for anonymous requests"
+
+
+def _is_anonymous_offset_cap(response: requests.Response) -> bool:
+    if response.status_code != 403:
+        return False
+    try:
+        message = response.json().get("message", "")
+    except ValueError:
+        return False
+    return _ANONYMOUS_OFFSET_CAP_MESSAGE in message
+
+
 def get_docker_hub_auth_token() -> str:
     docker_username = os.environ.get("DOCKER_HUB_USERNAME")
     docker_password = os.environ.get("DOCKER_HUB_PASSWORD")
@@ -59,14 +76,19 @@ def get_docker_hub_tags_and_digests(
     tags_and_digests: Dict[str, str] | None = None,
     paginate: bool = True,
 ) -> Dict[str, str]:
-    """Find all released tags and digests for an image.
+    """Find all released tags and digests for an image using 100-tag pages.
+
+    Anonymous requests are capped at 1000 tags by Docker Hub; hitting that cap
+    raises `DockerHubAnonymousPaginationLimitError`. Set `DOCKER_HUB_USERNAME`
+    and `DOCKER_HUB_PASSWORD` to fetch all tags.
 
     Args:
         image_name (str): The image name to get tags and digest
         retries (int, optional): The number of times to retry the request. Defaults to 0.
         wait_sec (int, optional): The number of seconds to wait between retries. Defaults to 30.
         next_page_url (str | None, optional): The next DockerHub page to consume. Defaults to None.
-        tags_and_digest (Dict[str, str] | None, optional): The accumulated tags and digests for recursion. Defaults to None.
+        tags_and_digests (Dict[str, str] | None, optional): Previously accumulated tags and digests to extend. Defaults to None.
+        paginate: Whether to fetch all pages. Defaults to True.
 
     Returns:
         Dict[str, str]: Mapping of image tag to digest
@@ -74,44 +96,46 @@ def get_docker_hub_tags_and_digests(
     headers = get_docker_hub_headers()
     tags_and_digests = tags_and_digests or {}
 
-    if not next_page_url:
-        tags_url = f"https://registry.hub.docker.com/v2/repositories/{image_name}/tags"
-    else:
-        tags_url = next_page_url
-
-    # Allow for retries as the DockerHub API is not always reliable with returning the latest publish.
-    for _ in range(retries + 1):
-        response = requests.get(tags_url, headers=headers)
-        if response.ok:
-            break
-
-        # This is to handle the case when a connector has not ever been released yet.
-        if response.status_code == 404:
-            print(
-                f"{tags_url} returned a 404. The connector might not be released yet."
-            )
-            print(response)
-            return tags_and_digests
-        time.sleep(wait_sec)
-
-    response.raise_for_status()
-    json_response = response.json()
-    tags_and_digests.update(
-        {
-            result["name"]: result.get("digest")
-            for result in json_response.get("results", [])
-        }
+    tags_url = next_page_url or (
+        f"https://registry.hub.docker.com/v2/repositories/{image_name}/tags?page_size=100"
     )
-    if paginate and (next_page_url := json_response.get("next")):
+
+    while tags_url:
+        # Allow for retries as the DockerHub API is not always reliable with returning the latest publish.
+        for _ in range(retries + 1):
+            response = requests.get(tags_url, headers=headers)
+            if response.ok:
+                break
+
+            if _is_anonymous_offset_cap(response):
+                raise DockerHubAnonymousPaginationLimitError(
+                    f"Docker Hub refused to page past {len(tags_and_digests)} tags for "
+                    f"{image_name} without authentication. Set DOCKER_HUB_USERNAME and "
+                    "DOCKER_HUB_PASSWORD to fetch all tags.",
+                    response=response,
+                )
+
+            # This is to handle the case when a connector has not ever been released yet.
+            if response.status_code == 404:
+                print(
+                    f"{tags_url} returned a 404. The connector might not be released yet."
+                )
+                print(response)
+                return tags_and_digests
+            time.sleep(wait_sec)
+
+        response.raise_for_status()
+        json_response = response.json()
         tags_and_digests.update(
-            get_docker_hub_tags_and_digests(
-                image_name,
-                retries=retries,
-                wait_sec=wait_sec,
-                next_page_url=next_page_url,
-                tags_and_digests=tags_and_digests,
-            )
+            {
+                result["name"]: result.get("digest")
+                for result in json_response.get("results", [])
+            }
         )
+        if not paginate:
+            break
+        tags_url = json_response.get("next")
+
     return tags_and_digests
 
 

@@ -26,6 +26,13 @@ YamlValue = TypeAliasType(
 )
 
 _IGNORED_TEXT_PREFIX_CHARS: frozenset[str] = frozenset({"\ufeff", " ", "\t", "\r", "\n"})
+_PROTOBUF_TRIVIA = r"(?:\s|//[^\r\n]*(?=[\r\n]|$)|/\*[^*]*(?:\*(?!/)[^*]*)*\*/)*"
+_PROTOBUF_DECLARATION_PATTERN = (
+    rf"\ufeff?{_PROTOBUF_TRIVIA}(?:syntax{_PROTOBUF_TRIVIA}={_PROTOBUF_TRIVIA}"
+    rf"(?P<syntax_quote>['\"])proto[23](?P=syntax_quote)|"
+    rf"edition{_PROTOBUF_TRIVIA}={_PROTOBUF_TRIVIA}"
+    rf"(?P<edition_quote>['\"])2023(?P=edition_quote)){_PROTOBUF_TRIVIA};"
+)
 _PARSER_SOURCE_DATA_CACHE_MAX_SIZE = 128
 _ParserSourceDataCacheKey: TypeAlias = tuple[Path, str, str, str]
 _ParserSourceDataSeenKey: TypeAlias = tuple[Path, str]
@@ -100,7 +107,8 @@ def load_yaml_dict_from_path(path: Path, encoding: str) -> dict[str, YamlValue]:
     from datamodel_code_generator.util import record_watch_dependency  # noqa: PLC0415
 
     record_watch_dependency(path)
-    return _load_yaml_dict_from_path_cached(path, path.stat().st_mtime, encoding)
+    cache_path = path if path.is_absolute() else path.absolute()
+    return _load_yaml_dict_from_path_cached(cache_path, cache_path.stat().st_mtime, encoding)
 
 
 @lru_cache(maxsize=128)
@@ -129,6 +137,15 @@ def _is_json_text(text: str) -> bool:
 def _is_xml_text(text: str) -> bool:
     """Return whether text starts like XML after whitespace and BOM."""
     return _first_significant_text_char(text) == "<"
+
+
+def _has_protobuf_declaration(text: str) -> bool:
+    """Recognize an explicit Protobuf declaration before attempting YAML decoding."""
+    if _first_significant_text_char(text) not in {"s", "e", "/"}:
+        return False
+    import re  # noqa: PLC0415
+
+    return re.match(_PROTOBUF_DECLARATION_PATTERN, text) is not None
 
 
 def _is_protobuf_text(text: str) -> bool:
@@ -170,12 +187,15 @@ def _load_parser_source_data_from_path(path: Path, encoding: str) -> YamlValue:
     return _read_parser_source_data_from_path(path, encoding)[1]
 
 
-def _read_parser_source_data_from_path(path: Path, encoding: str) -> tuple[bytes, YamlValue]:
+def _read_parser_source_data_from_path(
+    path: Path, encoding: str, *, data: bytes | None = None
+) -> tuple[bytes, YamlValue]:
     resolved_path = path.resolve()
     from datamodel_code_generator.util import record_watch_dependency  # noqa: PLC0415
 
     record_watch_dependency(resolved_path)
-    data = resolved_path.read_bytes()
+    if data is None:
+        data = resolved_path.read_bytes()
     return data, _load_parser_source_data_from_path_bytes(resolved_path, data, encoding)
 
 

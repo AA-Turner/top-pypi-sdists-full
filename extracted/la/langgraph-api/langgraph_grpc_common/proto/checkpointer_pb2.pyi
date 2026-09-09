@@ -22,6 +22,12 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 @_typing.final
 class PutRequest(_message.Message):
+    """encryption_context_json: request-scoped encryption context, keyed by name
+    with JSON-encoded values (e.g. {"tenant_id": "\\"acme\\""}). Writes must pass
+    it because it lives in a Python ContextVar the core server cannot observe;
+    reads recover it from the stored blob wrapper.
+    """
+
     DESCRIPTOR: _descriptor.Descriptor
 
     @_typing.final
@@ -44,10 +50,31 @@ class PutRequest(_message.Message):
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
+    @_typing.final
+    class EncryptionContextJsonEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.bytes
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.bytes = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     CONFIG_FIELD_NUMBER: _builtins.int
     CHECKPOINT_FIELD_NUMBER: _builtins.int
     METADATA_FIELD_NUMBER: _builtins.int
     NEW_VERSIONS_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
     @_builtins.property
@@ -56,6 +83,8 @@ class PutRequest(_message.Message):
     def metadata(self) -> _engine_common_pb2.CheckpointMetadata: ...
     @_builtins.property
     def new_versions(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
+    @_builtins.property
+    def encryption_context_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]: ...
     def __init__(
         self,
         *,
@@ -63,10 +92,11 @@ class PutRequest(_message.Message):
         checkpoint: _engine_common_pb2.Checkpoint | None = ...,
         metadata: _engine_common_pb2.CheckpointMetadata | None = ...,
         new_versions: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
+        encryption_context_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["checkpoint", b"checkpoint", "config", b"config", "metadata", b"metadata"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["checkpoint", b"checkpoint", "config", b"config", "metadata", b"metadata", "new_versions", b"new_versions"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["checkpoint", b"checkpoint", "config", b"config", "encryption_context_json", b"encryption_context_json", "metadata", b"metadata", "new_versions", b"new_versions"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -76,16 +106,39 @@ Global___PutRequest: _TypeAlias = PutRequest  # noqa: Y015
 class PutWritesRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
+    @_typing.final
+    class EncryptionContextJsonEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.bytes
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.bytes = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     CONFIG_FIELD_NUMBER: _builtins.int
     WRITES_FIELD_NUMBER: _builtins.int
     TASK_ID_FIELD_NUMBER: _builtins.int
     TASK_PATH_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
     task_id: _builtins.str
     task_path: _builtins.str
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
     @_builtins.property
     def writes(self) -> _containers.RepeatedCompositeFieldContainer[_engine_common_pb2.Write]: ...
+    @_builtins.property
+    def encryption_context_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]: ...
     def __init__(
         self,
         *,
@@ -93,10 +146,11 @@ class PutWritesRequest(_message.Message):
         writes: _abc.Iterable[_engine_common_pb2.Write] | None = ...,
         task_id: _builtins.str = ...,
         task_path: _builtins.str = ...,
+        encryption_context_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["config", b"config"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["config", b"config", "task_id", b"task_id", "task_path", b"task_path", "writes", b"writes"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["config", b"config", "encryption_context_json", b"encryption_context_json", "task_id", b"task_id", "task_path", b"task_path", "writes", b"writes"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

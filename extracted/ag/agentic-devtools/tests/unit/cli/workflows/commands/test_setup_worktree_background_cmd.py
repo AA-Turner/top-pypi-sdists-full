@@ -112,3 +112,11 @@ class TestSetupWorktreeBackgroundCmd:
 
         captured = capsys.readouterr()
         assert "Could not parse additional-params JSON" in captured.err
+
+    def test_headless_flag_is_forwarded(self, temp_state_dir, clear_state_before):
+        """Test that --headless is passed to synchronous setup."""
+        with patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync") as mock_setup:
+            commands.setup_worktree_background_cmd(_argv=["--issue-key", "PROJECT-1234", "--headless"])
+
+        call_kwargs = mock_setup.call_args[1]
+        assert call_kwargs["headless"] is True

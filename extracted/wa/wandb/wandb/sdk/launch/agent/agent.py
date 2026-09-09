@@ -12,11 +12,10 @@ import time
 import traceback
 from dataclasses import dataclass
 from multiprocessing import Event
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import wandb
-from wandb.analytics import TelemetryRecorder, get_sentry
-from wandb.apis.internal import Api
+from wandb.analytics import TelemetryRecorder
 from wandb.errors import CommError
 from wandb.sdk.launch._launch_add import launch_add
 from wandb.sdk.launch.runner.local_container import LocalSubmittedRun
@@ -37,6 +36,9 @@ from ..utils import (
 )
 from .job_status_tracker import JobAndRunStatusTracker
 from .run_queue_item_file_saver import RunQueueItemFileSaver
+
+if TYPE_CHECKING:
+    from wandb.sdk.launch.api import LaunchApi
 
 AGENT_POLLING_INTERVAL = 10
 RECEIVED_JOB_POLLING_INTERVAL = 0.0  # more frequent when we know we have jobs
@@ -199,14 +201,14 @@ class LaunchAgent:
 
     def __init__(
         self,
-        api: Api,
+        api: LaunchApi,
         config: dict[str, Any],
         telemetry_recorder: TelemetryRecorder,
     ) -> None:
         """Initialize a launch agent.
 
         Arguments:
-            api: Api object to use for making requests to the backend.
+            api: LaunchApi object to use for making requests to the backend.
             config: Config dictionary for the agent.
             telemetry_recorder: Recorder used to report agent errors.
         """
@@ -214,7 +216,7 @@ class LaunchAgent:
         self._project = LAUNCH_DEFAULT_PROJECT
         self._api = api
         self._telemetry_recorder = telemetry_recorder
-        self._base_url = self._api.settings().get("base_url")
+        self._base_url = self._api.settings["base_url"]
         self._ticks = 0
         self._jobs: dict[int, JobAndRunStatusTracker] = {}
         self._jobs_lock = threading.Lock()
@@ -497,10 +499,6 @@ class LaunchAgent:
                 Exception(),
                 "launch agent called finish thread id on thread without run or exception",
             )
-            get_sentry().exception(
-                "launch agent called finish thread id on thread without run or exception"
-            )
-
         # TODO:  keep logs or something for the finished jobs
         with self._jobs_lock:
             del self._jobs[thread_id]
@@ -623,7 +621,6 @@ class LaunchAgent:
                                 f"{LOG_PREFIX}Error running job: {traceback.format_exc()}"
                             )
                             await self._record_telemetry_exception(e)
-                            get_sentry().exception(e)
 
                             # always the first phase, because we only enter phase 2 within the thread
                             files = file_saver.save_contents(
@@ -665,7 +662,7 @@ class LaunchAgent:
         launch_spec: dict[str, Any],
         job: dict[str, Any],
         default_config: dict[str, Any],
-        api: Api,
+        api: LaunchApi,
         job_tracker: JobAndRunStatusTracker,
     ) -> None:
         rqi_id = job["runQueueItemId"]
@@ -683,17 +680,14 @@ class LaunchAgent:
             )
             exception = e
             await self._record_telemetry_exception(e)
-            get_sentry().exception(e)
         except LaunchError as e:
             wandb.termerror(f"{LOG_PREFIX}Error running job: {e}")
             exception = e
             await self._record_telemetry_exception(e)
-            get_sentry().exception(e)
         except Exception as e:
             wandb.termerror(f"{LOG_PREFIX}Error running job: {traceback.format_exc()}")
             exception = e
             await self._record_telemetry_exception(e)
-            get_sentry().exception(e)
         finally:
             await self.finish_thread_id(rqi_id, exception)
 
@@ -702,7 +696,7 @@ class LaunchAgent:
         launch_spec: dict[str, Any],
         job: dict[str, Any],
         default_config: dict[str, Any],
-        api: Api,
+        api: LaunchApi,
         thread_id: int,
         job_tracker: JobAndRunStatusTracker,
     ) -> None:
@@ -818,13 +812,18 @@ class LaunchAgent:
         if isinstance(run, LocalSubmittedRun) and run._command_proc is not None:
             run._command_proc.kill()
 
-    async def check_sweep_state(self, launch_spec: dict[str, Any], api: Api) -> None:
+    async def check_sweep_state(
+        self, launch_spec: dict[str, Any], api: LaunchApi
+    ) -> None:
         """Check the state of a sweep before launching a run for the sweep."""
         if launch_spec.get("sweep_id"):
+            from wandb.apis.public.sweeps import _get_sweep_state
+
             try:
-                get_sweep_state = event_loop_thread_exec(api.get_sweep_state)
+                get_sweep_state = event_loop_thread_exec(_get_sweep_state)
                 state = await get_sweep_state(
-                    sweep=launch_spec["sweep_id"],
+                    api,
+                    launch_spec["sweep_id"],
                     entity=launch_spec["entity"],
                     project=launch_spec["project"],
                 )
@@ -903,12 +902,15 @@ class LaunchAgent:
                     wandb.termlog(f"{LOG_PREFIX}Scheduler finished with ID: {run.id}")
                     if state == "failed":
                         # on fail, update sweep state. scheduler run_id should == sweep_id
+                        from wandb.apis.public.sweeps import _set_sweep_state
+
                         try:
-                            self._api.set_sweep_state(
-                                sweep=job_tracker.run_id,
+                            _set_sweep_state(
+                                self._api,
+                                job_tracker.run_id,
+                                "CANCELED",
                                 entity=job_tracker.entity,
                                 project=job_tracker.project,
-                                state="CANCELED",
                             )
                         except Exception as e:
                             raise LaunchError(f"Failed to update sweep state: {e}")
@@ -936,7 +938,6 @@ class LaunchAgent:
             _logger.info(traceback.format_exc())
             _logger.info("---")
             await self._record_telemetry_exception(e)
-            get_sentry().exception(e)
         return known_error
 
     async def get_job_and_queue(self) -> JobSpecAndQueue | None:

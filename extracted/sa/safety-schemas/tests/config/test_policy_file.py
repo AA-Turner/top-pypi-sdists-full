@@ -90,6 +90,75 @@ class TestPolicyFile:
         for key, package_def in expected_packages_def.items():
             assert astuple(get_nested_attr(config, key)[0]) == package_def, f"{key} does not match expected value '{package_def}'"
 
+    def _assert_gateway_maven(self, config: ConfigModel):
+        self._assert_gateway(config)
+
+        # A Maven specification names the `groupId:artifactId` coordinate, so the
+        # colon has to survive parsing alongside the `@version` separator.
+        expected_packages_def = {
+            "installation.allow.packages": (
+                PackageEcosystem.maven,
+                ["commons-io:commons-io@2.8.0", "com.google.guava:guava@33.4.0-jre"],
+            ),
+            "installation.deny.packages.block.packages": (
+                PackageEcosystem.maven,
+                ["commons-io:commons-io"],
+            ),
+            "installation.deny.packages.warn.packages": (
+                PackageEcosystem.maven,
+                ["commons-io:commons-io"],
+            ),
+        }
+
+        for key, package_def in expected_packages_def.items():
+            assert astuple(get_nested_attr(config, key)[0]) == package_def, f"{key} does not match expected value '{package_def}'"
+
+    def _assert_gateway_nuget(self, config: ConfigModel):
+        self._assert_gateway(config)
+
+        # A NuGet id is dot-separated and published with case, though the
+        # registry treats it case-insensitively.
+        expected_packages_def = {
+            "installation.allow.packages": (
+                PackageEcosystem.nuget,
+                ["Newtonsoft.Json@13.0.1", "Microsoft.Extensions.Logging@8.0.0"],
+            ),
+            "installation.deny.packages.block.packages": (
+                PackageEcosystem.nuget,
+                ["Newtonsoft.Json"],
+            ),
+            "installation.deny.packages.warn.packages": (
+                PackageEcosystem.nuget,
+                ["Newtonsoft.Json"],
+            ),
+        }
+
+        for key, package_def in expected_packages_def.items():
+            assert astuple(get_nested_attr(config, key)[0]) == package_def, f"{key} does not match expected value '{package_def}'"
+
+    def _assert_gateway_go(self, config: ConfigModel):
+        self._assert_gateway(config)
+
+        # A Go module path carries slashes and its versions a `v` prefix, so
+        # both have to survive parsing alongside the `@version` separator.
+        expected_packages_def = {
+            "installation.allow.packages": (
+                PackageEcosystem.go,
+                ["github.com/sirupsen/logrus@v1.9.3", "golang.org/x/text@v0.14.0"],
+            ),
+            "installation.deny.packages.block.packages": (
+                PackageEcosystem.go,
+                ["github.com/sirupsen/logrus"],
+            ),
+            "installation.deny.packages.warn.packages": (
+                PackageEcosystem.go,
+                ["github.com/sirupsen/logrus"],
+            ),
+        }
+
+        for key, package_def in expected_packages_def.items():
+            assert astuple(get_nested_attr(config, key)[0]) == package_def, f"{key} does not match expected value '{package_def}'"
+
     def _assert_aiinstallation(self, config: ConfigModel):
         ai = config.ai_installation
         assert ai is not None

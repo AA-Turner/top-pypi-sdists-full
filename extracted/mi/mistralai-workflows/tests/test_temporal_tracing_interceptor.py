@@ -11,12 +11,15 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from pydantic import BaseModel
 from temporalio.converter import PayloadConverter
 
 from mistralai.workflows import get_workflow_definition, workflow
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
+    UNSERIALIZABLE_TRACE_DATA,
     MistralWorkflowTracingInterceptor,
+    TraceDataSerializer,
     _apply_sample_rate,
     _carrier_has_valid_span,
     _carrier_with_workflow_execution_baggage,
@@ -382,3 +385,27 @@ async def test_activity_span_records_schedule_to_start_and_execution_ms(
     execution_ms = attrs.get(EventAttributes.activity_execution_ms)
     assert isinstance(schedule_to_start_ms, int) and schedule_to_start_ms >= 0
     assert isinstance(execution_ms, int) and execution_ms >= 0
+
+
+class _NeverBuilt(BaseModel):
+    """Forward reference that is never resolved, so Pydantic leaves the serializer mocked.
+
+    Arguments and results reach the trace serializer typed ``Any`` and are serialized by
+    inference, which reads this class's placeholder serializer and raises.
+    """
+
+    later: "_DefinedAfterwards"
+
+
+class _DefinedAfterwards(BaseModel):
+    value: int = 1
+
+
+class TestTraceDataSerializer:
+    def test_unserializable_value_returns_a_marker_instead_of_raising(self) -> None:
+        unserializable = _NeverBuilt.model_construct(later=_DefinedAfterwards())
+
+        assert TraceDataSerializer().serialize([unserializable]) == UNSERIALIZABLE_TRACE_DATA
+
+    def test_serializable_values_are_unaffected(self) -> None:
+        assert "unserializable" not in TraceDataSerializer().serialize({"a": 1})

@@ -157,7 +157,8 @@ class TPLinkMRClientBase(AbstractRouter):
         acts = [
             self.ActItem(self.ActItem.GS, 'LAN_IP_INTF', attrs=['X_TP_MACAddress', 'IPInterfaceIPAddress']),
             self.ActItem(self.ActItem.GS, 'WAN_IP_CONN',
-                         attrs=['enable', 'MACAddress', 'externalIPAddress', 'defaultGateway', 'name']),
+                         attrs=['enable', 'MACAddress', 'externalIPAddress', 'defaultGateway', 'name',
+                                'connectionStatus', 'X_TP_IfName']),
             self.ActItem(self.ActItem.GL, 'LAN_WLAN', attrs=['enable', 'X_TP_Band']),
             self.ActItem(self.ActItem.GL, 'LAN_WLAN_GUESTNET', attrs=['enable', 'name']),
             self.ActItem(self.ActItem.GL, 'LAN_HOST_ENTRY', attrs=[
@@ -188,6 +189,8 @@ class TPLinkMRClientBase(AbstractRouter):
             status._wan_ipv4_addr = get_ip(item['externalIPAddress'])
             status._wan_ipv4_gateway = get_ip(item['defaultGateway'])
             status.conn_type = item.get('name', '')
+            if 'eth' in item.get('X_TP_IfName', ''):
+                status.ewan_connected = item.get('connectionStatus') == 'Connected'
 
         if values['2'].__class__ != list:
             status.wifi_2g_enable = bool(int(values['2']['enable']))
@@ -404,6 +407,23 @@ class TPLinkMRClientBase(AbstractRouter):
             self.ActItem(self.ActItem.SET, vpn.value, attrs=['enable={}'.format(int(enable))])
         ]
 
+        self.req_act(acts)
+
+    def set_ewan_connect(self, enable: bool) -> None:
+        # Find interface number of Ethernet uplink
+        acts = [
+            self.ActItem(self.ActItem.GL, 'WAN_COMMON_INTF_CFG', attrs=['WANAccessType'])
+        ]
+        _, values = self.req_act(acts)
+        i = 0
+        for intf in self._to_list(values):
+            i += 1
+            if intf.get('WANAccessType').lower() == 'ethernet':
+                break
+        dhcp_command = 'ACT_DHCP_RENEW' if enable else 'ACT_DHCP_RELEASE'
+        acts = [
+            self.ActItem(self.ActItem.OP, dhcp_command, '{},1,1,0,0,0'.format(i))
+        ]
         self.req_act(acts)
 
     @staticmethod

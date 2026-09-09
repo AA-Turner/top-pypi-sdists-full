@@ -112,6 +112,30 @@ def check() -> Integrity:
     return Integrity(True, None, version)
 
 
+def _stamp(iso: str) -> str:
+    return iso.replace(":", "").replace("-", "")
+
+
+def _archive_stamp(p) -> str:
+    """History filename stamp for the lock file about to become history.
+
+    The lock's own ``updated`` field is the moment it BECAME current; using
+    that (rather than now, the moment it stops being current) makes the
+    history id equal the state it captures, so ``replay list``'s ID and WHEN
+    columns describe the same instant instead of two writes apart. Falls
+    back to now for a lock with no readable ``updated`` (corrupt, or an
+    older schema) — there is nothing truthful to stamp it with instead.
+    """
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        raw = {}
+    updated = raw.get("updated")
+    if isinstance(updated, str) and updated:
+        return _stamp(updated)
+    return _stamp(util.now_iso())
+
+
 def write(lock: dict) -> None:
     """Snapshot the existing lock to history, then write ``lock`` atomically.
 
@@ -121,7 +145,7 @@ def write(lock: dict) -> None:
     paths.ensure_dirs()
     p = paths.lockfile_path()
     if p.exists():
-        stamp = util.now_iso().replace(":", "").replace("-", "")
+        stamp = _archive_stamp(p)
         dest = paths.lock_history_dir() / ("lock-%s.json" % stamp)
         n = 2
         while dest.exists():  # same-second writes each keep their snapshot
@@ -256,6 +280,42 @@ def remove_workflow(name: str) -> bool:
 def installed_workflows() -> dict:
     """Return the name -> entry mapping of installed workflows."""
     return read()["workflows"]
+
+
+def portable(lock: dict) -> dict:
+    """Deep copy of ``lock`` with machine-specific materialization paths dropped.
+
+    A rule or workflow entry's ``materializations[].path`` is written absolute,
+    rooted at this machine's ``$HOME`` (e.g. ``/Users/alice/.claude/CLAUDE.md``) —
+    fine for boost's own bookkeeping, but ``boost onboard`` commits a lock
+    snapshot into a shared repo. ``paths.tilde`` contracts each path to ``~``,
+    keeping the useful part (which agent, which file) while dropping the
+    username that would otherwise churn the committed file on every
+    teammate's own run.
+    """
+    projected = json.loads(json.dumps(lock))
+    for _kind, section in SECTIONS:
+        for entry in projected.get(section, {}).values():
+            for m in entry.get("materializations") or []:
+                if "path" in m:
+                    m["path"] = paths.tilde(m["path"])
+    return projected
+
+def agent_names(kind: str, entry: dict | None) -> list[str]:
+    """Sorted, deduplicated agent names an installed item of ``kind`` reaches.
+
+    A skill's lock entry records a flat ``agents`` list; a rule or workflow
+    instead records one ``materializations`` entry per agent, so the name
+    lives at ``m["agent"]``. Sorting both the same way is the point: before
+    this helper existed, `boost stats`' rule/workflow branch sorted its
+    agents line while the skill branch printed raw lock/install order —
+    two presentations of the same fact that happened to disagree.
+    """
+    if not entry:
+        return []
+    if kind == "skill":
+        return sorted(entry.get("agents") or [])
+    return sorted({m.get("agent", "?") for m in entry.get("materializations") or []})
 
 
 def find_any(name: str) -> tuple[str, dict] | None:

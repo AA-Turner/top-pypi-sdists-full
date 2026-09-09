@@ -898,5 +898,108 @@ class TestModelLabelling(unittest.TestCase):
         self.assertTrue(stem.with_suffix(".png").exists())
 
 
+class TestYieldOutlookConeGate(unittest.TestCase):
+    """[ML] make_cone_plots wires the cones into a yield_outlook run.
+
+    Default OFF: the cones are a publication product, and with the NASS
+    reference they make a network call a compute node may not be able to make.
+    """
+
+    def _setup(self):
+        import configparser
+
+        tmp = Path(tempfile.mkdtemp())
+        db = tmp / "outlook_test.db"
+        con = sqlite3.connect(db)
+        _rows(REGIONS, YEARS, MAIZE_STAGES).to_sql(
+            "usa_maize", con, index=False)
+        con.close()
+        parser = configparser.ConfigParser()
+        parser.add_section("ML")
+        dir_outlook = tmp / "analysis" / "September_06_2026_10h00" / "outlook"
+        dir_outlook.mkdir(parents=True)
+        return tmp, db, parser, dir_outlook
+
+    def test_default_is_off(self):
+        import configparser
+
+        parser = configparser.ConfigParser()
+        parser.add_section("ML")
+        self.assertFalse(
+            parser.getboolean("ML", "make_cone_plots", fallback=False))
+
+    def test_gate_on_writes_cone_beside_outlook(self):
+        from geocif import yield_outlook
+
+        tmp, db, parser, dir_outlook = self._setup()
+        written = yield_outlook._render_cone_figures(
+            parser, None, db, dir_outlook, ["usa"], ["maize"], ["tabpfn"])
+        self.assertTrue(written)
+        cone_dir = dir_outlook.parent / "cone"
+        self.assertTrue((cone_dir / "plots" / "cone_grid_maize.png").exists())
+        self.assertTrue((cone_dir / "csvs" / "cone_grid_maize.csv").exists())
+        # the cones sit beside the outlook products, not inside them
+        self.assertTrue(dir_outlook.exists())
+
+    def test_multiple_countries_get_their_own_subdir(self):
+        from geocif import yield_outlook
+
+        tmp, db, parser, dir_outlook = self._setup()
+        con = sqlite3.connect(db)
+        _rows(REGIONS, YEARS, MAIZE_STAGES).to_sql("bra_maize", con, index=False)
+        con.close()
+        yield_outlook._render_cone_figures(
+            parser, None, db, dir_outlook, ["usa", "bra"], ["maize"], ["tabpfn"])
+        for country in ("usa", "bra"):
+            self.assertTrue(
+                (dir_outlook.parent / "cone" / country / "plots"
+                 / "cone_grid_maize.png").exists(), country)
+
+    def test_ambiguous_model_defers_to_config(self):
+        """Several models in one run: don't silently label the figures with
+        whichever happens to sort first."""
+        from geocif import yield_outlook
+        from geocif.viz import cone
+
+        tmp, db, parser, dir_outlook = self._setup()
+        seen = {}
+        orig = cone.run
+
+        def spy(*a, **kw):
+            seen["model"] = kw.get("model")
+            return orig(*a, **kw)
+
+        cone.run = spy
+        try:
+            yield_outlook._render_cone_figures(
+                parser, None, db, dir_outlook, ["usa"], ["maize"],
+                ["tabpfn", "cubist"])
+        finally:
+            cone.run = orig
+        self.assertIsNone(seen["model"])   # -> [cone] model / module default
+
+    def test_failure_cannot_discard_a_completed_run(self):
+        """A completed forecast must never be lost to a plotting error, so the
+        helper raises an ordinary Exception that run()'s guard can swallow —
+        not SystemExit / KeyboardInterrupt, which `except Exception` lets
+        through and which would kill the process after the ML work is done."""
+        from geocif import yield_outlook
+
+        tmp, db, parser, dir_outlook = self._setup()
+        with self.assertRaises(Exception) as cm:
+            yield_outlook._render_cone_figures(   # table does not exist
+                parser, None, db, dir_outlook, ["nowhere"], ["maize"], ["tabpfn"])
+        self.assertNotIsInstance(cm.exception, (SystemExit, KeyboardInterrupt))
+
+    def test_no_crops_is_a_warning_not_a_crash(self):
+        from geocif import yield_outlook
+
+        tmp, db, parser, dir_outlook = self._setup()
+        self.assertEqual(
+            yield_outlook._render_cone_figures(
+                parser, None, db, dir_outlook, ["usa"], [], ["tabpfn"]),
+            [])
+
+
 if __name__ == "__main__":
     unittest.main()

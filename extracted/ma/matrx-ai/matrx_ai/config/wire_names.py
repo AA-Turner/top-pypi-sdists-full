@@ -3,8 +3,9 @@
 Tier-1 pure leaf (stdlib only — safe to import from anywhere, including
 ``config`` modules and provider translators).
 
-The platform's canonical tool names are namespaced with a colon
-(``bundle:list_supabase``, ``matrx-ai:shell`` — see
+The platform's canonical tool names are namespaced with a colon or, for
+external MCP tools, dots (``bundle:list_supabase``, ``matrx-ai:shell``,
+``mcp.docker-hub.listRepositoryTags`` — see
 docs/cx_chat/TOOL_REGISTRY_REDESIGN.md §4 "Naming conventions"). Every
 provider rejects ``:`` in a tool name (OpenAI/Anthropic enforce
 ``^[a-zA-Z0-9_-]{1,64}$``; Gemini is similarly strict), so a third name
@@ -13,7 +14,7 @@ layer exists purely for provider serialization:
     Canonical/Exposed  ``bundle:list_supabase``   (internal identity)
     Wire               ``bundle__list_supabase``  (what the model sees)
 
-``:`` → ``__`` at serialization; the reverse mapping happens at dispatch
+``:`` / ``.`` → ``__`` at serialization; the reverse mapping happens at dispatch
 (``ToolExecutor``) by comparing the model-called name against the wire
 form of every candidate internal name — never by naive string surgery,
 so legitimate ``__`` in plain names can't be corrupted.
@@ -40,17 +41,20 @@ from collections.abc import Iterable
 WIRE_SAFE_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 # One namespace separator on the internal plane; its wire spelling.
-CANONICAL_SEP = ":"
+CANONICAL_SEPS = (":", ".")
 WIRE_SEP = "__"
 
 
 def to_wire_name(name: str) -> str:
     """Return the provider-safe wire form of an internal tool name.
 
-    Idempotent: a name with no colon is returned unchanged, so calling
+    Idempotent: a name with no canonical separator is returned unchanged, so calling
     this on an already-wire-safe name (or twice) is a no-op.
     """
-    return name.replace(CANONICAL_SEP, WIRE_SEP)
+    wire = name
+    for separator in CANONICAL_SEPS:
+        wire = wire.replace(separator, WIRE_SEP)
+    return wire
 
 
 def is_wire_safe(name: str) -> bool:
@@ -62,7 +66,7 @@ def resolve_wire_name(called_name: str, candidates: Iterable[str]) -> str | None
     """Reverse the wire transform: find the internal name among
     ``candidates`` whose wire form equals ``called_name``.
 
-    Only colon-bearing candidates are considered — a candidate without a
+    Only separator-bearing candidates are considered — a candidate without a
     colon has an identical wire form and would already have matched by
     direct lookup, so re-matching it here would only mask lookup bugs.
 
@@ -80,6 +84,9 @@ def resolve_wire_name(called_name: str, candidates: Iterable[str]) -> str | None
     if WIRE_SEP not in called_name:
         return None
     for candidate in candidates:
-        if CANONICAL_SEP in candidate and to_wire_name(candidate) == called_name:
+        if (
+            any(separator in candidate for separator in CANONICAL_SEPS)
+            and to_wire_name(candidate) == called_name
+        ):
             return candidate
     return None

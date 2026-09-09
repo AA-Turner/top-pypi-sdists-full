@@ -68,6 +68,26 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_size: 0,
     },
   },
+  // Delta-channel cells: cheap turns, so a VU reaches the depth where a
+  // snapshot_frequency of 1000 finally fires. Run these at a low LOAD_SIZE;
+  // saturation turns the measurement into queue time.
+  'delta-turns': {
+    resumable: false,
+    runMode: 'stateful',
+    context: {
+      delay: 0,
+      delay_jitter_ratio: 0,
+      expand: 1,
+      steps: 1,
+      checkpoint_size: 256,
+      llm_enabled: false,
+      stream_size: 0,
+      chunk_size: 1,
+      burst_mode: false,
+      burst_probability: 0,
+      burst_size: 0,
+    },
+  },
   'streaming-long': {
     resumable: true,
     runMode: 'stateful',

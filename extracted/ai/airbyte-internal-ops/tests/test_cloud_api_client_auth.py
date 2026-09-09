@@ -151,3 +151,47 @@ def test_connector_rollout_403_uses_config_api_error_mapping(
         )
 
     assert error.value.context["payload"]["docker_repository"] == "airbyte/source-test"
+
+
+def test_start_connector_rollout_unwraps_data_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = Response()
+    response.status_code = 200
+    response._content = b'{"data":{"id":"rollout-1","state":"initialized"}}'
+    monkeypatch.setattr(api_client, "_get_access_token", lambda **_: "token")
+    monkeypatch.setattr(api_client.requests, "post", lambda *_, **__: response)
+
+    result = api_client.start_connector_rollout(
+        docker_repository="airbyte/source-test",
+        docker_image_tag="1.0.0",
+        actor_definition_id="definition-id",
+        updated_by="user-id",
+        rollout_strategy="manual",
+        config_api_root="https://cloud.airbyte.com/api/v1",
+        bearer_token="token",
+    )
+
+    assert result == {"id": "rollout-1", "state": "initialized"}
+
+
+def test_start_connector_rollout_returns_unwrapped_body_as_is(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = Response()
+    response.status_code = 200
+    response._content = b'{"id":"rollout-1"}'
+    monkeypatch.setattr(api_client, "_get_access_token", lambda **_: "token")
+    monkeypatch.setattr(api_client.requests, "post", lambda *_, **__: response)
+
+    result = api_client.start_connector_rollout(
+        docker_repository="airbyte/source-test",
+        docker_image_tag="1.0.0",
+        actor_definition_id="definition-id",
+        updated_by="user-id",
+        rollout_strategy="manual",
+        config_api_root="https://cloud.airbyte.com/api/v1",
+        bearer_token="token",
+    )
+
+    assert result == {"id": "rollout-1"}

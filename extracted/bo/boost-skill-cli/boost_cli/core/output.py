@@ -238,10 +238,18 @@ def warn(msg: str, stream=None, wrap: bool = False) -> None:
 
 
 def err(msg: str, hint: str | None = None) -> None:
-    """Print `Error: msg` to stderr, plus a dim hint line when given."""
+    """Print `Error: msg` to stderr, plus a dim hint line when given.
+
+    A hint that carries its own newlines — gh's own multi-line failure text,
+    passed through as-is — used to print continuation lines flush at column
+    0, unindented and visually disconnected from the "hint:" label above
+    them. Every line after the first is indented to align under it instead.
+    """
     print(c("Error: ", RED, BOLD) + msg, file=sys.stderr)
     if hint:
-        print(c("  hint: " + hint, DIM), file=sys.stderr)
+        lead = "  hint: "
+        body = ("\n" + " " * len(lead)).join(hint.splitlines())
+        print(c(lead + body, DIM), file=sys.stderr)
 
 
 def info(msg: str = "", stream=None, wrap: bool = False) -> None:
@@ -336,20 +344,24 @@ def pane_width(stream=None) -> int | None:
 
 def truncate(text: str, width: int, ellipsis: str = "…") -> str:
     """Collapse whitespace (including literal \\n / \\t escapes) to single
-    spaces, then clip to at most `width` columns with a trailing ellipsis.
+    spaces, then clip to at most `width` display *columns* with a trailing
+    ellipsis.
 
     Keeps list output to one tidy line each — a 2,000-char blob becomes a
-    scannable snippet instead of blowing up the pane.
+    scannable snippet instead of blowing up the pane. Clips by column width
+    (delegating to :func:`_clip_visible`), not character count: a
+    codepoint-counted clip let a CJK/emoji-heavy string (each cell 2 columns
+    wide) overflow the pane it was meant to fit.
     """
     text = text.replace("\\n", " ").replace("\\t", " ").replace("\\r", " ")
     text = " ".join(text.split())
     if width <= 0:
         return ""
-    if len(text) <= width:
+    if visible_len(text) <= width:
         return text
     if width <= len(ellipsis):
         return ellipsis[:width]
-    return text[:width - len(ellipsis)] + ellipsis
+    return _clip_visible(text, width, ellipsis)
 
 
 def badge(label: str, hue: str = "cyan") -> str:
@@ -387,25 +399,37 @@ def visible_len(s: str) -> int:
     return sum(_char_width(ch) for ch in _ANSI_RE.sub("", s))
 
 
-_CODE_SPAN_RE = re.compile(r"`[^`]*`")
+# One pattern, not a backtick scan and a bold scan merged afterward:
+# `finditer` on a single alternation advances left-to-right through the same
+# string, so a backtick span and a bold span can never be found to "overlap"
+# — whichever one's opening delimiter comes first at a given position is the
+# one that matches there. Two independent passes would have to re-derive
+# that ordering by hand.
+_ATOMIC_SPAN_RE = re.compile(r"`[^`]*`|\*\*[^*]+\*\*")
 
 
 def _glued(text: str, i: int) -> bool:
-    """True when `text[i]` exists, is not whitespace, and is not a backtick."""
-    return i < len(text) and not text[i].isspace() and text[i] != "`"
+    """True when `text[i]` exists, is not whitespace, and not a span delimiter."""
+    return i < len(text) and not text[i].isspace() and text[i] not in "`*"
 
 
 def _wrap_tokens(text: str) -> list[str]:
-    """Split text into wrap units, keeping each `code span` whole.
+    """Split text into wrap units, keeping each `code span` or `**bold span**` whole.
 
     A backtick span is one token even though it contains spaces, because the
     spans in boost's hints are shell commands the user is meant to select and
-    paste — `pip install 'boost-skill-cli[rag]'`. Everything outside a span is
-    split on whitespace, which collapses runs and newlines the way
-    :func:`truncate` does; the span itself is copied verbatim, so a command
-    that legitimately holds two spaces survives.
+    paste — `pip install 'boost-skill-cli[rag]'`. A `**bold**` span is atomic
+    for a different reason: `commands/info.py`'s `_render_markdown` wraps a
+    line first and colorizes each wrapped chunk after, via the same regex
+    `_inline()` uses (``\\*\\*([^*]+)\\*\\*``) — a span split across that wrap
+    boundary lands its `**` markers in two different chunks, so neither chunk
+    matches the regex and the literal asterisks leak into the rendered output
+    instead of becoming bold text. Everything outside a span is split on
+    whitespace, which collapses runs and newlines the way :func:`truncate`
+    does; the span itself is copied verbatim, so a command that legitimately
+    holds two spaces survives.
 
-    The span also absorbs punctuation glued directly against its backticks
+    Each span also absorbs punctuation glued directly against its delimiters
     with no whitespace between, so a source string like ``(see `x y`)``
     stays one token and `wrap()` never manufactures a space the source never
     had. That absorption is a pair of plain index scans (`_glued`), not a
@@ -415,19 +439,18 @@ def _wrap_tokens(text: str) -> list[str]:
     unterminated glued run — worth avoiding even though nothing here reads
     from outside the process, since these are still user-composed strings
     (a skill name, a tap path) flowing into `out.warn`/`out.info`. The scan
-    stops at a backtick on either side for the same reason the regex
-    excluded one: an adjacent ``` `beta` ``` must start its own span, not
-    fold into the one before it, or two spans separated only by ordinary
-    prose (` `alpha` between `beta` `) would bridge into one unbreakable
-    token.
+    stops at a backtick or asterisk on either side for the same reason the
+    regexes exclude them: an adjacent ``` `beta` ``` or ``**beta**`` must
+    start its own span, not fold into the one before it, or two spans
+    separated only by ordinary prose would bridge into one unbreakable token.
 
-    An unterminated backtick simply never matches, and its text wraps as
-    ordinary words. That is the right failure: a half-open span is a typo in
-    the message, not a reason to refuse to render it.
+    An unterminated backtick or `**` simply never matches, and its text wraps
+    as ordinary words. That is the right failure: a half-open span is a typo
+    in the message, not a reason to refuse to render it.
     """
     parts: list[str] = []
     pos = 0
-    for m in _CODE_SPAN_RE.finditer(text):
+    for m in _ATOMIC_SPAN_RE.finditer(text):
         start, end = m.start(), m.end()
         if start < pos:
             continue  # already absorbed into the previous span's suffix
@@ -644,13 +667,13 @@ def search_layout(cols: int, names: Sequence[str], kinds: Sequence[str],
     or more.
     """
     avail = cols - _SEARCH_INDENT - _SEARCH_FIXED
-    name_w = min(max((len(n) for n in names), default=1), 32)
+    name_w = min(max((visible_len(n) for n in names), default=1), 32)
     kind_w = 0
     if cols >= 48:
-        kind_w = min(max((len(kind_label(k)) for k in kinds), default=0), 10)
+        kind_w = min(max((visible_len(kind_label(k)) for k in kinds), default=0), 10)
     tap_w = 0
     if cols >= 84:
-        tap_w = min(max((len(t) for t in taps), default=0), 20)
+        tap_w = min(max((visible_len(t) for t in taps), default=0), 20)
 
     def desc_room(nw: int) -> int:
         return (avail - nw - 2 - (kind_w + 2 if kind_w else 0)
@@ -825,7 +848,7 @@ def _keep_indexes(keep, headers, ncols) -> set[int]:
     return out_idx
 
 
-def table(rows, headers=None, stream=None, keep=()) -> None:
+def table(rows, headers=None, stream=None, keep=(), text=()) -> None:
     """Print an aligned table. rows: list of tuples of strings.
 
     Column widths are measured by visible width (ignoring ANSI color codes),
@@ -848,6 +871,12 @@ def table(rows, headers=None, stream=None, keep=()) -> None:
     ``keep`` names the columns — by index or header — whose cells are
     identifiers rather than prose (a snapshot ID, a digest, a hook command),
     so a narrow pane shrinks the chrome beside them instead.
+
+    ``text`` names columns (same index-or-header resolution as ``keep``) that
+    must never right-align as numeric, however their cells look: an all-digit
+    minisign fingerprint or a purely numeric version string is an identifier,
+    not a count, and :func:`_numeric_col`'s content sniff cannot tell the two
+    apart on its own.
     """
     rows = [[str(x) for x in r] for r in rows]
     all_rows = ([list(map(str, headers))] if headers else []) + rows
@@ -856,7 +885,8 @@ def table(rows, headers=None, stream=None, keep=()) -> None:
     ncols = max(len(r) for r in all_rows)
     widths = [max(visible_len(r[i]) for r in all_rows if i < len(r))
               for i in range(ncols)]
-    numeric = [_numeric_col([r[i] for r in rows if i < len(r)])
+    forced_text = _keep_indexes(text, headers, ncols)
+    numeric = [_numeric_col([r[i] for r in rows if i < len(r)]) and i not in forced_text
                for i in range(ncols)]
     if use_color(stream):
         sep, sep_w = " " + DIM + "│" + RESET + " ", 3
@@ -884,7 +914,7 @@ def table(rows, headers=None, stream=None, keep=()) -> None:
 _CONFIRM_BYPASS_HINT = "pass -y or set BOOST_ASSUME_YES=1 to skip this prompt"
 
 
-def confirm(prompt: str, default: bool = False) -> bool:
+def confirm(prompt: str, default: bool = False, quiet: bool = False) -> bool:
     """Ask a yes/no question and return the answer as a bool.
 
     BOOST_ASSUME_YES or --yes/-y force True; non-TTY stdin and an empty
@@ -893,12 +923,14 @@ def confirm(prompt: str, default: bool = False) -> bool:
     Every path that resolves to a decline (as opposed to `default` being
     True) prints the bypass hint here, once, so callers inherit it instead
     of each command growing its own reminder — see the confirm-bypass-hints
-    roadmap item.
+    roadmap item. ``quiet`` suppresses that hint — for a caller that is about
+    to print its own machine-readable (``--json``) result on a decline, where
+    the hint would land as a stray prose line ahead of it.
     """
     if os.environ.get("BOOST_ASSUME_YES") or "--yes" in sys.argv or "-y" in sys.argv:
         return True
     if not sys.stdin.isatty():
-        if not default:
+        if not default and not quiet:
             dim(_CONFIRM_BYPASS_HINT)
         return default
     suffix = " [Y/n] " if default else " [y/N] "
@@ -906,9 +938,10 @@ def confirm(prompt: str, default: bool = False) -> bool:
         answer = input(prompt + suffix).strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
-        dim(_CONFIRM_BYPASS_HINT)
+        if not quiet:
+            dim(_CONFIRM_BYPASS_HINT)
         return False
     result = answer in ("y", "yes") if answer else default
-    if not result:
+    if not result and not quiet:
         dim(_CONFIRM_BYPASS_HINT)
     return result

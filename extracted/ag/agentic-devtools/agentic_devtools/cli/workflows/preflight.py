@@ -9,6 +9,7 @@ git branch match the expected Jira issue key.
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 _WORKFLOW_AUTO_EXECUTE_TIMEOUTS: dict[str, int] = {
     "pull-request-review": 600,
@@ -253,13 +254,19 @@ def perform_auto_setup(
     auto_execute_timeout: int | None = None,
     interactive: bool = False,
     model: str | None = None,
+    terminal: bool | None = None,
     starts_copilot_session: bool = True,
+    headless: bool = False,
 ) -> bool:
     """
     Automatically set up a worktree environment for the issue as a background task.
 
-    This spawns a background task to create the worktree, install agentic-devtools,
-    and open VS Code. The command line is immediately available after spawning the task.
+    This spawns a background task to create the worktree, install
+    agentic-devtools, and then continue through the appropriate Copilot
+    launch path: dedicated terminal mode when ``terminal`` is true, headless
+    background mode when ``headless`` is true, or the VS Code launch path
+    otherwise. The command line is immediately available after spawning the
+    task.
 
     The background task will output:
     1. Progress updates during setup
@@ -282,28 +289,67 @@ def perform_auto_setup(
         auto_execute_command: Optional command to run inside the worktree after
             creation. Passed through to the background setup task.
         auto_execute_timeout: Timeout in seconds for the auto-execute command.
-            When None (default), uses workflow-specific defaults (e.g., 300s
-            for pull-request-review) or falls back to 60s. Pass an explicit
+            When None (default), uses workflow-specific defaults (e.g., 600s
+            for pull-request-review) or falls back to 1800s. Pass an explicit
             value to override the workflow default.
         interactive: Whether to start the Copilot session interactively after
             the worktree is ready (default: False). Set to True for interactive mode.
         model: The Copilot model ID to use (e.g., "gpt-4o"). When provided,
             passed explicitly to the background setup task instead of relying
             on copilot.model_id state.
+        terminal: Whether to launch Copilot in a dedicated terminal window
+            instead of VS Code.
         starts_copilot_session: Whether the background setup ultimately starts
             a Copilot session when the worktree is ready. LangChain PR-review
             auto-setup passes ``False`` because it continues in a separate
             background pipeline instead.
+        headless: Whether to skip all VS Code integration and run Copilot in the
+            background.
 
     Returns:
         True if the background task was started, False otherwise
     """
-    from ...state import set_value
+    from ...state import get_value, set_value
     from .worktree_setup import start_worktree_setup_background
+
+    if terminal is None:
+        terminal_value = get_value("copilot.terminal")
+        terminal = terminal_value is True or terminal_value == "true"
+    if headless:
+        terminal = False
+
+    auto_execute_command_with_terminal = list(auto_execute_command) if auto_execute_command else None
+    if (
+        terminal
+        and auto_execute_command_with_terminal is not None
+        and "--copilot-terminal" not in auto_execute_command_with_terminal
+        and "--terminal" not in auto_execute_command_with_terminal
+    ):
+        auto_execute_command_with_terminal.append("--copilot-terminal")
 
     # Resolve workflow-specific timeout when caller used the signature default.
     if auto_execute_timeout is None:
-        auto_execute_timeout = _WORKFLOW_AUTO_EXECUTE_TIMEOUTS.get(workflow_name, 60)
+        configured_timeout = get_value("worktree_setup.auto_execute_timeout")
+        if configured_timeout is not None:
+            parsed_timeout: int | None = None
+            if isinstance(configured_timeout, bool):
+                parsed_timeout = None
+            elif isinstance(configured_timeout, int):
+                parsed_timeout = configured_timeout
+            elif isinstance(configured_timeout, str):
+                stripped_timeout = configured_timeout.strip()
+                if stripped_timeout.startswith(("+", "-")):
+                    sign = stripped_timeout[0]
+                    digits = stripped_timeout[1:]
+                    if digits.isdigit():
+                        parsed_timeout = int(f"{sign}{digits}")
+                elif stripped_timeout.isdigit():
+                    parsed_timeout = int(stripped_timeout)
+
+            if parsed_timeout is not None and parsed_timeout >= 0:
+                auto_execute_timeout = parsed_timeout
+        if auto_execute_timeout is None:
+            auto_execute_timeout = _WORKFLOW_AUTO_EXECUTE_TIMEOUTS.get(workflow_name, 1800)
 
     print(f"\n{'=' * 80}")
     print("AUTOMATIC ENVIRONMENT SETUP (BACKGROUND)")
@@ -311,7 +357,7 @@ def perform_auto_setup(
     print(f"\nStarting background task to set up worktree for {issue_key}...")
 
     try:
-        task_id = start_worktree_setup_background(
+        setup_kwargs: dict[str, Any] = dict(
             issue_key=issue_key,
             branch_prefix=branch_prefix,
             branch_name=branch_name,
@@ -319,11 +365,15 @@ def perform_auto_setup(
             workflow_name=workflow_name,
             user_request=user_request,
             additional_params=additional_params,
-            auto_execute_command=auto_execute_command,
+            auto_execute_command=auto_execute_command_with_terminal,
             auto_execute_timeout=auto_execute_timeout,
             interactive=interactive,
             model=model,
+            **({"terminal": True} if terminal else {}),
         )
+        if headless:
+            setup_kwargs["headless"] = True
+        task_id = start_worktree_setup_background(**setup_kwargs)
 
         # Automatically save the task ID to state so agdt-task-wait works
         # without requiring the user to manually set background.task_id.
@@ -336,9 +386,22 @@ def perform_auto_setup(
         next_steps = """
 The worktree setup is running in the background.
 """
-        if starts_copilot_session:
+        if headless and starts_copilot_session:
             next_steps += """
-A Copilot session will start automatically in the VS Code integrated terminal when the worktree is ready.
+A headless Copilot session will continue in the background when the worktree is ready.
+Monitor its output with the log path printed by the setup task.
+"""
+        elif starts_copilot_session:
+            next_steps += """
+A Copilot session will start automatically when the worktree is ready.
+"""
+            if terminal:
+                next_steps += """
+It will launch in a dedicated terminal window.
+"""
+            else:
+                next_steps += """
+It will launch in the VS Code integrated terminal.
 
 If the session doesn't start automatically:
   1. Run: agdt-task-log

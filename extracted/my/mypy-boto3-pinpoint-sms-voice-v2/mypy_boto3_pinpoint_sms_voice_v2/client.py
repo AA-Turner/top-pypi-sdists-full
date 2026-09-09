@@ -50,6 +50,7 @@ from .paginator import (
     DescribeSenderIdsPaginator,
     DescribeSpendLimitsPaginator,
     DescribeVerifiedDestinationNumbersPaginator,
+    ListAvailablePhoneNumbersPaginator,
     ListNotifyCountriesPaginator,
     ListPoolOriginationIdentitiesPaginator,
     ListProtectConfigurationRuleSetNumberOverridesPaginator,
@@ -182,6 +183,8 @@ from .type_defs import (
     GetProtectConfigurationCountryRuleSetResultTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResultTypeDef,
+    ListAvailablePhoneNumbersRequestTypeDef,
+    ListAvailablePhoneNumbersResultTypeDef,
     ListNotifyCountriesRequestTypeDef,
     ListNotifyCountriesResultTypeDef,
     ListPoolOriginationIdentitiesRequestTypeDef,
@@ -1004,6 +1007,17 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_resource_policy)
         """
 
+    def list_available_phone_numbers(
+        self, **kwargs: Unpack[ListAvailablePhoneNumbersRequestTypeDef]
+    ) -> ListAvailablePhoneNumbersResultTypeDef:
+        """
+        Search available phone numbers from aggregator inventory, optionally filtered
+        by pattern.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/list_available_phone_numbers.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#list_available_phone_numbers)
+        """
+
     def list_notify_countries(
         self, **kwargs: Unpack[ListNotifyCountriesRequestTypeDef]
     ) -> ListNotifyCountriesResultTypeDef:
@@ -1687,6 +1701,17 @@ class PinpointSMSVoiceV2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_verified_destination_numbers"]
     ) -> DescribeVerifiedDestinationNumbersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_available_phone_numbers"]
+    ) -> ListAvailablePhoneNumbersPaginator:
         """
         Create a paginator for an operation.
 

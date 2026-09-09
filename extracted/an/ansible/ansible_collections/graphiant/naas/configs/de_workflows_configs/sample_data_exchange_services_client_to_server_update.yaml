@@ -1,7 +1,7 @@
 # Sample Data Exchange Services Update Configuration - Client to Server
 # Used with: operation: update_services
 #
-# 'serviceName' and 'type: "client_to_server"' are required, plus at least one of
+# 'serviceName' and 'serviceType: "client_to_server"' ('type' is a legacy alias) are required, plus at least one of
 # 'policy.prefixTags' or 'policy.natTranslationMode'. Any field left out is read from the
 # existing service via the API and preserved as-is. natTranslationMode prefixes keys are
 # edge device names, resolved to device IDs the same way as in create_services.
@@ -37,7 +37,7 @@
 
 data_exchange_services:
   - serviceName: "de-partner-to-org-service-1"
-    type: "client_to_server"
+    serviceType: "client_to_server"
     policy:
       prefixTags:
         - prefix: "10.48.52.154/31"

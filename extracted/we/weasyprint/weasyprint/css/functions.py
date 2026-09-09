@@ -149,7 +149,8 @@ def check_string_or_element(string_or_element, token):
             ident = arguments.pop(0)
             if ident.type != 'ident':
                 return
-            if ident.lower_value not in ('first', 'start', 'last', 'first-except'):
+            values = ('first', 'start', 'last', 'first-except', 'all-once')
+            if ident.lower_value not in values:
                 return
             ident = ident.lower_value
         else:
@@ -176,10 +177,11 @@ def check_var(token):
 def check_math(token):
     # TODO: validate for real.
     if type(token) is tuple:
-        return any(check_math(token) for token in token)
-    function = Function(token)
-    if (name := function.name) is None:
+        return any(check_math(item) for item in token)
+    elif getattr(token, 'type', None) != 'function':
         return
+    function = Function(token)
+    name = function.name
     arguments = function.split_comma(single_tokens=False)
     if name == 'calc':
         return len(arguments) == 1

@@ -533,6 +533,12 @@ fn uff_gradient(
 const MAX_SANE_UFF_BOND_LENGTH: f64 = 3.0;
 
 fn worst_uff_bond_length(mol: &Molecule, coords: &[[f64; 3]]) -> f64 {
+    if coords
+        .iter()
+        .any(|point| point.iter().any(|value| !value.is_finite()))
+    {
+        return f64::INFINITY;
+    }
     let dist = |a: [f64; 3], b: [f64; 3]| {
         let d = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
         (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
@@ -580,6 +586,10 @@ pub struct UffMinimizeResult {
     /// torsion/out-of-plane-incomplete potential, not slow convergence) had
     /// occurred.
     pub sound: bool,
+    /// Longest covalent bond in the returned geometry (Å). This is the
+    /// measurement behind `sound` and lets bindings explain a rejected
+    /// result without reimplementing the soundness gate.
+    pub worst_bond_length: f64,
     /// True when line search rejected an energy-decreasing proposal because
     /// it would have produced an unsound covalent bond length. Callers can
     /// distinguish this bounded rescue signal from an ordinary high-residual
@@ -636,12 +646,14 @@ where
 
         if rms < 0.01 {
             let sound = is_sound_uff_geometry(mol, &coords);
+            let worst_bond_length = worst_uff_bond_length(mol, &coords);
             return UffMinimizeResult {
                 coords,
                 energy,
                 iterations: iter,
                 converged: true,
                 sound,
+                worst_bond_length,
                 rejected_unsound_step,
             };
         }
@@ -654,6 +666,7 @@ where
             .collect();
 
         let new_energy = uff_total_energy(mol, types, &new_coords);
+        let geometry_sound = is_sound_uff_geometry(mol, &new_coords);
         // Energy descent alone is not a sufficient acceptance criterion:
         // the incomplete UFF potential can lower its energy by walking into
         // a stationary geometry with a catastrophically stretched covalent
@@ -662,25 +675,27 @@ where
         // search reduce the step instead. This preserves the existing
         // fail-closed `sound` contract while preventing the optimizer from
         // knowingly propagating an unsound intermediate.
-        if new_energy < energy && is_sound_uff_geometry(mol, &new_coords) && accept(&new_coords) {
+        if new_energy < energy && geometry_sound && accept(&new_coords) {
             coords = new_coords;
             if energy - new_energy < prev_energy * 1e-7 {
                 step *= 1.2;
             }
             prev_energy = energy;
         } else {
-            if new_energy < energy {
+            if new_energy < energy && !geometry_sound {
                 rejected_unsound_step = true;
             }
             step *= 0.5;
             if step < 1e-8 {
                 let sound = is_sound_uff_geometry(mol, &coords);
+                let worst_bond_length = worst_uff_bond_length(mol, &coords);
                 return UffMinimizeResult {
                     coords,
                     energy,
                     iterations: iter,
                     converged: false,
                     sound,
+                    worst_bond_length,
                     rejected_unsound_step,
                 };
             }
@@ -689,12 +704,14 @@ where
 
     let energy = uff_total_energy(mol, types, &coords);
     let sound = is_sound_uff_geometry(mol, &coords);
+    let worst_bond_length = worst_uff_bond_length(mol, &coords);
     UffMinimizeResult {
         coords,
         energy,
         iterations: max_iter,
         converged: false,
         sound,
+        worst_bond_length,
         rejected_unsound_step,
     }
 }
@@ -776,6 +793,10 @@ mod tests {
         assert_eq!(result.coords, initial);
         assert_eq!(result.energy, uff_total_energy(&mol, &types, &initial));
         assert!(!result.converged);
+        assert!(
+            !result.rejected_unsound_step,
+            "a caller constraint rejection must not be reported as an unsound UFF step"
+        );
     }
 
     #[test]
@@ -787,6 +808,10 @@ mod tests {
         assert!(
             result.sound,
             "an ordinary small molecule minimizing normally should report sound"
+        );
+        assert!(
+            result.worst_bond_length <= MAX_SANE_UFF_BOND_LENGTH,
+            "sound result must expose a bond length within the soundness limit"
         );
     }
 
@@ -805,6 +830,10 @@ mod tests {
             !result.sound,
             "a 5.0 Å C-C bond must be reported unsound regardless of `converged`"
         );
+        assert!(
+            result.worst_bond_length > MAX_SANE_UFF_BOND_LENGTH,
+            "unsound result must expose the stretched bond measurement"
+        );
     }
 
     #[test]
@@ -814,6 +843,10 @@ mod tests {
         let coords: Vec<[f64; 3]> = vec![[0.0, 0.0, 0.0], [f64::NAN, 0.0, 0.0], [2.5, 1.2, 0.0]];
         let result = minimize_uff(&mol, &types, coords, 0);
         assert!(!result.sound, "non-finite coordinates must be unsound");
+        assert!(
+            result.worst_bond_length.is_infinite(),
+            "non-finite geometry must fail closed in the exposed bond metric"
+        );
     }
 
     /// Propane skeleton (C0-C1-C2, heavy atoms only — implicit H fills

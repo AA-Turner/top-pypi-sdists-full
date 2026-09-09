@@ -1,95 +1,76 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: vispy
-Version: 0.16.2
+Version: 0.17.0
 Summary: Interactive visualization in Python
-Home-page: http://vispy.org
-Download-URL: https://pypi.python.org/pypi/vispy
-Author: Vispy contributors
-Author-email: vispy@googlegroups.com
-License: BSD-3-Clause
-Keywords: visualization,OpenGl,ES,medical,imaging,3D,plotting,numpy,bigdata,ipython,jupyter,widgets
-Platform: any
+Project-URL: Homepage, http://vispy.org
+Project-URL: Download, https://pypi.python.org/pypi/vispy
+Author-email: Vispy contributors <vispy@googlegroups.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE.txt
+Keywords: 3D,ES,OpenGl,bigdata,imaging,ipython,jupyter,medical,numpy,plotting,visualization,widgets
 Classifier: Development Status :: 3 - Alpha
-Classifier: Intended Audience :: Science/Research
-Classifier: Intended Audience :: Education
+Classifier: Framework :: IPython
 Classifier: Intended Audience :: Developers
-Classifier: Topic :: Scientific/Engineering :: Visualization
-Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Framework :: IPython
-Provides: vispy
-Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
-License-File: LICENSE.txt
-Requires-Dist: numpy
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Requires-Python: >=3.10
 Requires-Dist: freetype-py
 Requires-Dist: hsluv
 Requires-Dist: kiwisolver
+Requires-Dist: numpy
 Requires-Dist: packaging
-Provides-Extra: ipython-static
-Requires-Dist: ipython; extra == "ipython-static"
-Provides-Extra: pyglet
-Requires-Dist: pyglet>=1.2; extra == "pyglet"
-Provides-Extra: pyqt5
-Requires-Dist: pyqt5; extra == "pyqt5"
-Provides-Extra: pyqt6
-Requires-Dist: pyqt6; extra == "pyqt6"
-Provides-Extra: pyside
-Requires-Dist: PySide; extra == "pyside"
-Provides-Extra: pyside2
-Requires-Dist: PySide2; extra == "pyside2"
-Provides-Extra: pyside6
-Requires-Dist: PySide6; extra == "pyside6"
-Provides-Extra: glfw
-Requires-Dist: glfw; extra == "glfw"
-Provides-Extra: sdl2
-Requires-Dist: PySDL2; extra == "sdl2"
-Provides-Extra: wx
-Requires-Dist: wxPython; extra == "wx"
-Provides-Extra: tk
-Requires-Dist: pyopengltk; extra == "tk"
 Provides-Extra: doc
-Requires-Dist: pydata-sphinx-theme; extra == "doc"
-Requires-Dist: numpydoc; extra == "doc"
-Requires-Dist: sphinxcontrib-apidoc; extra == "doc"
-Requires-Dist: sphinx-gallery; extra == "doc"
-Requires-Dist: myst-parser; extra == "doc"
-Requires-Dist: pillow; extra == "doc"
-Requires-Dist: pytest; extra == "doc"
-Requires-Dist: pyopengl; extra == "doc"
+Requires-Dist: myst-parser; extra == 'doc'
+Requires-Dist: numpydoc; extra == 'doc'
+Requires-Dist: pillow; extra == 'doc'
+Requires-Dist: pydata-sphinx-theme; extra == 'doc'
+Requires-Dist: pyopengl; extra == 'doc'
+Requires-Dist: pytest; extra == 'doc'
+Requires-Dist: sphinx-gallery; extra == 'doc'
+Requires-Dist: sphinxcontrib-apidoc; extra == 'doc'
+Provides-Extra: glfw
+Requires-Dist: glfw; extra == 'glfw'
 Provides-Extra: io
-Requires-Dist: meshio; extra == "io"
-Requires-Dist: Pillow; extra == "io"
+Requires-Dist: meshio; extra == 'io'
+Requires-Dist: pillow; extra == 'io'
+Provides-Extra: ipython-static
+Requires-Dist: ipython; extra == 'ipython-static'
+Provides-Extra: pyglet
+Requires-Dist: pyglet>=1.2; extra == 'pyglet'
+Provides-Extra: pyqt5
+Requires-Dist: pyqt5; extra == 'pyqt5'
+Provides-Extra: pyqt6
+Requires-Dist: pyqt6; extra == 'pyqt6'
+Provides-Extra: pyside
+Requires-Dist: pyside; extra == 'pyside'
+Provides-Extra: pyside2
+Requires-Dist: pyside2; extra == 'pyside2'
+Provides-Extra: pyside6
+Requires-Dist: pyside6; extra == 'pyside6'
+Provides-Extra: sdl2
+Requires-Dist: pysdl2; extra == 'sdl2'
 Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-sugar; extra == "test"
-Requires-Dist: meshio; extra == "test"
-Requires-Dist: pillow; extra == "test"
-Requires-Dist: sphinx_gallery; extra == "test"
-Requires-Dist: imageio; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: platform
-Dynamic: provides
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: imageio; extra == 'test'
+Requires-Dist: meshio; extra == 'test'
+Requires-Dist: pillow; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-sugar; extra == 'test'
+Requires-Dist: sphinx-gallery; extra == 'test'
+Provides-Extra: tk
+Requires-Dist: pyopengltk; extra == 'tk'
+Provides-Extra: wx
+Requires-Dist: wxpython; extra == 'wx'
+Description-Content-Type: text/x-rst
 
 VisPy: interactive scientific visualization in Python
 -----------------------------------------------------

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
@@ -50,15 +50,15 @@ def home() -> str:
 
 @pytest.fixture
 def _homebrew_py_prefix(mocker: MockerFixture) -> None:
-    mocker.patch("sys.prefix", "/opt/homebrew/opt/python@3.13/Frameworks/Python.framework/Versions/3.13")
+    mocker.patch("sys.base_prefix", "/opt/homebrew/opt/python@3.13/Frameworks/Python.framework/Versions/3.13")
 
 
 @pytest.fixture
 def _builtin_py_prefix(mocker: MockerFixture) -> None:
-    """Keep ``sys.prefix`` off the ``/opt/python`` Homebrew heuristic so directories use the system defaults."""
+    """Keep ``sys.base_prefix`` off the ``/opt/python`` Homebrew heuristic so directories use the system defaults."""
     py_version = sys.version_info
     mocker.patch(
-        "sys.prefix",
+        "sys.base_prefix",
         "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework"
         f"/Versions/{py_version.major}.{py_version.minor}",
     )
@@ -153,7 +153,7 @@ def test_macos_homebrew(
         },
     ]
     for prefix in test_data:
-        mocker.patch("sys.prefix", prefix["sys_prefix"])
+        mocker.patch("sys.base_prefix", prefix["sys_prefix"])
 
         result = getattr(MacOS(multipath=multipath, **params), site_func)
 
@@ -295,6 +295,40 @@ def test_macos_xdg_empty_falls_back(monkeypatch: pytest.MonkeyPatch, home: str, 
 
 
 @pytest.mark.parametrize(
+    ("env_var", "prop"),
+    [
+        pytest.param("XDG_DATA_HOME", "user_data_dir", id="user_data_dir"),
+        pytest.param("XDG_CONFIG_HOME", "user_config_dir", id="user_config_dir"),
+        pytest.param("XDG_CACHE_HOME", "user_cache_dir", id="user_cache_dir"),
+        pytest.param("XDG_STATE_HOME", "user_state_dir", id="user_state_dir"),
+        pytest.param("XDG_RUNTIME_DIR", "user_runtime_dir", id="user_runtime_dir"),
+    ],
+)
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("relative/dir", id="relative"),
+        pytest.param("~/dir", id="tilde"),
+        pytest.param("$HOME/dir", id="unexpanded-home"),
+        pytest.param("C:/dir", id="windows-drive"),
+    ],
+)
+def test_macos_xdg_relative_falls_back(
+    monkeypatch: pytest.MonkeyPatch, home: str, env_var: str, prop: str, value: str
+) -> None:
+    monkeypatch.setenv(env_var, value)
+    expected_map = {
+        "user_data_dir": f"{home}/Library/Application Support",
+        "user_config_dir": f"{home}/Library/Application Support",
+        "user_cache_dir": f"{home}/Library/Caches",
+        "user_state_dir": f"{home}/Library/Application Support",
+        "user_runtime_dir": f"{home}/Library/Caches/TemporaryItems",
+    }
+    assert getattr(MacOS(), prop) == expected_map[prop]
+
+
+@pytest.mark.parametrize(
     ("env_var_1", "prop_1", "env_var_2", "prop_2"),
     [
         pytest.param("XDG_DATA_HOME", "user_data_dir", "XDG_CONFIG_HOME", "user_config_dir", id="data/config"),
@@ -364,10 +398,12 @@ def test_site_applications_path_multipath_returns_first_path(monkeypatch: pytest
         pytest.param("::", id="double"),
         pytest.param(" : ", id="padded"),
         pytest.param(": :", id="spaced"),
+        pytest.param("relative/dir", id="relative"),
+        pytest.param("relative/dir:another/dir", id="all-relative"),
     ],
 )
 @pytest.mark.parametrize("prop", ["site_data_dir", "site_config_dir", "site_applications_dir"])
-def test_site_dirs_fall_back_when_xdg_var_is_all_separators(
+def test_site_dirs_fall_back_when_xdg_var_has_no_absolute_paths(
     monkeypatch: pytest.MonkeyPatch, prop: str, value: str
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_DIRS" if prop == "site_config_dir" else "XDG_DATA_DIRS", value)
@@ -448,3 +484,60 @@ def test_macos_iter_runtime_dirs_no_duplicate(home: str) -> None:
     # site_runtime_dir is defined as user_runtime_dir.
     expected = os.path.join(f"{home}/Library/Caches/TemporaryItems", "foo")  # ruff:ignore[os-path-join]
     assert list(MacOS(appname="foo").iter_runtime_dirs()) == [expected]
+
+
+@pytest.mark.usefixtures("_clear_xdg_env")
+@pytest.mark.parametrize(
+    "homebrew_prefix",
+    [
+        pytest.param("/opt/homebrew", id="apple-silicon"),
+        pytest.param("/usr/local", id="intel"),
+        pytest.param("/custom/brew", id="custom-prefix"),
+    ],
+)
+@pytest.mark.parametrize("multipath", [pytest.param(True, id="multipath"), pytest.param(False, id="singlepath")])
+@pytest.mark.parametrize(
+    "prop",
+    [
+        "site_data_dir",
+        "site_config_dir",
+        "site_cache_dir",
+        "site_state_dir",
+        "site_data_path",
+        "site_config_path",
+        "site_cache_path",
+        "site_state_path",
+    ],
+)
+def test_homebrew_virtual_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, homebrew_prefix: str, prop: str, multipath: bool
+) -> None:
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / ".venv"))
+    monkeypatch.setattr(
+        sys, "base_prefix", f"{homebrew_prefix}/opt/python@3.13/Frameworks/Python.framework/Versions/3.13"
+    )
+    suffix: Final = "var/cache" if "cache" in prop else "share"
+    expected: str | Path = f"{homebrew_prefix}/{suffix}{os.sep}Example{os.sep}1.0"
+    if prop.endswith("_path"):
+        expected = Path(expected)
+    elif multipath and prop != "site_state_dir":
+        fallback: Final = "Caches" if "cache" in prop else "Application Support"
+        expected += f":/Library/{fallback}{os.sep}Example{os.sep}1.0"
+    assert getattr(MacOS(appname="Example", version="1.0", multipath=multipath), prop) == expected
+
+
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+@pytest.mark.parametrize(
+    ("prop", "expected"),
+    [
+        pytest.param("site_data_dir", "/Library/Application Support", id="data"),
+        pytest.param("site_config_dir", "/Library/Application Support", id="config"),
+        pytest.param("site_cache_dir", "/Library/Caches", id="cache"),
+        pytest.param("site_state_dir", "/Library/Application Support", id="state"),
+    ],
+)
+def test_non_homebrew_base_ignores_virtual_environment_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, prop: str, expected: str
+) -> None:
+    monkeypatch.setattr(sys, "prefix", (tmp_path / "opt/python/.venv").as_posix())
+    assert getattr(MacOS(), prop) == expected

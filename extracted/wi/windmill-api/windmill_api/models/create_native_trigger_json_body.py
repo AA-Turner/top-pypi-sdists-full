@@ -22,12 +22,16 @@ class CreateNativeTriggerJsonBody:
         service_config (CreateNativeTriggerJsonBodyServiceConfig): Service-specific configuration (e.g., event types,
             filters)
         summary (Union[Unset, None, str]): Short summary to be displayed when listed
+        enabled (Union[Unset, bool]): Whether the trigger starts a job when it fires. Honoured on create only, so a
+            trigger can be registered already paused; an update ignores it and setenabled is the only way to change an
+            existing trigger's state. Defaults to true.
     """
 
     script_path: str
     is_flow: bool
     service_config: "CreateNativeTriggerJsonBodyServiceConfig"
     summary: Union[Unset, None, str] = UNSET
+    enabled: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -36,6 +40,7 @@ class CreateNativeTriggerJsonBody:
         service_config = self.service_config.to_dict()
 
         summary = self.summary
+        enabled = self.enabled
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -48,6 +53,8 @@ class CreateNativeTriggerJsonBody:
         )
         if summary is not UNSET:
             field_dict["summary"] = summary
+        if enabled is not UNSET:
+            field_dict["enabled"] = enabled
 
         return field_dict
 
@@ -64,11 +71,14 @@ class CreateNativeTriggerJsonBody:
 
         summary = d.pop("summary", UNSET)
 
+        enabled = d.pop("enabled", UNSET)
+
         create_native_trigger_json_body = cls(
             script_path=script_path,
             is_flow=is_flow,
             service_config=service_config,
             summary=summary,
+            enabled=enabled,
         )
 
         create_native_trigger_json_body.additional_properties = d

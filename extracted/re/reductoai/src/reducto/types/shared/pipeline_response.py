@@ -1,7 +1,5 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
 from typing import List, Union, Optional
-from typing_extensions import TypeAlias
+from typing_extensions import Literal, TypeAlias
 
 from ..._models import BaseModel
 from ..v3_extract import V3Extract
@@ -56,3 +54,5 @@ class PipelineResponse(BaseModel):
     result: Result
 
     usage: ParseUsage
+
+    response_type: Literal["pipeline"]

@@ -14,7 +14,7 @@ from fusesoc.utils import setup_logging, yaml_fread
 from fusesoc.vlnv import Vlnv
 
 try:
-    from edalize.edatool import get_edatool
+    from edalize.edatool import ToolResolutionError, get_edatool
 except ImportError:
     from edalize import get_edatool
 
@@ -25,7 +25,7 @@ class Fusesoc:
     def __init__(self, config):
         self.config = config
 
-        self.lm = LibraryManager(config.library_root)
+        self.lm = LibraryManager()
         self.cm = CoreManager(self.config, library_manager=self.lm)
 
         self._register_libraries()
@@ -38,7 +38,7 @@ class Fusesoc:
                 self.add_library(library)
             except (RuntimeError, OSError):
                 try:
-                    temporary_lm = LibraryManager(self.config.library_root)
+                    temporary_lm = LibraryManager()
                     # try to initialize library
                     temporary_lm.add_library(library)
                     temporary_lm.update([library.name])
@@ -150,10 +150,15 @@ class Fusesoc:
                 )
 
         else:
+            if "tool" in flags:
+                tool = flags["tool"]
+            else:
+                tool_error = "No flow or tool was supplied on command line or found in '{}' core description"
+                raise RuntimeError(tool_error.format(core.name.sanitized_name))
             try:
-                backend_class = get_edatool(flags["tool"])
-            except ImportError:
-                raise RuntimeError(f"Backend {flags['tool']!r} not found")
+                backend_class = get_edatool(tool)
+            except ToolResolutionError:
+                raise RuntimeError(f"Backend {tool!r} not found")
 
         edalizer = Edalizer(
             toplevel=core.name,
@@ -174,7 +179,7 @@ class Fusesoc:
         except SyntaxError as e:
             raise RuntimeError(e.msg)
         except RuntimeError as e:
-            raise RuntimeError("Setup failed : {}".format(str(e)))
+            raise RuntimeError(f"Setup failed : {str(e)}")
         except DependencyError as e:
             raise RuntimeError("Failed to resolve dependencies. " + e.msg)
 

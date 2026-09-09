@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 2.25.0
+Version: 2.26.0
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Keywords: dataframes,interoperability,pandas,polars,pyarrow,dask,modin,cudf
 Author: Marco Gorelli
@@ -70,7 +70,8 @@ Description-Content-Type: text/markdown
 Extremely lightweight and extensible compatibility layer between dataframe libraries!
 
 - **Full API support**: cuDF, Modin, pandas, Polars, PyArrow.
-- **Lazy-only support**: Daft, Dask, DuckDB, Ibis, PySpark, SQLFrame.
+- **Lazy-only support**: Dask, DuckDB, Ibis, PySpark, SQLFrame, and Daft via the
+  [narwhals-daft](https://github.com/narwhals-dev/narwhals-daft) plugin.
 
 Seamlessly support all, without depending on any!
 
@@ -300,7 +301,7 @@ to this list!
 
 If you'd like to say "thank you", please give us a ⭐ star ⭐.
 
-Please contact [hello_narwhals@proton.me](hello_narwhals@proton.me) if you would like to:
+Please contact [hello_narwhals@proton.me](mailto:hello_narwhals@proton.me) if you would like to:
 
 - Receive professional support (e.g., if you're using or would like to use Narwhals at your company).
 - Have any Narwhals fixes / features prioritised.

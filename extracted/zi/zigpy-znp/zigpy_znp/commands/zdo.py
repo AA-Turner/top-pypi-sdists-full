@@ -516,8 +516,7 @@ class ZDO(t.CommandsBase, subsystem=t.Subsystem.ZDO):
             t.Param(
                 "RemoveChildren_Rejoin",
                 LeaveOptions,
-                "Specifies actions to be performed by "
-                "device when leaving the network.",
+                "Specifies actions to be performed by device when leaving the network.",
             ),
         ),
         rsp_schema=t.STATUS_SCHEMA,
@@ -1194,7 +1193,7 @@ class ZDO(t.CommandsBase, subsystem=t.Subsystem.ZDO):
             t.Param(
                 "Status", t.ZDOStatus, "Status is either Success (0) or Failure (1)"
             ),
-            t.Param("Routes", zigpy.zdo.types.Routes, "Routes"),
+            t.Param("Routes", zigpy.zdo.types.Routes, "Routes", optional=True),
         ),
     )
 

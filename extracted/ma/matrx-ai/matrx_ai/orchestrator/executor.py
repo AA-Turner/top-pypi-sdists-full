@@ -3628,7 +3628,16 @@ async def _execute_until_complete_inner(
                     if _loop_trim_report.blocks_rewritten:
                         _app_ctx = try_get_app_context()
                         if _app_ctx is not None:
-                            _app_ctx.metadata["last_trim_report"] = _loop_trim_report.to_dict()
+                            # Keyed by the iteration whose prompt this trim
+                            # compacted, so persistence lands each report on
+                            # its own cx_request row. It used to overwrite
+                            # ``last_trim_report`` (the resolver's pre-run
+                            # report, attached to iteration 1 only) — so
+                            # every in-loop trim was audited into nowhere
+                            # (0 of ~1,400 iteration≥2 rows carried one).
+                            _app_ctx.metadata.setdefault("trim_reports_by_iteration", {})[
+                                iteration
+                            ] = _loop_trim_report.to_dict()
                 except Exception as _trim_exc:  # noqa: BLE001 -- send remains available
                     vcprint(
                         f"[executor] per-iteration context trim failed (ignored): "

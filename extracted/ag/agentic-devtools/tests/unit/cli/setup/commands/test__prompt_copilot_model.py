@@ -24,6 +24,16 @@ class TestPromptCopilotModel:
         saved = mock_save.call_args[0][0]
         assert saved["default_copilot_model"] == "gpt-5.3-codex"
 
+    def test_returns_selected_model_without_persisting(self, capsys):
+        """Returns the selection while leaving persistence to the caller."""
+        with patch("agentic_devtools.cli.setup.commands._query_copilot_models", return_value=["gpt-4o"]):
+            with patch("agentic_devtools.cli.config.project_config.load_project_config", return_value={}):
+                with patch("agentic_devtools.cli.config.project_config.save_project_config") as mock_save:
+                    with patch("agentic_devtools.cli.setup.commands.input", return_value="1"):
+                        selected = _prompt_copilot_model(persist=False)
+        mock_save.assert_not_called()
+        assert selected == "gpt-4o"
+
     def test_uses_first_model_as_default_when_no_existing_config(self, capsys):
         """Uses first model as default when no model is configured."""
         models = ["gpt-5.3-codex", "gpt-4o"]

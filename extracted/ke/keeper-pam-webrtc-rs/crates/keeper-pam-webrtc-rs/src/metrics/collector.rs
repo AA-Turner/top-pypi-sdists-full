@@ -472,7 +472,7 @@ impl MetricsCollector {
                     );
                 }
 
-                for (_id, report) in webrtc_stats.iter() {
+                for report in webrtc_stats.values() {
                     match report {
                         StatsReportType::InboundRTP(inbound)
                             // Update bytes received for throughput calculation

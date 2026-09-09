@@ -121,6 +121,123 @@ def _pearson(xs: List[float], ys: List[float]) -> float:
     return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den
 
 
+
+
+# ---------------------------------------------------------------------------
+# THE U_i COUPLING HARNESS (Daniel's DO-ALL-THREE order, 2026-09-08)
+# ---------------------------------------------------------------------------
+# The RANKED CANDIDATE above waits on one thing: a corpus specification of
+# HOW U_i couples into borehole gravity. This harness is the socket that
+# specification plugs into. It defines a small registered family of coupling
+# forms; the moment Daniel's ruling selects a form and its parameters, the
+# coupled channel is computed over the co-located KTB window and scored
+# against the independently measured channels - same discipline as
+# channel_ranking(), same honesty checks. Until then the harness reports
+# AWAITING_DANIEL_SPEC, verifies itself with a null coupling (a = 0 must
+# reproduce the K2 baseline bit-exactly), and states plainly the structural
+# fact the degeneracy check already implies: any DEPTH-CONSTANT coupling is
+# a monotone transform of the K2 channel and cannot add strata information -
+# only a coupling that varies along the column can move the score.
+
+U_I_COUPLING_FORMS = {
+    'multiplicative': 'dg_coupled = dg_k2 * (1 + a * U_i)',
+    'additive':       'dg_coupled = dg_k2 + a * U_i * dz  [mGal via MGAL scale]',
+    'phase_modulated': 'dg_coupled = dg_k2 * (1 + a * U_i * cos(pi * t_n(z)))',
+    'density_coupled': 'dg_coupled = dg_k2 * (1 + a * U_i * (rho/rho_ref - 1))',
+}
+
+
+def _u_i_coupled_series(rho_k, dz, spec):
+    """Compute the coupled dg series for a given spec over the mass column."""
+    form = spec.get('form')
+    a = float(spec.get('a', 0.0))
+    u_i = float(spec.get('u_i', u_i_earth()))
+    base = [predict_delta_g_mgal(r, dz) for r in rho_k]
+    if form == 'multiplicative' or form is None:
+        return [b * (1.0 + a * u_i) for b in base]
+    if form == 'additive':
+        return [b + a * u_i * dz * 1e5 for b in base]
+    if form == 'phase_modulated':
+        tn0 = float(spec.get('t_n0', 0.0))
+        dtn = float(spec.get('dt_n_per_station', 0.0))
+        return [b * (1.0 + a * u_i * math.cos(math.pi * (tn0 + i * dtn)))
+                for i, b in enumerate(base)]
+    if form == 'density_coupled':
+        rho_ref = float(spec.get('rho_ref_gcc', 2.65))
+        return [b * (1.0 + a * u_i * (r / rho_ref - 1.0))
+                for b, r in zip(base, rho_k)]
+    raise ValueError('unknown coupling form %r (registered: %s)'
+                     % (form, sorted(U_I_COUPLING_FORMS)))
+
+
+def u_i_coupling_harness(spec: Dict | None = None,
+                         entry: str = 'ktb_hb_complog_6020_excerpt') -> Dict:
+    """Score a U_i borehole-gravity coupling the moment it is specified.
+
+    spec = None  -> AWAITING_DANIEL_SPEC + baseline scores + null self-check.
+    spec = {'form': <registered form>, 'a': <coupling constant>, ...}
+                 -> the coupled channel scored against the measured channels,
+                    with the information DELTA vs the pure-K2 baseline and
+                    the degeneracy verdict reported honestly.
+    """
+    st = CATALOG[entry].stream()
+    rho = [float(v) for v in st.channels['RHOB (g/cm3)'].values]
+    dtco = [float(v) for v in st.channels['DTCO (us/m)'].values]
+    sgr = [float(v) for v in st.channels['SGR (API)'].values]
+    lld = [float(v) for v in st.channels['LLD (ohmm)'].values]
+    keep = [i for i, r in enumerate(rho) if r > 2.5 and dtco[i] > 0
+            and sgr[i] == sgr[i] and lld[i] > 0]
+    rho_k = [rho[i] for i in keep]
+    truth = {'vp_m_s': [1e6 / dtco[i] for i in keep],
+             'sgr_api': [sgr[i] for i in keep],
+             'lld_ohmm': [lld[i] for i in keep]}
+    dz = 0.1524
+    base = [predict_delta_g_mgal(r, dz) for r in rho_k]
+    base_scores = {t: abs(_pearson(base, tv)) for t, tv in truth.items()}
+    base_mean = statistics.mean(base_scores.values())
+
+    # harness self-check: the null coupling must reproduce K2 bit-exactly
+    null = _u_i_coupled_series(rho_k, dz, {'form': 'multiplicative', 'a': 0.0})
+    null_ok = all(abs(n - b) < 1e-18 for n, b in zip(null, base))
+
+    out = {
+        'window': '%s (n=%d co-located stations)' % (entry, len(keep)),
+        'registered_forms': dict(U_I_COUPLING_FORMS),
+        'u_i_earth': u_i_earth(),
+        'baseline_k2_scores': base_scores,
+        'baseline_k2_mean_abs_r': base_mean,
+        'null_coupling_self_check': null_ok,
+        'structural_note': ('a depth-CONSTANT coupling is a monotone '
+                            'transform of the K2 channel (degenerate, adds '
+                            'no strata information); only a coupling varying '
+                            'along the column can move the score'),
+    }
+    if spec is None:
+        out['status'] = 'AWAITING_DANIEL_SPEC'
+        out['open_item'] = ('the U_i -> borehole-gravity coupling form and '
+                            'constant are not corpus-specified; Daniel '
+                            'supplies the spec, this harness scores it '
+                            '(Rule 10: Daniel provides, the harness assembles)')
+        return out
+    coupled = _u_i_coupled_series(rho_k, dz, spec)
+    scores = {t: abs(_pearson(coupled, tv)) for t, tv in truth.items()}
+    mean = statistics.mean(scores.values())
+    degen = abs(_pearson(coupled, base)) > 0.999999
+    out.update({
+        'status': 'SCORED',
+        'spec': dict(spec),
+        'coupled_scores': scores,
+        'coupled_mean_abs_r': mean,
+        'information_delta': mean - base_mean,
+        'degenerate_with_k2': degen,
+        'verdict': ('DEGENERATE - the specified coupling is a monotone '
+                    'transform of K2 and adds no information' if degen else
+                    ('ADDS_INFORMATION' if mean > base_mean else
+                     'REDUCES_INFORMATION')),
+    })
+    return out
+
+
 def channel_ranking(entry: str = 'ktb_hb_complog_6020_excerpt') -> Dict:
     """Which UQFF-derived channel knows the most about the ground?
 
@@ -184,12 +301,12 @@ def channel_ranking(entry: str = 'ktb_hb_complog_6020_excerpt') -> Dict:
                                 'information - the ranking says so instead '
                                 'of pretending three channels exist where '
                                 'one does'),
-            'blocked_on_k4': ('the MATERIAL-ID channel (which rock is this?) '
-                              'cannot be ranked: the landmark family holds '
-                              'concrete/steel/aluminum/pine but no geological '
-                              'rungs - quartz, granite, shale, seawater, '
-                              'limestone, halite, ice are OPEN UQFF '
-                              'derivation targets that only Daniel can '
-                              'close'),
+            'blocked_on_k4': ('CLOSED 2026-09-08 by Daniel\'s K4 derivation '
+                              'order: uqff_rock_inventory carries seventeen '
+                              'geological landmarks (primitive-composed, '
+                              'anchors cited, ranges disclosed) and the '
+                              'material-ID channel flows as RANKED '
+                              'candidates with overlap honesty - see '
+                              'rock_candidate_stream()'),
             'scope': 'first pass, one 10-m window; re-runs as co-located '
                      'library grows'}

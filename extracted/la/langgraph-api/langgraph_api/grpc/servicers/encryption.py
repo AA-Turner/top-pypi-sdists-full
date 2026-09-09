@@ -19,6 +19,12 @@ from langgraph_grpc_common.proto.encryption_pb2 import (
 from langgraph_grpc_common.proto.encryption_pb2_grpc import EncryptionServicer
 from langgraph_sdk import EncryptionContext
 
+from langgraph_api.encryption.custom import (
+    DecryptResult,
+    JsonEncryptionWrapper,
+    get_custom_encryption_instance,
+    normalize_decrypt_result,
+)
 from langgraph_api.encryption.middleware import _extract_skip_fields
 from langgraph_api.encryption.shared import BLOB_ENCRYPTION_CONTEXT_KEY, get_encryption
 from langgraph_api.schema import NESTED_ENCRYPTED_SUBFIELDS
@@ -102,7 +108,7 @@ class EncryptionServicerImpl(EncryptionServicer):
         metadata: dict[str, bytes],
         encryptor,
         path: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Encrypt a field, handling nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS.
 
         This mirrors the middleware's _encrypt_field behavior:
@@ -181,6 +187,8 @@ class EncryptionServicerImpl(EncryptionServicer):
         model_type: str | None,
         field_name: str,
         decryptor,
+        *,
+        with_replacement: bool = False,
     ) -> dict[str, Any]:
         """Decrypt a field, handling nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS.
 
@@ -195,7 +203,9 @@ class EncryptionServicerImpl(EncryptionServicer):
         stored_ctx = data.get(ENCRYPTION_CONTEXT_KEY)
         metadata = stored_ctx if isinstance(stored_ctx, dict) else {}
         ctx = EncryptionContext(model=model_type, field=field_name, metadata=metadata)
-        decrypted = await decryptor(ctx, data)
+        result = normalize_decrypt_result(await decryptor(ctx, data))
+        decrypted = result.plaintext
+        replacement = result.replacement
 
         # Check for nested subfields that need recursive decryption
         # Only look up in NESTED_ENCRYPTED_SUBFIELDS when model_type is defined
@@ -213,7 +223,11 @@ class EncryptionServicerImpl(EncryptionServicer):
                     subfield_names.append(sf_name)
                     subfield_tasks.append(
                         self._decrypt_field_recursive(
-                            sf_value, model_type, sf_name, decryptor
+                            sf_value,
+                            model_type,
+                            sf_name,
+                            decryptor,
+                            with_replacement=True,
                         )
                     )
 
@@ -222,9 +236,14 @@ class EncryptionServicerImpl(EncryptionServicer):
                 for sf_name, sf_decrypted in zip(
                     subfield_names, subfield_results, strict=True
                 ):
-                    decrypted[sf_name] = sf_decrypted
+                    decrypted[sf_name] = sf_decrypted.plaintext
+                    if sf_decrypted.replacement is not None:
+                        if replacement is None:
+                            replacement = dict(data)
+                        replacement[sf_name] = sf_decrypted.replacement
 
-        return decrypted
+        result = DecryptResult(decrypted, replacement)
+        return result if with_replacement else result.plaintext
 
     async def EncryptJSON(
         self,
@@ -250,10 +269,11 @@ class EncryptionServicerImpl(EncryptionServicer):
 
             encryptor = encryption_instance.get_json_encryptor(model_type)
             if encryptor is None:
-                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-                model_err = f"No encryptor configured for model type: {model_type}"
-                context.set_details(model_err)
-                raise RuntimeError(model_err)
+                metadata = _parse_metadata(dict(request.context.metadata))
+                if metadata:
+                    data[BLOB_ENCRYPTION_CONTEXT_KEY] = metadata
+                    return EncryptResponse(data=orjson.dumps(data))
+                return EncryptResponse(data=request.data)
 
             # Use recursive encryption that handles NESTED_ENCRYPTED_SUBFIELDS
             encrypted = await self._encrypt_field_recursive(
@@ -279,12 +299,7 @@ class EncryptionServicerImpl(EncryptionServicer):
         request,
         context: grpc_aio.ServicerContext,
     ) -> DecryptResponse:
-        """Decrypt JSON data using the configured encryption.
-
-        Uses the JsonEncryptionWrapper which routes to the appropriate decryptor
-        based on the encryption context marker (handles AES migration).
-        Handles nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS recursively.
-        """
+        """Decrypt JSON data using the configured encryption."""
         try:
             encryption_instance = get_encryption()
             if encryption_instance is None:
@@ -300,37 +315,121 @@ class EncryptionServicerImpl(EncryptionServicer):
             # removes it, so we save and restore it after decryption.
             blob_enc_ctx = data.get(BLOB_ENCRYPTION_CONTEXT_KEY)
 
-            # Model and field are optional, used for decryptor selection/routing
             model_type: ModelType | None = request.model or None
             field = request.field or None
 
-            # Get the decryptor from the wrapper (handles routing based on
-            # __encryption_context__ marker in the data)
-            decryptor = encryption_instance.get_json_decryptor(model_type)
+            decryptor = (
+                encryption_instance.get_json_decryptor(
+                    model_type, with_replacement=True
+                )
+                if isinstance(encryption_instance, JsonEncryptionWrapper)
+                else encryption_instance.get_json_decryptor(model_type)
+            )
             if decryptor is None:
                 model_err = f"No decryptor configured for model type: {model_type}"
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
                 context.set_details(model_err)
                 raise RuntimeError(model_err)
 
-            # Use recursive decryption that handles NESTED_ENCRYPTED_SUBFIELDS
-            decrypted = await self._decrypt_field_recursive(
-                data, model_type, field or "", decryptor
+            result = await self._decrypt_field_recursive(
+                data,
+                model_type,
+                field or "",
+                decryptor,
+                with_replacement=True,
             )
+            decrypted = result.plaintext
+            replacement = result.replacement
 
             # Restore __blob_encryption_context__ so that internal consumers
             # (e.g., the cron scheduler) can recover the original encryption
             # context when creating downstream runs.
             if blob_enc_ctx is not None and isinstance(decrypted, dict):
                 decrypted[BLOB_ENCRYPTION_CONTEXT_KEY] = blob_enc_ctx
+            if blob_enc_ctx is not None and isinstance(replacement, dict):
+                replacement[BLOB_ENCRYPTION_CONTEXT_KEY] = blob_enc_ctx
 
             decrypted_bytes = orjson.dumps(decrypted)
+            replacement_bytes = None
+            if replacement is not None:
+                try:
+                    replacement_bytes = orjson.dumps(replacement)
+                except (TypeError, ValueError):
+                    await logger.aerror(
+                        "Ignoring unserializable re-encryption replacement",
+                        model=model_type,
+                        field=field,
+                    )
 
-            return DecryptResponse(data=decrypted_bytes)
+            return DecryptResponse(data=decrypted_bytes, replacement=replacement_bytes)
 
         except Exception as e:
             await logger.aerror("DecryptJSON failed", error=str(e), exc_info=True)
             if context.code() is None:
                 context.set_code(grpc.StatusCode.INTERNAL)
                 context.set_details(f"Decryption failed: {e}")
+            raise
+
+    async def EncryptBlob(
+        self,
+        request,
+        context: grpc_aio.ServicerContext,
+    ) -> EncryptResponse:
+        """Encrypt opaque bytes with the configured blob handler."""
+        try:
+            encryption_instance = get_custom_encryption_instance()
+            if (
+                encryption_instance is None
+                or encryption_instance._blob_encryptor is None
+            ):
+                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                context.set_details("No blob encryption configured")
+                raise RuntimeError("No blob encryption configured")
+
+            enc_ctx = _build_encryption_context(
+                request.context.model or None,
+                request.context.field or None,
+                dict(request.context.metadata),
+            )
+            encrypted = await encryption_instance._blob_encryptor(enc_ctx, request.data)
+            return EncryptResponse(data=encrypted)
+        except Exception as e:
+            await logger.aerror("EncryptBlob failed", error=str(e), exc_info=True)
+            if context.code() is None:
+                context.set_code(grpc.StatusCode.INTERNAL)
+                context.set_details(f"Blob encryption failed: {e}")
+            raise
+
+    async def DecryptBlob(
+        self,
+        request,
+        context: grpc_aio.ServicerContext,
+    ) -> DecryptResponse:
+        """Decrypt opaque bytes with the configured blob handler."""
+        try:
+            encryption_instance = get_custom_encryption_instance()
+            if (
+                encryption_instance is None
+                or encryption_instance._blob_decryptor is None
+            ):
+                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                context.set_details("No blob decryption configured")
+                raise RuntimeError("No blob decryption configured")
+
+            enc_ctx = _build_encryption_context(
+                request.context.model or None,
+                request.context.field or None,
+                dict(request.context.metadata),
+            )
+            result = normalize_decrypt_result(
+                await encryption_instance._blob_decryptor(enc_ctx, request.data)
+            )
+            return DecryptResponse(
+                data=result.plaintext, replacement=result.replacement
+            )
+        except Exception as e:
+            await logger.aerror("DecryptBlob failed", error=str(e), exc_info=True)
+            if context.code() is None:
+                context.set_code(grpc.StatusCode.INTERNAL)
+                context.set_details(f"Blob decryption failed: {e}")
             raise

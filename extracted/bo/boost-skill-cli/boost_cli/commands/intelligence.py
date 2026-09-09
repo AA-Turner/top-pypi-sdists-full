@@ -14,6 +14,7 @@ import difflib
 import fnmatch
 import json
 import re
+import shlex
 import sys
 import tempfile
 import textwrap
@@ -213,7 +214,8 @@ def cmd_distill(argv: list[str]) -> int:
         meta, body = frontmatter.parse(text)
         sources.append({"name": name, "origin": origin, "text": text,
                         "meta": meta, "body": body})
-    new = args.output or (names[0] + "-distilled")
+    new = util.resolve_slug(args.output, what="output name") if args.output \
+        else names[0] + "-distilled"
 
     out.heading("distilling %s → %s" % (", ".join(names), new))
     merged = _distill_ai(new, sources) if ai.available() else None
@@ -227,7 +229,9 @@ def cmd_distill(argv: list[str]) -> int:
         dest = Path.cwd() / new / "SKILL.md"
         if not _write_generated(dest, merged, yes=args.yes):
             return 1
-        out.info(out.role("install it with `boost import ./%s`" % new, "muted"))
+        out.info(out.role(
+            "install it with `boost import %s`" % shlex.quote("./" + new),
+            "muted"))
     journal.log("distill", new, sources=names)
     return 0
 
@@ -320,9 +324,10 @@ def cmd_simulate(argv: list[str]) -> int:
                     help="task to simulate (default: a typical coding task)")
     args = ap.parse_args(argv)
 
+    _, bare = catalog.split_name(args.name)
     text, origin = _skill_text(args.name)
     task = args.task or "a typical coding task in this repo"
-    out.heading("simulating %s  %s" % (args.name, out.role("(%s)" % origin, "muted")))
+    out.heading("simulating %s  %s" % (bare, out.role("(%s)" % origin, "muted")))
 
     if ai.available():
         reply = ai.ask(
@@ -340,7 +345,7 @@ def cmd_simulate(argv: list[str]) -> int:
     out.kv("task", task)
     rules = imperative.imperative_rules(body)
     out.info("Without it: default behavior — none of the rules below are enforced.")
-    out.info(out.c("With %s active, Claude would:" % args.name, out.BOLD))
+    out.info(out.c("With %s active, Claude would:" % bare, out.BOLD))
     if rules:
         for rule in rules[:8]:
             out.info("  • " + rule)
@@ -353,7 +358,11 @@ def cmd_simulate(argv: list[str]) -> int:
         # Clipped to 100 characters, which is a length and not a width: at
         # 80 columns the quoted description ran seven past the pane. Wrapping
         # shows the same clipped text and fits it.
-        trigger = 'likely triggers when the task involves: "%s"' % desc[:100]
+        shown = desc
+        if len(desc) > 100:
+            # Cut on a word boundary so the tail is not a severed token.
+            shown = desc[:100].rsplit(" ", 1)[0] + " …"
+        trigger = 'likely triggers when the task involves: "%s"' % shown
         for line in out.wrap(trigger, max(out.term_width() - 2, 20)):
             out.info(out.role(line, "muted"))
     return 0
@@ -812,16 +821,23 @@ def _evolve_ai(old: str, old_ver: str, feedback: str) -> str | None:
 
 
 def _evolve_append(old: str, old_ver: str, feedback: str) -> str:
-    """Heuristic revision: feedback appended as a dated rules section."""
-    meta, body = frontmatter.parse(old)
-    meta["version"] = _bump_patch(old_ver)
+    """Heuristic revision: feedback appended as a dated rules section.
+
+    Splices the bumped ``version`` into the original frontmatter text
+    (`frontmatter.set_field`) rather than parsing to a dict and dumping it
+    back — a parse -> dump round trip rewrites every field through dump's
+    own quoting rules, turning a diff that only bumped the version into one
+    that also silently reformats every other line the feedback never
+    touched.
+    """
+    revised = frontmatter.set_field(old, "version", _bump_patch(old_ver))
+    block, body = frontmatter.split(revised)
     bullets = [s.strip().rstrip(".")
                for s in re.split(r"(?<=[.!?])\s+|\n+|;\s*", feedback)
                if s.strip()]
     section = ("## Feedback (%s)\n\n" % util.now_iso()[:10]
                + "\n".join("- %s." % b for b in bullets))
-    return (frontmatter.dump(meta) + "\n\n" + body.strip()
-            + "\n\n" + section + "\n")
+    return "---\n%s\n---\n\n%s\n\n%s\n" % (block, body.strip(), section)
 
 
 def _print_diff(old: str, new: str) -> None:
@@ -1061,6 +1077,10 @@ def cmd_focus(argv: list[str]) -> int:
         if had_session:
             state_path.unlink()
         journal.log("focus", "clear", restored=restored)
+        if args.json:
+            print(json.dumps({"active": [], "restored": restored,
+                              "had_session": had_session}))
+            return 0
         if not had_session and not restored:
             out.info("no focus session")
             return 0
@@ -1109,6 +1129,9 @@ def cmd_focus(argv: list[str]) -> int:
         store.unsideline(name)
     _save_state(_FOCUS_STATE, {"active": names, "since": util.now_iso()})
     journal.log("focus", ",".join(names))
+    if args.json:
+        print(json.dumps({"active": names, "sidelined": sidelined}))
+        return 0
     out.info("⌁ focus: %s %s"
              % (", ".join(names),
                 out.role("(other %d skill%s sidelined)" % (sidelined, _s(sidelined)), "muted")))
@@ -1120,7 +1143,7 @@ def cmd_focus(argv: list[str]) -> int:
 def cmd_impact(argv: list[str]) -> int:
     ap = cliparse.parser(
         prog="boost impact",
-        description="Measure a skill's influence on code quality")
+        description="Correlate a skill's install date with repo activity")
     ap.add_argument("name", nargs="?", metavar="NAME",
                     help="one skill (default: all installed)")
     ap.add_argument("--json", action="store_true")
@@ -1181,6 +1204,8 @@ def cmd_impact(argv: list[str]) -> int:
             if reply:
                 print()
                 print(textwrap.indent(textwrap.fill(reply, width=76), "  "))
+            else:
+                _note_fallback()
         else:
             _note_fallback()
     out.dim("  " + note)
@@ -1245,6 +1270,11 @@ def _print_reply(reply: chat_engine.Reply, show_sources: bool) -> None:
         # a downgraded answer that looks identical to a confident one.
         out.warn("the AI reply named something outside the retrieved skills — "
                  "showing the grounded matches instead")
+    elif reply.ai_failed:
+        # AI was available and was tried, but the call itself produced
+        # nothing — distinct from never having a backend, and otherwise
+        # indistinguishable from a deliberate extractive answer.
+        out.warn(ai.fallback_note(), wrap=True, stream=sys.stderr)
 
 
 def cmd_chat(argv: list[str]) -> int:

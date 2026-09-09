@@ -21,6 +21,7 @@ from schemathesis.core.jsonschema import (
     FANCY_REGEX_OPTIONS,
     VALIDATED_FORMATS_BY_DRAFT,
     compile_ecma_pattern,
+    is_unsatisfiable,
     is_valid,
     make_validator,
     make_validator_for,
@@ -208,7 +209,7 @@ def _without_forbidden_keys(value: Any, schema: dict[str, Any]) -> Any:
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         return NOT_SET
-    forbidden = {k for k, sub in properties.items() if isinstance(sub, dict) and sub.get("not") == {}}
+    forbidden = {k for k, sub in properties.items() if is_unsatisfiable(sub)}
     if not forbidden or forbidden.isdisjoint(value):
         return NOT_SET
     return {k: v for k, v in value.items() if k not in forbidden}
@@ -1246,7 +1247,9 @@ _ANNOTATION_KEYWORDS = frozenset(
     }
 )
 # Keywords holding one subschema; two of them on a node both apply to the same values.
-_CHILD_SLOTS = frozenset({"items", "additionalProperties", "contains", "propertyNames", "additionalItems"})
+# `contains` is not one of them: two of them each want their own matching item, not one item
+# matching both, so folding them into a single subschema over-constrains the array.
+_CHILD_SLOTS = frozenset({"items", "additionalProperties", "propertyNames", "additionalItems"})
 _TIGHTEST_LOWER = frozenset({"minLength", "minItems", "minProperties", "minimum", "exclusiveMinimum"})
 _TIGHTEST_UPPER = frozenset({"maxLength", "maxItems", "maxProperties", "maximum", "exclusiveMaximum"})
 
@@ -1271,6 +1274,13 @@ def _merge_all_of(schema: JsonSchemaObject) -> JsonSchemaObject | None:
         for key, value in branch.items():
             if not _merge_keyword(merged, key, value):
                 return None
+    prefix_items = merged.get("prefixItems")
+    if prefix_items is not None and any(
+        "items" in branch and branch.get("prefixItems") != prefix_items for branch in folded_branches
+    ):
+        # `items` beside `prefixItems` only judges the positions past the prefix, so a branch
+        # naming `items` without that same prefix would stop judging the leading positions.
+        return None
     if merged.get("type") == [] or merged.get("enum") == []:
         # The branches leave no type or no value in common, so nothing satisfies all of them.
         return {"not": {}}
@@ -1720,10 +1730,10 @@ def _cover_positive_for_type(
         const = schema.get("const", NOT_SET)
         if enum is not NOT_SET:
             for value in enum:
-                if _is_valid_with_formats(value, schema, ctx):
+                if _is_valid_with_formats(value, schema, ctx) and _is_representable(value, ctx):
                     yield PositiveValue(value, scenario=CoverageScenario.ENUM_VALUE, description="Enum value")
         elif const is not NOT_SET:
-            if _is_valid_with_formats(const, schema, ctx):
+            if _is_valid_with_formats(const, schema, ctx) and _is_representable(const, ctx):
                 yield PositiveValue(const, scenario=CoverageScenario.CONST_VALUE, description="Const value")
         elif ty is not None or _implies_object_type(schema) or _implies_array_type(schema):
             yield from _positive_for_describing_keywords(ctx, schema, ty, template)
@@ -2459,20 +2469,22 @@ def _positive_for_describing_keywords(
             yield from _drop_invalid_for_location(_positive_array(ctx, schema, cast(list, template)), ctx)
 
 
+def _is_representable(value: Any, ctx: CoverageContext) -> bool:
+    """Whether the location can carry this value, e.g. without blanking a path segment."""
+    if isinstance(value, dict):
+        # `representable` judges a dict by its `repr`, which is not what a path
+        # parameter sends; only an empty object is unrepresentable there.
+        return not (ctx.location == ParameterLocation.PATH and not value)
+    return ctx.wire.representable(value)
+
+
 def _drop_invalid_for_location(
     cases: Generator[GeneratedValue, None, None], ctx: CoverageContext
 ) -> Generator[GeneratedValue, None, None]:
     """Drop containers the location cannot carry, e.g. ones whose rendering blanks a path segment."""
     for case in cases:
-        value = case.value
-        if isinstance(value, dict):
-            # `representable` judges a dict by its `repr`, which is not what a path
-            # parameter sends; only an empty object is unrepresentable there.
-            if ctx.location == ParameterLocation.PATH and not value:
-                continue
-        elif not ctx.wire.representable(value):
-            continue
-        yield case
+        if _is_representable(case.value, ctx):
+            yield case
 
 
 def _filter_against_not(

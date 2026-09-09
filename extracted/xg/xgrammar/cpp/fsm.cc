@@ -593,6 +593,40 @@ class CompactFSM::Impl : public FSMImplBase<Compact2DArray<FSMEdge>> {
 
   size_t GetNumEdges() const { return edge_num_; }
 
+  /*!
+   * \brief Check that every edge target and every auxiliary data reference is in range. Used after
+   * deserialization, where the fields are restored verbatim.
+   * \return An error message if the FSM is malformed.
+   */
+  std::optional<std::string> Validate() const {
+    const int64_t aux_size = edge_aux_data_.size();
+    for (int state = 0; state < NumStates(); ++state) {
+      for (const auto& edge : edges_[state]) {
+        if (edge.target < 0 || edge.target >= NumStates()) {
+          return "Edge target " + std::to_string(edge.target) + " is out of range";
+        }
+        if (!edge.IsAuxEdge()) {
+          continue;
+        }
+        // A repeat edge owns 3 aux elements; a token edge owns a count followed by count ids.
+        const int64_t idx = edge.max;
+        bool in_range = idx >= 0 && idx < aux_size;
+        if (in_range && edge.IsRepeatRef()) {
+          in_range = idx + 3 <= aux_size;
+        } else if (in_range) {
+          in_range = edge_aux_data_[idx] >= 0 && idx + 1 + edge_aux_data_[idx] <= aux_size;
+        }
+        if (!in_range) {
+          return "Edge aux index " + std::to_string(idx) + " is out of range";
+        }
+      }
+    }
+    if (edge_num_ != ComputeEdgeNum(edges_)) {
+      return "edge_num does not match the number of edges";
+    }
+    return std::nullopt;
+  }
+
   size_t edge_num_ = 0;
 
   friend std::size_t MemorySize(const Impl& impl) {
@@ -847,6 +881,17 @@ struct CompactFSMWithStartEndSerializeHelper {
         edge_num(compact_fsm_with_se.edge_num_) {}
 
   CompactFSMWithStartEndSerializeHelper() = default;
+
+  std::optional<std::string> Validate() const {
+    if (fsm.IsNull()) {
+      return "Expect a non-null fsm";
+    }
+    auto in_range = [&](int32_t state) { return state >= 0 && state < fsm.NumStates(); };
+    if (!in_range(start) || !std::all_of(end_index.begin(), end_index.end(), in_range)) {
+      return "The start or end state is out of range";
+    }
+    return std::nullopt;
+  }
 };
 
 XGRAMMAR_MEMBER_ARRAY(
@@ -1267,14 +1312,18 @@ FSMWithStartEnd FSMWithStartEnd::SimplifyEpsilon(int max_num_states) const {
     for (const auto& edge : edges) {
       in_degree[edge.target]++;
       if (edge.IsEpsilon()) {
-        if (edges.size() == 1 && !has_exclude_token[i] && !has_exclude_token[edge.target]) {
-          // a -- epsilon --> b, and a doesn't have other outward edges.
+        // a -- epsilon --> b, and a doesn't have other outward edges. Do not merge an
+        // accepting a into a non-accepting b: the merged state would be accepting, so other
+        // paths reaching b would be wrongly accepted. (If b is accepting, a effectively
+        // accepts already via the epsilon edge, so merging is safe.)
+        if (edges.size() == 1 && !has_exclude_token[i] && !has_exclude_token[edge.target] &&
+            (!IsEndState(i) || IsEndState(edge.target))) {
           union_find_set.Add(i);
           union_find_set.Add(edge.target);
           union_find_set.Union(i, edge.target);
           in_degree[edge.target]--;  // Remove the inward edge since a and b are merged.
         } else {
-          // a has other outward edges, we store it to check for another case.
+          // Otherwise, we store it to check for the second merge rule.
           epsilon_edges.emplace_back(i, edge.target);
         }
       }

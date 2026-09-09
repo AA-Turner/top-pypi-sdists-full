@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ocp-tessellate
-Version: 3.5.0
+Version: 3.5.1
 Summary: Tessellate OCP (https://github.com/cadquery/OCP) objects to use with threejs
 Author-email: Bernhard Walter <b_walter@arcor.de>
 License-Expression: Apache-2.0
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: webcolors~=24.8.0
+Requires-Dist: webcolors>=24.8.0
 Requires-Dist: numpy
 Requires-Dist: cachetools<8,>=5.5.0
 Requires-Dist: imagesize
@@ -37,7 +37,7 @@ It accepts geometry from [CadQuery](https://github.com/CadQuery/cadquery), [buil
 pip install ocp-tessellate
 ```
 
-Requires Python 3.10+ and OCP 7.8 or 7.9.
+Requires Python 3.10+ and OCP 7.8, 7.9 or 8.0.
 
 ## Quick start
 
@@ -99,12 +99,12 @@ Inputs are walked recursively. The resulting tree mirrors the input structure:
 | `ShapeList`                               | a `ShapeList` group exposing each item individually                                                      |
 | `Compound(children=[...])` (assembly)     | a group preserving the assembly hierarchy                                                                |
 | `Compound(...)` (standard, no children)   | unwrapped to its inner shape                                                                             |
-| `BuildPart` / `BuildSketch` / `BuildLine` | a single `OcpObject` for the builder result; `BuildSketch` adds a `sketch_local` sibling unless disabled |
+| `BuildPart` / `BuildSheet` / `BuildSketch` / `BuildLine` | a single `OcpObject` for the builder result, plus a `part_local` / `sheet_local` / `sketch_local` / `line_local` sibling unless disabled |
 
 ## Compatibility
 
 - Python 3.10+
-- OCP 7.8 and 7.9
+- OCP 7.8, 7.9 and 8.0
 - build123d (current)
 - CadQuery 2.x
 

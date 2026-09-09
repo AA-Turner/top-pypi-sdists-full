@@ -77,6 +77,10 @@ func (w *Workspace) handleKeyPressMsg(msg tea.KeyPressMsg) tea.Cmd {
 		g.handleFilterKey(msg)
 		return nil
 	}
+	if w.consoleLogsPane.IsFilterMode() {
+		w.consoleLogsPane.HandleFilterKey(msg)
+		return nil
+	}
 
 	// Grid config capture takes priority.
 	if w.config.IsAwaitingGridConfig() {
@@ -684,7 +688,13 @@ func (w *Workspace) handleWorkspaceChunkedBatch(msg WorkspaceChunkedBatchMsg) te
 	for _, sub := range msg.Batch.Msgs {
 		w.handleWorkspaceRecord(run, sub)
 	}
-	w.metricsGrid.drawVisible()
+	if !msg.Batch.HasMore || time.Since(w.lastDrawAt) >= bootRedrawInterval {
+		w.lastDrawAt = time.Now()
+		w.metricsGrid.drawVisible()
+		if g := w.systemMetrics[msg.RunKey]; g != nil {
+			g.drawVisible()
+		}
+	}
 
 	if msg.Batch.HasMore {
 		return w.readAllChunkCmd(run)
@@ -705,6 +715,9 @@ func (w *Workspace) handleWorkspaceBatchedRecords(msg WorkspaceBatchedRecordsMsg
 		w.handleWorkspaceRecord(run, sub)
 	}
 	w.metricsGrid.drawVisible()
+	if g := w.systemMetrics[msg.RunKey]; g != nil {
+		g.drawVisible()
+	}
 
 	// Continue draining while the run is still live.
 	if run.state == RunStateRunning {
@@ -727,6 +740,7 @@ func (w *Workspace) handleWorkspaceRecord(run *WorkspaceRun, msg tea.Msg) {
 
 	switch m := msg.(type) {
 	case RunMsg:
+		sessionRuns.observe(m, true)
 		w.getOrCreateRunOverview(run.Key).ProcessRunMsg(m)
 		w.indexRunFilterData(run.Key, m)
 		if w.filter.Query() != "" {
@@ -807,10 +821,10 @@ func (w *Workspace) handleHeartbeat() tea.Cmd {
 // stream, so mark it failed instead of leaving it silently frozen in
 // whatever state it was in.
 func (w *Workspace) handleRunReadErr(msg WorkspaceRunReadErrMsg) tea.Cmd {
-	w.logger.CaptureError(
-		"leet",
-		fmt.Errorf("workspace: run %s read failed: %v", msg.RunKey, msg.Err),
-	)
+	// A dead run's file often ends mid-record, so keep this out of error
+	// telemetry.
+	w.logger.Error(fmt.Sprintf(
+		"workspace: run %s read failed: %v", msg.RunKey, msg.Err))
 
 	run := w.runsByKey[msg.RunKey]
 	if run == nil {
@@ -823,6 +837,11 @@ func (w *Workspace) handleRunReadErr(msg WorkspaceRunReadErrMsg) tea.Cmd {
 	w.syncLiveRunState()
 	if !w.anyRunRunning() {
 		w.heartbeatMgr.Stop()
+	}
+	// No final boot chunk will arrive to draw any throttled history.
+	w.metricsGrid.drawVisible()
+	if g := w.systemMetrics[msg.RunKey]; g != nil {
+		g.drawVisible()
 	}
 	return nil
 }
@@ -1013,6 +1032,10 @@ func (w *Workspace) handleCycleChartGuides(tea.KeyPressMsg) tea.Cmd {
 }
 
 func (w *Workspace) handleEnterMetricsFilter(msg tea.KeyPressMsg) tea.Cmd {
+	if w.focusMgr.Current() == FocusTargetConsoleLogs {
+		w.consoleLogsPane.EnterFilterMode()
+		return nil
+	}
 	w.metricsGrid.EnterFilterMode()
 	return nil
 }
@@ -1038,6 +1061,10 @@ func (w *Workspace) handleEnterSystemMetricsFilter(msg tea.KeyPressMsg) tea.Cmd 
 }
 
 func (w *Workspace) handleClearMetricsFilter(msg tea.KeyPressMsg) tea.Cmd {
+	if w.focusMgr.Current() == FocusTargetConsoleLogs {
+		w.consoleLogsPane.ClearFilter()
+		return nil
+	}
 	if w.metricsGrid.FilterQuery() != "" {
 		w.metricsGrid.ClearFilter()
 	}

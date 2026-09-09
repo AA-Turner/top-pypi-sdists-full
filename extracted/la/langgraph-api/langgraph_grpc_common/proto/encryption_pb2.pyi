@@ -149,6 +149,62 @@ class DecryptJSONRequest(_message.Message):
 Global___DecryptJSONRequest: _TypeAlias = DecryptJSONRequest  # noqa: Y015
 
 @_typing.final
+class EncryptBlobRequest(_message.Message):
+    """Request to encrypt binary data (e.g., checkpoint channel values and writes)."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DATA_FIELD_NUMBER: _builtins.int
+    CONTEXT_FIELD_NUMBER: _builtins.int
+    data: _builtins.bytes
+    """The plaintext blob bytes"""
+    @_builtins.property
+    def context(self) -> Global___EncryptionContext:
+        """Encryption context for key derivation"""
+
+    def __init__(
+        self,
+        *,
+        data: _builtins.bytes = ...,
+        context: Global___EncryptionContext | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["context", b"context"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["context", b"context", "data", b"data"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___EncryptBlobRequest: _TypeAlias = EncryptBlobRequest  # noqa: Y015
+
+@_typing.final
+class DecryptBlobRequest(_message.Message):
+    """Request to decrypt binary data."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    DATA_FIELD_NUMBER: _builtins.int
+    CONTEXT_FIELD_NUMBER: _builtins.int
+    data: _builtins.bytes
+    """The encrypted blob bytes"""
+    @_builtins.property
+    def context(self) -> Global___EncryptionContext:
+        """Encryption context, recovered from the stored blob wrapper"""
+
+    def __init__(
+        self,
+        *,
+        data: _builtins.bytes = ...,
+        context: Global___EncryptionContext | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["context", b"context"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["context", b"context", "data", b"data"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___DecryptBlobRequest: _TypeAlias = DecryptBlobRequest  # noqa: Y015
+
+@_typing.final
 class EncryptResponse(_message.Message):
     """Response from encryption operations."""
 
@@ -177,16 +233,20 @@ class DecryptResponse(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     DATA_FIELD_NUMBER: _builtins.int
+    REPLACEMENT_FIELD_NUMBER: _builtins.int
     data: _builtins.bytes
     """The decrypted plaintext data as bytes"""
+    replacement: _builtins.bytes
+    """Optional replacement ciphertext for the original storage location."""
     def __init__(
         self,
         *,
         data: _builtins.bytes = ...,
+        replacement: _builtins.bytes = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["data", b"data"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["data", b"data", "replacement", b"replacement"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

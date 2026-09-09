@@ -483,25 +483,36 @@ class CompletedRequest:
         for tc in self.request.tool_call_history:
             tool_calls_by_iter[tc.iteration] = tc
 
-        # Phase 1d: ConversationResolver stashes the TrimReport on AppContext
-        # before the orchestrator runs. We attach the report to iteration 1's
-        # cx_request row (the only one the trim could have affected — later
-        # iterations see the already-trimmed messages). Read once outside the
-        # loop; only iteration 0 actually consumes it.
+        # Phase 1d: ConversationResolver stashes its pre-run TrimReport on
+        # AppContext as ``last_trim_report`` — that trim shaped iteration 1's
+        # prompt, so it lands on iteration 1's cx_request row. The executor's
+        # per-iteration send-boundary trims are stashed under
+        # ``trim_reports_by_iteration`` keyed by the iteration they compacted,
+        # and land on THAT iteration's row. Read once outside the loop.
         _trim_summary: dict[str, Any] | None = None
+        _trim_by_iteration: dict[int, dict[str, Any]] = {}
         try:
             from matrx_ai.context.app_context import try_get_app_context
 
             _ctx = try_get_app_context()
             if _ctx is not None:
                 _trim_summary = _ctx.metadata.get("last_trim_report")
+                _by_iter = _ctx.metadata.get("trim_reports_by_iteration")
+                if isinstance(_by_iter, dict):
+                    _trim_by_iteration = {
+                        int(k): v for k, v in _by_iter.items() if isinstance(v, dict)
+                    }
         except Exception:
             _trim_summary = None
+            _trim_by_iteration = {}
 
         request_rows: list[dict[str, Any]] = []
         for i in range(self.iterations):
             row: dict[str, Any] = {"iteration": i + 1}
-            if i == 0 and _trim_summary is not None:
+            _iter_trim = _trim_by_iteration.get(i + 1)
+            if _iter_trim is not None:
+                row["trim_summary"] = _iter_trim
+            elif i == 0 and _trim_summary is not None:
                 row["trim_summary"] = _trim_summary
 
             # One cx_request row represents the logical iteration, while the

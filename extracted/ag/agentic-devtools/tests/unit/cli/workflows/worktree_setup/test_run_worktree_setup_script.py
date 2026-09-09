@@ -219,7 +219,7 @@ class TestRunWorktreeSetupScript:
         assert result.status == "failed"
         assert result.exit_code is None
         assert result.category == "timeout"
-        assert "60 seconds" in (result.error_message or "")
+        assert "1800 seconds" in (result.error_message or "")
         mock_kill.assert_called_once()
 
     def test_timeout_post_kill_wait_also_times_out(self, tmp_path):
@@ -245,7 +245,7 @@ class TestRunWorktreeSetupScript:
 
         assert result.status == "failed"
         assert result.category == "timeout"
-        assert "60 seconds" in (result.error_message or "")
+        assert "1800 seconds" in (result.error_message or "")
 
     def test_nonzero_without_stderr_uses_fallback_diagnostic(self, tmp_path):
         """Test that a non-zero script without stderr still has an actionable summary."""

@@ -1584,6 +1584,12 @@ class SEQUENCER_PT_sequencer_overlay_thumbnails(_bpy_types.Panel):
         :param context:
         """
 
+    def draw_header(self, context) -> None:
+        """
+
+        :param context:
+        """
+
     @classmethod
     def poll(cls, context) -> None:
         """

@@ -824,3 +824,86 @@ class TestIosxrBgpNeighborAddressFamilyModule(TestIosxrModule):
         ]
         result = self.execute_module(changed=True)
         self.assertEqual(sorted(result["commands"]), sorted(commands))
+
+    def test_iosxr_bgp_nbr_af_default_originate_forms_parsed(self):
+        """Mixed default-originate forms must parse without mutual exclusivity errors."""
+        self.maxDiff = None
+        set_module_args(
+            dict(
+                running_config=dedent(
+                    """\
+                    router bgp 65137
+                     vrf VRF-A
+                      neighbor 192.0.2.1
+                       address-family ipv4 unicast
+                        default-originate route-policy MY-POLICY
+                       !
+                      !
+                     !
+                     vrf VRF-B
+                      neighbor 192.0.2.2
+                       address-family ipv4 unicast
+                        default-originate
+                       !
+                      !
+                     !
+                     neighbor 192.0.2.3
+                      address-family ipv4 unicast
+                       default-originate inheritance-disable
+                      !
+                     !
+                    !
+                    """,
+                ),
+                state="parsed",
+            ),
+        )
+        result = self.execute_module(changed=False)
+        parsed_list = {
+            "as_number": "65137",
+            "neighbors": [
+                {
+                    "neighbor_address": "192.0.2.3",
+                    "address_family": [
+                        {
+                            "afi": "ipv4",
+                            "safi": "unicast",
+                            "default_originate": {"inheritance_disable": True},
+                        },
+                    ],
+                },
+            ],
+            "vrfs": [
+                {
+                    "vrf": "VRF-A",
+                    "neighbors": [
+                        {
+                            "neighbor_address": "192.0.2.1",
+                            "address_family": [
+                                {
+                                    "afi": "ipv4",
+                                    "safi": "unicast",
+                                    "default_originate": {"route_policy": "MY-POLICY"},
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "vrf": "VRF-B",
+                    "neighbors": [
+                        {
+                            "neighbor_address": "192.0.2.2",
+                            "address_family": [
+                                {
+                                    "afi": "ipv4",
+                                    "safi": "unicast",
+                                    "default_originate": {"set": True},
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        self.assertEqual(parsed_list, result["parsed"])

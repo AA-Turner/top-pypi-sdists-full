@@ -1,0 +1,30 @@
+version: '3.0'
+
+installation:
+  default-action: allow
+  audit-logging:
+    enabled: true
+  allow:
+    packages:
+      - ecosystem: go
+        specifications:
+          - "github.com/sirupsen/logrus@v1.9.3"
+          - "golang.org/x/text@v0.14.0"
+  deny:
+    packages:
+      warning-on-any-of:
+        age-below: "3 months"
+        packages:
+          - ecosystem: go
+            specifications:
+              - "github.com/sirupsen/logrus"
+      block-on-any-of:
+        age-below: "1 month"
+        packages:
+          - ecosystem: go
+            specifications:
+              - "github.com/sirupsen/logrus"
+    vulnerabilities:
+      block-on-any-of:
+        cvss-severity:
+          - critical

@@ -28,6 +28,7 @@ from .commands import (
     initiate_update_jira_issue_workflow,
     initiate_work_on_jira_issue_workflow,
     setup_worktree_background_cmd,
+    setup_worktree_cmd,
     show_checklist_cmd,
     update_checklist_cmd,
 )
@@ -204,6 +205,7 @@ __all__ = [
     "initiate_break_down_issue_into_subtasks_workflow",
     "initiate_pr_merge_orchestrator_workflow",
     "setup_worktree_background_cmd",
+    "setup_worktree_cmd",
     "advance_workflow_cmd",
     "get_next_workflow_prompt",
     "get_next_workflow_prompt_cmd",

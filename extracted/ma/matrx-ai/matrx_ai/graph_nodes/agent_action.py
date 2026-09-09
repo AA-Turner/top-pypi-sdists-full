@@ -70,6 +70,7 @@ class AgentStartConfig(BaseModel):
 
     exposed_variables: list[str] = Field(
         default_factory=list,
+        json_schema_extra={"workflow_input_handles": True},
         description=(
             "Agent variable names exposed as upstream connection points in the "
             "workflow studio. Not sent to the agent — only used for edge wiring."

@@ -1,4 +1,4 @@
-# Sample Data Exchange Services Update Configuration
+# Sample Data Exchange Services Update Configuration (Peer to Peer)
 # Used with: operation: update_services
 #
 # Only 'serviceName' and 'policy.prefixTags' are required.

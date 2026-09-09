@@ -146,6 +146,7 @@ BatchStatusType = Literal[
     "PENDING",
     "PROCESSED",
     "RUNS_DELETED",
+    "RUNS_DELETE_FAILED",
     "RUNS_DELETING",
     "STOPPING",
     "SUBMITTING",
@@ -291,8 +292,11 @@ OmicsServiceName = Literal["omics"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -467,6 +471,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -597,6 +602,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -766,6 +772,7 @@ WaiterName = Literal[
     "workflow_version_active",
 ]
 RegionName = Literal[
+    "ap-northeast-1",
     "ap-northeast-2",
     "ap-southeast-1",
     "eu-central-1",
@@ -773,5 +780,6 @@ RegionName = Literal[
     "eu-west-2",
     "il-central-1",
     "us-east-1",
+    "us-east-2",
     "us-west-2",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiostream
-Version: 0.7.1
+Version: 0.7.2
 Summary: Generator-based operators for asynchronous iteration
 Author-email: Vincent Michel <vxgmichel@gmail.com>
 License-Expression: GPL-3.0-or-later
@@ -17,10 +17,6 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: typing-extensions
-Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-asyncio; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
 Dynamic: license-file
 
 aiostream

@@ -14,6 +14,7 @@ from midealan.message import ListTypes
 from .message import (
     CapabilitiesAdditionalQuery,
     CapabilitiesQuery,
+    CapabilityValue,
     GroupOneQuery,
     GroupSevenQuery,
     GroupTwoQuery,
@@ -52,6 +53,12 @@ ACQuery = (
 
 # AC mode constants
 DRY_MODE = 3
+
+# Maps the reported mode value to the capabilities["temperature"] range key.
+# auto=1, cool=2, dry=3, heat=4, fan=5; dry and fan reuse the cool range.
+TEMPERATURE_LIMIT_MODE_KEYS = {1: "auto", 2: "cool", 3: "cool", 4: "heat", 5: "cool"}
+# Fallback range key for an unknown mode (e.g. 0 when the unit is off).
+TEMPERATURE_LIMIT_DEFAULT_KEY = "cool"
 
 
 class DeviceAttributes(StrEnum):
@@ -328,15 +335,14 @@ class MideaACDevice(MideaDevice):
         self._used_subprotocol: bool = self._model_capabilities.uses_bb_protocol
         self._bb_sn8_flag: bool = False
         self._bb_timer: bool = False
-        # per-mode setpoint limits from the B5 capability, keyed by mode value
-        self._temperature_limits: dict[int, tuple[float, float]] | None = None
         # decoded B5 capability flags (accumulated across B5 frames). Values are
-        # mostly booleans, but some (e.g. rate_select level count) are ints.
-        self._capabilities: dict[str, bool | int] = {}
+        # mostly booleans, but some are ints (e.g. rate_select level count) or a
+        # nested per-mode setpoint-limit map (the "temperature" key).
+        self._capabilities: dict[str, CapabilityValue] = {}
         # user-provided capability overrides from customize. Merged over the
         # B5-parsed values (see the capabilities property), so a user can force
         # a feature the B5 query missed, or disable one it reported in error.
-        self._customize_capabilities: dict[str, bool | int] = {}
+        self._customize_capabilities: dict[str, CapabilityValue] = {}
         # B5 capability query control. Both queries run once, like the appliance
         # query: on success the flag is cleared so it is never re-sent (the reply
         # never changes); on timeout the device layer records it in
@@ -396,7 +402,7 @@ class MideaACDevice(MideaDevice):
         2-gear map (50/75/100), 2 or 3 select the 5-gear map. Anything else
         (including 0/unsupported) yields an empty map so no options are offered.
         """
-        _levels: int = self.capabilities.get("rate_select", 0)
+        _levels = cast("int", self.capabilities.get("rate_select", 0))
         if _levels in (2, 3):
             return MideaACDevice._rate_select_level5
         if _levels == 1:
@@ -605,8 +611,10 @@ class MideaACDevice(MideaDevice):
             if update_self_clean:
                 self._attributes[DeviceAttributes.self_clean] = active
                 new_status[DeviceAttributes.self_clean.value] = active
-        new_status.update(self._refresh_temperature_limits(message))
+        # Merge capabilities first so a B5 frame's temperature limits are in the
+        # merged map before the setpoint limits are resolved from it.
         new_status.update(self._update_capabilities(message))
+        new_status.update(self._refresh_temperature_limits())
         return new_status
 
     @staticmethod
@@ -680,7 +688,7 @@ class MideaACDevice(MideaDevice):
         return {"capabilities": self.capabilities}
 
     @property
-    def capabilities(self) -> dict[str, bool | int]:
+    def capabilities(self) -> dict[str, CapabilityValue]:
         """Return the effective capability flags for the device.
 
         This is the B5-parsed capability map overlaid with the user's customize
@@ -689,27 +697,235 @@ class MideaACDevice(MideaDevice):
         """
         return {**self._capabilities, **self._customize_capabilities}
 
+    @property
+    def supported_hvac_modes(self) -> list[str]:
+        """Return list of supported HVAC modes for Home Assistant.
+
+        Priority: customize > B5 capabilities > default full set.
+
+        Maps device modes to HA climate entity modes:
+        - off (always supported)
+        - auto, cool, heat, dry, fan_only
+
+        Returns:
+            List of HA-compatible HVAC mode strings in canonical order.
+
+        """
+        # Priority 1: customize override (if "modes" explicitly set)
+        if "modes" in self._customize_capabilities:
+            modes = ["off"]
+            customize_modes_raw = self._customize_capabilities["modes"]
+            customize_modes = (
+                customize_modes_raw if isinstance(customize_modes_raw, list) else []
+            )
+            mode_map = ["auto", "cool", "heat", "dry"]
+            modes.extend(mode for mode in mode_map if mode in customize_modes)
+            # fan_only: only if explicitly enabled in customize
+            if self._customize_capabilities.get("fan_only"):
+                modes.append("fan_only")
+            return modes
+
+        # Priority 2: B5 capabilities (if device reported B5 response)
+        if "modes" in self._capabilities:
+            modes = ["off"]
+            device_modes_raw = self._capabilities.get("modes", [])
+            device_modes = (
+                device_modes_raw if isinstance(device_modes_raw, list) else []
+            )
+            mode_map = ["auto", "cool", "heat", "dry"]
+            modes.extend(mode for mode in mode_map if mode in device_modes)
+            # fan_only: only if explicitly enabled in customize
+            if self._customize_capabilities.get("fan_only"):
+                modes.append("fan_only")
+            return modes
+
+        # Priority 3: default full set (for devices without B5 support)
+        modes = ["off", "auto", "cool", "heat", "dry"]
+        # fan_only: only if explicitly enabled in customize
+        if self._customize_capabilities.get("fan_only"):
+            modes.append("fan_only")
+        return modes
+
+    @property
+    def supported_fan_modes(self) -> list[str]:
+        """Return list of supported fan modes for Home Assistant.
+
+        Priority: customize > B5 capabilities > default full set.
+
+        Maps device fan speeds to HA fan mode names in canonical order.
+        Special case: if "custom" is in the list, return full set.
+
+        Returns:
+            List of HA-compatible fan mode strings.
+
+        """
+        fan_map = ["auto", "silent", "low", "medium", "high", "custom"]
+
+        # Priority 1: customize override (if "fan_speeds" explicitly set)
+        if "fan_speeds" in self._customize_capabilities:
+            customize_speeds_raw = self._customize_capabilities["fan_speeds"]
+            customize_speeds = (
+                customize_speeds_raw if isinstance(customize_speeds_raw, list) else []
+            )
+            return [speed for speed in fan_map if speed in customize_speeds]
+
+        # Priority 2: B5 capabilities (if device reported B5 response)
+        if "fan_speeds" in self._capabilities:
+            device_speeds_raw = self._capabilities.get("fan_speeds", [])
+            device_speeds = (
+                device_speeds_raw if isinstance(device_speeds_raw, list) else []
+            )
+            # If custom is in the list, return full set
+            if "custom" in device_speeds:
+                return fan_map
+            return [speed for speed in fan_map if speed in device_speeds]
+
+        # Priority 3: default full set (for devices without B5 support)
+        return fan_map
+
+    @property
+    def supported_swing_modes(self) -> list[str]:
+        """Return list of supported swing modes for Home Assistant.
+
+        Priority: customize > B5 capabilities > default full set.
+
+        Derives combined swing modes from device capabilities:
+        - off (always supported - no swing)
+        - vertical (if vertical in capabilities)
+        - horizontal (if horizontal in capabilities)
+        - both (if both vertical and horizontal supported)
+
+        Returns:
+            List of HA-compatible swing mode strings.
+
+        """
+        modes = ["off"]  # Always supported
+
+        # Priority 1: customize override (if "swing_modes" explicitly set)
+        if "swing_modes" in self._customize_capabilities:
+            directions_raw = self._customize_capabilities["swing_modes"]
+            directions = directions_raw if isinstance(directions_raw, list) else []
+            has_vertical = "vertical" in directions
+            has_horizontal = "horizontal" in directions
+            if has_vertical:
+                modes.append("vertical")
+            if has_horizontal:
+                modes.append("horizontal")
+            if has_vertical and has_horizontal:
+                modes.append("both")
+            return modes
+
+        # Priority 2: B5 capabilities (if device reported B5 response)
+        if "swing_modes" in self._capabilities:
+            directions_raw = self._capabilities.get("swing_modes", [])
+            directions = directions_raw if isinstance(directions_raw, list) else []
+            has_vertical = "vertical" in directions
+            has_horizontal = "horizontal" in directions
+            if has_vertical:
+                modes.append("vertical")
+            if has_horizontal:
+                modes.append("horizontal")
+            if has_vertical and has_horizontal:
+                modes.append("both")
+            return modes
+
+        # Priority 3: default full set (for devices without B5 support)
+        return ["off", "vertical", "horizontal", "both"]
+
+    @property
+    def supported_preset_modes(self) -> list[str]:
+        """Return list of supported preset modes for Home Assistant.
+
+        Priority: customize > B5 capabilities > default basic set.
+
+        Default presets (always available):
+        - none, comfort, eco, boost, sleep
+
+        B5-only presets (only if reported by device):
+        - ieco (if ieco in capabilities)
+
+        Returns:
+            List of HA-compatible preset mode strings.
+
+        """
+        # Priority 1: customize override
+        # Check if customize has explicit preset feature flags
+        has_customize_features = any(
+            key in self._customize_capabilities
+            for key in [
+                "eco_mode",
+                "ieco",
+                "turbo_cool",
+                "turbo_heat",
+                "sleep_mode",
+                "comfort_mode",
+            ]
+        )
+
+        if has_customize_features:
+            # Use merged capabilities (customize overrides B5)
+            caps = {**self._capabilities, **self._customize_capabilities}
+            presets = ["none"]
+            if caps.get("comfort_mode", True):
+                presets.append("comfort")
+            if caps.get("eco_mode"):
+                presets.append("eco")
+            if caps.get("turbo_cool") or caps.get("turbo_heat"):
+                presets.append("boost")
+            if caps.get("sleep_mode", True):
+                presets.append("sleep")
+            if caps.get("ieco"):
+                presets.append("ieco")
+            return presets
+
+        # Priority 2: B5 capabilities (if device reported B5 response)
+        if self._capabilities:
+            caps = self._capabilities
+            # Check if we have modes (indicator of B5 support)
+            if "modes" in caps:
+                presets = ["none", "comfort"]  # always available
+                if caps.get("eco_mode"):
+                    presets.append("eco")
+                if caps.get("turbo_cool") or caps.get("turbo_heat"):
+                    presets.append("boost")
+                presets.append("sleep")  # always available
+                # B5-only presets
+                if caps.get("ieco"):
+                    presets.append("ieco")
+                return presets
+
+        # Priority 3: default basic set (for devices without B5 support)
+        return ["none", "comfort", "eco", "boost", "sleep"]
+
     def _capability_temperature_limits(self) -> tuple[float, float] | None:
         """Return the capability setpoint limits for the current mode, if any.
 
-        An unknown mode (e.g. 0 when off) falls back to the cool range.
+        Reads the per-mode limits from the merged ``capabilities`` map (the
+        nested ``temperature`` entry). An unknown mode (e.g. 0 when off) falls
+        back to the cool range.
         """
-        if self._temperature_limits is None:
+        temperature = self.capabilities.get("temperature")
+        if not isinstance(temperature, dict):
             return None
         mode = self._attributes[DeviceAttributes.mode]
-        return self._temperature_limits.get(mode, self._temperature_limits[2])
+        range_key = TEMPERATURE_LIMIT_MODE_KEYS.get(
+            mode,
+            TEMPERATURE_LIMIT_DEFAULT_KEY,
+        )
+        limits = temperature.get(range_key)
+        if not isinstance(limits, dict):
+            return None
+        # Validate that both min and max keys exist before indexing
+        if "min" not in limits or "max" not in limits:
+            return None
+        return (limits["min"], limits["max"])
 
-    def _refresh_temperature_limits(
-        self,
-        message: MessageACResponse | None = None,
-    ) -> dict[str, Any]:
+    def _refresh_temperature_limits(self) -> dict[str, Any]:
         """Resolve min/max setpoint limits.
 
         Priority: customize option > capability response > None (the consumer
         then falls back to its own default range).
         """
-        if message is not None and hasattr(message, "temperature_limits"):
-            self._temperature_limits = message.temperature_limits
         capability_limits = self._capability_temperature_limits()
         minimum = self._customize_min_temperature
         if minimum is None and capability_limits is not None:
@@ -1092,7 +1308,44 @@ class MideaACDevice(MideaDevice):
                 # missed (or disable one it wrongly reported). Values follow the
                 # capabilities map: truthy enables the tag, falsy disables it.
                 if params and isinstance(params.get("capabilities"), dict):
-                    self._customize_capabilities = params["capabilities"]
+                    caps_input = params["capabilities"]
+                    # Normalize capabilities: convert legacy dict format to array
+                    normalized_caps: dict[str, Any] = {}
+                    for key, value in caps_input.items():
+                        if key in ("modes", "fan_speeds", "swing_modes"):
+                            if isinstance(value, dict):
+                                # Legacy dict format: {"heat": true, "cool": true}
+                                # Convert to array: ["heat", "cool"]
+                                normalized_caps[key] = [
+                                    k for k, v in value.items() if v
+                                ]
+                            elif isinstance(value, list):
+                                # New array format: ["heat", "cool"]
+                                # Validate all elements are strings
+                                if all(isinstance(item, str) for item in value):
+                                    normalized_caps[key] = value
+                                else:
+                                    # Invalid array elements, skip with warning
+                                    _LOGGER.warning(
+                                        "[%s] Invalid capability array for %s: "
+                                        "contains non-string elements",
+                                        self.device_id,
+                                        key,
+                                    )
+                                    continue
+                            else:
+                                # Invalid format, skip with warning
+                                _LOGGER.warning(
+                                    "[%s] Invalid capability format for %s: %s",
+                                    self.device_id,
+                                    key,
+                                    type(value).__name__,
+                                )
+                                continue
+                        else:
+                            # Other capabilities remain as-is
+                            normalized_caps[key] = value
+                    self._customize_capabilities = normalized_caps
             except Exception:
                 _LOGGER.exception("[%s] Set customize error", self.device_id)
             self.update_all({"temperature_step": self._temperature_step})

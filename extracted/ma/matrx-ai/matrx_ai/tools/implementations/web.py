@@ -217,6 +217,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if parsed.summarize and parsed.instructions:
             await stream.step("summarize", "Summarizing page content...")
             from matrx_ai.tools.implementations._summarize_helper import (
+                SUMMARIZE_FAILURE_PREFIX,
                 summarize_content,
             )
 
@@ -227,6 +228,28 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 instructions=parsed.instructions,
                 ctx=ctx,
             )
+            if summary.startswith(SUMMARIZE_FAILURE_PREFIX):
+                # Nothing fails silently: a failed summarization is a FAILED
+                # tool call, not a successful result whose text happens to be
+                # an apology. The model must see the error and the remedy.
+                return ToolResult(
+                    success=False,
+                    error=ToolError(
+                        error_type="execution",
+                        message=summary,
+                        is_retryable=True,
+                        suggested_action=(
+                            "Re-read the page with summarize=false (raw text, "
+                            "paged with offset/chars) — the page itself was "
+                            "fetched fine; only the summarization step failed."
+                        ),
+                    ),
+                    child_usages=child_usages,
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name="web_read",
+                    call_id=ctx.call_id,
+                )
             capped_summary, info = cap_text(summary, limit=_SEARCH_RESULT_CHAR_BUDGET)
             if info.truncated:
                 capped_summary += (

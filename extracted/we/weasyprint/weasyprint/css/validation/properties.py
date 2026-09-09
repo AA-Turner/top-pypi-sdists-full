@@ -33,8 +33,8 @@ PROPERTIES = {}
 
 class PendingProperty(Pending):
     """Property with validation done when defining calculated values."""
-    def validate(self, tokens, wanted_key):
-        return validate_non_shorthand(tokens, self.name)[0][1]
+    def validate(self, tokens, wanted_key, base_url):
+        return validate_non_shorthand(tokens, self.name, base_url)[0][1]
 
 
 # Validators
@@ -49,7 +49,7 @@ def property(property_name=None, proprietary=False, unstable=False,
 
     :param proprietary:
         Proprietary (vendor-specific, non-standard) are prefixed: anchors can
-        for example be set using ``-weasy-anchor: attr(id)``.
+        for example be set using ``-weasy-anchor: "id"``.
         See https://www.w3.org/TR/CSS/#proprietary
     :param unstable:
         Mark properties that are defined in specifications that didn't reach
@@ -157,15 +157,12 @@ def empty_cells(keyword):
     return keyword in ('show', 'hide')
 
 
-@property('color')
+@property()
 @single_token
 def color(token):
     """``*-color`` and ``color`` properties validation."""
-    result = parse_color(token)
-    if result == 'currentcolor':
-        return 'inherit'
-    elif result:
-        return token
+    if result := parse_color(token):
+        return 'inherit' if result == 'currentcolor' else token
 
 
 @property('background-image', wants_base_url=True)
@@ -308,6 +305,44 @@ def border_style(keyword):
     """``border-*-style`` properties validation."""
     return keyword in ('none', 'hidden', 'dotted', 'dashed', 'double',
                        'inset', 'outset', 'groove', 'ridge', 'solid')
+
+
+@property('box-shadow')
+def box_shadow(tokens):
+    """`box-shadow` property validation."""
+    if get_single_keyword(tokens) == 'none':
+        return ()
+    shadows = []
+    while tokens := list(tokens):
+        lengths = []
+        color = None
+        inset = False
+        last_length = False
+        while tokens:
+            token = tokens.pop(0)
+            if token.type == 'literal' and token.value == ',' and tokens:
+                break
+            elif token.type == 'ident' and token.value == 'inset' and not inset:
+                inset = True
+                last_length = False
+            elif (length := get_length(token)) and not (lengths and not last_length):
+                lengths.append(length)
+                last_length = True
+            elif not color and parse_color(token):
+                color = token
+                last_length = False
+            else:
+                return
+        if not (2 <= len(lengths) <= 4):
+            return
+        x, y = lengths.pop(0), lengths.pop(0)
+        blur = lengths.pop(0) if lengths else ZERO_PIXELS
+        if blur.value < 0:
+            return
+        spread = lengths.pop(0) if lengths else ZERO_PIXELS
+        color = color or 'currentcolor'
+        shadows.append((x, y, blur, spread, color, inset))
+    return tuple(shadows)
 
 
 @property('break-before')
@@ -1177,9 +1212,9 @@ def text_overflow(keyword):
 @single_token
 def position(token):
     """``position`` property validation."""
-    if token.type == 'function' and token.name == 'running':
+    if token.type == 'function' and token.name in ('running', 'note'):
         if len(token.arguments) == 1 and token.arguments[0].type == 'ident':
-            return ('running()', token.arguments[0].value)
+            return (f'{token.name}()', token.arguments[0].value)
     keyword = get_single_keyword([token])
     if keyword in ('static', 'relative', 'absolute', 'fixed'):
         return keyword
@@ -1880,29 +1915,8 @@ def size(tokens):
 @single_token
 def anchor(token):
     """Validation for ``anchor``."""
-    if get_keyword(token) == 'none':
-        return 'none'
-    function = Function(token)
-    if arguments := function.split_space():
-        prototype = (function.name, [argument.type for argument in arguments])
-        if prototype == ('attr', ['ident']):
-            return ('attr()', arguments[0].value)
-
-
-@property(proprietary=True, wants_base_url=True)
-@single_token
-def link(token, base_url):
-    """Validation for ``link``."""
-    if get_keyword(token) == 'none':
-        return 'none'
-    parsed_url = get_url(token, base_url)
-    if parsed_url:
-        return parsed_url
-    function = Function(token)
-    if arguments := function.split_space():
-        prototype = (function.name, [argument.type for argument in arguments])
-        if prototype == ('attr', ['ident']):
-            return ('attr()', arguments[0].value)
+    if token.type == 'string':
+        return token.value
 
 
 @property()
@@ -1987,11 +2001,6 @@ def lang(token):
     """Validation for ``lang``."""
     if get_keyword(token) == 'none':
         return 'none'
-    function = Function(token)
-    if arguments := function.split_space():
-        prototype = (function.name, [argument.type for argument in arguments])
-        if prototype == ('attr', ['ident']):
-            return ('attr()', arguments[0].value)
     elif token.type == 'string':
         return ('string', token.value)
 

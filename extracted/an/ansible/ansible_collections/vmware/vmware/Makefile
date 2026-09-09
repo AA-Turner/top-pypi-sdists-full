@@ -3,7 +3,7 @@ SANITY_TARGETS ?=
 INTEGRATION_TARGETS ?=
 UNIT_TARGETS ?=
 
-UNIT_PYTHON_VERSION ?= 3.14
+UNIT_PYTHON_VERSION ?= 3.12
 
 # galaxy.yml is not included in the installed collection artifact; read it from the source tree.
 GALAXY_YML ?= $(CURDIR)/galaxy.yml
@@ -65,22 +65,11 @@ units-coverage: units
 	cp tests/output/reports/coverage.xml $(CURDIR)/coverage-units.xml;
 
 .PHONY: integration
-integration: install-integration-reqs upgrade-collections
+integration: tests/integration/integration_config.yml install-integration-reqs upgrade-collections
 	cd $(COLLECTION_ROOT); \
 	ansible --version; \
 	ansible-test --version; \
 	ANSIBLE_COLLECTIONS_PATH=$(COLLECTION_ROOT)/../.. ansible-galaxy collection list; \
 	ANSIBLE_ROLES_PATH=$(COLLECTION_ROOT)/tests/integration/targets \
 		ANSIBLE_COLLECTIONS_PATH=$(COLLECTION_ROOT)/../.. \
-		ansible-test integration $(CLI_ARGS);
-
-.PHONY: eco-vcenter-ci
-eco-vcenter-ci: tests/integration/integration_config.yml install-integration-reqs upgrade-collections
-	cd $(COLLECTION_ROOT); \
-	ansible --version; \
-	ansible-test --version; \
-	ANSIBLE_COLLECTIONS_PATH=$(COLLECTION_ROOT)/../.. ansible-galaxy collection list; \
-	chmod +x tests/integration/run_eco_vcenter_ci.sh; \
-	ANSIBLE_ROLES_PATH=$(COLLECTION_ROOT)/tests/integration/targets \
-		ANSIBLE_COLLECTIONS_PATH=$(COLLECTION_ROOT)/../.. \
-		./tests/integration/run_eco_vcenter_ci.sh "$(INTEGRATION_TARGETS)"
+		ansible-test integration $(INTEGRATION_TARGETS) $(CLI_ARGS)

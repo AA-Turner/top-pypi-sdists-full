@@ -3,7 +3,8 @@
 import numpy as np
 import numpy.typing as npt
 from bisect import bisect_left
-from typing import Tuple, Union
+from operator import index
+from typing import TYPE_CHECKING, Tuple, Union
 
 # import logging
 
@@ -177,7 +178,8 @@ def _scan(n, cc, ii, kk, minv, lo, hi, d, cols, pred, y, v):
                 pred[j] = i
                 if cred_ij == minv:
                     if y[j] < 0:
-                        return j, None, None, d, cols, pred
+                        # The caller exits on success; keep the unused bounds as integers.
+                        return j, lo, hi, d, cols, pred
                     cols[k] = cols[hi]
                     cols[hi] = j
                     hi += 1
@@ -222,7 +224,7 @@ def find_path(n, cc, ii, kk, start_i, y, v):
             # log.debug('pred = %s', pred)
 
     # Update prices for READY columns.
-    for k in range(n_ready):  # type: ignore
+    for k in range(n_ready):
         j0 = cols[k]
         v[j0] += d[j0] - minv
 
@@ -250,33 +252,117 @@ def _pya(n, cc, ii, kk, n_free_rows, free_rows, x, y, v):
 
 
 def check_cost(n, cc, ii, kk):
-    if n == 0:
-        raise ValueError('Cost matrix has zero rows.')
-    if len(kk) == 0:
+    if n <= 0:
+        raise ValueError('Cost matrix must have a positive number of rows.')
+    if n > np.iinfo(np.int32).max:
+        raise ValueError('Cost matrix has too many rows for int32 indices.')
+    if cc.ndim != 1 or ii.ndim != 1 or kk.ndim != 1:
+        raise ValueError('cc, ii and kk must be one-dimensional arrays.')
+    if cc.dtype.kind not in 'biuf':
+        raise ValueError('Cost matrix values must be real numbers.')
+    if ii.dtype.kind not in 'iu' or kk.dtype.kind not in 'iu':
+        raise ValueError('Row pointers and column indices must be integers.')
+    if len(ii) != n + 1:
+        raise ValueError('ii must contain n + 1 row pointers.')
+    if len(cc) != len(kk):
+        raise ValueError('cc and kk must have the same length.')
+    if len(cc) == 0:
         raise ValueError('Cost matrix has zero columns.')
+    if len(cc) > np.iinfo(np.int32).max:
+        raise ValueError('Cost matrix has too many entries for int32 indices.')
+    if ii[0] != 0 or ii[-1] != len(cc) or np.any(ii[1:] < ii[:-1]):
+        raise ValueError('ii must start at 0, end at len(cc), and be nondecreasing.')
+    if kk.min() < 0 or kk.max() >= n:
+        raise ValueError('Column indices must be in the range [0, n).')
+
+    # Ignore comparisons across row boundaries, including repeated pointers
+    # for empty rows. No per-row Python loop is needed for this validation.
+    unordered = kk[1:] <= kk[:-1]
+    starts = ii[1:-1]
+    starts = starts[(starts > 0) & (starts < len(kk))]
+    unordered[starts - 1] = False
+    if unordered.any():
+        raise ValueError('Column indices must be strictly increasing within each row.')
+
     lo = cc.min()
     hi = cc.max()
+    if not np.isfinite(lo) or not np.isfinite(hi):
+        raise ValueError('Cost matrix values must be finite.')
     if lo < 0:
         raise ValueError('Cost matrix values must be non-negative.')
-    if hi >= LARGE:
+    if float(hi) >= LARGE:
         raise ValueError(
                 'Cost matrix values must be less than %s' % LARGE)
 
 
 def get_cost(n, cc, ii, kk, x0):
-    ret = 0
+    ret = 0.0
     for i, j in enumerate(x0):
         kj = binary_search(kk[ii[i]:ii[i+1]], j)
         if kj is None:
             return np.inf
-        kj = ii[i] + kj
-        ret += cc[kj]
+        kj = int(ii[i]) + kj
+        ret += float(cc[kj])
     return ret
 
 
 # def lapmod(n, cc, ii, kk, fast=True, return_cost=True, fp_version=FP_DYNAMIC):
+# Describe return_cost for type checkers without registering overloads at runtime.
+if TYPE_CHECKING:
+    from typing import overload
+    from typing_extensions import Literal
+
+    @overload
+    def lapmod(
+        n: Union[int, np.integer],
+        cc: npt.NDArray[np.floating],
+        ii: npt.NDArray[np.integer],
+        kk: npt.NDArray[np.integer],
+        fast: bool = True,
+        return_cost: Literal[True] = True,
+        fp_version: int = FP_DYNAMIC,
+    ) -> Tuple[float, np.ndarray, np.ndarray]: ...
+
+    @overload
+    def lapmod(
+        n: Union[int, np.integer],
+        cc: npt.NDArray[np.floating],
+        ii: npt.NDArray[np.integer],
+        kk: npt.NDArray[np.integer],
+        fast: bool,
+        return_cost: Literal[False],
+        fp_version: int = FP_DYNAMIC,
+    ) -> Tuple[np.ndarray, np.ndarray]: ...
+
+    @overload
+    def lapmod(
+        n: Union[int, np.integer],
+        cc: npt.NDArray[np.floating],
+        ii: npt.NDArray[np.integer],
+        kk: npt.NDArray[np.integer],
+        fast: bool = True,
+        *,
+        return_cost: Literal[False],
+        fp_version: int = FP_DYNAMIC,
+    ) -> Tuple[np.ndarray, np.ndarray]: ...
+
+    @overload
+    def lapmod(
+        n: Union[int, np.integer],
+        cc: npt.NDArray[np.floating],
+        ii: npt.NDArray[np.integer],
+        kk: npt.NDArray[np.integer],
+        fast: bool = True,
+        return_cost: bool = True,
+        fp_version: int = FP_DYNAMIC,
+    ) -> Union[
+        Tuple[float, np.ndarray, np.ndarray],
+        Tuple[np.ndarray, np.ndarray],
+    ]: ...
+
+
 def lapmod(
-    n: int,
+    n: Union[int, np.integer],
     cc: npt.NDArray[np.floating],
     ii: npt.NDArray[np.integer],
     kk: npt.NDArray[np.integer],
@@ -287,31 +373,37 @@ def lapmod(
     Tuple[float, np.ndarray, np.ndarray],
     Tuple[np.ndarray, np.ndarray],
 ]:
-    """Solve sparse linear assignment problem using Jonker-Volgenant algorithm.
+    """Solve the sparse linear assignment problem with the Jonker-Volgenant algorithm.
 
-    n: number of rows of the assignment cost matrix
-    cc: 1D array of all finite elements of the assignment cost matrix
-    ii: 1D array of indices of the row starts in cc. The following must hold:
-            ii[0] = 0 and ii[n+1] = len(cc).
-    kk: 1D array of the column indices so that:
+    n: The number of rows in the cost matrix.
+    cc: A 1D array of all finite entries in the cost matrix.
+    ii: A 1D array of indices that locate each row's start in cc.
+        These conditions must hold:
+        - len(ii) = n + 1
+        - ii[0] = 0
+        - ii[n] = len(cc)
+    kk: A 1D array of column indices such that:
             cost[i, kk[ii[i] + k]] == cc[ii[i] + k].
-        Indices within one row must be sorted.
-    extend_cost: whether or not extend a non-square matrix [default: False]
-    cost_limit: an upper limit for a cost of a single assignment
-                [default: np.inf]
-    return_cost: whether or not to return the assignment cost
+        Indices in each row must increase strictly and remain in [0, n).
+    return_cost: This option controls whether the function returns the assignment cost.
 
-    Returns (opt, x, y) where:
-      opt: cost of the assignment
-      x: vector of columns assigned to rows
-      y: vector of rows assigned to columns
-    or (x, y) if return_cost is not True.
+    If return_cost is True, the function returns (opt, x, y):
+    - opt is the assignment cost, which the solver sums in float64.
+    - x maps rows to their assigned columns.
+    - y maps columns to their assigned rows.
 
-    When extend_cost and/or cost_limit is set, all unmatched entries will be
-    marked by -1 in x/y.
+    If return_cost is not True, the function returns (x, y).
+
+    The sparse cost matrix must be square. Its stored values must be finite,
+    non-negative, and less than LARGE. The wrapper raises ValueError for malformed
+    sparse arrays before it solves the problem.
     """
     # log = logging.getLogger('lapmod')
 
+    n = index(n)
+    cc = np.asarray(cc)
+    ii = np.asarray(ii)
+    kk = np.asarray(kk)
     check_cost(n, cc, ii, kk)
 
     if fast is True:

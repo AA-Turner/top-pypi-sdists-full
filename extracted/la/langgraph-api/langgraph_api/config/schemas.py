@@ -339,6 +339,22 @@ class AuthConfig(TypedDict, total=False):
     """Path to the authentication function in a Python file."""
     disable_studio_auth: bool
     """Whether to disable auth when connecting from the LangSmith Studio."""
+    allow_langsmith_api_keys: bool
+    """Run LangSmith API-key auth alongside custom auth.
+
+    Omitted or false (default): custom auth handles every request except
+    Studio (``x-auth-scheme: langsmith``).
+
+    True: requests with an ``Authorization`` header go to custom auth; all
+    others go to LangSmith (API keys use ``x-api-key``, not
+    ``Authorization``). No retry if the chosen handler fails.
+
+    LangSmith-authenticated users are ``StudioUser``. Custom ``@auth.on``
+    resource handlers still run.
+
+    Requires ``LANGGRAPH_AUTH_TYPE=langsmith`` and ``disable_studio_auth``
+    unset/false.
+    """
     openapi: SecurityConfig
     """The schema to use for updating the openapi spec.
 
@@ -488,7 +504,7 @@ def webhooks_validator(cfg: "WebhooksConfig") -> "WebhooksConfig":
     # Validate allowed_fields if present
     allowed_fields = cfg.get("allowed_fields")
     if allowed_fields is not None:
-        if not isinstance(allowed_fields, list):
+        if not isinstance(allowed_fields, (list, set)):
             raise ValueError(
                 f"webhooks.allowed_fields must be a list of strings. Got: {type(allowed_fields).__name__}"
             )

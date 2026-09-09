@@ -6,10 +6,10 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
 import agents._debug as _debug
@@ -173,6 +173,44 @@ async def test_simple_function():
         await tool.on_invoke_tool(
             ToolContext(None, tool_name=tool.name, tool_call_id="1", tool_arguments=""), ""
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("keyword_values", [False, True], ids=["args", "kwargs"])
+async def test_variadic_field_constraints_validate_before_invocation(keyword_values: bool) -> None:
+    calls: list[int] = []
+
+    def positional(*scores: Annotated[int, Field(..., ge=0, le=10)]) -> int:
+        calls.append(sum(scores))
+        return sum(scores)
+
+    def keywords(**scores: Annotated[int, Field(..., ge=0, le=10)]) -> int:
+        calls.append(sum(scores.values()))
+        return sum(scores.values())
+
+    tool = function_tool(
+        keywords if keyword_values else positional,
+        strict_mode=not keyword_values,
+        failure_error_function=None,
+    )
+
+    async def invoke(payload: dict[str, Any]) -> Any:
+        arguments = json.dumps(payload)
+        context = ToolContext(
+            context=None, tool_name=tool.name, tool_call_id="1", tool_arguments=arguments
+        )
+        return await tool.on_invoke_tool(context, arguments)
+
+    for invalid in (-1, 11):
+        values = {"first": invalid} if keyword_values else [invalid]
+        with pytest.raises(ModelBehaviorError):
+            await invoke({"scores": values})
+        assert calls == []
+
+    assert await invoke({"scores": {"a": 0, "b": 10} if keyword_values else [0, 10]}) == 10
+    assert await invoke({}) == 0
+    assert await invoke({"scores": {} if keyword_values else []}) == 0
+    assert calls == [10, 0, 0]
 
 
 @pytest.mark.asyncio
@@ -1435,3 +1473,26 @@ def test_function_tool_timeout_error_function_must_be_callable() -> None:
             on_invoke_tool=_noop_on_invoke_tool,
             timeout_error_function=cast(Any, "not-callable"),
         )
+
+
+def kwargs_collision_function(x: int, *rest: int, **kw: Any) -> str:
+    return f"x={x} rest={rest} kw={kw}"
+
+
+@pytest.mark.asyncio
+async def test_kwargs_key_colliding_with_param_is_reported_as_model_behavior_error():
+    """The collision reaches the model as feedback, not as an unhandled TypeError.
+
+    ``kw={"x": 99}`` used to splat into the call as ``f(1, 2, 3, x=99)``, which raised
+    ``TypeError: got multiple values for argument 'x'`` from inside the tool call.
+    """
+    tool = function_tool(kwargs_collision_function, strict_mode=False, failure_error_function=None)
+    arguments = '{"x": 1, "rest": [2, 3], "kw": {"x": 99}}'
+
+    with pytest.raises(ModelBehaviorError) as exc_info:
+        await tool.on_invoke_tool(
+            ToolContext(None, tool_name=tool.name, tool_call_id="1", tool_arguments=arguments),
+            arguments,
+        )
+
+    assert "'x'" in str(exc_info.value)

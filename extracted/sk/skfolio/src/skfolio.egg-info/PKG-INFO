@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skfolio
-Version: 1.0.5
+Version: 1.0.6
 Summary: Portfolio optimization, factor model construction, and risk management built on top of scikit-learn
 Author-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>
 Maintainer-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>, Matteo Manzi <matteomanzi09@gmail.com>, Carlo Nicolini <c.nicolini@ipazia.com>
@@ -59,38 +59,14 @@ Classifier: Topic :: Software Development
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy>=1.23.4
+Requires-Dist: numpy>=1.23.5
 Requires-Dist: scipy>=1.15.2
-Requires-Dist: pandas>=1.4.1
+Requires-Dist: pandas>=2.1.0
 Requires-Dist: cvxpy-base>=1.5.0
-Requires-Dist: clarabel>=0.9.0
+Requires-Dist: clarabel>=0.10.0
 Requires-Dist: scikit-learn>=1.6.0
 Requires-Dist: joblib>=1.3.2
-Requires-Dist: plotly>=5.22.0
-Provides-Extra: dev
-Requires-Dist: PySCIPOpt<6.0.0; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: PySCIPOpt<6.0.0; extra == "docs"
-Requires-Dist: Sphinx>=7.2; extra == "docs"
-Requires-Dist: sphinx-gallery; extra == "docs"
-Requires-Dist: pydata-sphinx-theme~=0.16; extra == "docs"
-Requires-Dist: matplotlib; extra == "docs"
-Requires-Dist: kaleido; extra == "docs"
-Requires-Dist: sphinx-copybutton; extra == "docs"
-Requires-Dist: numpydoc; extra == "docs"
-Requires-Dist: sphinx-favicon; extra == "docs"
-Requires-Dist: sphinxext.opengraph; extra == "docs"
-Requires-Dist: sphinx-sitemap; extra == "docs"
-Requires-Dist: jupyterlite-sphinx~=0.23.0; extra == "docs"
-Requires-Dist: jupyterlite-pyodide-kernel; extra == "docs"
-Requires-Dist: nbformat; extra == "docs"
-Requires-Dist: sphinx-last-updated-by-git; extra == "docs"
-Requires-Dist: sphinx-llm>=0.4.1; extra == "docs"
+Requires-Dist: plotly>=6.0.0
 Dynamic: license-file
 
 .. -*- mode: rst -*-

@@ -71,6 +71,31 @@ def skill_store_dir(name: str) -> Path:
     return paths.store_dir() / name
 
 
+def read_skill_meta(name: str) -> tuple[dict, str] | None:
+    """(frontmatter, body) for an installed skill's store copy, or None.
+
+    None on anything that keeps the content from being read honestly: no
+    store dir, no ``SKILL.md``, an unreadable file, or an unclosed
+    frontmatter fence (:func:`frontmatter.unclosed` — every field would read
+    as absent, which is not the same fact as the skill declaring none).
+    Callers that use this for policy enforcement (``boost policy check``)
+    must treat ``None`` as *not checked*, never as a violation — a store read
+    failing is not evidence the skill lacks a version or description.
+    """
+    from . import frontmatter
+
+    skill_md = skill_store_dir(name) / "SKILL.md"
+    if not skill_md.exists():
+        return None
+    try:
+        text = skill_md.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    if frontmatter.unclosed(text):
+        return None
+    return frontmatter.parse(text)
+
+
 def resolve_lock_entry(name: str) -> tuple[str, str | None, dict | None]:
     """(bare_name, kind, entry) for a possibly tap-qualified ``name``.
 
@@ -585,6 +610,40 @@ def _require_project_base(scope: str, base, what: str) -> Path | None:
     return resolved
 
 
+def _lock_location(entry: dict) -> str:
+    """Describe where a rule/workflow lock ``entry`` lives, for an error message."""
+    if entry.get("scope") == scopes.SCOPE_PROJECT:
+        base = entry.get("base")
+        return "project scope (%s)" % base if base else "project scope"
+    return "user scope"
+
+
+def _check_scope_conflict(name: str, existing: dict | None, scope: str,
+                          resolved_base: Path | None, force: bool) -> None:
+    """Refuse a name collision across install scopes before it corrupts state.
+
+    Rule/workflow lock entries are keyed by bare name with no per-scope
+    storage (unlike skills, which get their own project lock) — so a name
+    already recorded under a *different* scope/base is never "the same
+    install, seen twice". Letting ``force`` through in that case would
+    overwrite one scope's lock entry with the other's, orphaning the first
+    scope's materializations with nothing left in the lock to uninstall them.
+    Refuse the cross-scope case outright, ``force`` or not; only a same-scope,
+    same-base match falls through to the ordinary already-installed check.
+    """
+    if not existing:
+        return
+    requested_base = str(resolved_base) if resolved_base is not None else None
+    if existing.get("scope", "user") == scope and existing.get("base") == requested_base:
+        if not force:
+            raise BoostError("%s is already installed" % name,
+                            hint="`boost reinstall %s` to force" % name)
+        return
+    raise BoostError(
+        "%s is already installed at %s" % (name, _lock_location(existing)),
+        hint="uninstall it there first — a different scope cannot force-overwrite it")
+
+
 def _refuse_self_installing(entry: dict) -> None:
     """Refuse to half-copy an item whose repo installs itself.
 
@@ -605,29 +664,36 @@ def _refuse_self_installing(entry: dict) -> None:
 
 def install(entry: dict, force: bool = False,
             only_agents: list[str] | None = None,
-            scope: str = "user", base=None) -> InstallResult:
+            scope: str = "user", base=None,
+            via: str | None = None) -> InstallResult:
     """Install a catalog entry. Raises BoostError on policy block or conflict.
 
     ``scope`` is ``"user"`` (default — the canonical store, symlinked into the
     agent's user config dirs) or ``"project"`` (real directories inside the
     current repo). Every kind honors it.
+
+    ``via`` names the caller for the journal entry (e.g. ``"protocol"`` for a
+    one-click install), the same way a tap's journal entry already can — see
+    ``registry.add``'s ``via=`` kwarg to ``journal.log``. ``None`` means an
+    ordinary ``boost install``, and is dropped from the event like any other
+    ``None``-valued field (``journal.log``).
     """
     scopes.check_scope(scope)
     _refuse_self_installing(entry)
     kind = entry.get("kind", "skill")
     if kind == "rule":
         return _install_rule(entry, force=force, only_agents=only_agents,
-                             scope=scope, base=base)
+                             scope=scope, base=base, via=via)
     if kind == "workflow":
         return _install_workflow(entry, force=force, only_agents=only_agents,
-                                 scope=scope, base=base)
+                                 scope=scope, base=base, via=via)
     if kind != "skill":
         raise BoostError(
             "%s is a %s, which boost does not know how to install" % (entry["name"], kind),
             hint="known kinds: skill, rule, workflow")
     if scope == scopes.SCOPE_PROJECT:
         return _install_project_skill(entry, force=force, only_agents=only_agents,
-                                      base=base)
+                                      base=base, via=via)
     name = entry["name"]
     existing = lockfile.get_skill(name)
     if existing and existing.get("pinned") and not force:
@@ -679,13 +745,13 @@ def install(entry: dict, force: bool = False,
         "only_agents": declared_agent_scope(only_agents, existing),
         "tags": (existing or {}).get("tags", []),
     })
-    journal.log("install", name, tap=entry["tap"], version=entry.get("version"))
+    journal.log("install", name, tap=entry["tap"], version=entry.get("version"), via=via)
     return res
 
 
 def _install_project_skill(entry: dict, force: bool = False,
                            only_agents: list[str] | None = None,
-                           base=None) -> InstallResult:
+                           base=None, via: str | None = None) -> InstallResult:
     """Materialize a skill into the repo itself, once per enabled agent.
 
     Unlike a user install there is no canonical store and no symlink. Each agent
@@ -791,7 +857,7 @@ def _install_project_skill(entry: dict, force: bool = False,
         "materializations": materializations,
     })
     journal.log("install", name, tap=entry["tap"], version=entry.get("version"),
-                scope=scopes.SCOPE_PROJECT)
+                scope=scopes.SCOPE_PROJECT, via=via)
 
     res = InstallResult(name=name, dest=first, kind="skill")
     res.linked = linked
@@ -917,7 +983,8 @@ def project_sync_apply(plan: dict[str, list], base=None) -> list[str]:
 
 def _install_rule(entry: dict, force: bool = False,
                   only_agents: list[str] | None = None,
-                  scope: str = "user", base=None) -> InstallResult:
+                  scope: str = "user", base=None,
+                  via: str | None = None) -> InstallResult:
     """Materialize a rule into each enabled agent's native format.
 
     Cursor/Windsurf/Cline get a verbatim file drop in their ``rules/`` dir
@@ -931,20 +998,18 @@ def _install_rule(entry: dict, force: bool = False,
 
     from . import frontmatter, gitutil, rules
     name = entry["name"]
+    # Cheap precondition, checked before any tap or filesystem work: if there
+    # is nowhere to put this, say so immediately. Also needed ahead of the
+    # existing-install check below, which compares against this scope/base.
+    resolved_base = _require_project_base(scope, base, "rule %s" % name)
     existing = lockfile.get_rule(name)
-    if existing and not force:
-        raise BoostError("%s is already installed" % name,
-                        hint="`boost reinstall %s` to force" % name)
+    _check_scope_conflict(name, existing, scope, resolved_base, force)
     only_agents = preserved_agent_scope(only_agents, existing)
 
     violations = policy.check_install(entry, len(lockfile.installed()))
     if violations:
         raise BoostError("policy blocks installing %s: %s" % (name, "; ".join(violations)),
                         hint="inspect with `boost policy list`")
-
-    # Cheap precondition, checked before any tap or filesystem work: if there
-    # is nowhere to put this, say so immediately.
-    resolved_base = _require_project_base(scope, base, "rule %s" % name)
 
     tap = registry.get(entry["tap"])
     src = tap.path / entry.get("skill_md", "")
@@ -1010,7 +1075,7 @@ def _install_rule(entry: dict, force: bool = False,
         "quarantined": False,
         "materializations": materializations,
     })
-    journal.log("install", name, tap=entry["tap"], version=entry.get("version"))
+    journal.log("install", name, tap=entry["tap"], version=entry.get("version"), via=via)
 
     res = InstallResult(
         name=name,
@@ -1063,20 +1128,28 @@ def quarantine_materialized(kind: str, name: str, entry: dict) -> list[str]:
     # artifact was already gone".
     prior = {m.get("path"): m.get("content")
              for m in entry.get("quarantine_stash") or []}
+    prior_full_text = {m.get("path"): m.get("full_text")
+                       for m in entry.get("quarantine_stash") or []}
     stash: list[dict] = []
     affected: list[str] = []
     for m in entry.get("materializations") or []:
         path = Path(m.get("path", ""))
         content: str | None = None
+        full_text: str | None = None
         if m.get("mode") == rules.MODE_CLAUDE:
             if path.exists():
-                content = rules.read_block(
-                    path.read_text(encoding="utf-8"), name)
+                # The whole file, not just the block: release_materialized
+                # needs it to restore the block at its original position
+                # rather than re-appending at end-of-file.
+                full_text = path.read_text(encoding="utf-8")
+                content = rules.read_block(full_text, name)
         elif path.is_file():
             content = path.read_text(encoding="utf-8")
         if content is None:
             content = prior.get(m.get("path"))
-        stash.append({**m, "content": content})
+        if full_text is None:
+            full_text = prior_full_text.get(m.get("path"))
+        stash.append({**m, "content": content, "full_text": full_text})
         if m.get("agent"):
             affected.append(m["agent"])
     # Persist the stash BEFORE removing anything. A crash mid-removal then
@@ -1142,7 +1215,17 @@ def release_materialized(kind: str, name: str, entry: dict) -> list[str]:
         path.parent.mkdir(parents=True, exist_ok=True)
         if m.get("mode") == rules.MODE_CLAUDE:
             current = path.read_text(encoding="utf-8") if path.exists() else ""
-            util.atomic_write_text(path, rules.merge_block(current, name, content))
+            full_text = m.get("full_text")
+            # Byte-for-byte only holds when the surrounding text is exactly
+            # what quarantine left behind — write the stashed file back
+            # whole, restoring the block at its original position instead of
+            # re-appending it. Any other surrounding text (the user edited
+            # the file, or the stash predates this field) falls back to
+            # merge_block's append.
+            if full_text is not None and rules.strip_block(full_text, name) == current:
+                util.atomic_write_text(path, full_text)
+            else:
+                util.atomic_write_text(path, rules.merge_block(current, name, content))
         else:
             util.atomic_write_text(path, content)
         if m.get("agent"):
@@ -1156,7 +1239,8 @@ def release_materialized(kind: str, name: str, entry: dict) -> list[str]:
 
 def _install_workflow(entry: dict, force: bool = False,
                       only_agents: list[str] | None = None,
-                      scope: str = "user", base=None) -> InstallResult:
+                      scope: str = "user", base=None,
+                      via: str | None = None) -> InstallResult:
     """Materialize a workflow (slash command / subagent) into each enabled agent.
 
     A verbatim Markdown drop into the agent's ``commands/`` or ``agents/`` dir —
@@ -1168,18 +1252,15 @@ def _install_workflow(entry: dict, force: bool = False,
 
     from . import gitutil, workflows
     name = entry["name"]
+    resolved_base = _require_project_base(scope, base, "workflow %s" % name)
     existing = lockfile.get_workflow(name)
-    if existing and not force:
-        raise BoostError("%s is already installed" % name,
-                        hint="`boost reinstall %s` to force" % name)
+    _check_scope_conflict(name, existing, scope, resolved_base, force)
     only_agents = preserved_agent_scope(only_agents, existing)
 
     violations = policy.check_install(entry, len(lockfile.installed()))
     if violations:
         raise BoostError("policy blocks installing %s: %s" % (name, "; ".join(violations)),
                         hint="inspect with `boost policy list`")
-
-    resolved_base = _require_project_base(scope, base, "workflow %s" % name)
 
     tap = registry.get(entry["tap"])
     source_rel = entry.get("skill_md", "")
@@ -1235,7 +1316,7 @@ def _install_workflow(entry: dict, force: bool = False,
         "quarantined": False,
         "materializations": materializations,
     })
-    journal.log("install", name, tap=entry["tap"], version=entry.get("version"))
+    journal.log("install", name, tap=entry["tap"], version=entry.get("version"), via=via)
 
     res = InstallResult(
         name=name,
@@ -1632,9 +1713,22 @@ def sync_plan() -> dict[str, list]:
         # is already "reinstall this skill from its tap", which is exactly what
         # a gutted directory needs, and reusing it means sync_apply needs no
         # change at all.
-        if not sdir.is_dir() or not (sdir / "SKILL.md").is_file():
+        #
+        # This used to `continue` here, which skipped agent-link classification
+        # for the entry entirely — so a foreign file already occupying a link
+        # path went unreported until a *second* `sync` noticed the repair had
+        # not actually relinked that agent. The classification below reads
+        # only the agent dir, never the store, so running it costs nothing
+        # even while the store copy is still missing — see the `missing_store`
+        # check further down, which still lets it feed `blocked_links` but
+        # keeps it out of `missing_links`: `sync_apply` repairs a missing
+        # store by reinstalling from the tap, which relinks every non-blocked
+        # agent as one step, and that reinstall runs *after* this plan is
+        # built, so a `missing_links` entry here would have `sync_apply` try
+        # to link a store directory that does not exist yet.
+        missing_store = not sdir.is_dir() or not (sdir / "SKILL.md").is_file()
+        if missing_store:
             plan["missing_store"].append(name)
-            continue
         if entry.get("quarantined"):
             continue
         # A deliberate sideline (`focus`, `profile use`, `context apply`)
@@ -1659,11 +1753,11 @@ def sync_plan() -> dict[str, list]:
             # A symlink is boost's to replace even when it dangles; anything
             # else that exists is someone else's file and stays put.
             if link.is_symlink():
-                if not link.exists():
+                if not link.exists() and not missing_store:
                     plan["missing_links"].append((name, agent))
             elif link.exists():
                 plan["blocked_links"].append((name, agent, str(link)))
-            else:
+            elif not missing_store:
                 plan["missing_links"].append((name, agent))
         # The other direction, which nothing checked: a link that exists in an
         # agent the declaration excludes. The loop above is narrowed to the
@@ -1802,12 +1896,36 @@ def sync_apply(plan: dict[str, list]) -> list[str]:
         p = Path(path)
         if p.is_symlink():
             p.unlink()
-            actions.append("removed stale link %s" % path)
+            # `--diff` shows this same path tilde-contracted (`_tilde` in
+            # commands/pkg.py); the raw absolute string here made the two
+            # views of one path disagree in the exact case a user compares
+            # them — planned vs. applied.
+            actions.append("removed stale link %s" % paths.tilde(path))
     for name in plan["missing_store"]:
         entry = lockfile.get_skill(name) or {}
         tap_name = entry.get("tap")
         restored = False
-        if tap_name and tap_name != "local":
+        if tap_name == "local":
+            src = Path(str(entry.get("source_dir") or ""))
+            if src.is_dir() and (src / "SKILL.md").is_file():
+                try:
+                    source_sha = util.sha256_dir(src)
+                except OSError:
+                    source_sha = None
+                if _pinned_repair_blocked(entry, source_sha):
+                    actions.append(
+                        "%s is pinned and its local source has moved — repair "
+                        "declined (unpin, or `boost reinstall %s` to accept "
+                        "the new content)" % (name, name))
+                    continue
+                try:  # noqa: FURB107 - per-item resilience in a loop (see PERF203)
+                    install_from_path(src, name=name, force=True)
+                    actions.append(
+                        "reinstalled missing %s from local source %s" % (name, src))
+                    restored = True
+                except BoostError:
+                    pass
+        elif tap_name and tap_name != "local":
             try:  # noqa: FURB107 - per-item resilience in a loop (see PERF203)
                 from . import catalog
                 matches = [e for e in catalog.find(name) if e["tap"] == tap_name]

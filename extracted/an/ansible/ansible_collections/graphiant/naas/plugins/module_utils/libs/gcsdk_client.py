@@ -1423,7 +1423,8 @@ class GraphiantPortalClient:
         Args:
             service_config (dict): Service configuration containing:
                 - serviceName: Service name
-                - type: Service type ("peering_service" or "client_to_server")
+                - serviceType: Service type ("peering_service" or "client_to_server") — matches
+                  the API field name directly; "type" (legacy) is still accepted as an alias.
                 - policy: Service policy configuration. "peering_service" configs carry
                   "site" (singular) and a "type" key inside policy; both are translated
                   here since the generic policy schema uses "sites" (plural, same inner
@@ -1433,7 +1434,7 @@ class GraphiantPortalClient:
             dict: Created service response (contains "id"), camelCase keys to match the
                 shape callers previously got from the raw/typed peering response.
         """
-        service_type = service_config.get("type", "peering_service")
+        service_type = service_config.get("serviceType") or service_config.get("type") or "peering_service"
         policy = dict(service_config.get("policy") or {})
         policy.pop("type", None)
         if "site" in policy:
@@ -2246,11 +2247,12 @@ class GraphiantPortalClient:
 
         ``acceptance_payload`` is already built in the generic API's own shape by
         ``DataExchangeManager._resolve_acceptance_names_to_ids`` — {"id", "policy":
-        {"sites", "consumerLanSegments", "siteToSiteVpn", "globalObjectOps",
-        "natTranslationMode" (peering_service only)}}. The only rename left here is
-        top-level "id" -> "serviceId" (not user-facing — computed internally, never
-        read from a config file); "customerId" is never sent (the customer is already
-        identified by match_id in the URL path).
+        {"sites", "consumerLanSegments", "globalObjectOps", "siteToSiteVpn" (omitted
+        entirely — not even as {} — for a Graphiant customer with no vpnProfile; the API
+        rejects an empty siteToSiteVpn object), "natTranslationMode" (peering_service
+        only)}}. The only rename left here is top-level "id" -> "serviceId" (not
+        user-facing — computed internally, never read from a config file); "customerId"
+        is never sent (the customer is already identified by match_id in the URL path).
 
         Args:
             match_id (int): The match ID to accept
@@ -2306,6 +2308,677 @@ class GraphiantPortalClient:
                 api_url=api_url,
                 path_params={"match_id": match_id},
                 request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    # Local Extranet API Methods
+
+    def create_local_extranet_policy(self, policy_config: dict) -> dict:
+        """
+        Create a new Local Extranet policy.
+
+        POST /v1/extranets (bound in graphiant-sdk >= 26.7.0 as ``v1_extranets_post``).
+        Unlike Data Exchange, this is single-enterprise (no producer/consumer split): a
+        LAN segment (``sharedSegment``) is shared with other LAN segments
+        (``targetSegments``) across sites/branches within the same tenant.
+
+        Args:
+            policy_config (dict): Policy configuration (``ManaV2ExtranetPolicyInput`` shape:
+                name, type, description, sharedSegment, targetSegments, source, branches,
+                hostPrefixSet, sharedPrefixes, auto, manual) with names already resolved to IDs.
+
+        Returns:
+            dict: Created policy response (contains "id").
+        """
+        request_body = {"policy": policy_config}
+        if getattr(self, "check_mode", False):
+            # Validate against the real SDK request model so schema mismatches / a too-old
+            # installed graphiant-sdk surface in check mode too (see create_data_exchange_services).
+            try:
+                validated_payload_dict = graphiant_sdk.V1ExtranetsPostRequest.model_validate(request_body).to_dict()
+            except Exception as sdk_e:
+                raise ValidationError(
+                    f"create_local_extranet_policy: Payload failed SDK schema validation: {sdk_e}"
+                ) from sdk_e
+            LOG.info(
+                "[check_mode] create_local_extranet_policy would create: %s",
+                json.dumps(validated_payload_dict, indent=2),
+            )
+            return {"id": 0}
+        try:
+            LOG.info("create_local_extranet_policy: Creating policy '%s'", policy_config.get("name"))
+            response = self.api.v1_extranets_post(
+                authorization=self.bearer_token, v1_extranets_post_request=request_body
+            )
+            policy_id = getattr(response, "id", None) or getattr(getattr(response, "policy", None), "id", None)
+            LOG.info("create_local_extranet_policy: Successfully created policy with ID: %s", policy_id)
+            result = response.model_dump(by_alias=True, exclude_none=True)
+            result["id"] = policy_id
+            return result
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets"
+            self._log_api_error(
+                method_name="create_local_extranet_policy", api_url=api_url, request_body=request_body, exception=e
+            )
+            raise e
+
+    def get_local_extranet_policies(self, type_filter: Optional[str] = None) -> list:
+        """
+        Get Local Extranet policies.
+
+        GET /v1/extranets(?type=<type_filter>) — called via a raw API request rather than the
+        SDK-bound ``v1_extranets_get``, which takes no query parameters at all.
+
+        Args:
+            type_filter (str, optional): When given, passed through as the ``type`` query
+                param (e.g. ``"enterprise"``, matching the portal UI's own "Local Services >
+                Extranet" list view, confirmed via its browser network request). When None
+                (the default), no filter is applied and every policy is returned regardless of
+                its ``type`` value.
+
+                Deliberately NOT the default for lookups used by create/update/delete's
+                idempotency checks (get_local_extranet_policy_by_name): a policy created with
+                an unexpected/legacy ``type`` value would be invisible to a filtered lookup,
+                while still physically existing and blocking a fresh create on the same name
+                via the backend's (enterpriseId, name) uniqueness constraint — an unrecoverable
+                deadlock (can't create: name taken; can't find-to-delete: filtered out).
+                Use type_filter="enterprise" only for display purposes (get_policies_summary),
+                where matching the portal UI's own view is the actual goal.
+
+        Returns:
+            list: List of ManaV2ExtranetPolicy entries (empty list if none found).
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/extranets"
+        query_params = {"type": type_filter} if type_filter else {}
+        try:
+            LOG.info("get_local_extranet_policies: Retrieving Local Extranet policies (type_filter=%s)", type_filter)
+            api_client = self.api.api_client
+            method, url, header_params, body, post_params = api_client.param_serialize(
+                "GET",
+                "/v1/extranets",
+                query_params=query_params,
+                header_params={
+                    "Authorization": self.bearer_token,
+                    "Accept": "application/json",
+                },
+                body=None,
+            )
+            response_data = api_client.call_api(method, url, header_params, body, post_params)
+            response_data.read()
+            self._raise_for_raw_status(response_data)
+            raw = json.loads(response_data.data)
+            policies = [graphiant_sdk.ManaV2ExtranetPolicy.model_validate(item) for item in raw.get("policies") or []]
+            LOG.info("get_local_extranet_policies: Successfully retrieved %s policies", len(policies))
+            return policies
+        except ApiException as e:
+            self._log_api_error(method_name="get_local_extranet_policies", api_url=api_url, exception=e)
+            return []
+
+    def get_local_extranet_policy_by_name(self, policy_name: str):
+        """
+        Get a specific Local Extranet policy by name.
+
+        Args:
+            policy_name (str): Name of the policy to retrieve
+
+        Returns:
+            ManaV2ExtranetPolicy or None: Policy if found, None otherwise.
+        """
+        try:
+            LOG.info("get_local_extranet_policy_by_name: Looking for policy '%s'", policy_name)
+            policies = self.get_local_extranet_policies()
+            for policy in policies:
+                if policy.name == policy_name:
+                    LOG.info("get_local_extranet_policy_by_name: Found policy '%s' with ID: %s", policy_name, policy.id)
+                    return policy
+            LOG.info("get_local_extranet_policy_by_name: Policy '%s' not found", policy_name)
+            return None
+        except Exception as e:
+            LOG.error("get_local_extranet_policy_by_name: Error finding policy '%s': %s", policy_name, e)
+            return None
+
+    def get_local_extranet_policy_details(self, policy_id: int) -> dict:
+        """
+        Get detailed information about a specific Local Extranet policy.
+
+        GET /v1/extranets/{id} (bound as ``v1_extranets_id_get``).
+
+        Args:
+            policy_id (int): ID of the policy to retrieve
+
+        Returns:
+            dict: Policy details (``policy`` object, e.g. sharedSegment/targetSegments
+                expanded to full LAN segment objects rather than bare IDs).
+        """
+        try:
+            LOG.info("get_local_extranet_policy_details: Retrieving policy ID %s", policy_id)
+            response = self.api.v1_extranets_id_get(authorization=self.bearer_token, id=policy_id)
+            policy = response.policy.to_dict() if response and response.policy else {}
+            LOG.info("get_local_extranet_policy_details: Successfully retrieved policy ID %s", policy_id)
+            return policy
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets/{policy_id}"
+            self._log_api_error(
+                method_name="get_local_extranet_policy_details",
+                api_url=api_url,
+                path_params={"id": policy_id},
+                exception=e,
+            )
+            raise e
+
+    def edit_local_extranet_policy(self, policy_id: int, policy_config: dict) -> dict:
+        """
+        Update an existing Local Extranet policy.
+
+        PUT /v1/extranets/{id} — called via a raw API request rather than the SDK-bound
+        ``v1_extranets_id_put``. That method's ``ManaV2ExtranetPolicyInput.type`` field is
+        typed ``StrictStr``, so the typed call can only ever send ``type`` as a JSON string
+        (or omit it). A live capture of the portal UI's own successful update request showed
+        ``"type": 2`` as a genuine JSON *integer* — sending the string ``"2"`` (or
+        ``"enterprise"``) failed with a backend foreign-key constraint violation
+        (``extranet_policy_type_fkey``), and omitting ``type`` entirely failed the exact same
+        way. Only a real JSON int satisfies the backend's update path, which this raw call
+        can send (the underlying ``ApiClient.rest_client.request`` does a plain
+        ``json.dumps(body)`` when Content-Type is JSON, preserving a Python ``int`` as a JSON
+        number) but the pydantic-typed SDK method cannot.
+
+        Args:
+            policy_id (int): ID of the policy to update
+            policy_config (dict): Full desired policy configuration (names already resolved
+                to IDs). ``type`` is expected to already be the Python int ``2``, not a
+                string — see ``local_extranet_manager._resolve_policy_ids``.
+
+        Returns:
+            dict: Updated policy response (contains "id").
+        """
+        request_body = {"policy": policy_config}
+        api_url = f"{self.api.api_client.configuration.host}/v1/extranets/{policy_id}"
+        if getattr(self, "check_mode", False):
+            LOG.info(
+                "[check_mode] edit_local_extranet_policy would update policy ID %s: %s",
+                policy_id,
+                json.dumps(request_body, indent=2),
+            )
+            return {"id": policy_id}
+        try:
+            LOG.info("edit_local_extranet_policy: Updating policy ID %s", policy_id)
+            api_client = self.api.api_client
+            method, url, header_params, body, post_params = api_client.param_serialize(
+                "PUT",
+                "/v1/extranets/{id}",
+                path_params={"id": policy_id},
+                header_params={
+                    "Authorization": self.bearer_token,
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                body=request_body,
+            )
+            response_data = api_client.call_api(method, url, header_params, body, post_params)
+            response_data.read()
+            self._raise_for_raw_status(response_data)
+            result = json.loads(response_data.data) if response_data.data else {}
+            result["id"] = policy_id
+            LOG.info("edit_local_extranet_policy: Successfully updated policy ID %s", policy_id)
+            return result
+        except ApiException as e:
+            self._log_api_error(
+                method_name="edit_local_extranet_policy",
+                api_url=api_url,
+                path_params={"id": policy_id},
+                request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    def delete_local_extranet_policy(self, policy_id: int):
+        """
+        Delete a Local Extranet policy.
+
+        DELETE /v1/extranets/{id} (bound as ``v1_extranets_id_delete``).
+
+        Args:
+            policy_id (int): ID of the policy to delete
+
+        Returns:
+            API response (contains affected device statuses).
+        """
+        if getattr(self, "check_mode", False):
+            LOG.info("[check_mode] delete_local_extranet_policy would delete policy with ID: %s", policy_id)
+            return type("MockResponse", (), {})()
+        try:
+            LOG.info("delete_local_extranet_policy: Deleting policy with ID: %s", policy_id)
+            response = self.api.v1_extranets_id_delete(authorization=self.bearer_token, id=policy_id)
+            LOG.info("delete_local_extranet_policy: Successfully deleted policy with ID: %s", policy_id)
+            return response
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets/{policy_id}"
+            self._log_api_error(
+                method_name="delete_local_extranet_policy",
+                api_url=api_url,
+                path_params={"id": policy_id},
+                exception=e,
+            )
+            raise e
+
+    def apply_local_extranet_policy(self, policy_id: int, target_device_ids: Optional[list] = None) -> dict:
+        """
+        Push a Local Extranet policy to devices.
+
+        POST /v1/extranets/{id}/apply (bound as ``v1_extranets_id_apply_post``).
+
+        Args:
+            policy_id (int): ID of the policy to apply
+            target_device_ids (list, optional): Device IDs to push to. When omitted/empty,
+                ``targetDevices`` is left out of the request body and the API applies the
+                policy to all applicable devices (source/branch sites) on its own.
+
+        Returns:
+            dict: Response containing per-device status and a jobId.
+        """
+        request_body = {"targetDevices": target_device_ids} if target_device_ids else {}
+        if getattr(self, "check_mode", False):
+            LOG.info(
+                "[check_mode] apply_local_extranet_policy would apply policy ID %s: %s",
+                policy_id,
+                json.dumps(request_body, indent=2),
+            )
+            return {"devices": [], "jobId": 0}
+        try:
+            LOG.info("apply_local_extranet_policy: Applying policy ID %s", policy_id)
+            response = self.api.v1_extranets_id_apply_post(
+                authorization=self.bearer_token, id=policy_id, v1_extranets_id_apply_post_request=request_body
+            )
+            LOG.info("apply_local_extranet_policy: Successfully applied policy ID %s", policy_id)
+            return response.model_dump(by_alias=True, exclude_none=True)
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets/{policy_id}/apply"
+            self._log_api_error(
+                method_name="apply_local_extranet_policy",
+                api_url=api_url,
+                path_params={"id": policy_id},
+                request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    def get_local_extranet_policy_device_status(self, policy_id: int) -> list:
+        """
+        Get per-device push/rollout status for a Local Extranet policy.
+
+        GET /v1/extranets/{id}/status (bound as ``v1_extranets_id_status_get``).
+
+        Args:
+            policy_id (int): ID of the policy
+
+        Returns:
+            list: ManaV2ExtranetDeviceStatus entries (empty list if none found).
+        """
+        try:
+            LOG.info("get_local_extranet_policy_device_status: Retrieving device status for policy ID %s", policy_id)
+            response = self.api.v1_extranets_id_status_get(authorization=self.bearer_token, id=policy_id)
+            devices = response.devices if response and response.devices else []
+            LOG.info("get_local_extranet_policy_device_status: Retrieved status for %s device(s)", len(devices))
+            return devices
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets/{policy_id}/status"
+            self._log_api_error(
+                method_name="get_local_extranet_policy_device_status",
+                api_url=api_url,
+                path_params={"id": policy_id},
+                exception=e,
+            )
+            raise e
+
+    def get_local_extranet_lan_segments_usage(
+        self, policy_id: Optional[int] = None, is_provider: Optional[bool] = None
+    ):
+        """
+        Get LAN segment usage/monitoring info for Local Extranet.
+
+        GET /v1/extranets/monitoring/lan-segments (bound as
+        ``v1_extranets_monitoring_lan_segments_get``).
+
+        Args:
+            policy_id (int, optional): Extranet policy ID to filter by.
+            is_provider (bool, optional): Provider vs consumer view.
+
+        Returns:
+            API response object with a ``vrfs`` list.
+        """
+        try:
+            LOG.info("get_local_extranet_lan_segments_usage: Retrieving LAN segment usage (policy_id=%s)", policy_id)
+            response = self.api.v1_extranets_monitoring_lan_segments_get(
+                authorization=self.bearer_token, id=policy_id, is_provider=is_provider
+            )
+            LOG.info("get_local_extranet_lan_segments_usage: Successfully retrieved LAN segment usage")
+            return response
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets/monitoring/lan-segments"
+            self._log_api_error(
+                method_name="get_local_extranet_lan_segments_usage",
+                api_url=api_url,
+                query_params={"id": policy_id, "is_provider": is_provider},
+                exception=e,
+            )
+            raise e
+
+    def get_local_extranet_nat_usage(self, policy_id: int):
+        """
+        Get NAT pool usage/monitoring info for a Local Extranet policy.
+
+        GET /v1/extranets/monitoring/nat-usage (bound as ``v1_extranets_monitoring_nat_usage_get``).
+
+        Args:
+            policy_id (int): Extranet policy ID.
+
+        Returns:
+            API response object with allocatedCount/usageCount/allocations.
+        """
+        try:
+            LOG.info("get_local_extranet_nat_usage: Retrieving NAT usage for policy ID %s", policy_id)
+            response = self.api.v1_extranets_monitoring_nat_usage_get(authorization=self.bearer_token, id=policy_id)
+            LOG.info("get_local_extranet_nat_usage: Successfully retrieved NAT usage for policy ID %s", policy_id)
+            return response
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/extranets/monitoring/nat-usage"
+            self._log_api_error(
+                method_name="get_local_extranet_nat_usage",
+                api_url=api_url,
+                path_params={"id": policy_id},
+                exception=e,
+            )
+            raise e
+
+    def create_public_vif_service(self, service_config: dict) -> dict:
+        """
+        Create a new gateway Public VIF service ("local data exchange service").
+
+        POST /v1/pvif (bound in graphiant-sdk >= 26.7.0 as ``v1_pvif_post``). A Public VIF
+        service is a flat, single-resource CRUD object (an ``id``) hosted entirely on
+        Graphiant-managed gateway appliances in a chosen region/storage provider — unlike
+        Local Extranet/Data Exchange there is no separate apply/rollout step.
+
+        Args:
+            service_config (dict): Service configuration (``ManaV2PublicVifGatewayWriteRequest``
+                shape: serviceName, lanSegmentId, regionId, storageProvider,
+                consumerLanSegments, gatewayBgpNeighbors, natPrefixStrategy, optional
+                coveringPrefixes/advertisement) with names already resolved to IDs.
+
+        Returns:
+            dict: Created service response (contains "id").
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/pvif"
+        if getattr(self, "check_mode", False):
+            # Validate against the real SDK request model so schema mismatches / a too-old
+            # installed graphiant-sdk surface in check mode too (see create_local_extranet_policy).
+            try:
+                validated_payload_dict = graphiant_sdk.V1PvifPostRequest.model_validate(service_config).to_dict()
+            except Exception as sdk_e:
+                raise ValidationError(
+                    f"create_public_vif_service: Payload failed SDK schema validation: {sdk_e}"
+                ) from sdk_e
+            LOG.info(
+                "[check_mode] create_public_vif_service would create: %s",
+                json.dumps(validated_payload_dict, indent=2),
+            )
+            return {"id": 0}
+        try:
+            LOG.info("create_public_vif_service: Creating service '%s'", service_config.get("serviceName"))
+            response = self.api.v1_pvif_post(authorization=self.bearer_token, v1_pvif_post_request=service_config)
+            result = response.model_dump(by_alias=True, exclude_none=True)
+            LOG.info("create_public_vif_service: Successfully created service with ID: %s", result.get("id"))
+            return result
+        except ApiException as e:
+            self._log_api_error(
+                method_name="create_public_vif_service", api_url=api_url, request_body=service_config, exception=e
+            )
+            raise e
+
+    def get_public_vif_services_summary(self) -> list:
+        """
+        Get summary of all gateway Public VIF services.
+
+        GET /v1/pvif/summary (bound as ``v1_pvif_summary_get``).
+
+        Returns:
+            list: ManaV2PublicVifSummary entries (empty list if none found).
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/pvif/summary"
+        try:
+            LOG.info("get_public_vif_services_summary: Retrieving Public VIF services summary")
+            response = self.api.v1_pvif_summary_get(authorization=self.bearer_token)
+            summary = response.summary if response and response.summary else []
+            LOG.info("get_public_vif_services_summary: Successfully retrieved %s service(s)", len(summary))
+            return summary
+        except ApiException as e:
+            self._log_api_error(method_name="get_public_vif_services_summary", api_url=api_url, exception=e)
+            return []
+
+    def get_public_vif_service_by_name(self, service_name: str):
+        """
+        Find a gateway Public VIF service by name via the summary list.
+
+        Args:
+            service_name (str): Name of the service to retrieve.
+
+        Returns:
+            ManaV2PublicVifSummary or None: Matching summary entry if found, None otherwise.
+        """
+        try:
+            LOG.info("get_public_vif_service_by_name: Looking for service '%s'", service_name)
+            for service in self.get_public_vif_services_summary():
+                if service.service_name == service_name:
+                    LOG.info("get_public_vif_service_by_name: Found service '%s' with ID: %s", service_name, service.id)
+                    return service
+            LOG.info("get_public_vif_service_by_name: Service '%s' not found", service_name)
+            return None
+        except Exception as e:
+            LOG.error("get_public_vif_service_by_name: Error finding service '%s': %s", service_name, e)
+            return None
+
+    def get_public_vif_service_details(self, service_id: int) -> dict:
+        """
+        Get detailed configuration for a specific gateway Public VIF service.
+
+        GET /v1/pvif/{id}/details (bound as ``v1_pvif_id_details_get``).
+
+        Args:
+            service_id (int): ID of the service to retrieve.
+
+        Returns:
+            dict: Service details.
+        """
+        try:
+            LOG.info("get_public_vif_service_details: Retrieving service ID %s", service_id)
+            response = self.api.v1_pvif_id_details_get(authorization=self.bearer_token, id=service_id)
+            details = response.model_dump(by_alias=True, exclude_none=True) if response else {}
+            LOG.info("get_public_vif_service_details: Successfully retrieved service ID %s", service_id)
+            return details
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/pvif/{service_id}/details"
+            self._log_api_error(
+                method_name="get_public_vif_service_details",
+                api_url=api_url,
+                path_params={"id": service_id},
+                exception=e,
+            )
+            raise e
+
+    def edit_public_vif_service(self, service_id: int, service_config: dict) -> dict:
+        """
+        Update an existing gateway Public VIF service.
+
+        PUT /v1/pvif/{id} (bound as ``v1_pvif_id_put``).
+
+        Args:
+            service_id (int): ID of the service to update.
+            service_config (dict): Full desired service configuration (names already
+                resolved to IDs) — becomes the ``configuration`` body of ``V1PvifIdPutRequest``.
+
+        Returns:
+            dict: Updated service response (contains "id").
+        """
+        request_body = {"configuration": service_config}
+        api_url = f"{self.api.api_client.configuration.host}/v1/pvif/{service_id}"
+        if getattr(self, "check_mode", False):
+            try:
+                validated_payload_dict = graphiant_sdk.V1PvifIdPutRequest.model_validate(request_body).to_dict()
+            except Exception as sdk_e:
+                raise ValidationError(
+                    f"edit_public_vif_service: Payload failed SDK schema validation: {sdk_e}"
+                ) from sdk_e
+            LOG.info(
+                "[check_mode] edit_public_vif_service would update service ID %s: %s",
+                service_id,
+                json.dumps(validated_payload_dict, indent=2),
+            )
+            return {"id": service_id}
+        try:
+            LOG.info("edit_public_vif_service: Updating service ID %s", service_id)
+            response = self.api.v1_pvif_id_put(
+                authorization=self.bearer_token, id=service_id, v1_pvif_id_put_request=request_body
+            )
+            result = response.model_dump(by_alias=True, exclude_none=True)
+            result["id"] = service_id
+            LOG.info("edit_public_vif_service: Successfully updated service ID %s", service_id)
+            return result
+        except ApiException as e:
+            self._log_api_error(
+                method_name="edit_public_vif_service",
+                api_url=api_url,
+                path_params={"id": service_id},
+                request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    def delete_public_vif_service(self, service_id: int):
+        """
+        Delete a gateway Public VIF service.
+
+        DELETE /v1/pvif/{id} (bound as ``v1_pvif_id_delete``).
+
+        Args:
+            service_id (int): ID of the service to delete.
+
+        Returns:
+            API response.
+        """
+        if getattr(self, "check_mode", False):
+            LOG.info("[check_mode] delete_public_vif_service would delete service with ID: %s", service_id)
+            return type("MockResponse", (), {})()
+        try:
+            LOG.info("delete_public_vif_service: Deleting service with ID: %s", service_id)
+            response = self.api.v1_pvif_id_delete(authorization=self.bearer_token, id=service_id)
+            LOG.info("delete_public_vif_service: Successfully deleted service with ID: %s", service_id)
+            return response
+        except ApiException as e:
+            api_url = f"{self.api.api_client.configuration.host}/v1/pvif/{service_id}"
+            self._log_api_error(
+                method_name="delete_public_vif_service",
+                api_url=api_url,
+                path_params={"id": service_id},
+                exception=e,
+            )
+            raise e
+
+    def get_public_vif_gateways(self, region_id: int, storage_provider: str) -> list:
+        """
+        List Graphiant-managed gateway appliances provisioned for a region/storage provider.
+
+        GET /v1/regions/{region_id}/gateways?regionId=<region_id>&storageProvider=<storage_provider>
+        (bound as ``v1_regions_region_id_gateways_get``). Used to validate that a Public VIF
+        service's ``gatewayBgpNeighbors`` device IDs are actual gateway appliances available
+        for that service's region/storage provider, rather than failing confusingly at the API.
+
+        Args:
+            region_id (int): Graphiant region ID.
+            storage_provider (str): Storage provider (e.g. "AWS").
+
+        Returns:
+            list: V1RegionsRegionIdGatewaysGetResponseGateway entries (``device_id``,
+                ``hostname``); empty list if none are provisioned.
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/regions/{region_id}/gateways"
+        try:
+            LOG.info(
+                "get_public_vif_gateways: Retrieving gateway appliances for region %s / storage provider %s",
+                region_id,
+                storage_provider,
+            )
+            response = self.api.v1_regions_region_id_gateways_get(
+                authorization=self.bearer_token, region_id=region_id, storage_provider=storage_provider
+            )
+            gateways = response.gateways if response and response.gateways else []
+            LOG.info("get_public_vif_gateways: Found %s gateway appliance(s)", len(gateways))
+            return gateways
+        except ApiException as e:
+            self._log_api_error(
+                method_name="get_public_vif_gateways",
+                api_url=api_url,
+                query_params={"regionId": region_id, "storageProvider": storage_provider},
+                exception=e,
+            )
+            raise e
+
+    def get_lan_segments_for_gateways(self, device_ids: list, gateway_cloud_provider: str) -> list:
+        """
+        Get LAN segments (VRFs) configured on a specific set of gateway devices for a storage
+        provider.
+
+        GET /v1/lan-segments?deviceIds[0]=<id>&deviceIds[1]=<id>&...&gatewayCloudProvider=<provider>
+        — called via a raw API request rather than the SDK-bound ``v1_lan_segments_get``: that
+        method serializes ``device_ids=[...]`` using collection format ``"multi"`` (bare
+        repeated ``deviceIds=<id>`` query keys), which the live backend rejects for this
+        endpoint — the same ``"multi"`` vs indexed-bracket rejection already documented for
+        ``get_lan_segment_site_device_map``. The backend only accepts the indexed-bracket form
+        ``deviceIds[0]=<id>`` used here.
+
+        Used to validate that a Public VIF service's producer ``lanSegment`` is actually
+        configured on the ``gatewayBgpNeighbors`` devices for the service's storage provider,
+        rather than merely existing somewhere else in the tenant.
+
+        Args:
+            device_ids (list): Gateway appliance device IDs.
+            gateway_cloud_provider (str): Storage provider (e.g. "AWS").
+
+        Returns:
+            list: ManaV2Vrf entries (``id``, ``name``, ...); empty list if none found.
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/lan-segments"
+        query_params = {f"deviceIds[{i}]": device_id for i, device_id in enumerate(device_ids)}
+        query_params["gatewayCloudProvider"] = gateway_cloud_provider
+        try:
+            LOG.info(
+                "get_lan_segments_for_gateways: Retrieving LAN segments for devices %s / provider %s",
+                device_ids,
+                gateway_cloud_provider,
+            )
+            api_client = self.api.api_client
+            method, url, header_params, body, post_params = api_client.param_serialize(
+                "GET",
+                "/v1/lan-segments",
+                query_params=query_params,
+                header_params={
+                    "Authorization": self.bearer_token,
+                    "Accept": "application/json",
+                },
+                body=None,
+            )
+            response_data = api_client.call_api(method, url, header_params, body, post_params)
+            response_data.read()
+            self._raise_for_raw_status(response_data)
+            raw = json.loads(response_data.data)
+            segments = [graphiant_sdk.ManaV2Vrf.model_validate(item) for item in raw.get("segments") or []]
+            LOG.info("get_lan_segments_for_gateways: Found %s LAN segment(s)", len(segments))
+            return segments
+        except ApiException as e:
+            self._log_api_error(
+                method_name="get_lan_segments_for_gateways",
+                api_url=api_url,
+                query_params=query_params,
                 exception=e,
             )
             raise e
@@ -2599,3 +3272,460 @@ class GraphiantPortalClient:
             raise APIError(
                 f"get_macsec_status: Failed to retrieve MACsec status for device_id={device_id}. Exception: {e}"
             )
+
+    # -------------------------------------------------------------------------
+    # Data Assurance
+    # -------------------------------------------------------------------------
+
+    def get_data_assurance_flex_algos(self) -> list:
+        """
+        List all available Data Assurance flex-algo entries for the current enterprise.
+
+        GET /v1/data/assurance/flex-algos
+
+        Returns:
+            list: V1DataAssuranceFlexAlgosGetResponseEntry entries (empty list on error).
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/data/assurance/flex-algos"
+        try:
+            LOG.info("get_data_assurance_flex_algos: Retrieving available flex-algos")
+            response = self.api.v1_data_assurance_flex_algos_get(authorization=self.bearer_token)
+            entries = response.entries or [] if response else []
+            LOG.info("get_data_assurance_flex_algos: Retrieved %s flex-algos", len(entries))
+            return entries
+        except ApiException as e:
+            self._log_api_error(method_name="get_data_assurance_flex_algos", api_url=api_url, exception=e)
+            return []
+
+    def get_data_assurance_policies(self) -> list:
+        """
+        List all Data Assurance policies for the current enterprise.
+
+        GET /v1/data/assurance/assurances/global
+
+        Returns:
+            list: V1DataAssuranceAssurancesGlobalGetResponseRow entries (empty list on error).
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/data/assurance/assurances/global"
+        try:
+            LOG.info("get_data_assurance_policies: Retrieving all Data Assurance policies")
+            response = self.api.v1_data_assurance_assurances_global_get(authorization=self.bearer_token)
+            rows = response.rows or [] if response else []
+            LOG.info("get_data_assurance_policies: Retrieved %s policies", len(rows))
+            return rows
+        except ApiException as e:
+            self._log_api_error(method_name="get_data_assurance_policies", api_url=api_url, exception=e)
+            return []
+
+    def get_data_assurance_policy_config(self, assurance_id: int):
+        """
+        Get the full ManaV2AssuranceConfig for a specific Data Assurance policy.
+
+        GET /v1/data/assurance/assurances/global/{id}
+
+        Args:
+            assurance_id (int): The assurance policy ID.
+
+        Returns:
+            ManaV2AssuranceConfig or None if not found.
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/data/assurance/assurances/global/{assurance_id}"
+        try:
+            LOG.info("get_data_assurance_policy_config: Fetching config for assurance ID %s", assurance_id)
+            response = self.api.v1_data_assurance_assurances_global_id_get(
+                authorization=self.bearer_token, id=assurance_id
+            )
+            config = response.config if response else None
+            LOG.info("get_data_assurance_policy_config: Retrieved config for assurance ID %s", assurance_id)
+            return config
+        except ApiException as e:
+            self._log_api_error(
+                method_name="get_data_assurance_policy_config",
+                api_url=api_url,
+                path_params={"id": assurance_id},
+                exception=e,
+            )
+            return None
+
+    def create_data_assurance_policy(self, config: dict) -> dict:
+        """
+        Create a new Data Assurance policy.
+
+        POST /v1/data/assurance/assurances/global
+
+        Args:
+            config (dict): ManaV2AssuranceConfig fields (name, apps, flexAlgo,
+                lanNames, siteListId, useAllSites).
+
+        Returns:
+            dict: Response containing ``assuranceId``.
+        """
+        request_body = {"config": config}
+        api_url = f"{self.api.api_client.configuration.host}/v1/data/assurance/assurances/global"
+        if getattr(self, "check_mode", False):
+            try:
+                validated = graphiant_sdk.V1DataAssuranceAssurancesGlobalPostRequest.model_validate(
+                    request_body
+                ).to_dict()
+            except Exception as sdk_e:
+                raise ValidationError(
+                    f"create_data_assurance_policy: Payload failed SDK schema validation: {sdk_e}"
+                ) from sdk_e
+            LOG.info(
+                "[check_mode] create_data_assurance_policy would create: %s",
+                json.dumps(validated, indent=2),
+            )
+            return {"assuranceId": 0}
+        try:
+            LOG.info("create_data_assurance_policy: Creating policy '%s'", config.get("name"))
+            response = self.api.v1_data_assurance_assurances_global_post(
+                authorization=self.bearer_token,
+                v1_data_assurance_assurances_global_post_request=request_body,
+            )
+            assurance_id = getattr(response, "assurance_id", None) or getattr(response, "assuranceId", None)
+            LOG.info("create_data_assurance_policy: Created policy with ID %s", assurance_id)
+            return response.to_dict() if hasattr(response, "to_dict") else {"assuranceId": assurance_id}
+        except ApiException as e:
+            self._log_api_error(
+                method_name="create_data_assurance_policy",
+                api_url=api_url,
+                request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    def update_data_assurance_policy(self, assurance_id: int, config: dict) -> dict:
+        """
+        Overwrite an existing Data Assurance policy.
+
+        PUT /v1/data/assurance/assurances/global/{id}
+
+        Args:
+            assurance_id (int): The assurance policy ID.
+            config (dict): Full ManaV2AssuranceConfig replacement payload.
+
+        Returns:
+            dict: Response (may contain ``unsyncedDeviceNames``).
+        """
+        request_body = {"config": config}
+        api_url = f"{self.api.api_client.configuration.host}/v1/data/assurance/assurances/global/{assurance_id}"
+        if getattr(self, "check_mode", False):
+            LOG.info(
+                "[check_mode] update_data_assurance_policy would update ID %s: %s",
+                assurance_id,
+                json.dumps(request_body, indent=2),
+            )
+            return {}
+        try:
+            LOG.info("update_data_assurance_policy: Updating policy ID %s", assurance_id)
+            response = self.api.v1_data_assurance_assurances_global_id_put(
+                authorization=self.bearer_token,
+                id=assurance_id,
+                v1_data_assurance_assurances_global_id_put_request=request_body,
+            )
+            LOG.info("update_data_assurance_policy: Successfully updated policy ID %s", assurance_id)
+            return response.to_dict() if hasattr(response, "to_dict") else {}
+        except ApiException as e:
+            self._log_api_error(
+                method_name="update_data_assurance_policy",
+                api_url=api_url,
+                path_params={"id": assurance_id},
+                request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    def delete_data_assurance_policy(self, assurance_id: int) -> None:
+        """
+        Delete a Data Assurance policy by ID.
+
+        DELETE /v1/data/assurance/assurances/global/{id}
+
+        Args:
+            assurance_id (int): The assurance policy ID.
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/data/assurance/assurances/global/{assurance_id}"
+        if getattr(self, "check_mode", False):
+            LOG.info("[check_mode] delete_data_assurance_policy would delete ID %s", assurance_id)
+            return
+        try:
+            LOG.info("delete_data_assurance_policy: Deleting policy ID %s", assurance_id)
+            self.api.v1_data_assurance_assurances_global_id_delete(authorization=self.bearer_token, id=assurance_id)
+            LOG.info("delete_data_assurance_policy: Successfully deleted policy ID %s", assurance_id)
+        except ApiException as e:
+            self._log_api_error(
+                method_name="delete_data_assurance_policy",
+                api_url=api_url,
+                path_params={"id": assurance_id},
+                exception=e,
+            )
+            raise e
+
+    def get_data_assurance_bucket_apps(self, bucket_id, time_window: dict) -> list:
+        """
+        List the applications observed/classified in a Data Assurance bucket (profile).
+
+        POST /v2/assurance/bucket_apps
+
+        This is telemetry: it returns the apps seen in the bucket over ``time_window``,
+        not a static catalog. The ``bucket_id`` is the AssuranceBucket enum *name* string
+        (e.g. ``"Graphiant_Assured"``) — i.e. the same value users pass as ``profileName``.
+
+        Args:
+            bucket_id: AssuranceBucket enum name (profileName), e.g. ``"General_Assured"``.
+            time_window (dict): ``{recentTs, oldTs, bucketSizeSec}`` window to query.
+
+        Returns:
+            list: AssuranceBucketApp entries (each has app_name, builtin_app_id,
+                custom_app_id, is_domain); empty list on error.
+        """
+        request_body = {"bucketId": bucket_id, "timeWindow": time_window}
+        api_url = f"{self.api.api_client.configuration.host}/v2/assurance/bucket-apps"
+        try:
+            LOG.info("get_data_assurance_bucket_apps: Retrieving apps for bucket '%s'", bucket_id)
+            response = self.api.v2_assurance_bucket_apps_post(
+                authorization=self.bearer_token,
+                v2_assurance_bucket_apps_post_request=request_body,
+            )
+            apps = (response.apps or []) if response else []
+            LOG.info("get_data_assurance_bucket_apps: Retrieved %s apps for bucket '%s'", len(apps), bucket_id)
+            return apps
+        except ApiException as e:
+            self._log_api_error(
+                method_name="get_data_assurance_bucket_apps",
+                api_url=api_url,
+                request_body=request_body,
+                exception=e,
+            )
+            return []
+
+    def get_data_assurance_bucket_app_servers(self, bucket_id, app_name: str, time_window: dict) -> list:
+        """
+        List the back-end servers observed for an application within a Data Assurance bucket.
+
+        POST /v2/assurance/bucket-app-servers
+
+        Like the bucket-apps query, this is telemetry over ``time_window``. ``bucket_id`` is the
+        AssuranceBucket enum *name* string (i.e. the ``profileName``).
+
+        Args:
+            bucket_id: AssuranceBucket enum name (profileName), e.g. ``"General_Assured"``.
+            app_name (str): The application name to scope servers to.
+            time_window (dict): ``{recentTs, oldTs, bucketSizeSec}`` window to query.
+
+        Returns:
+            list: AssuranceBucketAppServer entries (each has server_ip, server_port,
+                server_protocol); empty list on error.
+        """
+        request_body = {"bucketId": bucket_id, "appName": app_name, "timeWindow": time_window}
+        api_url = f"{self.api.api_client.configuration.host}/v2/assurance/bucket-app-servers"
+        try:
+            LOG.info(
+                "get_data_assurance_bucket_app_servers: Retrieving servers for bucket '%s' app '%s'",
+                bucket_id,
+                app_name,
+            )
+            response = self.api.v2_assurance_bucket_app_servers_post(
+                authorization=self.bearer_token,
+                v2_assurance_bucket_app_servers_post_request=request_body,
+            )
+            servers = (response.app_servers or []) if response else []
+            LOG.info(
+                "get_data_assurance_bucket_app_servers: Retrieved %s servers for bucket '%s' app '%s'",
+                len(servers),
+                bucket_id,
+                app_name,
+            )
+            return servers
+        except ApiException as e:
+            self._log_api_error(
+                method_name="get_data_assurance_bucket_app_servers",
+                api_url=api_url,
+                request_body=request_body,
+                exception=e,
+            )
+            return []
+
+    # -------------------------------------------------------------------------
+    # Content Filter (block-by-category)
+    # -------------------------------------------------------------------------
+
+    def get_domain_categories(self) -> list:
+        """
+        List the available domain categories for content-filter (block-by-category) rules.
+
+        GET /v1/global/domain-categories
+
+        Returns:
+            list: ManaV2DomainCategory entries (each has id, name, description, type);
+                empty list on error.
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/global/domain-categories"
+        try:
+            LOG.info("get_domain_categories: Retrieving domain categories")
+            response = self.api.v1_global_domain_categories_get(authorization=self.bearer_token)
+            categories = (response.domain_categories or []) if response else []
+            LOG.info("get_domain_categories: Retrieved %s categories", len(categories))
+            return categories
+        except ApiException as e:
+            self._log_api_error(method_name="get_domain_categories", api_url=api_url, exception=e)
+            return []
+
+    def get_content_filters(self) -> list:
+        """
+        List all content-filter policies for the current enterprise.
+
+        GET /v1/global/content-filters
+
+        Returns:
+            list: V1GlobalContentFiltersGetResponseRow entries (empty list on error).
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/global/content-filters"
+        try:
+            LOG.info("get_content_filters: Retrieving all content-filter policies")
+            response = self.api.v1_global_content_filters_get(authorization=self.bearer_token)
+            rows = (response.rows or []) if response else []
+            LOG.info("get_content_filters: Retrieved %s content-filter policies", len(rows))
+            return rows
+        except ApiException as e:
+            self._log_api_error(method_name="get_content_filters", api_url=api_url, exception=e)
+            return []
+
+    def get_content_filter_config(self, content_filter_id: int):
+        """
+        Get the full ManaV2GlobalContentFilterConfig for a content-filter policy.
+
+        GET /v1/global/content-filters/{id}
+
+        Args:
+            content_filter_id (int): The content-filter policy ID.
+
+        Returns:
+            ManaV2GlobalContentFilterConfig or None if not found.
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/global/content-filters/{content_filter_id}"
+        try:
+            LOG.info("get_content_filter_config: Fetching config for content-filter ID %s", content_filter_id)
+            response = self.api.v1_global_content_filters_global_content_filter_id_get(
+                authorization=self.bearer_token, global_content_filter_id=content_filter_id
+            )
+            config = response.config if response else None
+            LOG.info("get_content_filter_config: Retrieved config for content-filter ID %s", content_filter_id)
+            return config
+        except ApiException as e:
+            self._log_api_error(
+                method_name="get_content_filter_config",
+                api_url=api_url,
+                path_params={"id": content_filter_id},
+                exception=e,
+            )
+            return None
+
+    def create_content_filter(self, config: dict) -> dict:
+        """
+        Create a new content-filter (block-by-category) policy.
+
+        POST /v1/global/content-filters
+
+        Args:
+            config (dict): ManaV2GlobalContentFilterConfig fields (name, rules,
+                lanNames, siteListId, useAllSites).
+
+        Returns:
+            dict: Response containing the new content-filter ID.
+        """
+        request_body = {"config": config}
+        api_url = f"{self.api.api_client.configuration.host}/v1/global/content-filters"
+        if getattr(self, "check_mode", False):
+            try:
+                validated = graphiant_sdk.V1GlobalContentFiltersPostRequest.model_validate(request_body).to_dict()
+            except Exception as sdk_e:
+                raise ValidationError(
+                    f"create_content_filter: Payload failed SDK schema validation: {sdk_e}"
+                ) from sdk_e
+            LOG.info("[check_mode] create_content_filter would create: %s", json.dumps(validated, indent=2))
+            return {"globalContentFilterId": 0}
+        try:
+            LOG.info("create_content_filter: Creating content-filter '%s'", config.get("name"))
+            response = self.api.v1_global_content_filters_post(
+                authorization=self.bearer_token,
+                v1_global_content_filters_post_request=request_body,
+            )
+            return response.to_dict() if hasattr(response, "to_dict") else {}
+        except ApiException as e:
+            self._log_api_error(
+                method_name="create_content_filter",
+                api_url=api_url,
+                request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    def update_content_filter(self, content_filter_id: int, config: dict) -> dict:
+        """
+        Overwrite an existing content-filter policy.
+
+        PUT /v1/global/content-filters/{id}
+
+        Args:
+            content_filter_id (int): The content-filter policy ID.
+            config (dict): Full ManaV2GlobalContentFilterConfig replacement payload.
+
+        Returns:
+            dict: Response (may contain ``unsyncedDeviceNames``).
+        """
+        request_body = {"config": config}
+        api_url = f"{self.api.api_client.configuration.host}/v1/global/content-filters/{content_filter_id}"
+        if getattr(self, "check_mode", False):
+            LOG.info(
+                "[check_mode] update_content_filter would update ID %s: %s",
+                content_filter_id,
+                json.dumps(request_body, indent=2),
+            )
+            return {}
+        try:
+            LOG.info("update_content_filter: Updating content-filter ID %s", content_filter_id)
+            response = self.api.v1_global_content_filters_global_content_filter_id_put(
+                authorization=self.bearer_token,
+                global_content_filter_id=content_filter_id,
+                v1_global_content_filters_global_content_filter_id_put_request=request_body,
+            )
+            LOG.info("update_content_filter: Successfully updated content-filter ID %s", content_filter_id)
+            return response.to_dict() if hasattr(response, "to_dict") else {}
+        except ApiException as e:
+            self._log_api_error(
+                method_name="update_content_filter",
+                api_url=api_url,
+                path_params={"id": content_filter_id},
+                request_body=request_body,
+                exception=e,
+            )
+            raise e
+
+    def delete_content_filter(self, content_filter_id: int) -> None:
+        """
+        Delete a content-filter policy by ID.
+
+        DELETE /v1/global/content-filters/{id}
+
+        Args:
+            content_filter_id (int): The content-filter policy ID.
+        """
+        api_url = f"{self.api.api_client.configuration.host}/v1/global/content-filters/{content_filter_id}"
+        if getattr(self, "check_mode", False):
+            LOG.info("[check_mode] delete_content_filter would delete ID %s", content_filter_id)
+            return
+        try:
+            LOG.info("delete_content_filter: Deleting content-filter ID %s", content_filter_id)
+            self.api.v1_global_content_filters_global_content_filter_id_delete(
+                authorization=self.bearer_token, global_content_filter_id=content_filter_id
+            )
+            LOG.info("delete_content_filter: Successfully deleted content-filter ID %s", content_filter_id)
+        except ApiException as e:
+            self._log_api_error(
+                method_name="delete_content_filter",
+                api_url=api_url,
+                path_params={"id": content_filter_id},
+                exception=e,
+            )
+            raise e

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: schemathesis
-Version: 4.26.0
+Version: 4.26.1
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -34,7 +34,7 @@ Requires-Dist: click<9,>=8.0
 Requires-Dist: harfile<1.0,>=0.5.0
 Requires-Dist: hypothesis-graphql<1,>=0.13.2
 Requires-Dist: hypothesis<7,>=6.130.12
-Requires-Dist: jsonschema-rs<0.56.0,>=0.55.0
+Requires-Dist: jsonschema-rs<0.56.0,>=0.55.1
 Requires-Dist: pyrate-limiter<5.0,>=4.0
 Requires-Dist: pytest<10,>=9
 Requires-Dist: pyyaml<7.0,>=5.1
@@ -47,7 +47,6 @@ Provides-Extra: allure
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'allure'
 Provides-Extra: bench
 Requires-Dist: pytest-codspeed==5.0.3; extra == 'bench'
-Requires-Dist: pytest-test-groups==1.2.1; extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
 Requires-Dist: coverage[toml]>=5.3; extra == 'cov'
@@ -68,7 +67,6 @@ Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'dev'
 Requires-Dist: pytest-codspeed==5.0.3; extra == 'dev'
 Requires-Dist: pytest-httpserver<2.0,>=1.0; extra == 'dev'
 Requires-Dist: pytest-mock<4.0,>=3.7.0; extra == 'dev'
-Requires-Dist: pytest-test-groups==1.2.1; extra == 'dev'
 Requires-Dist: pytest-trio<1.0,>=0.8; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0,>=3; extra == 'dev'
 Requires-Dist: seaborn>=0.13; extra == 'dev'

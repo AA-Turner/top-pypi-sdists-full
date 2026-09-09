@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: alphagenome
-Version: 0.8.0
+Version: 0.9.0
 Summary: A Python SDK for interacting and visualizing genomic models.
 Project-URL: Repository, https://github.com/google-deepmind/alphagenome
 Project-URL: Documentation, https://www.alphagenomedocs.com/

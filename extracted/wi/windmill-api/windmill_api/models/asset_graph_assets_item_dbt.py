@@ -7,6 +7,7 @@ from ..models.asset_graph_assets_item_dbt_resource_type import AssetGraphAssetsI
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.asset_graph_assets_item_dbt_column_schema_item import AssetGraphAssetsItemDbtColumnSchemaItem
     from ..models.asset_graph_assets_item_dbt_columns import AssetGraphAssetsItemDbtColumns
     from ..models.asset_graph_assets_item_dbt_data_tests_item import AssetGraphAssetsItemDbtDataTestsItem
     from ..models.asset_graph_assets_item_dbt_freshness import AssetGraphAssetsItemDbtFreshness
@@ -30,8 +31,13 @@ class AssetGraphAssetsItemDbt:
             tags (Union[Unset, List[str]]):
             description (Union[Unset, str]):
             data_tests (Union[Unset, List['AssetGraphAssetsItemDbtDataTestsItem']]):
-            columns (Union[Unset, AssetGraphAssetsItemDbtColumns]): Declared column metadata (name -> description). NOT
-                column lineage — `manifest.json` carries none.
+            columns (Union[Unset, AssetGraphAssetsItemDbtColumns]): Declared column metadata (name -> description) — what
+                `manifest.json` carries, which is only the columns an author wrote down. Omitted when the caller cannot read the
+                script.
+            column_schema (Union[Unset, List['AssetGraphAssetsItemDbtColumnSchemaItem']]): Every column of the relation,
+                typed and in the order the model produces them, from the engine's static analysis. Present only for a project
+                that opted into it, and gated like `columns` and the model's SQL: a full column list is the shape of what the
+                author wrote.
             freshness (Union[Unset, AssetGraphAssetsItemDbtFreshness]): A source's declared freshness policy, for the
                 staleness chip.
             raw_code (Union[Unset, str]): The model's SQL as written, at the deploy this graph belongs to. Omitted when the
@@ -47,6 +53,7 @@ class AssetGraphAssetsItemDbt:
     description: Union[Unset, str] = UNSET
     data_tests: Union[Unset, List["AssetGraphAssetsItemDbtDataTestsItem"]] = UNSET
     columns: Union[Unset, "AssetGraphAssetsItemDbtColumns"] = UNSET
+    column_schema: Union[Unset, List["AssetGraphAssetsItemDbtColumnSchemaItem"]] = UNSET
     freshness: Union[Unset, "AssetGraphAssetsItemDbtFreshness"] = UNSET
     raw_code: Union[Unset, str] = UNSET
     original_file_path: Union[Unset, str] = UNSET
@@ -75,6 +82,14 @@ class AssetGraphAssetsItemDbt:
         if not isinstance(self.columns, Unset):
             columns = self.columns.to_dict()
 
+        column_schema: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.column_schema, Unset):
+            column_schema = []
+            for column_schema_item_data in self.column_schema:
+                column_schema_item = column_schema_item_data.to_dict()
+
+                column_schema.append(column_schema_item)
+
         freshness: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.freshness, Unset):
             freshness = self.freshness.to_dict()
@@ -102,6 +117,8 @@ class AssetGraphAssetsItemDbt:
             field_dict["data_tests"] = data_tests
         if columns is not UNSET:
             field_dict["columns"] = columns
+        if column_schema is not UNSET:
+            field_dict["column_schema"] = column_schema
         if freshness is not UNSET:
             field_dict["freshness"] = freshness
         if raw_code is not UNSET:
@@ -113,6 +130,7 @@ class AssetGraphAssetsItemDbt:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.asset_graph_assets_item_dbt_column_schema_item import AssetGraphAssetsItemDbtColumnSchemaItem
         from ..models.asset_graph_assets_item_dbt_columns import AssetGraphAssetsItemDbtColumns
         from ..models.asset_graph_assets_item_dbt_data_tests_item import AssetGraphAssetsItemDbtDataTestsItem
         from ..models.asset_graph_assets_item_dbt_freshness import AssetGraphAssetsItemDbtFreshness
@@ -144,6 +162,13 @@ class AssetGraphAssetsItemDbt:
         else:
             columns = AssetGraphAssetsItemDbtColumns.from_dict(_columns)
 
+        column_schema = []
+        _column_schema = d.pop("column_schema", UNSET)
+        for column_schema_item_data in _column_schema or []:
+            column_schema_item = AssetGraphAssetsItemDbtColumnSchemaItem.from_dict(column_schema_item_data)
+
+            column_schema.append(column_schema_item)
+
         _freshness = d.pop("freshness", UNSET)
         freshness: Union[Unset, AssetGraphAssetsItemDbtFreshness]
         if isinstance(_freshness, Unset):
@@ -164,6 +189,7 @@ class AssetGraphAssetsItemDbt:
             description=description,
             data_tests=data_tests,
             columns=columns,
+            column_schema=column_schema,
             freshness=freshness,
             raw_code=raw_code,
             original_file_path=original_file_path,

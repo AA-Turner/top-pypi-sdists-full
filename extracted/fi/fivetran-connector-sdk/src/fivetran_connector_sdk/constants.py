@@ -1,6 +1,8 @@
+import os
+
 from fivetran_connector_sdk.protos import common_pb2
 
-TESTER_VERSION = "2.26.0810.001"
+TESTER_VERSION = "2.26.0908.001"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"
@@ -37,8 +39,11 @@ VERSION_FILENAME = "version.txt"
 UPLOAD_FILENAME = "code.zip"
 CONFIGURATION_FORM_FILENAME = "configuration_form.pb"
 LAST_VERSION_CHECK_FILE = "_last_version_check"
-ROOT_LOCATION = ".ft_sdk_connector_tester"
+ROOT_LOCATION = os.path.join(".fivetran", "connector_sdk")
+TESTER_LOCATION = "tester"
 CONFIG_FILE = "_config.json"
+CONFIG_ENCRYPTION_KEY_FILE = "config_encryption_key"
+ENCRYPTED_VALUE_PREFIX = "fivetran_encrypted:"
 OUTPUT_FILES_DIR = "files"
 REQUIREMENTS_TXT = "requirements.txt"
 PYPROJECT_TOML = "pyproject.toml"
@@ -54,14 +59,16 @@ MEMORY_LIMIT_BYTES = 4 * 1024 ** 3  # 4 GB memory limit to simulate memory const
 CHECKPOINT_OP_TIMEOUT_IN_SEC = 120 # seconds
 FIFO_READ_TIMEOUT_SECONDS = 30 # seconds - timeout for reading from FIFOs (named pipes)
 MAX_RETRIES = 3
-LOGGING_PREFIX = "⚡ sdk "
+SDK_LOGGING_PREFIX = "⚡ sdk "
+DEBUGGER_LOGGING_PREFIX = "⚡ debugger"
+CONNECTOR_LOGGING_PREFIX = "⚡ connector"
 VIRTUAL_ENV_CONFIG = "pyvenv.cfg"
 GITIGNORE_FILENAME = ".gitignore"
 ROOT_FILENAME = "connector.py"
 MAX_RECORDS_IN_BATCH = 100
 MAX_BATCH_SIZE_IN_BYTES = 100000 # Default 100 KB
 QUEUE_SIZE = 100
-CONNECTOR_SDK_SUPPORT_UNSTRUCTURED_DATA = "CONNECTOR_SDK_SUPPORT_UNSTRUCTURED_DATA"
+CONNECTOR_SDK_MEMORY_TRACKING_IN_SYNC = "CONNECTOR_SDK_MEMORY_TRACKING_IN_SYNC"
 FILE_UPLOAD_CHUNK_SIZE_BYTES = int(2 * 1024 * 1024) # 2 MB
 FILE_UPLOAD_READ_TIMEOUT_SEC = int(300) # 5 minutes
 FIVETRAN_FILE_PATH_COLUMN = "_fivetran_file_path"
@@ -103,6 +110,9 @@ CONNECTORS_GITHUB_REPO = "fivetran/community_connectors"
 CONNECTORS_TEMPLATE_PREFIX = "connectors/"
 TOOLS_GITHUB_REPO = "fivetran/connector_sdk_tools"
 TOOLS_GITHUB_REPO_URL = f"https://github.com/{TOOLS_GITHUB_REPO}"
+AI_TOOLS_INSTALLATION_DOCS_URL = (
+    "https://fivetran.com/docs/connector-sdk/building-connectors/ai-tools#installingtheplugin"
+)
 TOOLS_PLUGIN_ID = "fivetran-connector-sdk-ai"
 TOOLS_PLUGIN_NAME = f"fivetran-connector-sdk@{TOOLS_PLUGIN_ID}"
 AGENT_PLUGINS = {

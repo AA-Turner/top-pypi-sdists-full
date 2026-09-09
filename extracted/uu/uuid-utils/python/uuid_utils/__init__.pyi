@@ -164,21 +164,33 @@ else:
         """Generate a UUID from the SHA-1 hash of a namespace UUID and a name."""
         ...
 
-def uuid6(
-    node: int | None = None, timestamp: int | None = None, nanos: int | None = None
-) -> UUID:
-    """Generate a version 6 UUID using the given timestamp and a host ID.
-    This is similar to version 1 UUIDs,
-    except that it is lexicographically sortable by timestamp.
+def uuid6(node: int | None = None, clock_seq: int | None = None) -> UUID:
+    """Similar to `uuid1` but where fields are ordered differently
+    for improved DB locality.
+
+    More precisely, given a 60-bit timestamp value as specified for UUIDv1,
+    for UUIDv6 the first 48 most significant bits are stored first, followed
+    by the 4-bit version (same position), followed by the remaining 12 bits
+    of the original 60-bit timestamp.
     """
     ...
 
-def uuid7(timestamp: int | None = None, nanos: int | None = None) -> UUID:
-    """Generate a version 7 UUID using a time value and random bytes."""
+def uuid7(*, nanoseconds: int | None = None) -> UUID:
+    """Generate a UUID from a Unix timestamp in milliseconds and random bits.
+
+    UUIDv7 objects feature monotonicity within a millisecond.
+    """
     ...
 
-def uuid8(bytes: bytes) -> UUID:
-    """Generate a custom UUID comprised almost entirely of user-supplied bytes."""
+def uuid8(a: int | None = None, b: int | None = None, c: int | None = None) -> UUID:
+    """Generate a UUID from three custom blocks.
+
+    * 'a' is the first 48-bit chunk of the UUID (octets 0-5);
+    * 'b' is the mid 12-bit chunk (octets 6-7);
+    * 'c' is the last 62-bit chunk (octets 8-15).
+
+    When a value is not specified, a pseudo-random value is generated.
+    """
     ...
 
 NAMESPACE_DNS: Final[UUID]

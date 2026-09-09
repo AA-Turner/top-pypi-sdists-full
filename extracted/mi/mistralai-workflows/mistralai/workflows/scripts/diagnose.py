@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic import AliasChoices, SecretStr
 from temporalio.runtime import Runtime, TelemetryConfig
-from temporalio.service import ConnectConfig, HttpConnectProxyConfig
+from temporalio.service import ConnectConfig, HttpConnectProxyConfig, TLSConfig
 from temporalio.service import ServiceClient as TemporalServiceClient
 
 _SECRET_HEADER_NAMES = {"authorization", "x-api-key", "api-key", "x-auth-token", "x-api-secret"}
@@ -357,10 +357,12 @@ async def _check_whoami(mistral_server: str, mistral_api_key: str | None) -> Any
 
 async def _check_temporal(
     temporal_server: str,
-    temporal_tls: bool,
+    temporal_tls: bool | TLSConfig,
     temporal_api_key: str | None,
     http_connect_proxy_config: HttpConnectProxyConfig | None = None,
 ) -> None:
+    # A TLSConfig repr would dump the whole PEM into the report, so label it instead.
+    tls_label = "pinned-ca" if isinstance(temporal_tls, TLSConfig) else str(bool(temporal_tls))
     try:
         await TemporalServiceClient.connect(
             ConnectConfig(
@@ -371,9 +373,9 @@ async def _check_temporal(
                 http_connect_proxy_config=http_connect_proxy_config,
             )
         )
-        print(f"  [OK]   Temporal ({temporal_server}, tls={temporal_tls})")
+        print(f"  [OK]   Temporal ({temporal_server}, tls={tls_label})")
     except Exception as exc:
-        print(f"  [FAIL] Temporal ({temporal_server}, tls={temporal_tls}): {exc}")
+        print(f"  [FAIL] Temporal ({temporal_server}, tls={tls_label}): {exc}")
 
 
 async def _check_connectivity(config: Any) -> None:
@@ -401,8 +403,24 @@ async def _check_connectivity(config: Any) -> None:
         temporal_server = os.environ.get("TEMPORAL_SERVER_URL", "localhost:7233")
         temporal_tls = False
 
+    temporal_tls_setting: bool | TLSConfig = temporal_tls
+    ca_failed = False
     if not isinstance(config, Exception):
         temporal_api_key = config.temporal.api_key.get_secret_value() if config.temporal.api_key else mistral_api_key
+        if config.temporal.tls_server_root_ca_cert_path:
+            from mistralai.workflows.core.config.config import adopt_remote_default
+            from mistralai.workflows.core.temporal.temporal_client import _resolve_temporal_tls
+
+            # Diagnose never calls apply_worker_runtime_config(), so adopt whoami's flag the way the
+            # worker does: local configuration wins if it set `tls`, otherwise whoami supplies it.
+            adopt_remote_default(config.temporal, "tls", temporal_tls)
+            try:
+                temporal_tls_setting = _resolve_temporal_tls(
+                    config.temporal.tls, config.temporal.tls_server_root_ca_cert_path
+                )
+            except Exception as exc:
+                print(f"  [FAIL] Temporal TLS root CA: {exc}")
+                ca_failed = True
         http_connect_proxy_config: HttpConnectProxyConfig | None = None
         if config.temporal.http_proxy_target_host:
             from mistralai.workflows.core.temporal.temporal_client import _get_proxy_basic_auth
@@ -419,7 +437,13 @@ async def _check_connectivity(config: Any) -> None:
         temporal_api_key = os.environ.get("TEMPORAL_API_KEY") or mistral_api_key
         http_connect_proxy_config = None
 
-    await _check_temporal(temporal_server, temporal_tls, temporal_api_key, http_connect_proxy_config)
+    if ca_failed:
+        # Connecting anyway would use the default trust roots and could report [OK] for a
+        # configuration a worker refuses to start with.
+        print(f"  [SKIP] Temporal ({temporal_server}): unusable TLS root CA, a worker would fail to start")
+        return
+
+    await _check_temporal(temporal_server, temporal_tls_setting, temporal_api_key, http_connect_proxy_config)
 
 
 def main() -> None:

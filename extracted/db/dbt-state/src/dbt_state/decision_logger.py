@@ -19,6 +19,7 @@ from dbt.contracts.graph.nodes import (
     ManifestNode,
     SeedNode,
 )
+from query_cache_common.models.shared_models import SubmitSQLResultType
 
 import dbt_state.utils as utils
 from dbt_state.config import CloneIncrementalInDev, RunCacheConfig
@@ -37,6 +38,7 @@ DACITE_CONFIG = dacite.Config(
     type_hooks={
         datetime.datetime: datetime.datetime.fromisoformat,
         CloneIncrementalInDev: CloneIncrementalInDev,
+        SubmitSQLResultType: SubmitSQLResultType,
     },
 )
 
@@ -58,6 +60,8 @@ class RunConfigEntry:
     target_name: str
     select: t.List[str]
     exclude: t.List[str]
+    store_failures: t.Optional[bool] = None
+    store_failures_as: t.Optional[str] = None
 
 
 @dataclass
@@ -70,6 +74,9 @@ class RunStartEntry:
     def from_config(
         cls, run_cache_config: RunCacheConfig, dbt_config: RuntimeConfig
     ) -> RunStartEntry:
+        data_tests = (
+            getattr(dbt_config, "data_tests", None) or getattr(dbt_config, "tests", None) or {}
+        )
         return cls(
             start_timestamp_utc=datetime.datetime.now(datetime.timezone.utc),
             run_config=RunConfigEntry(
@@ -82,6 +89,10 @@ class RunStartEntry:
                 metadata_cache_ttl_seconds=run_cache_config.metadata_cache_ttl,
                 snowflake_get_view_ddl_override=run_cache_config.snowflake_get_view_ddl_override,
                 allow_clones=run_cache_config.allow_clones,
+                store_failures=data_tests.get("+store_failures", data_tests.get("store_failures")),
+                store_failures_as=data_tests.get(
+                    "+store_failures_as", data_tests.get("store_failures_as")
+                ),
                 # dbt
                 profile_name=dbt_config.profile_name,
                 target_name=dbt_config.target_name,
@@ -105,6 +116,13 @@ class DevCloneInfo:
 
 
 @dataclass
+class StoredFailuresInfo:
+    kind: str
+    decision: SubmitSQLResultType
+    decision_description: str = ""
+
+
+@dataclass
 class NodeInfo:
     fqn: str
     node_resource_type: str
@@ -116,6 +134,7 @@ class NodeInfo:
     is_incremental_or_snapshot: bool = False
     is_view: bool = False
     is_table: bool = True
+    stored_failures: t.Optional[StoredFailuresInfo] = None
 
 
 @dataclass
@@ -171,6 +190,16 @@ class BaseDecisionLogger(ABC):
     def log_dev_clone(self, node_name: str, source_fqn: str, target_fqn: str) -> None:
         """Log when a local dev clone occurred"""
         ...
+
+    @abstractmethod
+    def log_stored_failures(
+        self,
+        node_name: str,
+        kind: str,
+        decision: SubmitSQLResultType,
+        decision_description: str = "",
+    ) -> None:
+        """Log materialization and cache decisions of stored data test failures"""
 
     @abstractmethod
     def log_execution_decision_id(self, node_name: str, execution_decision_id: str) -> None:
@@ -268,6 +297,18 @@ class DecisionLogger(BaseDecisionLogger):
         if inflight := self._inflight.get(node_name):
             inflight.node_info.deferrals[relation_name] = deferred_to_fqn
 
+    def log_stored_failures(
+        self,
+        node_name: str,
+        kind: str,
+        decision: SubmitSQLResultType,
+        decision_description: str = "",
+    ) -> None:
+        if inflight := self._inflight.get(node_name):
+            inflight.node_info.stored_failures = StoredFailuresInfo(
+                kind=kind, decision=decision, decision_description=decision_description
+            )
+
     def log_execution_decision_id(self, node_name: str, execution_decision_id: str) -> None:
         """Log a decision response to the log file."""
         if inflight := self._inflight.get(node_name):
@@ -302,6 +343,16 @@ class NoOpLogger(BaseDecisionLogger):
         pass
 
     def log_dev_clone(self, node_name: str, source_fqn: str, target_fqn: str) -> None:
+        """No-op: NoOpLogger does not write logs."""
+        pass
+
+    def log_stored_failures(
+        self,
+        node_name: str,
+        kind: str,
+        decision: SubmitSQLResultType,
+        decision_description: str = "",
+    ) -> None:
         """No-op: NoOpLogger does not write logs."""
         pass
 

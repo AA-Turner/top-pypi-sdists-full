@@ -17,12 +17,6 @@ USE_DURABILITY = LANGGRAPH_PY_MINOR >= (0, 6)
 _RUNTIME_EDITION = os.getenv("LANGGRAPH_RUNTIME_EDITION", "inmem")
 IS_POSTGRES_BACKEND = _RUNTIME_EDITION == "postgres"
 IS_POSTGRES_OR_GRPC_BACKEND = IS_POSTGRES_BACKEND
-# Not in public docs: internal feature flag
-FF_USE_JS_API = os.getenv("FF_USE_JS_API", "false").lower() in (
-    "true",
-    "1",
-    "yes",
-)
 # Server-side kill switch for the Protocol v2 event-streaming surface
 # (#3296). When false, the v2 routes are not registered (clients hit a
 # 404), and ``_create_or_resume_run`` rejects any direct call with a

@@ -1303,6 +1303,27 @@ def _partition_review_comments(
     return author_comments, agent_comments
 
 
+def _push_coordination_block() -> list[str]:
+    """Return the initial repair instructions for concurrent branch pushes."""
+    return [
+        "",
+        "## Push and branch coordination",
+        "",
+        (
+            "Other repair agents may update this PR branch concurrently. Before pushing, fetch the remote "
+            "branch and compare its head with your local base. If the push is rejected because the remote "
+            "advanced or because of a non-fast-forward update, fetch again, merge the remote branch into your "
+            "local branch, resolve conflicts, rerun targeted checks, and retry the plain `git push` once. Do "
+            "not rebase, amend, or force-push."
+        ),
+        (
+            "Do not amend or force-push. If the server reports a protected ref or repository-rule violation, "
+            "record the complete error and stop. Before reporting success, verify that the remote head SHA "
+            "matches your local commit SHA and that the remote commit changes the assigned file."
+        ),
+    ]
+
+
 def _shared_decision_block() -> list[str]:
     """Return the ``parts`` entries carrying the four-option decision framework.
 
@@ -1471,11 +1492,8 @@ def _agent_section_lead_in(count: int, *, is_first_section: bool) -> list[str]:
     closing = (
         "For these comments, please reply to each one with your decision and the rationale behind it. If you "
         "made changes as a result of the comment, link the commit where the changes can be found in the reply. "
-        "If you create a follow-up issue (option 4), link the follow-up issue in the reply. If you decided on "
-        "option 4 but fail to create the follow-up issue for whatever reason, include everything needed to "
-        "create it (title, body, labels, issue type, etc.) in a `<details>` block at the end of your reply to "
-        "that comment. After you have replied to each comment, ensure that it is resolved and closed as well, "
-        "so that those comments no longer block a merge."
+        "For option 4, include the structured follow-up issue request described below; the local dispatcher "
+        "creates the issue and records its number in the task result."
     )
     entries = [
         "",
@@ -1739,6 +1757,7 @@ def _build_repair_comment(
         else:
             parts.append(_agent_opening_paragraph(len(agent_comments), is_first_section=True))
         parts.extend(_shared_decision_block())
+        parts.extend(_push_coordination_block())
         is_first = False
 
     if has_author_section:
@@ -1790,6 +1809,8 @@ def _build_repair_comment(
     # --- One heading block per failing check (actionable content) ---
     if has_ci:
         parts.extend(_ci_section_lead_in(len(failed_checks), is_first_section=is_first))
+        if not (has_author_section or agent_comments):
+            parts.extend(_push_coordination_block())
         log_budget = _condensed_log_budget(repair_type)
 
         cumulative_log_chars = 0

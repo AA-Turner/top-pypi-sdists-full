@@ -56,6 +56,12 @@ _CORE_MESSAGES = {
         "ru": "(правила ещё не зарегистрированы)",
         "en": "(no rules registered yet)",
     },
+    "cli.no-rules-selected": {
+        "ru": "Под отбор не подошло ни одно правило: {keys}. Отбирают по id правила, группе "
+              "(часть id до '/') или букве тира; всего правил: {total}.",
+        "en": "No rule matched the selection: {keys}. A selection takes a rule id, a group "
+              "(the part of the id before '/') or a tier letter; rules in all: {total}.",
+    },
     "code/unused-method.off": {
         "ru": "признак мёртвого кода неотличим от вызова по имени: метод могут звать строкой из HTML-вставки или ключом yaml. Проверка нарочно консервативна, но остаток ложных возможен – включайте, когда ищете мёртвый код целенаправленно",
         "en": "a dead method is indistinguishable from one called by name: a string inside an HTML insert or a yaml key. The check is deliberately conservative, yet false positives remain - enable it when you are hunting dead code on purpose",
@@ -113,6 +119,16 @@ _CORE_MESSAGES = {
         "ru": "выключено, потому что",
         "en": "off because",
     },
+    "cli.rule-param": {
+        "ru": "параметр {name} = {value} (умолчание {default}, env {env}) – {doc}",
+        "en": "parameter {name} = {value} (default {default}, env {env}) - {doc}",
+    },
+    "cli.run-params": {
+        "ru": "Параметры правил изменены переменными среды: {params} – замечания этого "
+              "прогона отличаются от прогона с умолчаниями",
+        "en": "Rule parameters changed by environment variables: {params} - the findings of "
+              "this run differ from a run on the defaults",
+    },
     "cli.data-error": {
         "ru": "Ошибка данных Элемента: {error}",
         "en": "Element data error: {error}",
@@ -147,9 +163,19 @@ _CORE_MESSAGES = {
         "ru": "устаревшая запись базлайна: {path} [{rule}] x{count} – {message}",
         "en": "stale baseline entry: {path} [{rule}] x{count} - {message}",
     },
+    "cli.baseline-stale-reason": {
+        "ru": "    причина записи: {reason}",
+        "en": "    the entry's reason: {reason}",
+    },
     "cli.baseline-pruned": {
         "ru": "Базлайн очищен: {path} (удалено записей: {removed})",
         "en": "Baseline pruned: {path} ({removed} entries removed)",
+    },
+    "cli.baseline-pruned-reasons": {
+        "ru": "Из снятых записей несли причину: {count} – после коммита их текст остаётся "
+              "только в истории git",
+        "en": "Of the removed entries {count} carried a reason - after the commit their text "
+              "lives on only in the git history",
     },
     "cli.baseline-summary": {
         "ru": "Погашено базлайном: {suppressed}; устаревших записей базлайна: {unused}",
@@ -211,6 +237,12 @@ _CORE_MESSAGES = {
         "ru": "Режим --fix несовместим с --baseline / --write-baseline.",
         "en": "--fix is incompatible with --baseline / --write-baseline.",
     },
+    "engine.param-bad-value": {
+        "ru": "Значение '{value}' в переменной {env} не разобрано – взято умолчание "
+              "{default}. Список параметров правил – xbsl --list-rules.",
+        "en": "The value '{value}' in {env} was not understood - the default {default} "
+              "stands. The parameters of the rules: xbsl --list-rules.",
+    },
     "engine.rule-crashed": {
         "ru": "Правило упало и пропущено, остальные отработали: {error}. "
               "Это ошибка самого линтера – сообщите о ней.",
@@ -265,16 +297,17 @@ _CORE_MESSAGES = {
               ".xbsllint-baseline is applied on its own)",
     },
     "cli.help.stale-baseline": {
-        "ru": "перечислить записи базлайна, которые больше ничего не гасят "
+        "ru": "перечислить записи базлайна, которые больше ничего не гасят, с их причинами "
               "(вместе с --baseline)",
-        "en": "list the baseline entries that no longer suppress anything "
-              "(together with --baseline)",
+        "en": "list the baseline entries that no longer suppress anything, with their "
+              "reasons (together with --baseline)",
     },
     "cli.help.prune-baseline": {
-        "ru": "перечислить устаревшие записи базлайна и удалить их из файла "
-              "(вместе с --baseline; счётчики живых записей не трогаются)",
-        "en": "list the stale baseline entries and remove them from the file "
-              "(together with --baseline; the counts of live entries are left alone)",
+        "ru": "перечислить устаревшие записи базлайна с их причинами и удалить их из файла "
+              "(вместе с --baseline; порядок файла и счётчики живых записей не трогаются)",
+        "en": "list the stale baseline entries with their reasons and remove them from the "
+              "file (together with --baseline; the file's order and the counts of live "
+              "entries are left alone)",
     },
     "cli.help.write-baseline": {
         "ru": "вместо отчёта записать все текущие находки в файл базлайна "
@@ -295,8 +328,10 @@ _CORE_MESSAGES = {
               "1 – sequential, N – an explicit worker count",
     },
     "cli.help.list-rules": {
-        "ru": "вывести список правил и выйти",
-        "en": "print the list of rules and exit",
+        "ru": "вывести список правил (с их параметрами и величинами) и выйти; вместе с "
+              "--select/--ignore список сужается так же, как набор прогона",
+        "en": "print the list of rules (with their parameters and values) and exit; together "
+              "with --select/--ignore the list narrows the way a run's rule set does",
     },
     "cli.help.where": {
         "ru": "показать корень данных Элемента (путь, источник, версии) и выйти",
@@ -900,6 +935,12 @@ _CORE_MESSAGES = {
         "en": "Presentation – the element caption (without it the very first lint answers "
               "naming/presentation)",
     },
+    "cli.help.scaf.no-base": {
+        "ru": "базовый тип компонента интерфейса (Группа, ФормаОбъекта<Товар.Объект>); "
+              "только для вида КомпонентИнтерфейса",
+        "en": "the base type of an interface component (Group, ObjectForm<Goods.Object>); "
+              "the InterfaceComponent kind only",
+    },
     "cli.help.scaf.add-localization": {
         "ru": "добавить файл перевода (раздел Локализация) к элементу ЛокализованныеСтроки",
         "en": "add a translation file (the Localization section) to a LocalizedStrings element",
@@ -911,6 +952,24 @@ _CORE_MESSAGES = {
     "cli.help.scaf.al-language": {
         "ru": "язык перевода: Русский/Английский или код Ru/En",
         "en": "the translation language: Russian/English or the Ru/En code",
+    },
+    "cli.help.scaf.set-localization": {
+        "ru": "записать строку локализации во все языки сразу: в элемент и в его переводы",
+        "en": "write one localized string into every language at once: the element and its"
+              " translations",
+    },
+    "cli.help.scaf.sl-name": {
+        "ru": "ключ строки локализации (одно слово)",
+        "en": "the key of the localized string (one word)",
+    },
+    "cli.help.scaf.sl-value": {
+        "ru": "текст на языке: --value Русский=Текст --value En=Text (можно несколько раз)",
+        "en": "the text in one language: --value Russian=Text --value En=Text (repeatable)",
+    },
+    "cli.help.scaf.sl-section": {
+        "ru": "секция: Строки или Шаблоны (по умолчанию – та, где ключ уже есть, иначе Строки)",
+        "en": "the section: Strings or Templates (default - the one the key already lives in,"
+              " else Strings)",
     },
     "cli.help.scaf.localization-info": {
         "ru": "языки и переводы элемента ЛокализованныеСтроки (кандидаты для add-localization)",

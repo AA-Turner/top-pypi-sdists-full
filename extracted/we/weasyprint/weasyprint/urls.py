@@ -5,7 +5,6 @@ import os.path
 import re
 import sys
 import traceback
-import warnings
 import zlib
 from email.message import EmailMessage
 from gzip import GzipFile
@@ -98,25 +97,6 @@ def url_is_absolute(url):
     return bool(scheme.match(url))
 
 
-def get_url_attribute(element, attr_name, base_url, allow_relative=False):
-    """Get the URI corresponding to the ``attr_name`` attribute.
-
-    Return ``None`` if:
-
-    * the attribute is empty or missing or,
-    * the value is a relative URI but the document has no base URI and
-      ``allow_relative`` is ``False``.
-
-    Otherwise return an URI, absolute if possible.
-
-    """
-    value = element.get(attr_name, '').strip()
-    if value:
-        return url_join(
-            base_url or '', value, allow_relative, '<%s %s="%s">',
-            (element.tag, attr_name, value))
-
-
 def get_url_tuple(url, base_url):
     """Get tuple describing internal or external URI."""
     if url.startswith('#'):
@@ -127,7 +107,7 @@ def get_url_tuple(url, base_url):
         return ('external', iri_to_uri(urljoin(base_url, url)))
 
 
-def url_join(base_url, url, allow_relative, context, context_args):
+def url_join(base_url, url, allow_relative, context):
     """Like urllib.urljoin, but warn if base_url is required but missing."""
     if url_is_absolute(url):
         return iri_to_uri(url)
@@ -136,24 +116,21 @@ def url_join(base_url, url, allow_relative, context, context_args):
     elif allow_relative:
         return iri_to_uri(url)
     else:
-        LOGGER.error(
-            f'Relative URI reference without a base URI: {context}',
-            *context_args)
+        LOGGER.error('Relative URI reference without a base URI: %s', context)
         return None
 
 
-def get_link_attribute(element, attr_name, base_url):
+def get_link(url, base_url):
     """Get the URL value of an element attribute.
 
     Return ``('external', absolute_uri)``, or ``('internal',
     unquoted_fragment_id)``, or ``None``.
 
     """
-    attr_value = element.get(attr_name, '').strip()
-    if attr_value.startswith('#') and len(attr_value) > 1:
+    if url.startswith('#') and len(url) > 1:
         # Do not require a base_url when the value is just a fragment.
-        return ('url', ('internal', unquote(attr_value[1:])))
-    uri = get_url_attribute(element, attr_name, base_url, allow_relative=True)
+        return ('url', ('internal', unquote(url[1:])))
+    uri = url_join(base_url or '', url, allow_relative=True, context=url)
     if uri:
         if base_url:
             try:
@@ -180,24 +157,6 @@ def ensure_url(string):
 
     """
     return string if url_is_absolute(string) else path2url(string)
-
-
-def default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None,
-                        allowed_protocols=None):
-    """Fetch an external resource such as an image or stylesheet.
-
-    This function is deprecated, use ``URLFetcher`` instead.
-
-    """
-    warnings.warn(
-        'default_url_fetcher is deprecated and will be removed in WeasyPrint 69.0, '
-        'please use URLFetcher instead. For security reasons, HTTP redirects are not '
-        'supported anymore with default_url_fetcher, but are with URLFetcher.\n\nSee '
-        'https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#url-fetchers',
-        category=DeprecationWarning)
-    fetcher = URLFetcher(
-        timeout, ssl_context, http_headers, allowed_protocols, allow_redirects=False)
-    return fetcher.fetch(url)
 
 
 @contextlib.contextmanager
@@ -245,8 +204,8 @@ def select_source(guess=None, filename=None, url=None, file_obj=None, string=Non
         with fetch(url_fetcher, url) as response:
             if check_css_mime_type and response.content_type != 'text/css':
                 LOGGER.error(
-                    f'Unsupported stylesheet type {response.content_type} '
-                    f'for {response.url}')
+                    'Unsupported stylesheet type %s for %s',
+                    response.content_type, response.url)
                 yield StringIO(''), base_url, None, None
             else:
                 if base_url is None:
@@ -466,23 +425,9 @@ def fetch(url_fetcher, url):
     try:
         resource = url_fetcher(url)
     except Exception as exception:
-        if getattr(url_fetcher, '_fail_on_errors', False):
+        if url_fetcher._fail_on_errors:
             raise FatalURLFetchingError(f'Error fetching "{url}"') from exception
         raise URLFetchingError(f'{type(exception).__name__}: {exception}')
-
-    if isinstance(resource, dict):
-        warnings.warn(
-            'Returning dicts in URL fetchers is deprecated and will be removed '
-            'in WeasyPrint 69.0, please return URLFetcherResponse instead.',
-            category=DeprecationWarning)
-        if 'url' not in resource:
-            resource['url'] = resource.get('redirected_url', url)
-        resource['body'] = resource.get('file_obj', resource.get('string'))
-        content_type = resource.get('mime_type', 'application/octet-stream')
-        if charset := resource.get('encoding'):
-            content_type += f'; charset={charset}'
-        resource['headers'] = {'Content-Type': content_type}
-        resource = URLFetcherResponse(**resource)
 
     assert isinstance(resource, URLFetcherResponse), (
         'URL fetcher must return either a dict or a URLFetcherResponse instance')

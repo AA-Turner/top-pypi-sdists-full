@@ -11,8 +11,9 @@ use crate::parser::ast::{
 };
 use crate::parser::{self, EntrypointResolution};
 use crate::reader::{
-    self, AutoFilterDef, DataValidationRule, DataValidationSpec, DateGroupItem, FilterColumn,
-    FilterCriteria, SheetCell, TableColumn, TableDef, TableEditOp, WorkbookSheet,
+    self, AutoFilterDef, DataValidationRule, DataValidationSpec, DateGroupItem,
+    ExternalLinksPolicy, FilterColumn, FilterCriteria, SheetCell, TableColumn, TableDef,
+    TableEditOp, WorkbookSheet,
 };
 
 /// Default deterministic budget for one VBA entrypoint run. Rust callers can
@@ -49,8 +50,8 @@ fn is_blocked_external_effect(reason: &str) -> bool {
 /// 2A) — re-exported here so every existing `vm::X` / `crate::vm::X`
 /// reference across the codebase keeps resolving unchanged.
 pub use crate::types::{
-    ArrayBound, CellContent, ExcelError, MAX_ARRAY_ELEMENTS, Variant, VbaArray, parse_cell_addr,
-    parse_range_addr, serial_to_display,
+    ArrayBound, ArrayShape, CellContent, ExcelError, MAX_ARRAY_ELEMENTS, SpillRect, Variant,
+    VbaArray, parse_cell_addr, parse_range_addr, serial_to_display,
 };
 
 /// A procedure's own `On Error` state — real VBA scopes this per Sub/
@@ -1044,13 +1045,13 @@ struct EditHistoryState {
     workbook_formula_tracking_valid: bool,
     workbook_formula_structure_dirty: bool,
     ooxml_structural_edit_dirty: bool,
+    spill_rects: HashMap<String, HashMap<(u32, u32), SpillRect>>,
 }
 
 #[derive(Clone)]
 struct EditTransaction {
     state: EditHistoryState,
     undo_len: usize,
-    redo: Vec<EditHistoryState>,
 }
 
 #[derive(Clone)]
@@ -1163,6 +1164,11 @@ pub struct Vm {
     /// True after a sheet/name/row/column structural edit whose chart/pivot
     /// references are not yet rewritten by the OOXML writer.
     pub(crate) ooxml_structural_edit_dirty: bool,
+    /// True only while structural edits are limited to sheet renames.
+    pub(crate) sheet_rename_only: bool,
+    /// Dynamic-array spill rectangles keyed by sheet and anchor coordinate.
+    /// Included in edit history so undo cannot leave stale spill ownership.
+    spill_rects: HashMap<String, HashMap<(u32, u32), SpillRect>>,
     /// Bounded snapshots for explicit cell/formula edits. Other VM state is
     /// deliberately not included: these commands only mutate worksheet data
     /// and formula caches, while VBA execution state is never rewound.
@@ -1254,6 +1260,8 @@ pub struct Vm {
     /// original ZIP for unknown-part passthrough at save time — internal
     /// plumbing between `vm` and `lib.rs`, not a public API.
     pub(crate) loaded_workbook_path: Option<String>,
+    /// External-link handling selected at workbook load. No policy fetches a URL.
+    pub(crate) external_links_policy: ExternalLinksPolicy,
     /// The clipboard populated by `.Copy` and consumed by
     /// `.Paste`/`.PasteSpecial` (Milestone B6b). `None` initially, and
     /// whenever `Application.CutCopyMode` is set to `False`.
@@ -1580,6 +1588,8 @@ impl Vm {
             workbook_formula_tracking_valid: false,
             workbook_formula_structure_dirty: true,
             ooxml_structural_edit_dirty: false,
+            sheet_rename_only: false,
+            spill_rects: HashMap::new(),
             edit_undo: Vec::new(),
             edit_redo: Vec::new(),
             edit_transaction: None,
@@ -1598,6 +1608,7 @@ impl Vm {
             last_resolution_failure: None,
             loaded_workbook_name: None,
             loaded_workbook_path: None,
+            external_links_policy: ExternalLinksPolicy::Preserve,
             clipboard: None,
             protected_sheets: HashSet::new(),
             merged_ranges: HashMap::new(),
@@ -3168,6 +3179,7 @@ impl Vm {
     /// `recalculate_all()` themselves.
     pub fn insert_rows_on_sheet(&mut self, key: &str, first: u32, count: u32) {
         self.ooxml_structural_edit_dirty = true;
+        self.sheet_rename_only = false;
         let edit = formula::StructuralEdit::Insert { at: first, count };
         self.rewrite_loaded_named_ranges_for_structural_edit(key, formula::RefAxis::Row, edit);
         self.rewrite_formulas_for_structural_edit(key, formula::RefAxis::Row, edit);
@@ -3218,6 +3230,7 @@ impl Vm {
     /// a reference landing inside the deleted band becomes `#REF!`.
     pub fn delete_rows_on_sheet(&mut self, key: &str, first: u32, count: u32) {
         self.ooxml_structural_edit_dirty = true;
+        self.sheet_rename_only = false;
         let edit = formula::StructuralEdit::Delete { at: first, count };
         self.rewrite_loaded_named_ranges_for_structural_edit(key, formula::RefAxis::Row, edit);
         self.rewrite_formulas_for_structural_edit(key, formula::RefAxis::Row, edit);
@@ -3265,6 +3278,7 @@ impl Vm {
     /// a reference landing inside the deleted band becomes `#REF!`.
     pub fn delete_cols_on_sheet(&mut self, key: &str, first: u32, count: u32) {
         self.ooxml_structural_edit_dirty = true;
+        self.sheet_rename_only = false;
         let edit = formula::StructuralEdit::Delete { at: first, count };
         self.rewrite_loaded_named_ranges_for_structural_edit(key, formula::RefAxis::Col, edit);
         self.rewrite_formulas_for_structural_edit(key, formula::RefAxis::Col, edit);
@@ -3305,6 +3319,7 @@ impl Vm {
     /// cell-references first (0.14.0-A -- see `rewrite_formulas_for_structural_edit`).
     pub fn insert_cols_on_sheet(&mut self, key: &str, first: u32, count: u32) {
         self.ooxml_structural_edit_dirty = true;
+        self.sheet_rename_only = false;
         let edit = formula::StructuralEdit::Insert { at: first, count };
         self.rewrite_loaded_named_ranges_for_structural_edit(key, formula::RefAxis::Col, edit);
         self.rewrite_formulas_for_structural_edit(key, formula::RefAxis::Col, edit);
@@ -3665,7 +3680,7 @@ impl Vm {
         let (r1, c1) = top_left;
         let sheet_key = key.to_lowercase();
         self.record_edit_history();
-        let changed = values
+        let mut changed = values
             .iter()
             .enumerate()
             .flat_map(|(row_offset, row)| {
@@ -3674,6 +3689,7 @@ impl Vm {
                     .map(move |(col_offset, _)| (r1 + row_offset as u32, c1 + col_offset as u32))
             })
             .collect::<Vec<_>>();
+        self.clear_spills_overlapping_changes(&sheet_key, &mut changed);
         let formula_structure_changed =
             self.sheets.get(&sheet_key).is_some_and(|cells| {
                 changed.iter().any(|position| {
@@ -3721,6 +3737,54 @@ impl Vm {
         }
     }
 
+    fn clear_spills_overlapping_changes(&mut self, sheet_key: &str, changed: &mut Vec<(u32, u32)>) {
+        let anchors = self
+            .spill_rects
+            .get(sheet_key)
+            .map(|rects| {
+                rects
+                    .iter()
+                    .filter(|(_, rect)| changed.iter().any(|position| rect.contains(*position)))
+                    .map(|(anchor, _)| *anchor)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        for anchor in anchors {
+            self.clear_spill_for_anchor(sheet_key, anchor, changed);
+        }
+    }
+
+    fn clear_spill_for_anchor(
+        &mut self,
+        sheet_key: &str,
+        anchor: (u32, u32),
+        changed: &mut Vec<(u32, u32)>,
+    ) {
+        let Some(rect) = self
+            .spill_rects
+            .get_mut(sheet_key)
+            .and_then(|rects| rects.remove(&anchor))
+        else {
+            return;
+        };
+        if let Some(cells) = self.sheets.get_mut(sheet_key) {
+            for row_offset in 0..rect.shape.rows {
+                for col_offset in 0..rect.shape.cols {
+                    let Some(position) = rect.cell_at(row_offset, col_offset) else {
+                        continue;
+                    };
+                    if position != anchor && cells.remove(&position).is_some() {
+                        changed.push(position);
+                    }
+                }
+            }
+        }
+        self.cell_tile_cache
+            .lock()
+            .expect("cell tile cache mutex poisoned")
+            .remove(sheet_key);
+    }
+
     fn mark_formula_dependents(&mut self, sheet_key: &str, changed: &[(u32, u32)]) {
         let Some(plan) = self.formula_plan.get(sheet_key) else {
             return;
@@ -3729,17 +3793,38 @@ impl Vm {
             .formula_dirty_cells
             .remove(sheet_key)
             .unwrap_or_default();
-        let mut queue = changed.to_vec();
-        let mut seen = HashSet::new();
-        while let Some(cell) = queue.pop() {
-            if !seen.insert(cell) {
-                continue;
-            }
+        enum DirtyWork {
+            Input((u32, u32)),
+            Formula(usize),
+        }
+        let mut queue = changed
+            .iter()
+            .copied()
+            .map(DirtyWork::Input)
+            .collect::<Vec<_>>();
+        let mut seen_inputs = HashSet::with_capacity(changed.len());
+        let mut seen_formula = vec![false; plan.cells.len()];
+        while let Some(work) = queue.pop() {
+            let cell = match work {
+                DirtyWork::Input(cell) => {
+                    if !seen_inputs.insert(cell) {
+                        continue;
+                    }
+                    cell
+                }
+                DirtyWork::Formula(index) => {
+                    if seen_formula[index] {
+                        continue;
+                    }
+                    seen_formula[index] = true;
+                    (plan.cells[index].0, plan.cells[index].1)
+                }
+            };
             if let Some(indices) = plan.reverse.get(&cell) {
                 for &index in indices {
                     let position = (plan.cells[index].0, plan.cells[index].1);
                     if dirty.insert(position) {
-                        queue.push(position);
+                        queue.push(DirtyWork::Formula(index));
                     }
                 }
             }
@@ -3750,7 +3835,7 @@ impl Vm {
                 if r1 <= cell.0 && cell.0 <= r2 && c1 <= cell.1 && cell.1 <= c2 {
                     let position = (plan.cells[index].0, plan.cells[index].1);
                     if dirty.insert(position) {
-                        queue.push(position);
+                        queue.push(DirtyWork::Formula(index));
                     }
                 }
             }
@@ -6787,6 +6872,7 @@ impl Vm {
         self.check_sheet_not_protected(key, display)?;
         if key != self.active_sheet {
             self.ooxml_structural_edit_dirty = true;
+            self.sheet_rename_only = false;
             self.cell_tile_cache
                 .lock()
                 .expect("cell tile cache mutex poisoned")
@@ -6910,6 +6996,7 @@ impl Vm {
             return Err(format!("Sheet '{}' already exists", new_name));
         }
         self.ooxml_structural_edit_dirty = true;
+        self.sheet_rename_only = true;
 
         let mut tile_cache = self
             .cell_tile_cache
@@ -7223,6 +7310,7 @@ impl Vm {
             return Err(format!("Sheet '{}' not found", name));
         }
         self.ooxml_structural_edit_dirty = true;
+        self.sheet_rename_only = false;
         self.sheet_order.retain(|k| k != &key);
         let idx = new_index.min(self.sheet_order.len());
         self.sheet_order.insert(idx, key);
@@ -7250,6 +7338,44 @@ impl Vm {
             return Err(format!("Sheet '{}' not found", name));
         }
         Ok(self.sheet_states.get(&key).copied().unwrap_or_default())
+    }
+
+    /// Return the source XLSX `sheetId` for `name`, if this sheet came from an
+    /// XLSX/XLSM workbook. This identity is separate from the lowercase VM
+    /// lookup key and from tab position; new and ODS sheets return `None`.
+    pub fn sheet_id(&self, name: &str) -> Result<Option<String>, String> {
+        let key = name.to_lowercase();
+        if !self.sheets.contains_key(&key) {
+            return Err(format!("Sheet '{name}' not found"));
+        }
+        Ok(self
+            .worksheet_origins
+            .get(&key)
+            .and_then(|origin| origin.original_sheet_id.clone()))
+    }
+
+    /// Resolve an XLSX `sheetId` to the current sheet lookup key. The mapping
+    /// follows a sheet through rename and tab reordering, while rejecting
+    /// missing or duplicate identities instead of falling back to position.
+    pub fn sheet_name_for_id(&self, sheet_id: &str) -> Result<String, String> {
+        if sheet_id.trim().is_empty() {
+            return Err("sheetId must not be empty".to_string());
+        }
+        let mut matches = self
+            .worksheet_origins
+            .iter()
+            .filter(|(key, origin)| {
+                self.sheets.contains_key(*key)
+                    && origin.original_sheet_id.as_deref() == Some(sheet_id)
+            })
+            .map(|(key, _)| key.clone());
+        let Some(key) = matches.next() else {
+            return Err(format!("sheetId '{sheet_id}' not found"));
+        };
+        if matches.next().is_some() {
+            return Err(format!("sheetId '{sheet_id}' is duplicated"));
+        }
+        Ok(key)
     }
 
     /// Evaluates an `ObjectExpr` to the `ObjectRef` it names (Milestone
@@ -8291,6 +8417,7 @@ impl Vm {
             .file_name()
             .map(|n| n.to_string_lossy().to_string());
         self.loaded_workbook_path = Some(path.to_string());
+        self.external_links_policy = options.external_links;
         let sheets = reader::read_workbook_with_options(path, options).map_err(|error| {
             if error == "unsupported input extension; use .xlsx, .xlsm, or .ods" {
                 error
@@ -8313,12 +8440,12 @@ impl Vm {
     pub(crate) fn load_simple_defined_names(&mut self, path: &str) -> Result<(), String> {
         self.loaded_named_ranges.clear();
         self.scoped_named_ranges.clear();
-        let raw_entries = reader::read_raw_zip_entries(path)
-            .map_err(|e| format!("cannot read '{}': {}", path, e))?;
-        let Some(xml) = raw_entries
-            .get("xl/workbook.xml")
-            .and_then(|bytes| String::from_utf8(bytes.clone()).ok())
+        let Some(bytes) = reader::read_raw_zip_entry_if_present(path, "xl/workbook.xml")
+            .map_err(|e| format!("cannot read '{}': {}", path, e))?
         else {
+            return Ok(());
+        };
+        let Ok(xml) = String::from_utf8(bytes) else {
             return Ok(());
         };
         for decl in reader::xlsx_defined_name_decls(&xml)? {
@@ -8397,12 +8524,12 @@ impl Vm {
         let Some(path) = self.loaded_workbook_path.as_deref() else {
             return Ok(HashMap::new());
         };
-        let raw_entries = reader::read_raw_zip_entries(path)
-            .map_err(|e| format!("cannot read '{}': {}", path, e))?;
-        let Some(xml) = raw_entries
-            .get("xl/workbook.xml")
-            .and_then(|bytes| String::from_utf8(bytes.clone()).ok())
+        let Some(bytes) = reader::read_raw_zip_entry_if_present(path, "xl/workbook.xml")
+            .map_err(|e| format!("cannot read '{}': {}", path, e))?
         else {
+            return Ok(HashMap::new());
+        };
+        let Ok(xml) = String::from_utf8(bytes) else {
             return Ok(HashMap::new());
         };
         Ok(reader::xlsx_defined_names(&xml)?.into_iter().collect())
@@ -11654,6 +11781,8 @@ impl Vm {
         self.check_variant_budget(&value)?;
         self.record_edit_history();
         let active = self.active_sheet.clone();
+        let mut spill_changed = Vec::new();
+        self.clear_spill_for_anchor(&active, (row, col), &mut spill_changed);
         self.formula_plan.remove(&active);
         self.formula_dirty_cells.remove(&active);
         let source = formula.to_string();
@@ -11668,6 +11797,10 @@ impl Vm {
             .entry(active)
             .or_default()
             .insert((row, col), (source, Some(expr)));
+        self.workbook_formula_dirty
+            .entry(self.active_sheet.clone())
+            .or_default()
+            .extend(spill_changed.iter().copied());
         self.workbook_formula_dirty
             .entry(self.active_sheet.clone())
             .or_default()
@@ -11741,14 +11874,19 @@ impl Vm {
         self.edit_transaction = Some(EditTransaction {
             state: self.capture_edit_history(),
             undo_len: self.edit_undo.len(),
-            redo: self.edit_redo.clone(),
         });
         Ok(())
     }
 
-    /// Commit the current transaction. Individual edits remain undoable.
+    /// Commit the current transaction as one undoable edit.
     pub fn commit_edit_transaction(&mut self) -> bool {
-        self.edit_transaction.take().is_some()
+        let Some(transaction) = self.edit_transaction.take() else {
+            return false;
+        };
+        self.edit_undo.push(transaction.state);
+        self.edit_undo.truncate(MAX_EDIT_HISTORY);
+        self.edit_redo.clear();
+        true
     }
 
     /// Abort the current transaction and restore its pre-edit state.
@@ -11758,7 +11896,6 @@ impl Vm {
         };
         self.restore_edit_history(transaction.state);
         self.edit_undo.truncate(transaction.undo_len);
-        self.edit_redo = transaction.redo;
         true
     }
 
@@ -11774,10 +11911,18 @@ impl Vm {
             workbook_formula_tracking_valid: self.workbook_formula_tracking_valid,
             workbook_formula_structure_dirty: self.workbook_formula_structure_dirty,
             ooxml_structural_edit_dirty: self.ooxml_structural_edit_dirty,
+            spill_rects: self.spill_rects.clone(),
         }
     }
 
     fn record_edit_history(&mut self) {
+        // A transaction already owns its pre-edit snapshot. Recording another
+        // full VM clone for every range/cell inside it defeats the bounded
+        // transaction contract on large workbooks; commit records the single
+        // pre-transaction state as one undo entry.
+        if self.edit_transaction.is_some() {
+            return;
+        }
         self.edit_undo.push(self.capture_edit_history());
         self.edit_undo.truncate(MAX_EDIT_HISTORY);
         self.edit_redo.clear();
@@ -11794,6 +11939,7 @@ impl Vm {
         self.workbook_formula_tracking_valid = state.workbook_formula_tracking_valid;
         self.workbook_formula_structure_dirty = state.workbook_formula_structure_dirty;
         self.ooxml_structural_edit_dirty = state.ooxml_structural_edit_dirty;
+        self.spill_rects = state.spill_rects;
         self.cell_index_dirty = true;
         self.cell_tile_cache = Arc::new(Mutex::new(HashMap::new()));
         self.cell_tile_cache_clock = Arc::new(AtomicU64::new(0));
@@ -11831,27 +11977,28 @@ impl Vm {
         // source text no longer match the live sheet. Otherwise the empty
         // dirty set below incorrectly turns the recalculation into a no-op
         // and leaves the cached value from the previous formula behind.
-        let plan_stale = self.formula_plan.get(&active).is_some_and(|plan| {
-            let live: HashMap<(u32, u32), &str> = self
-                .cells()
-                .iter()
-                .filter_map(|(position, cell)| {
-                    cell.formula.as_deref().map(|source| (*position, source))
+        let plan_stale = !self.workbook_formula_tracking_valid
+            && self.formula_plan.get(&active).is_some_and(|plan| {
+                let live: HashMap<(u32, u32), &str> = self
+                    .cells()
+                    .iter()
+                    .filter_map(|(position, cell)| {
+                        cell.formula.as_deref().map(|source| (*position, source))
+                    })
+                    .collect();
+                if live.len() != plan.cells.len() {
+                    return true;
+                }
+                plan.cells.iter().any(|(row, col, expr)| {
+                    let Some(source) = live.get(&(*row, *col)) else {
+                        return true;
+                    };
+                    let Ok(parsed) = formula::parse(source) else {
+                        return true;
+                    };
+                    parsed != *expr
                 })
-                .collect();
-            if live.len() != plan.cells.len() {
-                return true;
-            }
-            plan.cells.iter().any(|(row, col, expr)| {
-                let Some(source) = live.get(&(*row, *col)) else {
-                    return true;
-                };
-                let Ok(parsed) = formula::parse(source) else {
-                    return true;
-                };
-                parsed != *expr
-            })
-        });
+            });
         if plan_stale {
             self.formula_plan.remove(&active);
             self.formula_dirty_cells.remove(&active);
@@ -11931,7 +12078,7 @@ impl Vm {
         };
 
         // Sort by dependency order so that A2=A1+1 evaluates after A1
-        let order = topo_sort_formulas(&formula_cells)?;
+        let order = topo_sort_formulas(&formula_cells, self.spill_rects.get(&active))?;
 
         let mut reverse: HashMap<(u32, u32), Vec<usize>> = HashMap::new();
         let mut range_dependents = Vec::new();
@@ -11979,6 +12126,276 @@ impl Vm {
         }
         self.formula_dirty_cells.remove(&active);
         Ok(())
+    }
+
+    /// Recalculates formulas on every worksheet, applies array results as
+    /// spills, then recalculates once more so formulas depending on spill cells
+    /// observe the newly written values. The existing `recalculate_all()`
+    /// contract is unchanged and this opt-in path does not add edit history.
+    pub fn recalculate_all_with_spills(&mut self) -> Result<(), String> {
+        let original_active = self.active_sheet.clone();
+        let before = self.capture_edit_history();
+        let sheets = self.sheet_order.clone();
+        let result = (|| {
+            for sheet in sheets {
+                if !self.sheets.contains_key(&sheet) {
+                    continue;
+                }
+                self.active_sheet = sheet;
+                self.recalculate_all()?;
+                self.materialize_active_sheet_spills()?;
+            }
+            self.recalculate_all()
+        })();
+        self.active_sheet = original_active;
+        if let Err(error) = result {
+            self.restore_edit_history(before);
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    fn materialize_active_sheet_spills(&mut self) -> Result<(), String> {
+        let pending = self
+            .cells()
+            .iter()
+            .filter_map(|(&(row, col), cell)| {
+                cell.formula
+                    .as_ref()
+                    .filter(|_| matches!(cell.value, Variant::Array(_)))
+                    .map(|formula| ((row, col), formula::parse(formula).ok(), cell.value.clone()))
+            })
+            .collect::<Vec<_>>();
+        let mut planned = Vec::with_capacity(pending.len());
+        for &((row, col), ref parsed, ref value) in &pending {
+            let shape = parsed
+                .as_ref()
+                .and_then(|expr| formula_spill_shape(expr, self.cells(), value))
+                .or_else(|| value.array_shape())
+                .expect("array formula values always have a spill plan");
+            let rect = SpillRect::new(row, col, shape)?;
+            self.plan_spill_rect(rect)?;
+            planned.push(((row, col), rect));
+        }
+        for (index, &((row, col), rect)) in planned.iter().enumerate() {
+            for &((other_row, other_col), other_rect) in planned.iter().skip(index + 1) {
+                if (row, col) != (other_row, other_col) && rect.intersects(&other_rect) {
+                    return Err(format!(
+                        "#SPILL!: array anchors {}:{} and {}:{} overlap",
+                        row, col, other_row, other_col
+                    ));
+                }
+            }
+        }
+        for ((row, col), parsed, value) in pending {
+            self.apply_spill_for_formula_untracked(row, col, parsed.as_ref(), &value)?;
+        }
+        Ok(())
+    }
+
+    fn apply_spill_for_formula_untracked(
+        &mut self,
+        origin_row: u32,
+        origin_col: u32,
+        formula: Option<&formula::FormulaExpr>,
+        value: &Variant,
+    ) -> Result<SpillRect, String> {
+        let shape = formula
+            .and_then(|expr| formula_spill_shape(expr, self.cells(), value))
+            .or_else(|| value.array_shape())
+            .ok_or_else(|| "cannot apply a scalar value as a spill".to_string())?;
+        let rect = SpillRect::new(origin_row, origin_col, shape)?;
+        self.plan_spill_rect(rect)?;
+        let Variant::Array(values) = value else {
+            return Err("formula spill value must be a flat array".to_string());
+        };
+        self.apply_spill_rect_values(rect, values)
+    }
+
+    /// Plans the worksheet footprint for a dynamic-array value without
+    /// mutating the sheet. `None` means the value is scalar. An error names
+    /// the first occupied cell that would collide with the spill rectangle;
+    /// callers can convert that result to Excel's `#SPILL!` behavior when
+    /// wiring the actual spill writer.
+    pub fn plan_spill_for_value(
+        &self,
+        origin_row: u32,
+        origin_col: u32,
+        value: &Variant,
+    ) -> Result<Option<SpillRect>, String> {
+        let Some(shape) = value.array_shape() else {
+            return Ok(None);
+        };
+        let rect = SpillRect::new(origin_row, origin_col, shape)?;
+        self.plan_spill_rect(rect)?;
+        Ok(Some(rect))
+    }
+
+    fn plan_spill_rect(&self, rect: SpillRect) -> Result<(), String> {
+        let shape = rect.shape;
+        let Some(cells) = self.sheets.get(&self.active_sheet) else {
+            return Ok(());
+        };
+        for row_offset in 0..shape.rows {
+            for col_offset in 0..shape.cols {
+                let Some(position) = rect.cell_at(row_offset, col_offset) else {
+                    continue;
+                };
+                if position == (rect.origin_row, rect.origin_col) {
+                    continue;
+                }
+                let owned_by_same_anchor = self
+                    .spill_rects
+                    .get(&self.active_sheet)
+                    .and_then(|anchors| anchors.get(&(rect.origin_row, rect.origin_col)))
+                    .is_some_and(|old_rect| old_rect.contains(position));
+                if !owned_by_same_anchor
+                    && cells.get(&position).is_some_and(|cell| {
+                        cell.formula.is_some() || !matches!(cell.value, Variant::Empty)
+                    })
+                {
+                    return Err(format!(
+                        "#SPILL!: target cell {}:{} is occupied",
+                        position.0, position.1
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Applies a dynamic-array value to the active worksheet. The anchor's
+    /// existing formula is preserved; newly occupied cells receive values
+    /// without formulas. Planning is completed before mutation, so a
+    /// collision cannot leave a partial spill behind.
+    pub fn apply_spill_for_value(
+        &mut self,
+        origin_row: u32,
+        origin_col: u32,
+        value: &Variant,
+    ) -> Result<SpillRect, String> {
+        self.plan_spill_for_value(origin_row, origin_col, value)?
+            .ok_or_else(|| "cannot apply a scalar value as a spill".to_string())?;
+        self.record_edit_history();
+        self.apply_spill_for_value_untracked(origin_row, origin_col, value)
+    }
+
+    fn apply_spill_for_value_untracked(
+        &mut self,
+        origin_row: u32,
+        origin_col: u32,
+        value: &Variant,
+    ) -> Result<SpillRect, String> {
+        let Some(rect) = self.plan_spill_for_value(origin_row, origin_col, value)? else {
+            return Err("cannot apply a scalar value as a spill".to_string());
+        };
+        let values = match value {
+            Variant::Array(values) => values,
+            _ => unreachable!("plan_spill_for_value rejects scalar values"),
+        };
+        self.apply_spill_rect_values(rect, values)
+    }
+
+    fn apply_spill_rect_values(
+        &mut self,
+        rect: SpillRect,
+        values: &[Variant],
+    ) -> Result<SpillRect, String> {
+        if rect.shape.cell_count() != values.len() {
+            return Err("spill value count does not match its shape".to_string());
+        }
+        let shape = rect.shape;
+        let origin_row = rect.origin_row;
+        let origin_col = rect.origin_col;
+        let active = self.active_sheet.clone();
+        let mut changed = Vec::with_capacity(shape.cell_count().max(1));
+        self.clear_spill_for_anchor(&active, (origin_row, origin_col), &mut changed);
+        let Some(cells) = self.sheets.get_mut(&active) else {
+            return Err(format!("unknown active sheet '{}'", active));
+        };
+        if shape.is_empty() {
+            let formula = cells
+                .get(&(origin_row, origin_col))
+                .and_then(|cell| cell.formula.clone());
+            cells.insert(
+                (origin_row, origin_col),
+                CellContent {
+                    formula,
+                    value: Variant::Empty,
+                },
+            );
+            changed.push((origin_row, origin_col));
+        } else {
+            for row_offset in 0..shape.rows {
+                for col_offset in 0..shape.cols {
+                    let position = rect
+                        .cell_at(row_offset, col_offset)
+                        .expect("validated spill rectangle cell");
+                    let flat_index = row_offset * shape.cols + col_offset;
+                    let formula = if position == (origin_row, origin_col) {
+                        cells.get(&position).and_then(|cell| cell.formula.clone())
+                    } else {
+                        None
+                    };
+                    cells.insert(
+                        position,
+                        CellContent {
+                            formula,
+                            value: values[flat_index].clone(),
+                        },
+                    );
+                    changed.push(position);
+                }
+            }
+        }
+        self.cell_index_dirty = true;
+        self.next_append_rows.remove(&active);
+        self.workbook_formula_dirty
+            .entry(active.clone())
+            .or_default()
+            .extend(changed.iter().copied());
+        self.workbook_formula_tracking_valid = true;
+        self.mark_formula_dependents(&active, &changed);
+        self.cell_tile_cache
+            .lock()
+            .expect("cell tile cache mutex poisoned")
+            .remove(&active);
+        if shape.is_empty() {
+            if let Some(anchors) = self.spill_rects.get_mut(&active) {
+                anchors.remove(&(origin_row, origin_col));
+            }
+        } else {
+            self.spill_rects
+                .entry(active)
+                .or_default()
+                .insert((origin_row, origin_col), rect);
+        }
+        Ok(rect)
+    }
+
+    /// Applies a rectangular two-dimensional array to the active worksheet.
+    /// Ragged rows are rejected before any mutation. This is the shape-aware
+    /// entry point for functions such as `TRANSPOSE`; the legacy flat
+    /// `Variant::Array` path remains one row for compatibility.
+    pub fn apply_spill_matrix(
+        &mut self,
+        origin_row: u32,
+        origin_col: u32,
+        matrix: &[Vec<Variant>],
+    ) -> Result<SpillRect, String> {
+        let rows = matrix.len();
+        let cols = matrix.first().map_or(0, Vec::len);
+        if matrix.iter().any(|row| row.len() != cols) {
+            return Err("spill matrix rows must have equal widths".to_string());
+        }
+        let rect = SpillRect::new(origin_row, origin_col, ArrayShape::new(rows, cols))?;
+        self.plan_spill_rect(rect)?;
+        let values = matrix
+            .iter()
+            .flat_map(|row| row.iter().cloned())
+            .collect::<Vec<_>>();
+        self.record_edit_history();
+        self.apply_spill_rect_values(rect, &values)
     }
 
     pub fn set_calc_mode(&mut self, mode: CalculationMode) -> Result<(), String> {
@@ -12614,12 +13031,20 @@ fn collect_formula_dependencies(
     expr: &formula::FormulaExpr,
     positions: &HashMap<(u32, u32), usize>,
     positions_by_row: &BTreeMap<u32, BTreeMap<u32, usize>>,
+    spill_rects: Option<&HashMap<(u32, u32), SpillRect>>,
     out: &mut HashSet<usize>,
 ) {
     use formula::FormulaExpr::*;
     match expr {
         CellRef { col, row, .. } => {
-            if let Some(&index) = positions.get(&(*row, *col)) {
+            let position = spill_rects
+                .and_then(|rects| {
+                    rects
+                        .iter()
+                        .find_map(|(anchor, rect)| rect.contains((*row, *col)).then_some(*anchor))
+                })
+                .unwrap_or((*row, *col));
+            if let Some(&index) = positions.get(&position) {
                 out.insert(index);
             }
         }
@@ -12631,15 +13056,26 @@ fn collect_formula_dependencies(
                     out.insert(index);
                 }
             }
+            if let Some(rects) = spill_rects {
+                for (anchor, rect) in rects {
+                    if spill_rect_overlaps_range(rect, *rmin, *cmin, *rmax, *cmax)
+                        && let Some(&index) = positions.get(anchor)
+                    {
+                        out.insert(index);
+                    }
+                }
+            }
         }
         BinOp { lhs, rhs, .. } => {
-            collect_formula_dependencies(lhs, positions, positions_by_row, out);
-            collect_formula_dependencies(rhs, positions, positions_by_row, out);
+            collect_formula_dependencies(lhs, positions, positions_by_row, spill_rects, out);
+            collect_formula_dependencies(rhs, positions, positions_by_row, spill_rects, out);
         }
-        UnaryMinus(inner) => collect_formula_dependencies(inner, positions, positions_by_row, out),
+        UnaryMinus(inner) => {
+            collect_formula_dependencies(inner, positions, positions_by_row, spill_rects, out)
+        }
         FuncCall { args, .. } => {
             for arg in args {
-                collect_formula_dependencies(arg, positions, positions_by_row, out);
+                collect_formula_dependencies(arg, positions, positions_by_row, spill_rects, out);
             }
         }
         Number(_) | Str(_) | Bool(_) => {}
@@ -12650,7 +13086,10 @@ fn collect_formula_dependencies(
 /// Returns indices into `cells` in safe evaluation order.
 /// Cells with no inter-formula dependencies appear first.
 /// Returns `Err` if a circular reference is detected.
-fn topo_sort_formulas(cells: &[(u32, u32, formula::FormulaExpr)]) -> Result<Vec<usize>, String> {
+fn topo_sort_formulas(
+    cells: &[(u32, u32, formula::FormulaExpr)],
+    spill_rects: Option<&HashMap<(u32, u32), SpillRect>>,
+) -> Result<Vec<usize>, String> {
     let n = cells.len();
     // map (row, col) → index in cells slice
     let pos: HashMap<(u32, u32), usize> = cells
@@ -12670,7 +13109,13 @@ fn topo_sort_formulas(cells: &[(u32, u32, formula::FormulaExpr)]) -> Result<Vec<
 
     for (i, (_, _, expr)) in cells.iter().enumerate() {
         let mut dependencies = HashSet::new();
-        collect_formula_dependencies(expr, &pos, &positions_by_row, &mut dependencies);
+        collect_formula_dependencies(
+            expr,
+            &pos,
+            &positions_by_row,
+            spill_rects,
+            &mut dependencies,
+        );
         for j in dependencies {
             if j != i {
                 // skip self-reference
@@ -12704,6 +13149,314 @@ fn topo_sort_formulas(cells: &[(u32, u32, formula::FormulaExpr)]) -> Result<Vec<
         // Return Ok with best-effort order rather than hard-erroring; circular refs will show stale values
     }
     Ok(order)
+}
+
+fn spill_rect_overlaps_range(rect: &SpillRect, r1: u32, c1: u32, r2: u32, c2: u32) -> bool {
+    if rect.shape.is_empty() {
+        return false;
+    }
+    let rect_r2 = rect.origin_row as u64 + rect.shape.rows as u64 - 1;
+    let rect_c2 = rect.origin_col as u64 + rect.shape.cols as u64 - 1;
+    rect.origin_row as u64 <= r2 as u64
+        && r1 as u64 <= rect_r2
+        && rect.origin_col as u64 <= c2 as u64
+        && c1 as u64 <= rect_c2
+}
+
+/// Recover the worksheet shape of formula-engine arrays whose legacy value
+/// representation is intentionally flat. The evaluator already emits values
+/// in row-major order; this helper supplies the missing footprint metadata at
+/// the VM boundary without changing VBA `Variant::Array` semantics.
+fn formula_spill_shape(
+    expr: &formula::FormulaExpr,
+    cells: &HashMap<(u32, u32), CellContent>,
+    value: &Variant,
+) -> Option<ArrayShape> {
+    use formula::FormulaExpr;
+
+    let fallback = value.array_shape()?;
+    let FormulaExpr::FuncCall { name, args } = expr else {
+        return Some(fallback);
+    };
+    let name = name.to_ascii_uppercase();
+    let dimension = |arg: Option<&FormulaExpr>, default: usize| -> Option<usize> {
+        let Some(arg) = arg else { return Some(default) };
+        match formula::evaluate(arg, cells).ok()? {
+            Variant::Integer(v) if v >= 0 => Some(v as usize),
+            Variant::Float(v) if v.is_finite() && v >= 0.0 => Some(v as usize),
+            _ => None,
+        }
+    };
+    let exact = |rows: usize, cols: usize| {
+        let shape = ArrayShape::new(rows, cols);
+        (shape.cell_count() == value_len(value)).then_some(shape)
+    };
+
+    match name.as_str() {
+        "SEQUENCE" | "RANDARRAY" => {
+            let rows = dimension(args.first(), 1)?.max(1);
+            let cols = dimension(args.get(1), 1)?.max(1);
+            exact(rows, cols).or(Some(fallback))
+        }
+        "TRANSPOSE" => match args.first()? {
+            FormulaExpr::Range { c1, r1, c2, r2, .. } => exact(
+                (c2.max(c1) - c2.min(c1) + 1) as usize,
+                (r2.max(r1) - r2.min(r1) + 1) as usize,
+            )
+            .or(Some(fallback)),
+            inner => formula_spill_shape(inner, cells, value)
+                .map(|shape| ArrayShape::new(shape.cols, shape.rows))
+                .or(Some(fallback)),
+        },
+        "FILTER" => {
+            let source = args.first()?;
+            if let FormulaExpr::Range { c1, c2, .. } = source {
+                let cols = (c2.max(c1) - c2.min(c1) + 1) as usize;
+                return (cols > 0 && value_len(value).is_multiple_of(cols))
+                    .then_some(ArrayShape::new(value_len(value) / cols, cols))
+                    .or(Some(fallback));
+            }
+            let source_value = formula::evaluate(source, cells).ok()?;
+            let source_shape = formula_spill_shape(source, cells, &source_value)
+                .or_else(|| source_value.array_shape())?;
+            let include = args
+                .get(1)
+                .and_then(|arg| formula::evaluate(arg, cells).ok());
+            let include_len = include.as_ref().map(value_len).unwrap_or(0);
+            let (include_rows, include_cols) =
+                if let (Some(include_expr), Some(include)) = (args.get(1), include.as_ref()) {
+                    let shape = formula_spill_shape(include_expr, cells, include)
+                        .unwrap_or_else(|| ArrayShape::new(1, include_len));
+                    (shape.rows, shape.cols)
+                } else {
+                    (1, include_len)
+                };
+            let column_include = include_rows == 1 && include_cols == source_shape.cols;
+            let shape = if column_include {
+                let count = match include {
+                    Some(Variant::Array(values)) => {
+                        values.iter().filter(|value| is_truthy(value)).count()
+                    }
+                    Some(value) if is_truthy(&value) => 1,
+                    _ => 0,
+                };
+                ArrayShape::new(source_shape.rows, count)
+            } else if source_shape.cols > 0 && value_len(value).is_multiple_of(source_shape.cols) {
+                ArrayShape::new(value_len(value) / source_shape.cols, source_shape.cols)
+            } else {
+                fallback
+            };
+            exact(shape.rows, shape.cols).or(Some(fallback))
+        }
+        "INDEX" => {
+            let FormulaExpr::Range { c1, r1, c2, r2, .. } = args.first()? else {
+                return Some(fallback);
+            };
+            let number = |arg: Option<&FormulaExpr>| -> Option<i64> {
+                match formula::evaluate(arg?, cells).ok()? {
+                    Variant::Integer(value) => Some(value),
+                    Variant::Float(value) if value.is_finite() => Some(value as i64),
+                    _ => None,
+                }
+            };
+            let row = number(args.get(1))?;
+            let col = if args.len() >= 3 {
+                number(args.get(2))?
+            } else {
+                1
+            };
+            let rows = (r2.max(r1) - r2.min(r1) + 1) as usize;
+            let cols = (c2.max(c1) - c2.min(c1) + 1) as usize;
+            let shape = match (row, col) {
+                (0, 0) => ArrayShape::new(rows, cols),
+                (0, _) => ArrayShape::new(rows, 1),
+                (_, 0) => ArrayShape::new(1, cols),
+                _ => return Some(fallback),
+            };
+            exact(shape.rows, shape.cols).or(Some(fallback))
+        }
+        "TAKE" | "DROP" => {
+            let source = args.first()?;
+            let source_value = formula::evaluate(source, cells).ok()?;
+            let source_shape = formula_spill_shape(source, cells, &source_value)
+                .or_else(|| source_value.array_shape())?;
+            let count = |arg: Option<&formula::FormulaExpr>, size: usize| -> Option<usize> {
+                let value = match formula::evaluate(arg?, cells).ok()? {
+                    Variant::Integer(value) => value,
+                    Variant::Float(value) if value.is_finite() => value as i64,
+                    _ => return None,
+                };
+                (value != 0).then_some((value.unsigned_abs() as usize).min(size))
+            };
+            let rows = count(args.get(1), source_shape.rows)?;
+            let cols = args
+                .get(2)
+                .and_then(|arg| count(Some(arg), source_shape.cols));
+            let shape = if name == "TAKE" {
+                ArrayShape::new(rows, cols.unwrap_or(source_shape.cols))
+            } else {
+                ArrayShape::new(
+                    source_shape.rows.saturating_sub(rows),
+                    cols.map_or(source_shape.cols, |cols| {
+                        source_shape.cols.saturating_sub(cols)
+                    }),
+                )
+            };
+            exact(shape.rows, shape.cols).or(Some(fallback))
+        }
+        "UNIQUE" | "SORT" | "SORTBY" => {
+            let source = args.first()?;
+            let source_value = formula::evaluate(source, cells).ok()?;
+            let source_shape = formula_spill_shape(source, cells, &source_value)
+                .or_else(|| source_value.array_shape())?;
+            if name == "SORTBY" {
+                return if source_shape.rows > 1 && source_shape.cols > 1 {
+                    exact(source_shape.rows, source_shape.cols).or(Some(fallback))
+                } else {
+                    Some(fallback)
+                };
+            }
+            if source_shape.rows <= 1 || source_shape.cols <= 1 {
+                return if source_shape.cols == 1 {
+                    exact(value_len(value), 1).or(Some(fallback))
+                } else {
+                    Some(fallback)
+                };
+            }
+            if name == "UNIQUE" {
+                let by_col = args
+                    .get(2)
+                    .and_then(|arg| formula::evaluate(arg, cells).ok())
+                    .is_some_and(|value| is_truthy(&value));
+                let exactly_once = args
+                    .get(1)
+                    .and_then(|arg| formula::evaluate(arg, cells).ok())
+                    .is_some_and(|value| is_truthy(&value));
+                let outer = if by_col {
+                    source_shape.cols
+                } else {
+                    source_shape.rows
+                };
+                let inner = if by_col {
+                    source_shape.rows
+                } else {
+                    source_shape.cols
+                };
+                let source_values = match source_value {
+                    Variant::Array(values) => values,
+                    _ => return Some(fallback),
+                };
+                let mut groups: Vec<Vec<Variant>> = Vec::new();
+                let mut counts: Vec<usize> = Vec::new();
+                for index in 0..outer {
+                    let group: Vec<Variant> = if by_col {
+                        (0..inner)
+                            .map(|offset| source_values[offset * source_shape.cols + index].clone())
+                            .collect()
+                    } else {
+                        source_values[index * source_shape.cols..(index + 1) * source_shape.cols]
+                            .to_vec()
+                    };
+                    if let Some(existing) = groups.iter().position(|candidate| {
+                        candidate
+                            .iter()
+                            .zip(&group)
+                            .all(|(left, right)| left == right)
+                    }) {
+                        counts[existing] += 1;
+                    } else {
+                        groups.push(group);
+                        counts.push(1);
+                    }
+                }
+                let count = groups
+                    .iter()
+                    .zip(&counts)
+                    .filter(|(_, count)| !exactly_once || **count == 1)
+                    .count();
+                if by_col {
+                    exact(source_shape.rows, count).or(Some(fallback))
+                } else {
+                    exact(count, source_shape.cols).or(Some(fallback))
+                }
+            } else {
+                exact(source_shape.rows, source_shape.cols).or(Some(fallback))
+            }
+        }
+        "CHOOSECOLS" | "CHOOSEROWS" => {
+            let source = args.first()?;
+            let source_value = formula::evaluate(source, cells).ok()?;
+            let source_shape = formula_spill_shape(source, cells, &source_value)
+                .or_else(|| source_value.array_shape())?;
+            if source_shape.rows <= 1 || source_shape.cols <= 1 {
+                return Some(fallback);
+            }
+            let mut count = 0usize;
+            for arg in &args[1..] {
+                let n = match formula::evaluate(arg, cells).ok()? {
+                    Variant::Integer(value) => value,
+                    Variant::Float(value) if value.is_finite() => value as i64,
+                    _ => return Some(fallback),
+                };
+                let size = if name == "CHOOSECOLS" {
+                    source_shape.cols
+                } else {
+                    source_shape.rows
+                };
+                let index = if n > 0 { n - 1 } else { size as i64 + n };
+                if index < 0 || index >= size as i64 {
+                    return Some(fallback);
+                }
+                count += 1;
+            }
+            let shape = if name == "CHOOSECOLS" {
+                ArrayShape::new(source_shape.rows, count)
+            } else {
+                ArrayShape::new(count, source_shape.cols)
+            };
+            exact(shape.rows, shape.cols).or(Some(fallback))
+        }
+        "TOCOL" => Some(ArrayShape::new(value_len(value), 1)),
+        "TOROW" => Some(ArrayShape::new(1, value_len(value))),
+        "WRAPCOLS" => {
+            let rows = dimension(args.get(1), 0)?.max(1);
+            exact(rows, value_len(value).div_ceil(rows)).or(Some(fallback))
+        }
+        "WRAPROWS" => {
+            let cols = dimension(args.get(1), 0)?.max(1);
+            exact(value_len(value).div_ceil(cols), cols).or(Some(fallback))
+        }
+        "VSTACK" | "HSTACK" => {
+            let mut shapes = Vec::with_capacity(args.len());
+            for arg in args {
+                let arg_value = formula::evaluate(arg, cells).ok()?;
+                let shape = formula_spill_shape(arg, cells, &arg_value)
+                    .or_else(|| arg_value.array_shape())
+                    .unwrap_or(ArrayShape::new(1, 1));
+                shapes.push(shape);
+            }
+            let shape = if name == "VSTACK" {
+                ArrayShape::new(
+                    shapes.iter().map(|shape| shape.rows).sum(),
+                    shapes.iter().map(|shape| shape.cols).max().unwrap_or(0),
+                )
+            } else {
+                ArrayShape::new(
+                    shapes.iter().map(|shape| shape.rows).max().unwrap_or(0),
+                    shapes.iter().map(|shape| shape.cols).sum(),
+                )
+            };
+            exact(shape.rows, shape.cols).or(Some(fallback))
+        }
+        _ => Some(fallback),
+    }
+}
+
+fn value_len(value: &Variant) -> usize {
+    match value {
+        Variant::Array(values) => values.len(),
+        _ => 1,
+    }
 }
 
 /// `ReDim Preserve arr(...)` on an array of the same rank as `new_bounds`.
@@ -16778,6 +17531,51 @@ mod tests {
     }
 
     #[test]
+    fn sheet_id_lookup_survives_rename_and_reorder() {
+        let mut vm = Vm::new();
+        vm.ensure_sheet("First");
+        vm.ensure_sheet("Second");
+        vm.worksheet_origins
+            .get_mut("first")
+            .unwrap()
+            .original_sheet_id = Some("7".to_string());
+
+        assert_eq!(vm.sheet_id("FIRST").unwrap(), Some("7".to_string()));
+        assert_eq!(vm.sheet_name_for_id("7").unwrap(), "first");
+
+        vm.rename_sheet("First", "Renamed").unwrap();
+        vm.move_sheet("Renamed", 2).unwrap();
+
+        assert_eq!(vm.sheet_id("Renamed").unwrap(), Some("7".to_string()));
+        assert_eq!(vm.sheet_name_for_id("7").unwrap(), "renamed");
+        assert_eq!(vm.sheet_id("Second").unwrap(), None);
+        assert!(
+            vm.sheet_name_for_id("missing")
+                .unwrap_err()
+                .contains("not found")
+        );
+    }
+
+    #[test]
+    fn sheet_name_for_id_rejects_duplicate_source_ids() {
+        let mut vm = Vm::new();
+        vm.ensure_sheet("Second");
+        vm.worksheet_origins
+            .get_mut("second")
+            .unwrap()
+            .original_sheet_id = Some("7".to_string());
+
+        vm.ensure_sheet("First");
+        vm.worksheet_origins
+            .get_mut("first")
+            .unwrap()
+            .original_sheet_id = Some("7".to_string());
+
+        let err = vm.sheet_name_for_id("7").unwrap_err();
+        assert!(err.contains("duplicated"), "{err}");
+    }
+
+    #[test]
     fn sheet_state_from_attr_maps_the_two_real_values() {
         assert_eq!(SheetState::from_attr(Some("hidden")), SheetState::Hidden);
         assert_eq!(
@@ -18495,6 +19293,126 @@ mod tests {
     }
 
     #[test]
+    fn plan_spill_for_value_reports_footprint_without_mutating_the_sheet() {
+        let vm = Vm::new();
+        let before = vm.cells().len();
+        let value = Variant::Array(vec![Variant::Integer(10), Variant::Integer(20)]);
+        let plan = vm.plan_spill_for_value(2, 3, &value).unwrap().unwrap();
+        assert_eq!(plan.shape, ArrayShape::new(1, 2));
+        assert_eq!(plan.cell_at(0, 1), Some((2, 4)));
+        assert_eq!(vm.cells().len(), before);
+    }
+
+    #[test]
+    fn plan_spill_for_value_rejects_nonempty_targets_but_allows_empty_cells() {
+        let mut vm = Vm::new();
+        vm.write_rect("sheet1", (2, 4), &[vec![Variant::Integer(99)]]);
+        let value = Variant::Array(vec![Variant::Integer(10), Variant::Integer(20)]);
+        let error = vm.plan_spill_for_value(2, 3, &value).unwrap_err();
+        assert!(error.contains("#SPILL!"));
+        assert!(error.contains("2:4"));
+
+        vm.write_rect("sheet1", (2, 4), &[vec![Variant::Empty]]);
+        assert!(vm.plan_spill_for_value(2, 3, &value).is_ok());
+        assert!(
+            vm.plan_spill_for_value(2, 3, &Variant::Integer(1))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn apply_spill_for_value_is_atomic_and_preserves_the_anchor_formula() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(2, 3, "=SEQUENCE(1,2)").unwrap();
+        let value = Variant::Array(vec![Variant::Integer(10), Variant::Integer(20)]);
+        let rect = vm.apply_spill_for_value(2, 3, &value).unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(1, 2));
+        assert_eq!(vm.get_cell(2, 3), Variant::Integer(10));
+        assert_eq!(vm.get_cell(2, 4), Variant::Integer(20));
+        assert_eq!(
+            vm.cells()
+                .get(&(2, 3))
+                .and_then(|cell| cell.formula.as_deref()),
+            Some("=SEQUENCE(1,2)")
+        );
+
+        vm.write_rect("sheet1", (2, 5), &[vec![Variant::Integer(99)]]);
+        let before = vm.read_rect("sheet1", 2, 3, 2, 5);
+        let larger = Variant::Array(vec![
+            Variant::Integer(10),
+            Variant::Integer(20),
+            Variant::Integer(30),
+        ]);
+        assert!(vm.apply_spill_for_value(2, 3, &larger).is_err());
+        assert_eq!(vm.read_rect("sheet1", 2, 3, 2, 5), before);
+    }
+
+    #[test]
+    fn applying_a_new_spill_reclaims_only_the_previous_spill_cells() {
+        let mut vm = Vm::new();
+        let first = Variant::Array(vec![Variant::Integer(10), Variant::Integer(20)]);
+        vm.apply_spill_for_value(2, 3, &first).unwrap();
+        let second = Variant::Array(vec![Variant::Integer(30)]);
+        vm.apply_spill_for_value(2, 3, &second).unwrap();
+        assert_eq!(vm.get_cell(2, 3), Variant::Integer(30));
+        assert_eq!(vm.get_cell(2, 4), Variant::Empty);
+        assert!(!vm.cells().contains_key(&(2, 4)));
+    }
+
+    #[test]
+    fn spill_ownership_is_restored_by_edit_undo() {
+        let mut vm = Vm::new();
+        let first = Variant::Array(vec![Variant::Integer(10), Variant::Integer(20)]);
+        vm.apply_spill_for_value(2, 3, &first).unwrap();
+        vm.apply_spill_for_value(2, 3, &Variant::Array(vec![Variant::Integer(30)]))
+            .unwrap();
+        assert!(vm.undo_edit());
+        assert_eq!(vm.get_cell(2, 4), Variant::Integer(20));
+        vm.apply_spill_for_value(2, 3, &Variant::Array(vec![Variant::Integer(40)]))
+            .unwrap();
+        assert_eq!(vm.get_cell(2, 4), Variant::Empty);
+    }
+
+    #[test]
+    fn editing_an_old_spill_cell_clears_the_entire_spill_ownership() {
+        let mut vm = Vm::new();
+        vm.apply_spill_for_value(
+            2,
+            3,
+            &Variant::Array(vec![Variant::Integer(10), Variant::Integer(20)]),
+        )
+        .unwrap();
+        vm.write_rect("sheet1", (2, 4), &[vec![Variant::Integer(99)]]);
+        assert_eq!(vm.get_cell(2, 3), Variant::Integer(10));
+        assert_eq!(vm.get_cell(2, 4), Variant::Integer(99));
+        assert!(
+            vm.plan_spill_for_value(
+                2,
+                3,
+                &Variant::Array(vec![Variant::Integer(1), Variant::Integer(2)])
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn replacing_an_anchor_formula_reclaims_its_old_spill_cells() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(2, 3, "=SEQUENCE(1,2)").unwrap();
+        vm.apply_spill_for_value(
+            2,
+            3,
+            &Variant::Array(vec![Variant::Integer(10), Variant::Integer(20)]),
+        )
+        .unwrap();
+        vm.set_cell_formula(2, 3, "=1").unwrap();
+        assert_eq!(vm.get_cell(2, 3), Variant::Integer(1));
+        assert_eq!(vm.get_cell(2, 4), Variant::Empty);
+        assert!(!vm.cells().contains_key(&(2, 4)));
+    }
+
+    #[test]
     fn edit_history_undoes_and_redoes_values_and_formulas_with_cache_state() {
         let mut vm = Vm::new();
         vm.write_rect("sheet1", (1, 1), &[vec![Variant::Integer(2)]]);
@@ -18547,6 +19465,43 @@ mod tests {
         assert_eq!(vm.get_cell(1, 3), Variant::Empty);
         assert!(vm.can_undo_edit());
         assert!(!vm.can_redo_edit());
+    }
+
+    #[test]
+    fn committed_edit_transaction_is_one_undoable_unit() {
+        let mut vm = Vm::new();
+        vm.begin_edit_transaction().unwrap();
+        vm.write_rect("sheet1", (1, 1), &[vec![Variant::Integer(7)]]);
+        vm.write_rect("sheet1", (1, 2), &[vec![Variant::Integer(8)]]);
+        assert!(vm.commit_edit_transaction());
+
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(8));
+        assert!(vm.undo_edit());
+        assert_eq!(vm.get_cell(1, 1), Variant::Empty);
+        assert_eq!(vm.get_cell(1, 2), Variant::Empty);
+        assert!(!vm.can_undo_edit());
+        assert!(vm.redo_edit());
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(8));
+    }
+
+    #[test]
+    fn aborted_edit_transaction_preserves_existing_redo_history() {
+        let mut vm = Vm::new();
+        vm.write_rect("sheet1", (1, 1), &[vec![Variant::Integer(1)]]);
+        vm.write_rect("sheet1", (1, 1), &[vec![Variant::Integer(2)]]);
+        assert!(vm.undo_edit());
+        assert!(vm.can_redo_edit());
+
+        vm.begin_edit_transaction().unwrap();
+        vm.write_rect("sheet1", (1, 2), &[vec![Variant::Integer(3)]]);
+        assert!(vm.abort_edit_transaction());
+
+        assert_eq!(vm.get_cell(1, 2), Variant::Empty);
+        assert!(vm.can_redo_edit());
+        assert!(vm.redo_edit());
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(2));
     }
 
     #[test]
@@ -18648,7 +19603,7 @@ mod tests {
             (1, 2, formula::parse("=SUM(A1:A100000)").unwrap()),
             (1, 3, formula::parse("=3+3").unwrap()),
         ];
-        let order = topo_sort_formulas(&cells).unwrap();
+        let order = topo_sort_formulas(&cells, None).unwrap();
         let a1 = order.iter().position(|&index| index == 0).unwrap();
         let b1 = order.iter().position(|&index| index == 1).unwrap();
         assert!(a1 < b1);
@@ -18669,12 +19624,404 @@ mod tests {
         .into_iter()
         .collect();
         let mut first = HashSet::new();
-        collect_formula_dependencies(&cells[0].2, &positions, &positions_by_row, &mut first);
+        collect_formula_dependencies(&cells[0].2, &positions, &positions_by_row, None, &mut first);
         let mut second = HashSet::new();
-        collect_formula_dependencies(&cells[1].2, &positions, &positions_by_row, &mut second);
+        collect_formula_dependencies(
+            &cells[1].2,
+            &positions,
+            &positions_by_row,
+            None,
+            &mut second,
+        );
         assert_eq!(first, [1].into_iter().collect());
         assert_eq!(second, [0].into_iter().collect());
-        assert_eq!(topo_sort_formulas(&cells).unwrap().len(), 2);
+        assert_eq!(topo_sort_formulas(&cells, None).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn spill_cell_dependencies_are_ordered_after_their_anchor_formula() {
+        let cells = vec![
+            (1, 3, formula::parse("=B1+1").unwrap()),
+            (1, 1, formula::parse("=1+1").unwrap()),
+        ];
+        let spill = SpillRect::new(1, 1, ArrayShape::new(1, 2)).unwrap();
+        let spill_rects = [((1, 1), spill)].into_iter().collect();
+        let order = topo_sort_formulas(&cells, Some(&spill_rects)).unwrap();
+        let dependent = order.iter().position(|&index| index == 0).unwrap();
+        let anchor = order.iter().position(|&index| index == 1).unwrap();
+        assert!(anchor < dependent);
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_materializes_array_values_for_dependents() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=SEQUENCE(1,2)").unwrap();
+        vm.set_cell_formula(1, 3, "=B1+1").unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(1));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(2));
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(3));
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_uses_formula_shape_for_two_dimensional_arrays() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(2, 2, "=SEQUENCE(2,3)").unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(2, 2), Variant::Integer(1));
+        assert_eq!(vm.get_cell(2, 4), Variant::Integer(3));
+        assert_eq!(vm.get_cell(3, 2), Variant::Integer(4));
+        assert_eq!(vm.get_cell(3, 4), Variant::Integer(6));
+        let rect = vm
+            .spill_rects
+            .get("sheet1")
+            .and_then(|anchors| anchors.get(&(2, 2)))
+            .copied()
+            .unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(2, 3));
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_uses_transpose_shape_for_range_arrays() {
+        let mut vm = Vm::new();
+        vm.cells_mut().insert(
+            (1, 1),
+            CellContent {
+                formula: None,
+                value: Variant::Integer(10),
+            },
+        );
+        vm.cells_mut().insert(
+            (1, 2),
+            CellContent {
+                formula: None,
+                value: Variant::Integer(20),
+            },
+        );
+        vm.set_cell_formula(2, 2, "=TRANSPOSE(A1:B1)").unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(2, 2), Variant::Integer(10));
+        assert_eq!(vm.get_cell(3, 2), Variant::Integer(20));
+        let rect = vm
+            .spill_rects
+            .get("sheet1")
+            .and_then(|anchors| anchors.get(&(2, 2)))
+            .copied()
+            .unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(2, 1));
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_propagates_vstack_shapes() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=VSTACK(SEQUENCE(2,2),SEQUENCE(2,2))")
+            .unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(1));
+        assert_eq!(vm.get_cell(2, 2), Variant::Integer(4));
+        assert_eq!(vm.get_cell(3, 1), Variant::Integer(1));
+        assert_eq!(vm.get_cell(4, 2), Variant::Integer(4));
+        let rect = vm
+            .spill_rects
+            .get("sheet1")
+            .and_then(|anchors| anchors.get(&(1, 1)))
+            .copied()
+            .unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(4, 2));
+
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=HSTACK(SEQUENCE(2,1),SEQUENCE(2,1))")
+            .unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(1));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(1));
+        assert_eq!(vm.get_cell(2, 1), Variant::Integer(2));
+        assert_eq!(vm.get_cell(2, 2), Variant::Integer(2));
+        let rect = vm
+            .spill_rects
+            .get("sheet1")
+            .and_then(|anchors| anchors.get(&(1, 1)))
+            .copied()
+            .unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(2, 2));
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_uses_filter_source_width() {
+        let mut vm = Vm::new();
+        for (position, value) in [
+            ((1, 1), Variant::Integer(1)),
+            ((1, 2), Variant::Str("a".into())),
+            ((2, 1), Variant::Integer(2)),
+            ((2, 2), Variant::Str("b".into())),
+            ((3, 1), Variant::Integer(3)),
+            ((3, 2), Variant::Str("c".into())),
+        ] {
+            vm.cells_mut().insert(
+                position,
+                CellContent {
+                    formula: None,
+                    value,
+                },
+            );
+        }
+        vm.set_cell_formula(1, 4, "=FILTER(A1:B3,A1:A3>1)").unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(1, 4), Variant::Integer(2));
+        assert_eq!(vm.get_cell(1, 5), Variant::Str("b".into()));
+        assert_eq!(vm.get_cell(2, 4), Variant::Integer(3));
+        assert_eq!(vm.get_cell(2, 5), Variant::Str("c".into()));
+        let rect = vm
+            .spill_rects
+            .get("sheet1")
+            .and_then(|anchors| anchors.get(&(1, 4)))
+            .copied()
+            .unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(2, 2));
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_restores_generated_filter_column_shape() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=FILTER(SEQUENCE(2,3),SEQUENCE(1,3))")
+            .unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(1));
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(3));
+        assert_eq!(vm.get_cell(2, 1), Variant::Integer(4));
+        assert_eq!(vm.get_cell(2, 3), Variant::Integer(6));
+        let rect = vm
+            .spill_rects
+            .get("sheet1")
+            .and_then(|anchors| anchors.get(&(1, 1)))
+            .copied()
+            .unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(2, 3));
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_keeps_one_column_take_and_drop_vertical() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=TAKE(SEQUENCE(5),3)").unwrap();
+        vm.set_cell_formula(1, 3, "=DROP(SEQUENCE(5),2)").unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(1));
+        assert_eq!(vm.get_cell(3, 1), Variant::Integer(3));
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(3));
+        assert_eq!(vm.get_cell(3, 3), Variant::Integer(5));
+        assert_eq!(
+            vm.spill_rects
+                .get("sheet1")
+                .and_then(|anchors| anchors.get(&(1, 1)))
+                .copied()
+                .unwrap()
+                .shape,
+            ArrayShape::new(3, 1)
+        );
+        assert_eq!(
+            vm.spill_rects
+                .get("sheet1")
+                .and_then(|anchors| anchors.get(&(1, 3)))
+                .copied()
+                .unwrap()
+                .shape,
+            ArrayShape::new(3, 1)
+        );
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_restores_unique_sort_and_flatten_axes() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=UNIQUE(SEQUENCE(3))").unwrap();
+        vm.set_cell_formula(1, 3, "=SORT(SEQUENCE(3))").unwrap();
+        vm.set_cell_formula(1, 5, "=TOCOL(SEQUENCE(2,2))").unwrap();
+        vm.set_cell_formula(1, 7, "=TOROW(SEQUENCE(2,2))").unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(3, 1), Variant::Integer(3));
+        assert_eq!(vm.get_cell(3, 3), Variant::Integer(3));
+        assert_eq!(vm.get_cell(4, 5), Variant::Integer(4));
+        assert_eq!(vm.get_cell(1, 10), Variant::Integer(4));
+        assert_eq!(
+            vm.spill_rects
+                .get("sheet1")
+                .and_then(|anchors| anchors.get(&(1, 1)))
+                .copied()
+                .unwrap()
+                .shape,
+            ArrayShape::new(3, 1)
+        );
+        assert_eq!(
+            vm.spill_rects
+                .get("sheet1")
+                .and_then(|anchors| anchors.get(&(1, 7)))
+                .copied()
+                .unwrap()
+                .shape,
+            ArrayShape::new(1, 4)
+        );
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_restores_index_array_shapes() {
+        let mut vm = Vm::new();
+        for (position, value) in [
+            ((1, 1), Variant::Integer(1)),
+            ((1, 2), Variant::Integer(2)),
+            ((2, 1), Variant::Integer(3)),
+            ((2, 2), Variant::Integer(4)),
+        ] {
+            vm.cells_mut().insert(
+                position,
+                CellContent {
+                    formula: None,
+                    value,
+                },
+            );
+        }
+        vm.set_cell_formula(1, 4, "=INDEX(A1:B2,0,0)").unwrap();
+        vm.set_cell_formula(1, 7, "=INDEX(A1:B2,0,2)").unwrap();
+        vm.set_cell_formula(1, 9, "=INDEX(A1:B2,2,0)").unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(2, 4), Variant::Integer(3));
+        assert_eq!(vm.get_cell(2, 5), Variant::Integer(4));
+        assert_eq!(vm.get_cell(1, 7), Variant::Integer(2));
+        assert_eq!(vm.get_cell(2, 7), Variant::Integer(4));
+        assert_eq!(vm.get_cell(1, 9), Variant::Integer(3));
+        assert_eq!(vm.get_cell(1, 10), Variant::Integer(4));
+        assert_eq!(
+            vm.spill_rects
+                .get("sheet1")
+                .and_then(|anchors| anchors.get(&(1, 4)))
+                .copied()
+                .unwrap()
+                .shape,
+            ArrayShape::new(2, 2)
+        );
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_restores_choose_axes_for_two_dimensional_arrays() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=CHOOSECOLS(SEQUENCE(2,3),3,1)")
+            .unwrap();
+        vm.set_cell_formula(1, 5, "=CHOOSEROWS(SEQUENCE(2,3),2)")
+            .unwrap();
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(3));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(1));
+        assert_eq!(vm.get_cell(2, 1), Variant::Integer(6));
+        assert_eq!(vm.get_cell(2, 2), Variant::Integer(4));
+        assert_eq!(vm.get_cell(1, 5), Variant::Integer(4));
+        assert_eq!(vm.get_cell(1, 7), Variant::Integer(6));
+        assert_eq!(
+            vm.spill_rects
+                .get("sheet1")
+                .and_then(|anchors| anchors.get(&(1, 1)))
+                .copied()
+                .unwrap()
+                .shape,
+            ArrayShape::new(2, 2)
+        );
+        assert_eq!(
+            vm.spill_rects
+                .get("sheet1")
+                .and_then(|anchors| anchors.get(&(1, 5)))
+                .copied()
+                .unwrap()
+                .shape,
+            ArrayShape::new(1, 3)
+        );
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_rejects_overlapping_array_anchors_before_writing() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=SEQUENCE(1,2)").unwrap();
+        vm.set_cell_formula(1, 2, "=SEQUENCE(1,2)").unwrap();
+        let before = vm.cells().len();
+        let error = vm.recalculate_all_with_spills().unwrap_err();
+        assert!(error.contains("#SPILL!"));
+        assert_eq!(vm.cells().len(), before);
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_rolls_back_prior_sheets_on_later_collision() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=SEQUENCE(1,2)").unwrap();
+        vm.ensure_sheet("Other");
+        vm.set_active_sheet("Other").unwrap();
+        vm.set_cell_formula(1, 1, "=SEQUENCE(1,2)").unwrap();
+        vm.write_rect("Other", (1, 2), &[vec![Variant::Integer(99)]]);
+        vm.set_active_sheet("sheet1").unwrap();
+
+        let error = vm.recalculate_all_with_spills().unwrap_err();
+        assert!(error.contains("#SPILL!"));
+        assert_eq!(vm.active_sheet, "sheet1");
+        // The formula's cached array value exists before materialization; the
+        // rollback contract is that only the derived spill cells disappear.
+        assert_eq!(
+            vm.get_cell(1, 1),
+            Variant::Array(vec![Variant::Integer(1), Variant::Integer(2)])
+        );
+        assert_eq!(vm.get_cell(1, 2), Variant::Empty);
+        assert_eq!(
+            vm.get_sheet_cells("other")
+                .unwrap()
+                .get(&(1, 2))
+                .map(|cell| &cell.value),
+            Some(&Variant::Integer(99))
+        );
+        assert!(vm.spill_rects.values().all(HashMap::is_empty));
+    }
+
+    #[test]
+    fn recalculate_all_with_spills_materializes_each_sheet_and_restores_active_sheet() {
+        let mut vm = Vm::new();
+        vm.ensure_sheet("Other");
+        vm.set_active_sheet("other").unwrap();
+        vm.set_cell_formula(1, 1, "=SEQUENCE(1,2)").unwrap();
+        vm.set_active_sheet("sheet1").unwrap();
+        vm.set_cell_formula(1, 1, "=SEQUENCE(1,2)").unwrap();
+
+        vm.recalculate_all_with_spills().unwrap();
+        assert_eq!(vm.active_sheet, "sheet1");
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(2));
+        assert_eq!(
+            vm.get_sheet_cells("other")
+                .unwrap()
+                .get(&(1, 2))
+                .map(|cell| &cell.value),
+            Some(&Variant::Integer(2))
+        );
+    }
+
+    #[test]
+    fn apply_spill_matrix_preserves_two_dimensional_shape_and_anchor_formula() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(2, 2, "=TRANSPOSE(A1:B1)").unwrap();
+        let matrix = vec![vec![Variant::Integer(10)], vec![Variant::Integer(20)]];
+        let rect = vm.apply_spill_matrix(2, 2, &matrix).unwrap();
+        assert_eq!(rect.shape, ArrayShape::new(2, 1));
+        assert_eq!(vm.get_cell(2, 2), Variant::Integer(10));
+        assert_eq!(vm.get_cell(3, 2), Variant::Integer(20));
+        assert_eq!(
+            vm.cells()
+                .get(&(2, 2))
+                .and_then(|cell| cell.formula.as_deref()),
+            Some("=TRANSPOSE(A1:B1)")
+        );
+    }
+
+    #[test]
+    fn apply_spill_matrix_rejects_ragged_input_before_mutation() {
+        let mut vm = Vm::new();
+        let before = vm.cells().len();
+        let matrix = vec![
+            vec![Variant::Integer(1)],
+            vec![Variant::Integer(2), Variant::Integer(3)],
+        ];
+        assert!(vm.apply_spill_matrix(1, 1, &matrix).is_err());
+        assert_eq!(vm.cells().len(), before);
     }
 
     #[test]

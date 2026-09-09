@@ -24,7 +24,9 @@ def _json_schema_to_ebnf(
     separators: Optional[Tuple[str, str]] = None,
     max_whitespace_cnt: Optional[int] = None,
     strict_mode: bool = True,
-    json_format: Literal["json", "qwen_xml", "minimax_xml", "deepseek_xml", "glm_xml"] = "json",
+    json_format: Literal[
+        "json", "qwen_xml", "minimax_xml", "deepseek_xml", "glm_xml", "cohere_xml", "kimi_k3_xml"
+    ] = "json",
     any_order: bool = False,
 ) -> str:
     """Convert JSON schema string to BNF grammar string. For test purposes.
@@ -58,8 +60,8 @@ def _json_schema_to_ebnf(
 
     json_format : str, default: "json"
         The root format of the generated grammar. One of "json", "qwen_xml", "minimax_xml",
-        "deepseek_xml", "glm_xml". Formats other than "json" generate an XML-style root object
-        for tool calling, while the inner values remain JSON-style.
+        "deepseek_xml", "glm_xml", "cohere_xml", "kimi_k3_xml". Formats other than "json" generate an
+        XML-style root object for tool calling, while the inner values remain JSON-style.
 
     Returns
     -------
@@ -190,6 +192,11 @@ def _is_grammar_accept_string(
         return True
 
     return grammar_matcher.is_terminated()
+
+
+def _is_rule_fsm_accept_string(grammar: Grammar, rule_id: int, input_str: str) -> bool:
+    """Check whether a rule's already-built FSM accepts a string."""
+    return bool(_core.testing._is_rule_fsm_accept_string(grammar._handle, rule_id, input_str))
 
 
 def _get_masked_tokens_from_bitmask(
@@ -431,6 +438,13 @@ class GrammarFunctor:
         """Optimize the grammar."""
         return Grammar._create_from_handle(
             _core.testing.grammar_functor.grammar_optimizer(grammar._handle)
+        )
+
+    @staticmethod
+    def fsm_builder(grammar: Grammar) -> Grammar:
+        """Build rule FSMs without running other grammar passes."""
+        return Grammar._create_from_handle(
+            _core.testing.grammar_functor.fsm_builder(grammar._handle)
         )
 
     @staticmethod

@@ -292,9 +292,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[CancelQueryRequestTypeDef]
     ) -> CancelQueryResponseTypeDef:
         """
-        Cancels a query if the query is not in a terminated state, such as
-        <code>CANCELLED</code>, <code>FAILED</code>, <code>TIMED_OUT</code>, or
-        <code>FINISHED</code>.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/cancel_query.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#cancel_query)
@@ -304,8 +302,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[CreateChannelRequestTypeDef]
     ) -> CreateChannelResponseTypeDef:
         """
-        Creates a channel for CloudTrail to ingest events from a partner or external
-        source.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/create_channel.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#create_channel)
@@ -315,7 +312,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[CreateDashboardRequestTypeDef]
     ) -> CreateDashboardResponseTypeDef:
         """
-        Creates a custom dashboard or the Highlights dashboard.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/create_dashboard.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#create_dashboard)
@@ -325,7 +322,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[CreateEventDataStoreRequestTypeDef]
     ) -> CreateEventDataStoreResponseTypeDef:
         """
-        Creates a new event data store.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/create_event_data_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#create_event_data_store)
@@ -344,7 +341,7 @@ class CloudTrailClient(BaseClient):
 
     def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes a channel.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/delete_channel.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#delete_channel)
@@ -352,7 +349,7 @@ class CloudTrailClient(BaseClient):
 
     def delete_dashboard(self, **kwargs: Unpack[DeleteDashboardRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes the specified dashboard.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/delete_dashboard.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#delete_dashboard)
@@ -362,8 +359,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[DeleteEventDataStoreRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Disables the event data store specified by <code>EventDataStore</code>, which
-        accepts an event data store ARN.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/delete_event_data_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#delete_event_data_store)
@@ -403,8 +399,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[DescribeQueryRequestTypeDef]
     ) -> DescribeQueryResponseTypeDef:
         """
-        Returns metadata about a query, including query run time in milliseconds,
-        number of events scanned and matched, and query status.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/describe_query.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#describe_query)
@@ -425,7 +420,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[DisableFederationRequestTypeDef]
     ) -> DisableFederationResponseTypeDef:
         """
-        Disables Lake query federation on the specified event data store.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/disable_federation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#disable_federation)
@@ -435,7 +430,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[EnableFederationRequestTypeDef]
     ) -> EnableFederationResponseTypeDef:
         """
-        Enables Lake query federation on the specified event data store.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/enable_federation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#enable_federation)
@@ -445,7 +440,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[GenerateQueryRequestTypeDef]
     ) -> GenerateQueryResponseTypeDef:
         """
-        Generates a query from a natural language prompt.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/generate_query.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#generate_query)
@@ -453,7 +448,7 @@ class CloudTrailClient(BaseClient):
 
     def get_channel(self, **kwargs: Unpack[GetChannelRequestTypeDef]) -> GetChannelResponseTypeDef:
         """
-        Returns information about a specific channel.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/get_channel.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#get_channel)
@@ -463,7 +458,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[GetDashboardRequestTypeDef]
     ) -> GetDashboardResponseTypeDef:
         """
-        Returns the specified dashboard.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/get_dashboard.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#get_dashboard)
@@ -484,8 +479,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[GetEventDataStoreRequestTypeDef]
     ) -> GetEventDataStoreResponseTypeDef:
         """
-        Returns information about an event data store specified as either an ARN or the
-        ID portion of the ARN.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/get_event_data_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#get_event_data_store)
@@ -504,7 +498,7 @@ class CloudTrailClient(BaseClient):
 
     def get_import(self, **kwargs: Unpack[GetImportRequestTypeDef]) -> GetImportResponseTypeDef:
         """
-        Returns information about a specific import.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/get_import.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#get_import)
@@ -525,7 +519,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[GetQueryResultsRequestTypeDef]
     ) -> GetQueryResultsResponseTypeDef:
         """
-        Gets event data results of a query.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/get_query_results.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#get_query_results)
@@ -564,7 +558,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[ListChannelsRequestTypeDef]
     ) -> ListChannelsResponseTypeDef:
         """
-        Lists the channels in the current account, and their source names.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/list_channels.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#list_channels)
@@ -574,7 +568,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[ListDashboardsRequestTypeDef]
     ) -> ListDashboardsResponseTypeDef:
         """
-        Returns information about all dashboards in the account, in the current Region.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/list_dashboards.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#list_dashboards)
@@ -584,8 +578,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[ListEventDataStoresRequestTypeDef]
     ) -> ListEventDataStoresResponseTypeDef:
         """
-        Returns information about all event data stores in the account, in the current
-        Region.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/list_event_data_stores.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#list_event_data_stores)
@@ -595,7 +588,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[ListImportFailuresRequestTypeDef]
     ) -> ListImportFailuresResponseTypeDef:
         """
-        Returns a list of failures for the specified import.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/list_import_failures.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#list_import_failures)
@@ -605,8 +598,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[ListImportsRequestTypeDef]
     ) -> ListImportsResponseTypeDef:
         """
-        Returns information on all imports, or a select set of imports by
-        <code>ImportStatus</code> or <code>Destination</code>.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/list_imports.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#list_imports)
@@ -647,7 +639,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[ListQueriesRequestTypeDef]
     ) -> ListQueriesResponseTypeDef:
         """
-        Returns a list of queries and query statuses for the past seven days.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/list_queries.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#list_queries)
@@ -753,8 +745,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[RestoreEventDataStoreRequestTypeDef]
     ) -> RestoreEventDataStoreResponseTypeDef:
         """
-        Restores a deleted event data store specified by <code>EventDataStore</code>,
-        which accepts an event data store ARN.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/restore_event_data_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#restore_event_data_store)
@@ -764,8 +755,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[SearchSampleQueriesRequestTypeDef]
     ) -> SearchSampleQueriesResponseTypeDef:
         """
-        Searches sample queries and returns a list of sample queries that are sorted by
-        relevance.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/search_sample_queries.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#search_sample_queries)
@@ -775,7 +765,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[StartDashboardRefreshRequestTypeDef]
     ) -> StartDashboardRefreshResponseTypeDef:
         """
-        Starts a refresh of the specified dashboard.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/start_dashboard_refresh.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#start_dashboard_refresh)
@@ -785,8 +775,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[StartEventDataStoreIngestionRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Starts the ingestion of live events on an event data store specified as either
-        an ARN or the ID portion of the ARN.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/start_event_data_store_ingestion.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#start_event_data_store_ingestion)
@@ -796,8 +785,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[StartImportRequestTypeDef]
     ) -> StartImportResponseTypeDef:
         """
-        Starts an import of logged trail events from a source S3 bucket to a
-        destination event data store.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/start_import.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#start_import)
@@ -814,7 +802,7 @@ class CloudTrailClient(BaseClient):
 
     def start_query(self, **kwargs: Unpack[StartQueryRequestTypeDef]) -> StartQueryResponseTypeDef:
         """
-        Starts a CloudTrail Lake query.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/start_query.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#start_query)
@@ -824,8 +812,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[StopEventDataStoreIngestionRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Stops the ingestion of live events on an event data store specified as either
-        an ARN or the ID portion of the ARN.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/stop_event_data_store_ingestion.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#stop_event_data_store_ingestion)
@@ -833,7 +820,7 @@ class CloudTrailClient(BaseClient):
 
     def stop_import(self, **kwargs: Unpack[StopImportRequestTypeDef]) -> StopImportResponseTypeDef:
         """
-        Stops a specified import.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/stop_import.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#stop_import)
@@ -852,7 +839,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[UpdateChannelRequestTypeDef]
     ) -> UpdateChannelResponseTypeDef:
         """
-        Updates a channel specified by a required channel ARN or UUID.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/update_channel.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#update_channel)
@@ -862,7 +849,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[UpdateDashboardRequestTypeDef]
     ) -> UpdateDashboardResponseTypeDef:
         """
-        Updates the specified dashboard.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/update_dashboard.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#update_dashboard)
@@ -872,7 +859,7 @@ class CloudTrailClient(BaseClient):
         self, **kwargs: Unpack[UpdateEventDataStoreRequestTypeDef]
     ) -> UpdateEventDataStoreResponseTypeDef:
         """
-        Updates an event data store.
+        CloudTrail Lake will no longer be open to new customers starting May 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/update_event_data_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/client/#update_event_data_store)

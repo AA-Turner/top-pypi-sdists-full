@@ -208,6 +208,54 @@ def decode_part_body(
     return body_handler(content=body, content_type=content_type)
 
 
+def is_api_error_part(parsed, headers: Dict[str, str]) -> bool:
+    """Detect an API-generated error part (status >= 400, no scrape envelope)."""
+
+    if _safe_int(headers.get("x-scrapfly-scrape-status"), 0) < 400:
+        return False
+
+    return isinstance(parsed, dict) and "result" not in parsed and "config" not in parsed
+
+
+def error_from_api_error_part(parsed: Dict, headers: Dict[str, str], request):
+    """Build the typed per-part error for an API-generated error body."""
+    from .errors import ApiHttpClientError, ApiHttpServerError, ErrorFactory, api_error_args
+
+    # A part has no HTTP status of its own, so the envelope decode falls back
+    # to the status the multipart header carries for this part.
+    args = api_error_args(parsed, http_status_code=_safe_int(headers.get("x-scrapfly-scrape-status"), 500))
+    resource = args["resource"]
+    http_code = args["http_status_code"]
+
+    is_scraper_resource = resource in ErrorFactory.RESOURCE_TO_ERROR
+
+    if http_code in ErrorFactory.HTTP_STATUS_TO_ERROR and not is_scraper_resource:
+        error_class = ErrorFactory.HTTP_STATUS_TO_ERROR[http_code]
+    elif is_scraper_resource:
+        error_class = ErrorFactory.RESOURCE_TO_ERROR[resource]
+    else:
+        error_class = ApiHttpServerError if http_code >= 500 else ApiHttpClientError
+
+    return error_class(
+        request=request,
+        response=_synthesize_part_response(request, http_code, parsed.get("reason")),
+        **args,
+    )
+
+
+def _synthesize_part_response(request, http_code: int, reason):
+    """Minimal Response reflecting the part's own status (a part has no HTTP response)."""
+    from requests import Response
+    from http.client import responses as status_reasons
+
+    response = Response()
+    response.status_code = http_code
+    response.reason = reason if isinstance(reason, str) else status_reasons.get(http_code, "")
+    response.request = request
+
+    return response
+
+
 # Header key prefix used by the server to forward upstream response
 # headers on a proxified batch part (avoids collision with the
 # multipart envelope's own headers).

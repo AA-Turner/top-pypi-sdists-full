@@ -1,0 +1,83 @@
+name: Cron Watchdog
+
+on:
+  schedule:
+    # Run hourly at :25, between the watched cron trigger bands
+    - cron: "25 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run. Print the would-be Slack payload without posting."
+        required: false
+        type: boolean
+        default: true
+  pull_request:
+    paths:
+      - ".github/workflows/cron-watchdog.yml"
+      - "src/airbyte_ops_mcp/cron_watchdog.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect:
+    name: Inspect Hydra Cron Health
+    runs-on: ubuntu-latest
+    outputs:
+      should_post: ${{ steps.watchdog.outputs.should_post }}
+      blocks_json: ${{ steps.watchdog.outputs.blocks_json }}
+      fallback_text: ${{ steps.watchdog.outputs.fallback_text }}
+    steps:
+      # ---------- Setup ----------
+      - name: Check out watchdog code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install watchdog dependencies
+        run: uv sync --no-dev
+
+      - name: Mint octavia-bot token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: ai-skills,airbyte-ops-mcp
+
+      # ---------- Watchdog ----------
+      - name: Inspect watched workflows
+        id: watchdog
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          DRY_RUN: >-
+            ${{ github.event_name == 'pull_request' && 'true'
+             || github.event_name == 'workflow_dispatch' && inputs.dry_run
+             || 'false' }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_HYDRA_BOT_TOKEN || secrets.SLACK_BOT_TOKEN_HITL || secrets.SLACK_BOT_TOKEN_AIRBYTE_TEAM }}
+        run: uv run python -m airbyte_ops_mcp.cron_watchdog
+
+  deliver:
+    name: Deliver Hydra Slack Alert
+    needs: inspect
+    if: >-
+      always()
+      && github.event_name != 'pull_request'
+      && needs.inspect.outputs.should_post == 'true'
+      && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+    uses: ./.github/workflows/slack-post-message.yml
+    with:
+      channel_id: ${{ vars.SLACK_CHANNEL_HYDRA_ALERTS || 'C0BU4UTFN21' }}
+      blocks_json: ${{ needs.inspect.outputs.blocks_json }}
+      fallback_text: ${{ needs.inspect.outputs.fallback_text }}
+    secrets: inherit

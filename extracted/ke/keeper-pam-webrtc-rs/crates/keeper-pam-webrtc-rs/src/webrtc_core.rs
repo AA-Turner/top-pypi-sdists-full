@@ -2522,7 +2522,7 @@ impl WebRTCPeerConnection {
                 let mut bytes_received: u64 = 0;
                 let mut rtt_ms: Option<f64> = None;
 
-                for (_id, report) in reports.reports.iter() {
+                for report in reports.reports.values() {
                     match report {
                         webrtc::stats::StatsReportType::CandidatePair(pair) if pair.nominated => {
                             bytes_sent = pair.bytes_sent;

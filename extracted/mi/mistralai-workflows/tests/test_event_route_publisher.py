@@ -8,8 +8,12 @@ from unittest.mock import patch
 
 import httpx
 import pytest
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
+from mistralai.workflows.core import metrics as workflows_metrics
 from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
+from mistralai.workflows.core.metrics import EventRouteFallbackReason
 from mistralai.workflows.exceptions import WorkflowsException
 from mistralai.workflows.protocol.v1.events import WorkflowEvent
 from mistralai.workflows.protocol.v2.worker import (
@@ -27,6 +31,32 @@ _CONTEXT_PATCH = "mistralai.workflows.core._events.event_route_publisher.retriev
 _EXECUTION_TOKEN = "00000000-0000-0000-0000-000000000001"
 _TransportHandler = Callable[[httpx.Request], Coroutine[None, None, httpx.Response]]
 _TransportOverride = Callable[[httpx.Request], httpx.Response]
+
+
+def _read_v1_fallback_counts(reader: InMemoryMetricReader) -> dict[str | None, int]:
+    """Fallback counts keyed by the metric's `reason` attribute."""
+    data = reader.get_metrics_data()
+    counts: dict[str | None, int] = {}
+    for resource_metric in data.resource_metrics if data else []:
+        for scope_metric in resource_metric.scope_metrics:
+            for metric in scope_metric.metrics:
+                if metric.name != "mistral_workflows_event_route_v1_fallback":
+                    continue
+                for point in metric.data.data_points:
+                    reason = point.attributes.get("reason") if point.attributes else None
+                    counts[reason] = counts.get(reason, 0) + point.value
+    return counts
+
+
+@asynccontextmanager
+async def _capture_v1_fallback_metric() -> AsyncIterator[InMemoryMetricReader]:
+    reader = InMemoryMetricReader()
+    meter_provider = MeterProvider(metric_readers=[reader])
+    with (
+        patch.object(workflows_metrics, "_counters", {}),
+        patch.object(workflows_metrics.metrics, "get_meter", meter_provider.get_meter),
+    ):
+        yield reader
 
 
 def _make_event_batch(count: int) -> list[WorkflowEvent]:
@@ -193,8 +223,53 @@ class TestEventRoutePublisher:
 
         transport = _MockEventRouteTransport(overrides={"/v2/workflows/workers/event-route-token": reject})
 
-        async with _publisher_harness(transport) as publisher:
-            assert await publisher.try_publish_via_v2([create_test_workflow_event()]) is False
+        async with _capture_v1_fallback_metric() as reader:
+            async with _publisher_harness(transport) as publisher:
+                assert await publisher.try_publish_via_v2([create_test_workflow_event()]) is False
+
+            assert _read_v1_fallback_counts(reader) == {EventRouteFallbackReason.TOKEN_REQUIRED: 1}
+
+        assert [path for path, _ in transport.requests] == ["/v2/workflows/workers/event-route-token"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("response", "expected_reason"),
+        [
+            pytest.param(
+                httpx.Response(HTTPStatus.NOT_FOUND, json={"detail": "Not Found"}),
+                EventRouteFallbackReason.ROUTE_UNAVAILABLE,
+                id="route-absent-fastapi-json",
+            ),
+            pytest.param(
+                httpx.Response(HTTPStatus.NOT_FOUND, text="<html>404</html>"),
+                EventRouteFallbackReason.ROUTE_UNAVAILABLE,
+                id="route-absent-gateway-html",
+            ),
+            pytest.param(
+                httpx.Response(
+                    HTTPStatus.SERVICE_UNAVAILABLE, json={"detail": "Event route token service is not enabled"}
+                ),
+                EventRouteFallbackReason.TOKEN_SERVICE_UNAVAILABLE,
+                id="token-service-off",
+            ),
+        ],
+    )
+    async def test_unusable_v2_route_falls_back_to_v1(
+        self,
+        response: httpx.Response,
+        expected_reason: EventRouteFallbackReason,
+    ) -> None:
+        # No v2 route (untagged 404) or no token service behind it (503) → v1 rather than a lost event.
+        def reject(request: httpx.Request) -> httpx.Response:
+            return response
+
+        transport = _MockEventRouteTransport(overrides={"/v2/workflows/workers/event-route-token": reject})
+
+        async with _capture_v1_fallback_metric() as reader:
+            async with _publisher_harness(transport) as publisher:
+                assert await publisher.try_publish_via_v2([create_test_workflow_event()]) is False
+
+            assert _read_v1_fallback_counts(reader) == {expected_reason: 1}
 
         assert [path for path, _ in transport.requests] == ["/v2/workflows/workers/event-route-token"]
 
@@ -278,9 +353,12 @@ class TestEventRoutePublisher:
 
         transport = _MockEventRouteTransport(overrides={failure_path: fail_request})
 
-        async with _publisher_harness(transport) as publisher:
-            with pytest.raises(WorkflowsException) as exc_info:
-                await publisher.try_publish_via_v2(events)
+        async with _capture_v1_fallback_metric() as reader:
+            async with _publisher_harness(transport) as publisher:
+                with pytest.raises(WorkflowsException) as exc_info:
+                    await publisher.try_publish_via_v2(events)
+
+            assert _read_v1_fallback_counts(reader) == {}
 
         assert exc_info.value.status == scenario.status
         expected_code = scenario.body.get("code")

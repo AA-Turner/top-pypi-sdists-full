@@ -122,8 +122,7 @@ def value_to_proto(
             send = _coerce_send(v)
             if not isinstance(send, Send):
                 raise ValueError(
-                    "Task must be a Send object objects."
-                    f" Got type={type(v)} value={v}",
+                    f"Task must be a Send object objects. Got type={type(v)} value={v}",
                 )
             coerced.append(send)
         return sends_to_proto(coerced)

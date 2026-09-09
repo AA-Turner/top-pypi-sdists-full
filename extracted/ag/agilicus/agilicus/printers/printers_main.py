@@ -43,6 +43,9 @@ def list_printers(ctx, name=None, **kwargs):
 @click.option("--port", default=631, type=int)
 @click.option("--path", default="/ipp/print", type=str)
 @click.option("--driver-name", default="Microsoft IPP Class Driver", type=str)
+@click.option("--location", default=None, type=str)
+@click.option("--comment", default=None, type=str)
+@click.option("--is-default", "is_default", is_flag=True, default=None)
 @click.option(
     "--raw-stream",
     default=False,
@@ -88,6 +91,9 @@ def add_printer(
 @click.option("--port", default=None, type=int)
 @click.option("--path", default=None, type=str)
 @click.option("--driver-name", default=None, type=str)
+@click.option("--location", default=None, type=str)
+@click.option("--comment", default=None, type=str)
+@click.option("--is-default", "is_default", is_flag=True, default=None)
 @click.option(
     "--raw-stream",
     default=None,

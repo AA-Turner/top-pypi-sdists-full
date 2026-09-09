@@ -11,35 +11,33 @@ on:
     # Run at 1:00 every day
     - cron: 0 1 * * *
 
+permissions: {}
+
 jobs:
   build:
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
         platform: [ubuntu-latest]
-        lint-stage: [pre-commit, pre-push, manual]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
           fetch-tags: true
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
 
-      - name: Run lint
-        run: |
-          uv run --extra=dev --python=${{ matrix.python-version }} pre-commit run --all-files --hook-stage ${{ matrix.lint-stage }} --verbose
-
       - name: Run tests
         run: |
-          uv run --extra=dev --python=${{ matrix.python-version }} pytest -s -vvv --cov-fail-under 100 --cov=src/ --cov=tests/ tests/
+          uv run --group=dev --python=${{ matrix.python-version }} pytest -s -vvv --cov-fail-under 100 --cov=src/ --cov=tests/ tests/
 
   completion-ci:
     needs: build

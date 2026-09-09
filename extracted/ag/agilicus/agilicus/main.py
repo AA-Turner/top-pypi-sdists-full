@@ -6386,6 +6386,7 @@ def bulk_delete_resource_permission(ctx, **kwargs):
 @click.option("--search-params", type=str, multiple=True, default=None)
 @click.option("--published", type=bool, default=None)
 @click.option("--resource-urls", type=bool, default=None)
+@click.option("--include-client-metadata", is_flag=True, default=None)
 @click.pass_context
 def list_resources(ctx, reset_columns=None, show_columns=None, **kwargs):
     """Lists generic resources, which can be filtered by type, organisation, etc."""
@@ -6393,6 +6394,8 @@ def list_resources(ctx, reset_columns=None, show_columns=None, **kwargs):
         kwargs.pop("name")
     if show_columns and "resource_urls" in show_columns:
         kwargs["resource_urls"] = True
+    if show_columns and "client_metadata" in show_columns:
+        kwargs["include_client_metadata"] = True
     results = resources.query_resources(ctx, **kwargs)
     table = resources.format_resources(
         ctx, results, show_columns=show_columns, reset_columns=reset_columns
@@ -6425,6 +6428,7 @@ def delete_resource(ctx, **kwargs):
 @click.argument("id")
 @click.option("--org-id", default=None)
 @click.option("--resource-urls", type=bool, default=None)
+@click.option("--include-client-metadata", is_flag=True, default=None)
 @click.pass_context
 def show_resource(ctx, **kwargs):
     output_entry(ctx, resources.get_resource(ctx, **kwargs))

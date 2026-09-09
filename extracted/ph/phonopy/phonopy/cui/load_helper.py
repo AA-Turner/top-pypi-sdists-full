@@ -1,38 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Helper methods of phonopy loader."""
-
-# Copyright (C) 2018 Atsushi Togo
-# All rights reserved.
-#
-# This file is part of phonopy.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in
-#   the documentation and/or other materials provided with the
-#   distribution.
-#
-# * Neither the name of the phonopy project nor the names of its
-#   contributors may be used to endorse or promote products derived
-#   from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import annotations
 
@@ -148,6 +115,7 @@ def get_cell_settings(
 def get_nac_params(
     primitive: PhonopyAtoms | None = None,
     nac_params: NacParams | None = None,
+    nac_params_source: str | os.PathLike | None = None,
     born_filename: str | os.PathLike | None = None,
     is_nac: bool = True,
     nac_factor: float | None = None,
@@ -162,6 +130,10 @@ def get_nac_params(
         Primitive cell.
     nac_params : NacParams
         NAC parameters. See :class:`NacParams` for the entries.
+    nac_params_source : str or os.PathLike
+        File ``nac_params`` was read from, named in the log. The parameters
+        are passed in as a value, so this is the only way of saying where
+        they came from. Default is None, which logs nothing.
     born_filename : str
         Filename of BORN file.
     is_nac : bool
@@ -194,6 +166,8 @@ def get_nac_params(
             print('NAC parameters were read from "%s".' % born_filename)
     elif nac_params is not None:  # nac_params input or phonopy_yaml.nac_params
         _nac_params = nac_params
+        if log_level and nac_params_source is not None:
+            print(f'NAC parameters were read from "{nac_params_source}".')
     elif is_nac and pathlib.Path("BORN").exists():
         if primitive is None:
             raise ValueError(
@@ -201,7 +175,7 @@ def get_nac_params(
             )
         _nac_params = parse_BORN(primitive, filename="BORN", lang=lang)
         if log_level:
-            print('NAC params were read from "BORN".')
+            print('NAC parameters were read from "BORN".')
     else:
         _nac_params = None
 
@@ -323,25 +297,50 @@ def produce_force_constants(
     use_symfc_projector: bool = False,
     log_level: int = 0,
 ) -> None:
-    """Produce force constants."""
+    """Produce force constants.
+
+    The traditional (finite-difference) force constants calculator cannot
+    process a type-II dataset, i.e., one where all atoms are displaced
+    simultaneously in each supercell. When no calculator is specified and the
+    dataset is type-II, symfc is used instead of raising an exception.
+
+    """
+    _fc_calculator = _resolve_fc_calculator(
+        fc_calculator, phonon.dataset, log_level=log_level
+    )
     try:
         phonon.produce_force_constants(
             calculate_full_force_constants=(not is_compact_fc),
-            fc_calculator=fc_calculator,
+            fc_calculator=_fc_calculator,
             fc_calculator_options=fc_calculator_options,
         )
         if symmetrize_fc:
-            if fc_calculator is None:
+            if _fc_calculator is None:
                 phonon.symmetrize_force_constants(
                     show_drift=True, use_symfc_projector=use_symfc_projector
                 )
-            elif fc_calculator == "traditional":
+            elif _fc_calculator == "traditional":
                 phonon.symmetrize_force_constants(
                     show_drift=True, use_symfc_projector=False
                 )
     except ForcesetsNotFoundError:
         if log_level:
             print("Displacement-force dataset was not found. ")
+
+
+def _resolve_fc_calculator(
+    fc_calculator: Literal["traditional", "symfc", "alm"] | None,
+    dataset: DisplacementDataset | None,
+    log_level: int = 0,
+) -> Literal["traditional", "symfc", "alm"] | None:
+    """Choose symfc for a type-II dataset when no calculator is specified."""
+    if fc_calculator is not None or dataset is None:
+        return fc_calculator
+    if "displacements" not in dataset:
+        return fc_calculator
+    if log_level:
+        print("Type-II dataset was found. Symfc is used as force constants calculator.")
+    return "symfc"
 
 
 def check_nac_params(
@@ -417,19 +416,13 @@ def _load_pypolymlp(
     """Load MLPs from polymlp.yaml or phonopy.pmlp."""
     _mlp_filename = None
     if mlp_filename is None:
+        suffixes = (".yaml", ".pmlp", ".xz", ".gz", ".bz2", ".lzma")
         for default_mlp_filename in ["polymlp.yaml", "phonopy.pmlp", "phono3py.pmlp"]:
-            _mlp_filename_list = list(pathlib.Path().glob(f"{default_mlp_filename}*"))
-            if _mlp_filename_list:
-                _mlp_filename = _mlp_filename_list[0]
-                if _mlp_filename.suffix not in [
-                    ".yaml",
-                    ".pmlp",
-                    ".xz",
-                    ".gz",
-                    ".bz2",
-                    "lzma",
-                ]:
-                    continue
+            for path in sorted(pathlib.Path().glob(f"{default_mlp_filename}*")):
+                if path.suffix in suffixes:
+                    _mlp_filename = path
+                    break
+            if _mlp_filename is not None:
                 if log_level and "pmlp" in default_mlp_filename:
                     print(f'Loading MLPs from "{_mlp_filename}" is obsolete.')
                 break
@@ -456,11 +449,11 @@ def _develop_and_save_pypolymlp(
 ) -> None:
     """Develop MLPs by pypolymlp and save them into polymlp.yaml."""
     if forces_in_dataset(phonon.mlp_dataset):
+        if mlp_params is None:
+            pmlp_params = PypolymlpParams()
+        else:
+            pmlp_params = parse_mlp_params(mlp_params)
         if log_level:
-            if mlp_params is None:
-                pmlp_params = PypolymlpParams()
-            else:
-                pmlp_params = parse_mlp_params(mlp_params)
             print("Parameters:")
             for k, v in dataclasses.asdict(pmlp_params).items():
                 if v is not None:
@@ -468,7 +461,7 @@ def _develop_and_save_pypolymlp(
             print("Developing MLPs by pypolymlp...", flush=True)
 
         try:
-            phonon.develop_mlp(params=mlp_params)
+            phonon.develop_mlp(params=pmlp_params)
         except PypolymlpDevelopmentError as e:
             if log_level:
                 print("-" * 30 + " pypolymlp end " + "-" * 31, flush=True)
@@ -478,65 +471,13 @@ def _develop_and_save_pypolymlp(
             _mlp_filename = "polymlp.yaml"
         else:
             _mlp_filename = mlp_filename
-        phonon.save_mlp(filename=_mlp_filename)
+        phonon.save_mlp(filename=_mlp_filename, optimal=pmlp_params.optimal)
         if log_level:
             print(f'MLPs were written into "{_mlp_filename}"', flush=True)
     else:
         raise PypolymlpTrainingDatasetNotFoundError(
             "Pypolymlp training dataset is not found."
         )
-
-
-def prepare_dataset_by_pypolymlp(
-    phonon: Phonopy,
-    displacement_distance: float | None = None,
-    number_of_snapshots: int | Literal["auto"] | None = None,
-    rd_number_estimation_factor: float | None = None,
-    random_seed: int | None = None,
-    log_level: int = 0,
-) -> None:
-    """Generate displacements and evaluate forces by pypolymlp."""
-    if displacement_distance is None:
-        _displacement_distance = 0.01
-    else:
-        _displacement_distance = displacement_distance
-
-    if log_level:
-        if number_of_snapshots:
-            print("Generate random displacements")
-            print(
-                "  Twice of number of snapshots will be generated "
-                "for plus-minus displacements."
-            )
-        else:
-            print("Generate displacements")
-        print(
-            f"  Displacement distance: {_displacement_distance:.5f}".rstrip("0").rstrip(
-                "."
-            )
-        )
-    phonon.generate_displacements(
-        distance=_displacement_distance,
-        is_plusminus=True,
-        number_of_snapshots=number_of_snapshots,
-        random_seed=random_seed,
-        number_estimation_factor=rd_number_estimation_factor,
-    )
-    assert phonon.supercells_with_displacements is not None
-
-    if log_level and number_of_snapshots == "auto":
-        print(
-            "  Number of generated supercells with random displacements: "
-            f"{len(phonon.supercells_with_displacements)}",
-        )
-
-    if log_level:
-        print(
-            f"Evaluate forces in {len(phonon.displacements)} supercells by pypolymlp",
-            flush=True,
-        )
-
-    phonon.evaluate_mlp()
 
 
 def _read_force_constants_file(

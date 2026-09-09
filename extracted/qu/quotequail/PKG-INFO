@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quotequail
-Version: 0.5.2
+Version: 0.5.3
 Summary: A library that identifies quoted text in plain text and HTML email messages.
 Home-page: http://github.com/closeio/quotequail
 Author: Thomas Steinacher

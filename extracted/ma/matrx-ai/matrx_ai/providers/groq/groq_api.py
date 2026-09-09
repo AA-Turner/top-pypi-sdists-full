@@ -4,6 +4,7 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
+import groq as groq_sdk
 from groq import AsyncGroq
 from matrx_connect.context.events import InfoPayload
 from matrx_utils import vcprint
@@ -51,7 +52,7 @@ class GroqChat:
         "GROQ_API_KEY",
         factory=lambda api_key: AsyncGroq(
             api_key=api_key,
-            http_client=make_capture_http_client(),
+            http_client=make_capture_http_client(sdk=groq_sdk),
         ),
     )
 

@@ -4,14 +4,16 @@ import asyncio
 import base64
 import json
 import logging
-import time
 from collections.abc import AsyncGenerator
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx2
 import numpy as np
 import numpy.typing as npt
 import pytest
+from openai import AsyncOpenAI
 
 import agents._debug as _debug
 from agents import trace
@@ -28,10 +30,10 @@ try:
     )
     from agents.voice.exceptions import STTWebsocketConnectionError
     from agents.voice.models.openai_stt import (
-        EVENT_INACTIVITY_TIMEOUT,
         ErrorSentinel,
         WebsocketDoneSentinel,
         _audio_buffer_to_base64,
+        _wait_for_event,
     )
 
     from .pipeline_test_models import StreamedAudioInputFactory
@@ -55,6 +57,42 @@ def create_mock_websocket(messages: list[str]) -> AsyncMock:
     return mock_ws
 
 
+@pytest.mark.asyncio
+async def test_wait_for_event_returns_matching_event() -> None:
+    queue: asyncio.Queue[dict[str, str]] = asyncio.Queue()
+    await queue.put({"type": "session.created"})
+
+    event = await _wait_for_event(queue, ["session.created"], timeout=1)
+
+    assert event == {"type": "session.created"}
+
+
+@pytest.mark.asyncio
+async def test_wait_for_event_uses_one_deadline_across_unrelated_events() -> None:
+    queue: asyncio.Queue[dict[str, str]] = asyncio.Queue()
+    await queue.put({"type": "unrelated"})
+
+    with patch(
+        "agents.voice.models.openai_stt.monotonic",
+        side_effect=[1000.0, 1000.0, 1011.0],
+    ):
+        with pytest.raises(TimeoutError, match="Timeout waiting for event"):
+            await _wait_for_event(queue, ["session.created"], timeout=10)
+
+    assert queue.empty()
+
+
+def create_mock_openai_client(api_key: str = "FAKE_KEY") -> AsyncOpenAI:
+    client = AsyncMock(api_key=api_key)
+    client.websocket_base_url = None
+    client.base_url = httpx2.URL("https://api.openai.com/v1/")
+    client.default_query = {}
+    client.auth_headers = {"Authorization": f"Bearer {api_key}"}
+    client.default_headers = {}
+    client._refresh_api_key = AsyncMock()
+    return cast(AsyncOpenAI, client)
+
+
 def fake_time(increment: int):
     current = 1000
     while True:
@@ -67,7 +105,7 @@ def fake_time(increment: int):
 async def test_transcribe_turns_propagates_consumer_cancellation(monkeypatch) -> None:
     session = OpenAISTTTranscriptionSession(
         input=StreamedAudioInput(),
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=STTModelSettings(),
         trace_include_sensitive_data=False,
@@ -105,7 +143,7 @@ async def test_transcribe_turns_propagates_consumer_cancellation(monkeypatch) ->
 async def test_transcribe_turns_closes_owned_tasks_after_yield(monkeypatch) -> None:
     session = OpenAISTTTranscriptionSession(
         input=StreamedAudioInput(),
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=STTModelSettings(),
         trace_include_sensitive_data=False,
@@ -165,7 +203,7 @@ async def test_transcribe_turns_closes_owned_tasks_after_yield(monkeypatch) -> N
 async def test_close_finishes_span_started_while_websocket_close_is_pending() -> None:
     session = OpenAISTTTranscriptionSession(
         input=StreamedAudioInput(),
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=STTModelSettings(),
         trace_include_sensitive_data=False,
@@ -223,7 +261,7 @@ async def test_transcribe_turns_preserves_consumer_exception_when_cleanup_fails(
 ) -> None:
     session = OpenAISTTTranscriptionSession(
         input=StreamedAudioInput(),
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=STTModelSettings(),
         trace_include_sensitive_data=False,
@@ -270,7 +308,7 @@ async def test_transcribe_turns_preserves_consumer_exception_when_cleanup_fails(
 async def test_transcribe_turns_propagates_cancellation_during_cleanup(monkeypatch) -> None:
     session = OpenAISTTTranscriptionSession(
         input=StreamedAudioInput(),
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=STTModelSettings(),
         trace_include_sensitive_data=False,
@@ -307,7 +345,7 @@ async def test_transcribe_turns_preserves_terminal_error_when_close_fails(
 ) -> None:
     session = OpenAISTTTranscriptionSession(
         input=StreamedAudioInput(),
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=STTModelSettings(),
         trace_include_sensitive_data=False,
@@ -361,6 +399,33 @@ async def test_transcribe_error_respects_sensitive_data_setting(
 
 
 @pytest.mark.asyncio
+async def test_transcribe_redacts_prompt_without_changing_request() -> None:
+    client = AsyncMock()
+    client.audio.transcriptions.create.return_value = SimpleNamespace(text="transcript")
+    model = OpenAISTTModel(model="whisper-1", openai_client=client)
+    span = MagicMock()
+    span_context = MagicMock()
+    span_context.__enter__.return_value = span
+
+    with patch(
+        "agents.voice.models.openai_stt.transcription_span",
+        return_value=span_context,
+    ) as create_span:
+        result = await model.transcribe(
+            AudioInput(buffer=np.zeros(2, dtype=np.int16)),
+            STTModelSettings(prompt="customer account vocabulary"),
+            trace_include_sensitive_data=False,
+            trace_include_sensitive_audio_data=False,
+        )
+
+    assert result == "transcript"
+    assert create_span.call_args.kwargs["model_config"]["prompt"] is None
+    assert client.audio.transcriptions.create.await_args.kwargs["prompt"] == (
+        "customer account vocabulary"
+    )
+
+
+@pytest.mark.asyncio
 async def test_non_json_messages_should_crash():
     """This tests that non-JSON messages will raise an exception"""
     # Setup: mock websockets.connect
@@ -372,7 +437,7 @@ async def test_non_json_messages_should_crash():
 
         session = OpenAISTTTranscriptionSession(
             input=input_audio,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
             settings=stt_settings,
             trace_include_sensitive_data=False,
@@ -412,7 +477,7 @@ async def test_session_connects_and_configures_successfully():
 
         session = OpenAISTTTranscriptionSession(
             input=input_audio,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
             settings=stt_settings,
             trace_include_sensitive_data=False,
@@ -430,6 +495,7 @@ async def test_session_connects_and_configures_successfully():
         assert "wss://api.openai.com/v1/realtime?intent=transcription" in args[0]
         headers = kwargs.get("additional_headers", {})
         assert headers.get("Authorization") == "Bearer FAKE_KEY"
+        assert kwargs["logger"].isEnabledFor(logging.DEBUG) is False
         assert headers.get("OpenAI-Beta") is None
         assert headers.get("OpenAI-Log-Session") == "1"
 
@@ -472,7 +538,7 @@ async def test_stream_audio_sends_pcm16(
 
     session = OpenAISTTTranscriptionSession(
         input=audio_input,
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=stt_settings,
         trace_include_sensitive_data=False,
@@ -548,7 +614,7 @@ async def test_transcription_event_puts_output_in_queue(created, updated, comple
 
         session = OpenAISTTTranscriptionSession(
             input=audio_input,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
             settings=stt_settings,
             trace_include_sensitive_data=False,
@@ -579,8 +645,8 @@ async def test_timeout_waiting_for_created_event(monkeypatch):
     def fake_time_func():
         return next(time_gen)
 
-    # Monkey-patch time.time with our fake_time_func
-    monkeypatch.setattr(time, "time", fake_time_func)
+    # Patch only the STT deadline clock so the asyncio event-loop clock remains real.
+    monkeypatch.setattr("agents.voice.models.openai_stt.monotonic", fake_time_func)
 
     mock_ws = create_mock_websocket(
         [
@@ -594,7 +660,7 @@ async def test_timeout_waiting_for_created_event(monkeypatch):
 
         session = OpenAISTTTranscriptionSession(
             input=audio_input,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
             settings=stt_settings,
             trace_include_sensitive_data=False,
@@ -643,7 +709,7 @@ async def test_session_error_event(monkeypatch: pytest.MonkeyPatch):
 
         session = OpenAISTTTranscriptionSession(
             input=audio_input,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
             settings=stt_settings,
             trace_include_sensitive_data=False,
@@ -679,7 +745,7 @@ async def test_session_error_event_before_session_created():
         audio_input = await StreamedAudioInputFactory.get(count=2)
         session = OpenAISTTTranscriptionSession(
             input=audio_input,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
             settings=STTModelSettings(),
             trace_include_sensitive_data=False,
@@ -722,7 +788,7 @@ async def test_listener_timeout_drains_buffered_transcript_before_setup():
         audio_input = await StreamedAudioInputFactory.get(count=2)
         session = OpenAISTTTranscriptionSession(
             input=audio_input,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
             settings=STTModelSettings(),
             trace_include_sensitive_data=False,
@@ -741,60 +807,43 @@ async def test_listener_timeout_drains_buffered_transcript_before_setup():
 
 
 @pytest.mark.asyncio
-async def test_inactivity_timeout():
+async def test_inactivity_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Test that if no events arrive in EVENT_INACTIVITY_TIMEOUT ms,
+    Test that if no events arrive in EVENT_INACTIVITY_TIMEOUT seconds,
     _handle_events breaks out and a SessionCompleteSentinel is placed in the output queue.
     """
-    # We'll feed only the creation + updated events. Then do nothing.
-    # The handle_events loop should eventually time out.
-    mock_ws = create_mock_websocket(
-        [
-            json.dumps({"type": "unknown"}),
-            json.dumps({"type": "unknown"}),
-            json.dumps({"type": "transcription_session.created"}),
-            json.dumps({"type": "transcription_session.updated"}),
-        ]
-    )
 
-    # We'll artificially manipulate the "time" to simulate inactivity quickly.
-    # The code checks time.time() for inactivity over EVENT_INACTIVITY_TIMEOUT.
-    # We'll increment the return_value manually.
-    with (
-        patch("websockets.connect", return_value=mock_ws),
-        patch(
-            "time.time",
-            side_effect=[
-                1000.0,
-                1000.0 + EVENT_INACTIVITY_TIMEOUT + 1,
-                2000.0 + EVENT_INACTIVITY_TIMEOUT + 1,
-                3000.0 + EVENT_INACTIVITY_TIMEOUT + 1,
-                9999,
-            ],
-        ),
-    ):
+    async def messages_then_wait() -> AsyncGenerator[str, None]:
+        yield json.dumps({"type": "transcription_session.created"})
+        yield json.dumps({"type": "transcription_session.updated"})
+        await asyncio.Event().wait()
+
+    mock_ws = AsyncMock()
+    mock_ws.__aenter__.return_value = mock_ws
+    mock_ws.__aiter__.side_effect = messages_then_wait
+    monkeypatch.setattr("agents.voice.models.openai_stt.EVENT_INACTIVITY_TIMEOUT", 0.01)
+
+    with patch("websockets.connect", return_value=mock_ws):
         audio_input = await StreamedAudioInputFactory.get(count=2)
-        stt_settings = STTModelSettings()
-
         session = OpenAISTTTranscriptionSession(
             input=audio_input,
-            client=AsyncMock(api_key="FAKE_KEY"),
+            client=create_mock_openai_client(),
             model="whisper-1",
-            settings=stt_settings,
+            settings=STTModelSettings(),
             trace_include_sensitive_data=False,
             trace_include_sensitive_audio_data=False,
         )
 
-        collected_turns: list[str] = []
-        with pytest.raises(STTWebsocketConnectionError) as exc_info:
-            async for turn in session.transcribe_turns():
-                collected_turns.append(turn)
+        async def collect_turns() -> list[str]:
+            return [turn async for turn in session.transcribe_turns()]
 
-        assert "Timeout waiting for transcription_session" in str(exc_info.value)
+        collected_turns = await asyncio.wait_for(collect_turns(), timeout=1)
 
-        assert len(collected_turns) == 0, "No transcripts expected, but we got something?"
-
-        await session.close()
+        assert collected_turns == []
+        assert session._process_events_task is not None
+        assert session._process_events_task.done()
+        assert not session._process_events_task.cancelled()
+        assert session._process_events_task.exception() is None
 
 
 @pytest.mark.asyncio
@@ -804,7 +853,7 @@ async def test_stream_audio_buffers_turn_audio_only_for_audio_tracing(
 ) -> None:
     session = OpenAISTTTranscriptionSession(
         input=StreamedAudioInput(),
-        client=AsyncMock(api_key="FAKE_KEY"),
+        client=create_mock_openai_client(),
         model="whisper-1",
         settings=STTModelSettings(),
         trace_include_sensitive_data=False,

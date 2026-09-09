@@ -80,6 +80,8 @@ from prompt_toolkit.input import DummyInput, create_input
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPress, KeyPressEvent
 from prompt_toolkit.keys import Keys
+from prompt_toolkit.layout import Window, walk
+from prompt_toolkit.layout.containers import ConditionalContainer, FloatContainer
 from prompt_toolkit.output import DummyOutput, create_output
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.shortcuts import CompleteStyle, PromptSession, choice, set_title
@@ -552,6 +554,8 @@ class Cmd:
             enable_rprompt=enable_rprompt,
             refresh_interval=refresh_interval,
         )
+        if enable_rprompt:
+            self._hide_rprompt_when_done(self.main_session)
 
         # The session currently holding focus (either the main REPL or a command's
         # custom prompt). Completion and UI logic should reference this variable
@@ -844,6 +848,30 @@ class Cmd:
             }
         )
         return PromptSession(**kwargs)
+
+    @staticmethod
+    def _hide_rprompt_when_done(session: PromptSession[str]) -> None:
+        """Keep the right prompt out of the frame that is committed to the scrollback.
+
+        prompt-toolkit ends every ``Application.run()`` with a final render, and that
+        frame is what stays on the terminal. Its bottom toolbar container is filtered
+        with ``~is_done`` so it is excluded, but the right prompt is a plain ``Float``
+        with no such filter, which left a copy of the right prompt beside every
+        accepted command line. This applies the same rule the toolbar already gets.
+
+        The right prompt is cosmetic, so an upstream layout change must not stop the
+        application from starting. If the float cannot be found, nothing happens and
+        the previous behavior remains.
+
+        :param session: the PromptSession whose right prompt should be hidden when done
+        """
+        for container in walk(session.layout.container):
+            if not isinstance(container, FloatContainer):
+                continue
+            for float_ in container.floats:
+                content = float_.content
+                if isinstance(content, Window) and content.style == "class:rprompt":
+                    float_.content = ConditionalContainer(content, filter=~filters.is_done)
 
     def find_commandsets(
         self, commandset_type: type[CommandSet[Any]], *, subclass_match: bool = False
@@ -3296,9 +3324,11 @@ class Cmd:
             # Create a pipe with read and write sides
             read_fd, write_fd = os.pipe()
 
-            # Open each side of the pipe
-            subproc_stdin = open(read_fd)  # noqa: SIM115
-            new_stdout: TextIO = cast(TextIO, open(write_fd, "w"))  # noqa: SIM115
+            # Open each side of the pipe. Both ends are given an explicit encoding:
+            # command output is rendered by Rich and routinely contains non-ASCII, which
+            # the locale encoding cannot always represent.
+            subproc_stdin = open(read_fd, encoding="utf-8")  # noqa: SIM115
+            new_stdout: TextIO = cast(TextIO, open(write_fd, "w", encoding="utf-8"))  # noqa: SIM115
 
             # Create pipe process in a separate group to isolate our signals from it. If a Ctrl-C event occurs,
             # our sigint handler will forward it only to the most recent pipe process. This makes sure pipe
@@ -3347,8 +3377,15 @@ class Cmd:
                 # statement.output can only contain REDIRECTION_APPEND or REDIRECTION_OUTPUT
                 mode = "a" if statement.redirector == constants.REDIRECTION_APPEND else "w"
                 try:
-                    # Use line buffering
-                    new_stdout = cast(TextIO, open(su.strip_quotes(statement.redirect_to), mode=mode, buffering=1))  # noqa: SIM115
+                    # Use line buffering. The encoding is explicit rather than the
+                    # locale's: command output is rendered by Rich and routinely contains
+                    # non-ASCII, so on a non-UTF-8 system -- a default Windows console,
+                    # for instance -- redirection would otherwise fail and leave an empty
+                    # file behind.
+                    new_stdout = cast(
+                        TextIO,
+                        open(su.strip_quotes(statement.redirect_to), mode=mode, buffering=1, encoding="utf-8"),  # noqa: SIM115
+                    )
                 except OSError as ex:
                     raise RedirectionError("Failed to redirect output") from ex
 

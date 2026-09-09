@@ -41,6 +41,7 @@ __all__ = (
     "BehaviorTypeType",
     "BooleanComparisonTypeType",
     "ChannelType",
+    "ChannelWorkloadBehaviorTypeType",
     "ChatEventTypeType",
     "ComparisonType",
     "ConfigurableNotificationPriorityType",
@@ -355,6 +356,11 @@ BehaviorType = Literal["Disable", "Enable"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
 BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
 ChannelType = Literal["CHAT", "EMAIL", "TASK", "VOICE"]
+ChannelWorkloadBehaviorTypeType = Literal[
+    "ROUTE_ANY_CHANNEL_ANY_WORKLOAD_TYPE",
+    "ROUTE_CURRENT_CHANNEL_ANY_WORKLOADTYPE_ONLY",
+    "ROUTE_CURRENT_CHANNEL_CURRENT_WORKLOADTYPE_ONLY",
+]
 ChatEventTypeType = Literal["DISCONNECT", "EVENT", "MESSAGE"]
 ComparisonType = Literal["LT"]
 ConfigurableNotificationPriorityType = Literal["HIGH", "LOW"]

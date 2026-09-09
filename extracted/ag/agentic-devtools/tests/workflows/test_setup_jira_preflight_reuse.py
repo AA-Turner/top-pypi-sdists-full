@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from agentic_devtools.cli.setup import commands
 from agentic_devtools.cli.setup.dependency_checker import DependencyStatus
+from agentic_devtools.cli.setup.provider_configuration import (
+    PROVIDER_CONFIG_RELATIVE_PATH,
+    ProviderConfigurationPlan,
+)
 from agentic_devtools.tools.jira import JiraConfig
 
 _PROBE_CONFIG = JiraConfig(
@@ -13,6 +21,22 @@ _PROBE_CONFIG = JiraConfig(
     headers={"Authorization": "******"},
     ssl_verify=True,
 )
+_PROVIDER_MODEL = "gemini-3.7-flash"
+
+
+@pytest.fixture(autouse=True)
+def isolate_copilot_runtime():
+    with patch.object(commands, "_populate_available_models"):
+        with patch.object(commands, "_query_copilot_models", return_value=["model-a"]):
+            with patch(
+                "agentic_devtools.cli.setup.autorun._autorun_setup_dev_tools",
+                return_value=False,
+            ):
+                with patch(
+                    "agentic_devtools.cli.setup.post_autorun_version_check.check_post_autorun_version",
+                    return_value=None,
+                ):
+                    yield
 
 
 def _make_statuses() -> list[DependencyStatus]:
@@ -32,38 +56,85 @@ def _make_statuses() -> list[DependencyStatus]:
     ]
 
 
+def _ready_provider_plan(
+    git_root: Path | None,
+    *_args,
+    **_kwargs,
+) -> ProviderConfigurationPlan:
+    path = (git_root / PROVIDER_CONFIG_RELATIVE_PATH) if git_root is not None else PROVIDER_CONFIG_RELATIVE_PATH
+    return ProviderConfigurationPlan(
+        path=path,
+        status="preserved",
+        document=None,
+        rendered=None,
+        provider_id="copilot_pr_review",
+        provider_type="copilot",
+        model=_PROVIDER_MODEL,
+        model_source="existing",
+        mappings=("pr_review.default_provider", "pr_review.nodes.review_files"),
+        auth_status="ready",
+        credential_status="not_required",
+        source="existing",
+        reason="preserved_custom_config",
+        dry_run=False,
+        reconfigure=False,
+        template_version="1",
+    )
+
+
 def test_issue_type_discovery_reuses_jira_preflight_result(tmp_path) -> None:
     """Step 1.6 receives Step 1.5 Jira preflight result to avoid duplicate probing."""
     mock_result = MagicMock()
     mock_stdin = MagicMock()
     mock_stdin.isatty.return_value = True
-    with (
-        patch("sys.argv", ["agdt-setup"]),
-        patch("sys.stdin", mock_stdin),
-        patch.object(commands, "_prefetch_certs", return_value=(None, None)),
-        patch.object(commands, "install_copilot_cli", return_value=True),
-        patch.object(commands, "install_gh_cli", return_value=True),
-        patch.object(commands, "check_all_dependencies", return_value=_make_statuses()),
-        patch.object(commands, "_persist_env_vars_to_profile"),
-        patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path),
-        patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True),
-        patch.object(commands, "_prompt_project_config"),
-        patch.object(commands, "_prompt_copilot_model"),
-        patch("agentic_devtools.cli.setup.platform_detection.detect_platforms", return_value=mock_result),
-        patch(
-            "agentic_devtools.cli.setup.platform_detection.confirm_and_override", return_value={"issue_adapter": "jira"}
-        ),
-        patch("agentic_devtools.config.save_platform_config", return_value=True),
-        patch("agentic_devtools.cli.setup.workflow_templates.generate_default_templates", return_value=[]),
-        patch("agentic_devtools.cli.jira.discovery.get_instance_metadata", return_value=None),
-        patch("agentic_devtools.cli.jira.discovery.load_cached_instance_metadata", return_value=None),
-        patch(
-            "agentic_devtools.cli.setup.provider_connectivity.check_provider_connectivity",
-            return_value=(False, "offline"),
-        ),
-        patch("agentic_devtools.adapters.resolve_jira_config", return_value=_PROBE_CONFIG),
-        patch("agentic_devtools.cli.setup.issue_type_discovery.discover_issue_types") as mock_discover,
-    ):
+    with ExitStack() as stack:
+        stack.enter_context(patch("sys.argv", ["agdt-setup"]))
+        stack.enter_context(patch("sys.stdin", mock_stdin))
+        stack.enter_context(patch.object(commands, "_prefetch_certs", return_value=(None, None)))
+        stack.enter_context(patch.object(commands, "install_copilot_cli", return_value=True))
+        stack.enter_context(patch.object(commands, "install_gh_cli", return_value=True))
+        stack.enter_context(patch.object(commands, "check_all_dependencies", return_value=_make_statuses()))
+        stack.enter_context(patch.object(commands, "_persist_env_vars_to_profile"))
+        stack.enter_context(patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path))
+        stack.enter_context(patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True))
+        stack.enter_context(patch.object(commands, "_prompt_project_config"))
+        stack.enter_context(patch.object(commands, "_prompt_copilot_model"))
+        stack.enter_context(
+            patch("agentic_devtools.cli.setup.platform_detection.detect_platforms", return_value=mock_result)
+        )
+        stack.enter_context(
+            patch(
+                "agentic_devtools.cli.setup.platform_detection.confirm_and_override",
+                return_value={"issue_adapter": "jira"},
+            )
+        )
+        stack.enter_context(patch("agentic_devtools.config.save_platform_config", return_value=True))
+        stack.enter_context(
+            patch("agentic_devtools.cli.setup.workflow_templates.generate_default_templates", return_value=[])
+        )
+        stack.enter_context(patch("agentic_devtools.cli.jira.discovery.get_instance_metadata", return_value=None))
+        stack.enter_context(
+            patch("agentic_devtools.cli.jira.discovery.load_cached_instance_metadata", return_value=None)
+        )
+        stack.enter_context(
+            patch(
+                "agentic_devtools.cli.setup.provider_connectivity.check_provider_connectivity",
+                return_value=(False, "offline"),
+            )
+        )
+        stack.enter_context(patch("agentic_devtools.adapters.resolve_jira_config", return_value=_PROBE_CONFIG))
+        stack.enter_context(
+            patch(
+                "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                side_effect=_ready_provider_plan,
+            )
+        )
+        stack.enter_context(
+            patch("agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration", return_value=False)
+        )
+        mock_discover = stack.enter_context(
+            patch("agentic_devtools.cli.setup.issue_type_discovery.discover_issue_types")
+        )
         commands.setup_cmd()
 
     mock_discover.assert_called_once()
@@ -77,32 +148,51 @@ def test_unreachable_jira_skips_server_info_discovery(tmp_path, capsys) -> None:
     mock_result = MagicMock()
     mock_stdin = MagicMock()
     mock_stdin.isatty.return_value = True
-    with (
-        patch("sys.argv", ["agdt-setup"]),
-        patch("sys.stdin", mock_stdin),
-        patch.object(commands, "_prefetch_certs", return_value=(None, None)),
-        patch.object(commands, "install_copilot_cli", return_value=True),
-        patch.object(commands, "install_gh_cli", return_value=True),
-        patch.object(commands, "check_all_dependencies", return_value=_make_statuses()),
-        patch.object(commands, "_persist_env_vars_to_profile"),
-        patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path),
-        patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True),
-        patch.object(commands, "_prompt_project_config"),
-        patch.object(commands, "_prompt_copilot_model"),
-        patch("agentic_devtools.cli.setup.platform_detection.detect_platforms", return_value=mock_result),
-        patch(
-            "agentic_devtools.cli.setup.platform_detection.confirm_and_override", return_value={"issue_adapter": "jira"}
-        ),
-        patch("agentic_devtools.config.save_platform_config", return_value=True),
-        patch("agentic_devtools.cli.setup.workflow_templates.generate_default_templates", return_value=[]),
-        patch("agentic_devtools.cli.jira.discovery.get_instance_metadata") as mock_get,
-        patch("agentic_devtools.cli.jira.discovery.load_cached_instance_metadata", return_value=None),
-        patch(
-            "agentic_devtools.cli.setup.provider_connectivity.check_provider_connectivity",
-            return_value=(False, "offline"),
-        ),
-        patch("agentic_devtools.adapters.resolve_jira_config", return_value=_PROBE_CONFIG),
-    ):
+    with ExitStack() as stack:
+        stack.enter_context(patch("sys.argv", ["agdt-setup"]))
+        stack.enter_context(patch("sys.stdin", mock_stdin))
+        stack.enter_context(patch.object(commands, "_prefetch_certs", return_value=(None, None)))
+        stack.enter_context(patch.object(commands, "install_copilot_cli", return_value=True))
+        stack.enter_context(patch.object(commands, "install_gh_cli", return_value=True))
+        stack.enter_context(patch.object(commands, "check_all_dependencies", return_value=_make_statuses()))
+        stack.enter_context(patch.object(commands, "_persist_env_vars_to_profile"))
+        stack.enter_context(patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path))
+        stack.enter_context(patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True))
+        stack.enter_context(patch.object(commands, "_prompt_project_config"))
+        stack.enter_context(patch.object(commands, "_prompt_copilot_model"))
+        stack.enter_context(
+            patch("agentic_devtools.cli.setup.platform_detection.detect_platforms", return_value=mock_result)
+        )
+        stack.enter_context(
+            patch(
+                "agentic_devtools.cli.setup.platform_detection.confirm_and_override",
+                return_value={"issue_adapter": "jira"},
+            )
+        )
+        stack.enter_context(patch("agentic_devtools.config.save_platform_config", return_value=True))
+        stack.enter_context(
+            patch("agentic_devtools.cli.setup.workflow_templates.generate_default_templates", return_value=[])
+        )
+        mock_get = stack.enter_context(patch("agentic_devtools.cli.jira.discovery.get_instance_metadata"))
+        stack.enter_context(
+            patch("agentic_devtools.cli.jira.discovery.load_cached_instance_metadata", return_value=None)
+        )
+        stack.enter_context(
+            patch(
+                "agentic_devtools.cli.setup.provider_connectivity.check_provider_connectivity",
+                return_value=(False, "offline"),
+            )
+        )
+        stack.enter_context(patch("agentic_devtools.adapters.resolve_jira_config", return_value=_PROBE_CONFIG))
+        stack.enter_context(
+            patch(
+                "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                side_effect=_ready_provider_plan,
+            )
+        )
+        stack.enter_context(
+            patch("agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration", return_value=False)
+        )
         commands.setup_cmd()
 
     mock_get.assert_not_called()

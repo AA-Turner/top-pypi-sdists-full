@@ -1,5 +1,4 @@
 # ruff: noqa: F401
-import langchain_openai.chat_models.base
 import langsmith._internal._constants
 
 

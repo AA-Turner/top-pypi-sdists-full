@@ -40,6 +40,7 @@ class OrganizationModelResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     billing_email: Optional[StrictStr] = None
     notifications_email: Optional[StrictStr] = None
+    notifications_email_delivery_status: Optional[Dict[str, Any]] = Field(default=None, description="Delivery health of notifications_email. Set when the email vendor reports the address undeliverable; cleared when the address is re-saved. None = no known problem.")
     rate_limits: BaseRateLimits
     auto_billing_enabled: Optional[StrictBool] = False
     billing_cycle_start: Optional[StrictInt] = 1
@@ -52,7 +53,7 @@ class OrganizationModelResponse(BaseModel):
     api_url: Optional[StrictStr] = None
     requires_plan: Optional[StrictBool] = Field(default=False, description="True when this workspace must pick a plan before it can create namespaces or run billable work. When gated, write endpoints return 403 PlanRequiredError linking to https://studio.mixpeek.com/signup/plan where the workspace picks one.")
     is_internal: Optional[StrictBool] = Field(default=False, description="True when this org is Mixpeek-internal (team/dogfood/ops), derived server-side at read time. Analytics consumers should exclude internal orgs from customer metrics.")
-    __properties: ClassVar[List[str]] = ["organization_id", "organization_name", "logo_url", "account_type", "credit_count", "effective_monthly_credit_cap", "onboarding_answers", "metadata", "billing_email", "notifications_email", "rate_limits", "auto_billing_enabled", "billing_cycle_start", "current_month_usage", "created_at", "updated_at", "users", "auth_provider_org_id", "default_llm_credentials", "api_url", "requires_plan", "is_internal"]
+    __properties: ClassVar[List[str]] = ["organization_id", "organization_name", "logo_url", "account_type", "credit_count", "effective_monthly_credit_cap", "onboarding_answers", "metadata", "billing_email", "notifications_email", "notifications_email_delivery_status", "rate_limits", "auto_billing_enabled", "billing_cycle_start", "current_month_usage", "created_at", "updated_at", "users", "auth_provider_org_id", "default_llm_credentials", "api_url", "requires_plan", "is_internal"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -118,6 +119,7 @@ class OrganizationModelResponse(BaseModel):
             "metadata": obj.get("metadata"),
             "billing_email": obj.get("billing_email"),
             "notifications_email": obj.get("notifications_email"),
+            "notifications_email_delivery_status": obj.get("notifications_email_delivery_status"),
             "rate_limits": BaseRateLimits.from_dict(obj["rate_limits"]) if obj.get("rate_limits") is not None else None,
             "auto_billing_enabled": obj.get("auto_billing_enabled") if obj.get("auto_billing_enabled") is not None else False,
             "billing_cycle_start": obj.get("billing_cycle_start") if obj.get("billing_cycle_start") is not None else 1,

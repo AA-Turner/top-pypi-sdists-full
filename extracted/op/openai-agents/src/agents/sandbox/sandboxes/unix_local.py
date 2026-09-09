@@ -21,7 +21,7 @@ import termios
 import time
 import uuid
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from functools import partial
@@ -62,6 +62,7 @@ from ..session.sandbox_client import BaseSandboxClient, BaseSandboxClientOptions
 from ..session.workspace_payloads import coerce_write_payload
 from ..snapshot import SnapshotBase, SnapshotSpec, resolve_snapshot
 from ..types import ExecResult, ExposedPortEndpoint, Permissions, User
+from ..util.blocking_io import run_blocking_workspace_io
 from ..util.tar_utils import (
     UnsafeTarMemberError,
     safe_extract_tarfile,
@@ -74,6 +75,30 @@ _DEFAULT_MANIFEST_ROOT = cast(str, Manifest.model_fields["root"].default)
 _PTY_READ_CHUNK_BYTES = 16_384
 _PTY_CHILD_SIGNAL_DEFAULTS = (signal.SIGINT, signal.SIGQUIT)
 _PTY_FD_CLOSE_GRACE_SECONDS = 0.1
+_HOST_ENVIRONMENT_ALLOWLIST = frozenset(
+    {
+        "PATH",
+        "LANG",
+        "LC_ALL",
+        "LC_COLLATE",
+        "LC_CTYPE",
+        "LC_MESSAGES",
+        "LC_MONETARY",
+        "LC_NUMERIC",
+        "LC_TIME",
+        "TZ",
+        "TERM",
+        "TMPDIR",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "REQUESTS_CA_BUNDLE",
+        "NODE_EXTRA_CA_CERTS",
+        "UV_PYTHON",
+        "NO_COLOR",
+        "FORCE_COLOR",
+        "CI",
+    }
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +164,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
     _pty_processes: dict[int, _UnixPtyProcessEntry]
     _reserved_pty_process_ids: set[int]
     _fd_close_tasks: set[asyncio.Task[None]]
+    _host_environment_allowlist: frozenset[str] | None
 
     def __init__(self, *, state: UnixLocalSandboxSessionState) -> None:
         self.state = state
@@ -147,6 +173,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
         self._pty_processes = {}
         self._reserved_pty_process_ids = set()
         self._fd_close_tasks = set()
+        self._host_environment_allowlist = None
 
     @classmethod
     def from_state(cls, state: UnixLocalSandboxSessionState) -> "UnixLocalSandboxSession":
@@ -327,7 +354,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
                     env=env,
                     preexec_fn=_preexec,
                 )
-            except Exception:
+            except BaseException:
                 with suppress(OSError):
                     os.close(primary_fd)
                 with suppress(OSError):
@@ -373,7 +400,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
             )
 
         yield_time_ms = 10_000 if yield_time_s is None else int(yield_time_s * 1000)
-        output, original_token_count = await self._collect_pty_output(
+        output, original_token_count, output_closed = await self._collect_pty_output(
             entry=entry,
             yield_time_ms=clamp_pty_yield_time_ms(yield_time_ms),
             max_output_tokens=max_output_tokens,
@@ -383,6 +410,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
             entry=entry,
             output=output,
             original_token_count=original_token_count,
+            output_closed=output_closed,
         )
 
     async def pty_write_stdin(
@@ -415,7 +443,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
             await asyncio.sleep(0.1)
 
         yield_time_ms = 250 if yield_time_s is None else int(yield_time_s * 1000)
-        output, original_token_count = await self._collect_pty_output(
+        output, original_token_count, output_closed = await self._collect_pty_output(
             entry=entry,
             yield_time_ms=resolve_pty_write_yield_time_ms(
                 yield_time_ms=yield_time_ms, input_empty=chars == ""
@@ -428,6 +456,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
             entry=entry,
             output=output,
             original_token_count=original_token_count,
+            output_closed=output_closed,
         )
 
     async def pty_terminate_all(self) -> None:
@@ -440,7 +469,14 @@ class UnixLocalSandboxSession(BaseSandboxSession):
             await self._terminate_pty_entry(entry)
 
     async def _resolved_exec_context(self) -> tuple[dict[str, str], str]:
-        env = os.environ.copy()
+        if self._host_environment_allowlist is None:
+            env = dict(os.environ)
+        else:
+            env = {
+                name: value
+                for name, value in os.environ.items()
+                if name in self._host_environment_allowlist
+            }
         env.update(await self.state.manifest.environment.resolve())
 
         workspace = Path(self.state.manifest.root)
@@ -499,7 +535,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
         entry: _UnixPtyProcessEntry,
         yield_time_ms: int,
         max_output_tokens: int | None,
-    ) -> tuple[bytes, int | None]:
+    ) -> tuple[bytes, int | None, bool]:
         return await collect_pty_output(
             output_chunks=entry.output_chunks,
             output_lock=entry.output_lock,
@@ -516,8 +552,9 @@ class UnixLocalSandboxSession(BaseSandboxSession):
         entry: _UnixPtyProcessEntry,
         output: bytes,
         original_token_count: int | None,
+        output_closed: bool,
     ) -> PtyExecUpdate:
-        exit_code: int | None = entry.process.returncode
+        exit_code: int | None = entry.process.returncode if output_closed else None
         live_process_id: int | None = process_id
 
         if exit_code is not None:
@@ -540,7 +577,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
             return None
 
         meta = [
-            (process_id, entry.last_used, entry.process.returncode is not None)
+            (process_id, entry.last_used, entry.output_closed.is_set())
             for process_id, entry in self._pty_processes.items()
         ]
         process_id = process_id_to_prune_from_meta(meta)
@@ -929,7 +966,7 @@ class UnixLocalSandboxSession(BaseSandboxSession):
         try:
             if normalized.is_dir() and not normalized.is_symlink():
                 if recursive:
-                    shutil.rmtree(normalized)
+                    await run_blocking_workspace_io(shutil.rmtree, normalized)
                 else:
                     normalized.rmdir()
             else:
@@ -1050,7 +1087,8 @@ class UnixLocalSandboxSession(BaseSandboxSession):
 
         skip = self._persist_workspace_skip_relpaths()
         buf = io.BytesIO()
-        try:
+
+        def _archive_workspace() -> None:
             with tarfile.open(fileobj=buf, mode="w") as tar:
                 tar.add(
                     root,
@@ -1065,6 +1103,9 @@ class UnixLocalSandboxSession(BaseSandboxSession):
                         else ti
                     ),
                 )
+
+        try:
+            await run_blocking_workspace_io(_archive_workspace)
         except (tarfile.TarError, OSError) as e:
             raise WorkspaceArchiveReadError(path=root, cause=e) from e
 
@@ -1073,7 +1114,8 @@ class UnixLocalSandboxSession(BaseSandboxSession):
 
     async def hydrate_workspace(self, data: io.IOBase) -> None:
         root = Path(self.state.manifest.root)
-        try:
+
+        def _extract_workspace() -> None:
             root.mkdir(parents=True, exist_ok=True)
             with tarfile.open(fileobj=data, mode="r:*") as tar:
                 safe_extract_tarfile(
@@ -1081,6 +1123,9 @@ class UnixLocalSandboxSession(BaseSandboxSession):
                     root=root,
                     allow_external_symlink_targets=False,
                 )
+
+        try:
+            await run_blocking_workspace_io(_extract_workspace)
         except UnsafeTarMemberError as e:
             raise WorkspaceArchiveWriteError(
                 path=root, context={"reason": e.reason, "member": e.member}, cause=e
@@ -1099,11 +1144,26 @@ class UnixLocalSandboxClient(BaseSandboxClient[UnixLocalSandboxClientOptions | N
         *,
         instrumentation: Instrumentation | None = None,
         dependencies: Dependencies | None = None,
+        inherit_host_environment: bool = True,
+        host_environment_allowlist: Collection[str] | None = None,
     ) -> None:
+        if inherit_host_environment and host_environment_allowlist is not None:
+            raise ValueError("host_environment_allowlist requires inherit_host_environment=False")
+        if isinstance(host_environment_allowlist, str):
+            raise TypeError("host_environment_allowlist must be a collection of variable names")
+
         self._instrumentation = (
             instrumentation if instrumentation is not None else Instrumentation()
         )
         self._dependencies = dependencies
+        if inherit_host_environment:
+            self._host_environment_allowlist = None
+        else:
+            self._host_environment_allowlist = frozenset(
+                _HOST_ENVIRONMENT_ALLOWLIST
+                if host_environment_allowlist is None
+                else host_environment_allowlist
+            )
 
     @redact_mount_error_data
     async def create(
@@ -1136,6 +1196,9 @@ class UnixLocalSandboxClient(BaseSandboxClient[UnixLocalSandboxClientOptions | N
             exposed_ports=resolved_options.exposed_ports,
         )
         inner = UnixLocalSandboxSession.from_state(state)
+        # Keep host inheritance policy under trusted runtime control. Session state and manifests
+        # must not be able to change it when a session is resumed by another client.
+        inner._host_environment_allowlist = self._host_environment_allowlist
         return self._wrap_session(inner, instrumentation=self._instrumentation)
 
     async def delete(self, session: SandboxSession) -> SandboxSession:
@@ -1177,6 +1240,7 @@ class UnixLocalSandboxClient(BaseSandboxClient[UnixLocalSandboxClientOptions | N
         state.assert_path_grants_rebound()
         _assert_unix_local_host_path_grants_unsupported(state.manifest)
         inner = UnixLocalSandboxSession.from_state(state)
+        inner._host_environment_allowlist = self._host_environment_allowlist
         return self._wrap_session(inner, instrumentation=self._instrumentation)
 
     def deserialize_session_state(self, payload: dict[str, object]) -> SandboxSessionState:

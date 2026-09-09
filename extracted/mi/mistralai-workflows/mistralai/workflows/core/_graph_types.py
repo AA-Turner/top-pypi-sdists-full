@@ -70,6 +70,10 @@ class _ConditionalNode:
     false_exits: bool
     false_exit_error: bool
     rejoin: list[TreeNode]
+    # Range of the statement that terminates each branch, so the exit terminal the
+    # flattener emits points back at the `return`/`raise` instead of nothing.
+    true_exit_range: _SourceRange | None = None
+    false_exit_range: _SourceRange | None = None
 
 
 @dataclass(slots=True)

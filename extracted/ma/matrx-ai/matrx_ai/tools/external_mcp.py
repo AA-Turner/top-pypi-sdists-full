@@ -228,14 +228,15 @@ class ExternalMCPClient:
             text_parts = [
                 item.get("text", "") for item in content_list if item.get("type") == "text"
             ]
-            if text_parts:
+            if result_data.get("structuredContent") is not None:
+                # ``structuredContent`` is the typed tool value. Servers may
+                # also include a text compatibility block for older clients;
+                # preferring that prose wrapper makes an object output schema
+                # appear to drift even though the server returned the exact
+                # structured value it declared.
+                output = result_data["structuredContent"]
+            elif text_parts:
                 output = "\n".join(text_parts)
-            elif result_data.get("structuredContent") is not None:
-                # MCP allows a successful tool to return structuredContent
-                # without the optional content blocks. Shopify's UCP catalog
-                # does exactly that; serializing only the absent blocks used
-                # to turn a real product result into the misleading value [].
-                output = json.dumps(result_data["structuredContent"], default=str)
             else:
                 output = json.dumps(content_list)
 
@@ -243,7 +244,11 @@ class ExternalMCPClient:
             return ToolResult(
                 success=not is_error,
                 output=output,
-                error=ToolError(error_type="mcp_remote", message=output) if is_error else None,
+                error=(
+                    ToolError(error_type="mcp_remote", message=str(output))
+                    if is_error
+                    else None
+                ),
                 started_at=started_at,
                 completed_at=time.time(),
                 tool_name=tool_def.name,
@@ -320,14 +325,20 @@ class ExternalMCPClient:
             text_parts = [
                 item.text for item in result.content if getattr(item, "type", None) == "text"
             ]
-            output = "\n".join(text_parts)
-            if not output and result.structuredContent is not None:
-                output = json.dumps(result.structuredContent, default=str)
+            output: Any
+            if result.structuredContent is not None:
+                output = result.structuredContent
+            else:
+                output = "\n".join(text_parts)
             is_error = bool(result.isError)
             return ToolResult(
                 success=not is_error,
                 output=output,
-                error=ToolError(error_type="mcp_remote", message=output) if is_error else None,
+                error=(
+                    ToolError(error_type="mcp_remote", message=str(output))
+                    if is_error
+                    else None
+                ),
                 started_at=started_at,
                 completed_at=time.time(),
                 tool_name=tool_def.name,
