@@ -322,6 +322,27 @@ fn run_check_command(args: &[String]) -> ! {
 
     let (modules, mut diags) = check_load_modules(&vba_files);
 
+    for module in &modules {
+        for name in parser::find_type_collisions(&module.program) {
+            let location = module
+                .program
+                .type_defs
+                .iter()
+                .find(|type_def| type_def.name == name)
+                .map(|type_def| diagnostics::locate(&module.source, &module.path, type_def.span));
+            diags.push(check::Diagnostic {
+                severity: "error",
+                code: "E1012",
+                kind: "duplicate_type",
+                message: format!(
+                    "duplicate Type '{}' in module '{}' — UDT declarations must be unique",
+                    name, module.name
+                ),
+                location,
+            });
+        }
+    }
+
     if modules.len() > 1 {
         let project: Vec<(String, parser::Program)> = modules
             .iter()
@@ -354,7 +375,6 @@ fn run_check_command(args: &[String]) -> ! {
                 location: None,
             });
         }
-
         for m in &modules {
             let mut others: std::collections::HashSet<String> = std::collections::HashSet::new();
             for other in &modules {
@@ -1136,7 +1156,8 @@ fn main() {
                 None
             };
             fail_json(
-                ElixceeError::runtime_error(e).with_location(location),
+                ElixceeError::runtime_error_with_kind(e, vm.take_runtime_failure())
+                    .with_location(location),
                 &vm.take_messages(),
             )
         } else {

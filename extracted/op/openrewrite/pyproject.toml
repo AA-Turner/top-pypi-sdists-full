@@ -5,22 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "openrewrite"
 description = "OpenRewrite automated refactoring for Python."
-version = "8.91.6"  # Updated dynamically during release
+version = "8.92.1"  # Updated dynamically during release
 authors = [{ name = "Moderne Inc.", email = "support@moderne.io" }]
 license = { text = "Moderne Source Available License" }
 readme = "README.md"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Software Development :: Quality Assurance",
     "Typing :: Typed",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "more_itertools>=10.0.0",
     "ty-types>=0.0.79",  # Type inference CLI for Python type attribution
@@ -67,17 +65,17 @@ include = ["rewrite", "rewrite.*"]
 
 [tool.black]
 line-length = 120
-target-version = ["py310", "py311", "py312"]
+target-version = ["py312"]
 
 [tool.ruff]
 line-length = 120
-target-version = "8.91.6"
+target-version = "8.92.1"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
 [tool.ty.environment]
-python-version = "8.91.6"
+python-version = "8.92.1"
 root = ["src"]
 
 [tool.ty.src]

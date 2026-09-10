@@ -2,6 +2,7 @@
 
 import datetime as dt
 import logging
+from enum import Enum
 
 # noinspection PyPep8Naming
 from bs4 import BeautifulSoup as bs
@@ -23,6 +24,275 @@ CONST_ROOT_FOLDERS = "root_folders"
 CONST_ROOT_FOLDERS_DELTA = "root_folders_delta"
 CONST_TASK = "task"
 CONST_TASK_FOLDER = "task_folder"
+
+
+class RecurrenceRangeType(Enum):
+    """Valid values for recurrenceRangeType."""
+
+    ENDDATE = "endDate"
+    NOEND = "noEnd"
+    NUMBERED = "numbered"
+
+
+class RecurrencePatternType(Enum):
+    """Valid values for recurrencePatternType."""
+
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    ABSOLUTEMONTHLY = "absoluteMonthly"
+    RELATIVEMONTHLY = "relativeMonthly"
+    ABSOLUTEYEARLY = "absoluteYearly"
+    RELATIVEYEARLY = "relativeYearly"
+
+
+class WeekIndex(Enum):
+    """Valid values for weekIndex."""
+
+    FIRST = "first"
+    SECOND = "second"
+    THIRD = "third"
+    FOURTH = "fourth"
+    LAST = "last"
+
+
+class Range(ApiComponent):
+    """The recurrence range."""
+
+    def __init__(self, *, parent=None, con=None, **kwargs):
+        """Representation of recurrence range settings.
+
+        :param parent: parent object
+        :type parent: Recurrence
+        :param Connection con: connection to use if no parent specified
+        :param Protocol protocol: protocol to use if no parent specified
+         (kwargs)
+        :param str main_resource: use this resource instead of parent resource
+         (kwargs)
+        """
+        if parent and con:
+            raise ValueError("Need a parent or a connection but not both")
+        self.con = parent.con if parent else con
+
+        # Choose the main_resource passed in kwargs over parent main_resource
+        main_resource = kwargs.pop("main_resource", None) or (
+            getattr(parent, "main_resource", None) if parent else None
+        )
+
+        super().__init__(
+            protocol=parent.protocol if parent else kwargs.get("protocol"),
+            main_resource=main_resource,
+        )
+
+        cloud_data = kwargs.get(self._cloud_data_key, {})
+        if not cloud_data:
+            return
+        self.__end_date = cloud_data.get(self._cc("endDate"), None)
+        self.__no_of_occurrences = cloud_data.get(self._cc("numberOfOccurrences"), None)
+        self.__recurrence_timezone = cloud_data.get(
+            self._cc("recurrenceTimeZone"), None
+        )
+        self.__start_date = cloud_data.get(self._cc("startDate"), None)
+        self.__range_type = RecurrenceRangeType(cloud_data.get(self._cc("type")))
+
+    def __str__(self):
+        """Representation of the pattern via the Graph api as a string."""
+        return self.__repr__()
+
+    @property
+    def end_date(self):
+        """The date to stop applying the recurrence pattern.
+
+        :type: date
+        """
+        return self.__end_date
+
+    @property
+    def no_of_occurrences(self):
+        """The number of times to repeat the event.
+
+        :type: int
+        """
+        return self.__no_of_occurrences
+
+    @property
+    def recurrence_timezone(self):
+        """Time zone for the startDate and endDate properties.
+
+        :type: str
+        """
+        return self.__recurrence_timezone
+
+    @property
+    def start_date(self):
+        """The date to start applying the recurrence pattern.
+
+        :type: date
+        """
+        return self.__start_date
+
+    @property
+    def range_type(self):
+        """The recurrence range.
+
+        :type: recurrencerangetype
+        """
+        return self.__range_type
+
+
+class Pattern(ApiComponent):
+    """The recurrence pattern."""
+
+    def __init__(self, *, parent=None, con=None, **kwargs):
+        """Representation of recurrence pattern settings.
+
+        :param parent: parent object
+        :type parent: Recurrence
+        :param Connection con: connection to use if no parent specified
+        :param Protocol protocol: protocol to use if no parent specified
+         (kwargs)
+        :param str main_resource: use this resource instead of parent resource
+         (kwargs)
+        """
+        if parent and con:
+            raise ValueError("Need a parent or a connection but not both")
+        self.con = parent.con if parent else con
+
+        # Choose the main_resource passed in kwargs over parent main_resource
+        main_resource = kwargs.pop("main_resource", None) or (
+            getattr(parent, "main_resource", None) if parent else None
+        )
+
+        super().__init__(
+            protocol=parent.protocol if parent else kwargs.get("protocol"),
+            main_resource=main_resource,
+        )
+
+        cloud_data = kwargs.get(self._cloud_data_key, {})
+        if not cloud_data:
+            return
+        self.__day_of_month = cloud_data.get(self._cc("dayOfMonth"), None)
+        self.__days_of_week = cloud_data.get(self._cc("daysOfWeek"), [])
+        self.__first_day_of_week = cloud_data.get(self._cc("firstDayOfWeek"), None)
+        self.__index = WeekIndex(cloud_data.get(self._cc("index"), None))
+        self.__interval = cloud_data.get(self._cc("interval"), None)
+        self.__month = cloud_data.get(self._cc("month"), None)
+        self.__pattern_type = RecurrencePatternType(cloud_data.get(self._cc("type")))
+
+    def __str__(self):
+        """Representation of the pattern via the Graph api as a string."""
+        return self.__repr__()
+
+    @property
+    def day_of_month(self):
+        """The day of the month on which the task occurs.
+
+        :type: int
+        """
+        return self.__day_of_month
+
+    @property
+    def days_of_week(self):
+        """A collection of the days of the week on which the event occurs.
+
+        :type: list(str)
+        """
+        return self.__days_of_week
+
+    @property
+    def first_day_of_the_week(self):
+        """The first day of the week.
+
+        :type: str
+        """
+        return self.__first_day_of_week
+
+    @property
+    def index(self):
+        """Specifies on which instance of the allowed days
+        specified in daysOfWeek the event occurs, counted
+        from the first instance in the month.
+
+        :type: weekindex
+        """
+        return self.__index
+
+    @property
+    def interval(self):
+        """The number of units between occurrences,
+        where units can be in days, weeks, months,
+        or years, depending on the type.
+
+        :type: int
+        """
+        return self.__interval
+
+    @property
+    def month(self):
+        """The month in which the event occurs.
+
+        :type: int
+        """
+        return self.__month
+
+    @property
+    def pattern_type(self):
+        """Specifies on which instance of the allowed days
+        specified in daysOfWeek the event occurs, counted
+        from the first instance in the month.
+
+        :type: recurrencepatterntype
+        """
+        return self.__pattern_type
+
+
+class Recurrence(ApiComponent):
+    """The recurrence Pattern and Range."""
+
+    pattern_constructor = Pattern  #: :meta private:
+    range_constructor = Range  #: :meta private:
+
+    def __init__(self, *, parent=None, con=None, **kwargs):
+        """Representation of recurrence settings.
+
+        :param parent: parent object
+        :type parent: Task
+        :param Connection con: connection to use if no parent specified
+        :param Protocol protocol: protocol to use if no parent specified
+         (kwargs)
+        :param str main_resource: use this resource instead of parent resource
+         (kwargs)
+        """
+        if parent and con:
+            raise ValueError("Need a parent or a connection but not both")
+        self.con = parent.con if parent else con
+
+        # Choose the main_resource passed in kwargs over parent main_resource
+        main_resource = kwargs.pop("main_resource", None) or (
+            getattr(parent, "main_resource", None) if parent else None
+        )
+
+        super().__init__(
+            protocol=parent.protocol if parent else kwargs.get("protocol"),
+            main_resource=main_resource,
+        )
+
+        cloud_data = kwargs.get(self._cloud_data_key, {})
+        pattern = cloud_data.get("pattern")
+        #: The recurrence pattern for the recurrences
+        #: |br| **Type:** Pattern
+        self.pattern = self.pattern_constructor(
+            parent=self, **{self._cloud_data_key: pattern}
+        )
+        recurrence_range = cloud_data.get("range")
+        #: The recurrence range for the recurrences
+        #: |br| **Type:** Range
+        self.range = self.range_constructor(
+            parent=self, **{self._cloud_data_key: recurrence_range}
+        )
+
+    def __str__(self):
+        """Representation of the recurrence via the Graph api as a string."""
+        return self.__repr__()
 
 
 class ChecklistItem(ApiComponent):
@@ -266,6 +536,7 @@ class Task(ApiComponent):
         CONST_TASK_FOLDER: "/todo/lists/{folder_id}/tasks",
     }
     checklist_item_constructor = ChecklistItem  #: :meta private:
+    recurrence_constructor = Recurrence  #: :meta private:
 
     def __init__(self, *, parent=None, con=None, **kwargs):
         """Representation of a Microsoft To-Do task.
@@ -342,6 +613,15 @@ class Task(ApiComponent):
             self.checklist_item_constructor(parent=self, **{self._cloud_data_key: item})
             for item in cloud_data.get(cc("checklistItems"), [])
         )
+        recurrence = cloud_data.get("recurrence")
+        #: The recurrence pattern and range
+        #: |br| **Type:** Recurrence
+        if recurrence:
+            self.recurrence = self.recurrence_constructor(
+                parent=self, **{self._cloud_data_key: recurrence}
+            )
+        else:
+            self.recurrence = None
 
     def __str__(self):
         """Representation of the Task via the Graph api as a string."""

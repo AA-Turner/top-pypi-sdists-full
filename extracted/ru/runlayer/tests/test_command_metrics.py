@@ -181,7 +181,7 @@ class TestCaptureResourceUsage:
             disk_read_mb=78.0,
         )
 
-    def test_windows_job_usage_includes_io_counters(self):
+    def test_windows_job_usage_includes_read_and_other_io_counters(self):
         kernel32 = MagicMock()
 
         def query_information(
@@ -204,7 +204,9 @@ class TestCaptureResourceUsage:
                 accounting_and_io.BasicInfo.TotalUserTime = 10_000
                 accounting_and_io.BasicInfo.TotalKernelTime = 20_000
                 accounting_and_io.IoInfo.ReadOperationCount = 25
+                accounting_and_io.IoInfo.OtherOperationCount = 7
                 accounting_and_io.IoInfo.ReadTransferCount = 8 * 1024 * 1024
+                accounting_and_io.IoInfo.OtherTransferCount = 3 * 1024 * 1024
             else:
                 assert (
                     information_class
@@ -228,11 +230,11 @@ class TestCaptureResourceUsage:
         assert usage == _usage(
             cpu_time_ms=3.0,
             peak_memory_mb=4.0,
-            disk_read_ops=25.0,
-            disk_read_mb=8.0,
+            disk_read_ops=32.0,
+            disk_read_mb=11.0,
         )
 
-    def test_windows_process_usage_includes_io_counters(self):
+    def test_windows_process_usage_includes_read_and_other_io_counters(self):
         kernel32 = MagicMock()
         kernel32.GetCurrentProcess.return_value = 123
 
@@ -261,7 +263,9 @@ class TestCaptureResourceUsage:
                 ctypes.POINTER(command_metrics._IoCounters),
             ).contents
             counters.ReadOperationCount = 15
+            counters.OtherOperationCount = 9
             counters.ReadTransferCount = 6 * 1024 * 1024
+            counters.OtherTransferCount = 2 * 1024 * 1024
             return True
 
         kernel32.GetProcessTimes.side_effect = get_process_times
@@ -285,8 +289,8 @@ class TestCaptureResourceUsage:
 
         assert usage == _usage(
             cpu_time_ms=3.0,
-            disk_read_ops=15.0,
-            disk_read_mb=6.0,
+            disk_read_ops=24.0,
+            disk_read_mb=8.0,
         )
 
     @pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")

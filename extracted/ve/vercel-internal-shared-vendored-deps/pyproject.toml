@@ -25,7 +25,6 @@ path = "vercel/internal/_vendor/version.py"
 [tool.hatch.build.targets.sdist]
 include = [
     "/vercel/internal/_vendor/**/*.py",
-    "/vercel/internal/_vendor/certifi/cacert.pem",
     "/vercel/internal/_vendor/_shared_deps.json",
     "/vercel/internal/_vendor/py.typed",
     "/README.md",
@@ -65,7 +64,8 @@ substitute = [
     { match = "import h2\\.events", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import events" },
     { match = "import h2\\.exceptions", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import exceptions" },
     { match = "import h2\\.settings", replace = "from vercel.internal._vendor import h2\nfrom vercel.internal._vendor.h2 import settings" },
-    { match = "(files|get_path|read_text)\\(\"certifi\"", replace = "\\1(\"vercel.internal._vendor.certifi\"" },
+    { match = "import anyio\\.abc", replace = "from anyio import abc" },
+    { match = "import anyio\\.streams\\.tls", replace = "from anyio.streams import tls" },
 ]
 drop = [
     "*.so",

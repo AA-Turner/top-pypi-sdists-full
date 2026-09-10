@@ -168,7 +168,7 @@ def test_plugins_list_defaults_to_all_clients_in_project_scope(
     monkeypatch.chdir(tmp_path)
     plugin = create_e2e_plugin()
 
-    for client_name in ("claude_code", "cursor"):
+    for client_name in ("claude_code", "vscode"):
         result = runner.invoke(
             app,
             [
@@ -190,7 +190,7 @@ def test_plugins_list_defaults_to_all_clients_in_project_scope(
     assert list_result.exit_code == 0, output
     assert output.count(plugin.name) == 1
     assert "claude_code" in output
-    assert "cursor" in output
+    assert "vscode" in output
     assert "1 plugin(s) installed" in output
 
 
@@ -201,7 +201,7 @@ def test_plugins_list_filters_project_scope_by_client(
     monkeypatch.chdir(tmp_path)
     plugin = create_e2e_plugin()
 
-    for client_name in ("claude_code", "cursor"):
+    for client_name in ("claude_code", "vscode"):
         result = runner.invoke(
             app,
             [
@@ -223,7 +223,7 @@ def test_plugins_list_filters_project_scope_by_client(
     assert list_result.exit_code == 0, output
     assert plugin.name in output
     assert "claude_code" in output
-    assert "cursor" not in output
+    assert "vscode" not in output
     assert "1 plugin(s) installed" in output
 
 
@@ -1004,11 +1004,35 @@ def test_plugins_add_codex_with_skills_injects_frontmatter(
             api_client.delete_skill(skill.id)
 
 
+def test_plugins_add_cursor_project_scope_is_refused(
+    runner, cli_args, tmp_path, monkeypatch
+):
+    """Cursor only discovers ~/.cursor/plugins/local: project scope exits 1, writes nothing."""
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [*cli_args, "plugins", "add", "e2e/never-contacted", "--client", "cursor"],
+    )
+    output = strip_ansi(result.output)
+    assert result.exit_code == 1, output
+    assert "Use --global" in output
+    assert not (tmp_path / ".cursor").exists()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / ".runlayer" / "plugin-lock.yml").exists()
+
+
 def test_plugins_add_cursor_mcp_json_structure(
     runner, cli_args, tmp_path, monkeypatch, create_e2e_plugin
 ):
-    """Cursor plugin add writes mcpServers key with no type on entries."""
-    monkeypatch.chdir(tmp_path)
+    """Cursor plugin add (global, the only scope Cursor discovers) writes
+    mcpServers with no type on entries and a real copy under plugins/local."""
+    home_dir = tmp_path / "home"
+    project_dir = tmp_path / "project"
+    home_dir.mkdir()
+    project_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.chdir(project_dir)
     plugin = create_e2e_plugin()
 
     result = runner.invoke(
@@ -1022,12 +1046,13 @@ def test_plugins_add_cursor_mcp_json_structure(
             plugin.name,
             "--client",
             "cursor",
+            "--global",
         ],
     )
     output = strip_ansi(result.output)
     assert result.exit_code == 0, output
 
-    plugin_dir = tmp_path / ".agents" / "plugins" / plugin.name
+    plugin_dir = home_dir / ".agents" / "plugins" / plugin.name
 
     assert (plugin_dir / ".cursor-plugin" / "plugin.json").exists()
     assert (plugin_dir / ".mcp.json").exists()
@@ -1038,13 +1063,18 @@ def test_plugins_add_cursor_mcp_json_structure(
         assert "url" in srv
         assert "type" not in srv
 
-    symlink = tmp_path / ".cursor" / "plugins" / plugin.name
-    assert symlink.is_symlink()
+    # Real files, not a link: Cursor refuses a user-local plugin whose symlink
+    # resolves outside `.cursor/plugins/local`.
+    installed = home_dir / ".cursor" / "plugins" / "local" / plugin.name
+    assert installed.is_dir() and not installed.is_symlink()
+    assert (installed / ".cursor-plugin" / "plugin.json").is_file()
+    assert (installed / ".mcp.json").is_file()
+    assert not (project_dir / ".cursor").exists()
 
-    lockfile = tmp_path / ".runlayer" / "plugin-lock.yml"
+    lockfile = home_dir / ".runlayer" / "plugin-lock.yml"
     assert lockfile.exists()
     lock = yaml.safe_load(lockfile.read_text())
     match = [e for e in lock["plugins"] if e["id"] == plugin.id]
     assert len(match) == 1
-    assert match[0]["install_mode"] == "native"
+    assert match[0]["install_mode"] == "native_copy"
     assert match[0]["client"] == "cursor"

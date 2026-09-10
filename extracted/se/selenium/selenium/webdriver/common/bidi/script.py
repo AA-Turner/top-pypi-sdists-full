@@ -659,11 +659,11 @@ class Script:
 
     def add_preload_script(
         self,
-        function_declaration: Any | None = None,
+        function_declaration: str | None = None,
         arguments: list[Any] | None = None,
         contexts: list[Any] | None = None,
         user_contexts: list[Any] | None = None,
-        sandbox: Any | None = None,
+        sandbox: str | None = None,
     ):
         """Execute script.addPreloadScript"""
         if function_declaration is None:
@@ -699,7 +699,7 @@ class Script:
 
     def call_function(
         self,
-        function_declaration: Any | None = None,
+        function_declaration: str | None = None,
         await_promise: bool | None = None,
         target: Any | None = None,
         arguments: list[Any] | None = None,
@@ -733,7 +733,7 @@ class Script:
 
     def evaluate(
         self,
-        expression: Any | None = None,
+        expression: str | None = None,
         target: Any | None = None,
         await_promise: bool | None = None,
         result_ownership: Any | None = None,

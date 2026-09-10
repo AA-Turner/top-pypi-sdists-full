@@ -68,8 +68,8 @@ def test_empty_metadata_is_still_omitted_from_storage():
 @pytest.mark.parametrize(
     "wire_type,cls",
     [
-        ("code_execution", CodeExecutionContent),          # the dataclass discriminator
-        ("code_exec", CodeExecutionContent),               # what to_storage_dict writes
+        ("code_execution", CodeExecutionContent),  # the dataclass discriminator
+        ("code_exec", CodeExecutionContent),  # what to_storage_dict writes
         ("code_execution_result", CodeExecutionResultContent),
         ("code_result", CodeExecutionResultContent),
     ],
@@ -93,10 +93,10 @@ def test_parse_content_accepts_both_spellings_and_keeps_metadata(wire_type, cls)
 def test_the_filter_antipattern_is_gone_from_these_branches():
     """Forcing function: if someone reintroduces _filter for these types, the
     silent drop comes back and this fails."""
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     from matrx_ai.config import message_config
 
-    src = inspect.getsource(message_config.UnifiedMessage.parse_content)
+    src = stable_source(message_config.UnifiedMessage.parse_content)
     code_branch = src[src.index("code_execution") :]
     assert "_filter" not in code_branch, "the code-execution branches use _filter again"

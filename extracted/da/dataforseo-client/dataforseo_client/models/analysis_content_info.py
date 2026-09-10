@@ -9,7 +9,7 @@ from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
 from dataforseo_client.models.social_metrics_info import SocialMetricsInfo
-from dataforseo_client.models.content_rating_info import ContentRatingInfo
+from dataforseo_client.models.contentent_rating_info import ContententRatingInfo
 
 
 
@@ -34,7 +34,7 @@ class AnalysisContentInfo(BaseModel):
     date_published: Optional[StrictStr] = Field(default=None, description=r"*date and time when the content was published*. in the UTC format: 'yyyy-mm-dd hh-mm-ss +00:00'. example:. `2017-01-24 13:20:59 +00:00`")
     content_quality_score: Optional[StrictInt] = Field(default=None, description=r"*content quality score*. this value is calculated based on the number of words, sentences and characters the content contains")
     semantic_location: Optional[StrictStr] = Field(default=None, description=r"*semantic location*. indicates semantic element in HTML where the target keyword citation is located. example:. `article`, `header`")
-    rating: Optional[ContentRatingInfo] = Field(default=None, description=r"*content rating*. rating related to `content_info`")
+    rating: Optional[ContententRatingInfo] = Field(default=None, description=r"*content rating*. rating related to `content_info`")
     group_date: Optional[StrictStr] = Field(default=None, description=r"*citation group date and time*. indicates content publication date or date and time when our crawler visited the page for the first time;. this field can be used to group citations by date and display citation trends;. date and time are provided in the UTC format: 'yyyy-mm-dd hh-mm-ss +00:00'. example:. `2017-01-24 13:20:59 +00:00`")
     __properties: ClassVar[List[str]] = [
         "content_type", 
@@ -135,7 +135,7 @@ class AnalysisContentInfo(BaseModel):
             "date_published": obj.get("date_published"),
             "content_quality_score": obj.get("content_quality_score"),
             "semantic_location": obj.get("semantic_location"),
-            "rating": ContentRatingInfo.from_dict(obj["rating"]) if obj.get("rating") is not None else None,
+            "rating": ContententRatingInfo.from_dict(obj["rating"]) if obj.get("rating") is not None else None,
             "group_date": obj.get("group_date"),
         })
 

@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 
 from runlayer_cli.scan import renamed_plugin_caches as probe_module
-from runlayer_cli.scan.plugin_scanner import compute_plugin_identifier
+from runlayer_cli.scan.plugin_scanner import (
+    compute_plugin_identifier,
+    scan_cursor_user_local_plugins,
+)
 from runlayer_cli.scan.renamed_plugin_caches import (
     MAX_PROBE_DEPTH,
     filter_novel_plugin_artifacts,
@@ -21,6 +24,39 @@ def _write_cursor_plugin(directory: Path, name: str = "shadow-tool") -> None:
     (directory / "mcp.json").write_text(
         json.dumps({"mcpServers": {"srv": {"command": "run-srv"}}})
     )
+
+
+def test_user_local_install_is_not_reported_as_novel(tmp_path: Path):
+    """A real install under plugins/local is expected, not a renamed copy.
+
+    Copy-mode Cursor installs put real directories where the probe can see
+    them. The layout scanner covers that path, so dedup must pair the two up
+    instead of flagging our own install as an unrecognized cache.
+    """
+    local_base = tmp_path / ".cursor" / "plugins" / "local"
+    _write_cursor_plugin(local_base / "runlayer-plugin", name="runlayer-plugin")
+
+    candidates = scan_renamed_plugin_caches(home=tmp_path)
+    # The probe does see it -- no blind spot was introduced.
+    assert [Path(a.install_path).name for a in candidates] == ["runlayer-plugin"]
+
+    known = scan_cursor_user_local_plugins(local_base=local_base)
+    assert filter_novel_plugin_artifacts(candidates, known) == []
+
+
+def test_renamed_copy_outside_local_is_still_novel(tmp_path: Path):
+    """Covering plugins/local must not excuse copies at odd paths."""
+    local_base = tmp_path / ".cursor" / "plugins" / "local"
+    _write_cursor_plugin(local_base / "runlayer-plugin", name="runlayer-plugin")
+    _write_cursor_plugin(
+        tmp_path / ".cursor" / "plugins" / "evil-copy", name="evil-copy"
+    )
+
+    candidates = scan_renamed_plugin_caches(home=tmp_path)
+    known = scan_cursor_user_local_plugins(local_base=local_base)
+
+    novel = filter_novel_plugin_artifacts(candidates, known)
+    assert [Path(a.install_path).name for a in novel] == ["evil-copy"]
 
 
 def test_detects_renamed_cursor_cache_by_manifest_marker(tmp_path: Path):

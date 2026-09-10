@@ -95,7 +95,7 @@ async def autoheal_locator(
             )
             return None
 
-        enriched = await enrich_element_locator(cdp, target)
+        enriched = await enrich_element_locator(cdp, target, page=page)
         if not enriched:
             _log.info("[autoheal] enrichment produced no locator for index=%s", dom_index)
             return None

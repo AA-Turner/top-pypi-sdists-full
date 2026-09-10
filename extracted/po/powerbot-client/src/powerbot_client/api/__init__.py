@@ -15,6 +15,7 @@ from powerbot_client.api.auctions_api import AuctionsApi
 from powerbot_client.api.authentication_api import AuthenticationApi
 from powerbot_client.api.capacities_api import CapacitiesApi
 from powerbot_client.api.contract_api import ContractApi
+from powerbot_client.api.downtimes_api import DowntimesApi
 from powerbot_client.api.historic_data_api import HistoricDataApi
 from powerbot_client.api.logs_api import LogsApi
 from powerbot_client.api.market_api import MarketApi

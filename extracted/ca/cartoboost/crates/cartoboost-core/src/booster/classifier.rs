@@ -30,6 +30,8 @@ pub enum ClassificationObjective {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassifierConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_split_candidates: Option<usize>,
     pub n_estimators: usize,
     pub learning_rate: f64,
     pub max_depth: usize,
@@ -58,6 +60,8 @@ pub struct Classifier {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassifierTrainingConfigMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_split_candidates: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend: Option<BackendSelection>,
     pub n_estimators: usize,
@@ -105,6 +109,7 @@ pub struct ClassifierModel {
 impl Default for ClassifierConfig {
     fn default() -> Self {
         Self {
+            max_split_candidates: None,
             n_estimators: 100,
             learning_rate: 0.05,
             max_depth: 4,
@@ -177,6 +182,7 @@ impl Classifier {
         let mut trees = Vec::with_capacity(self.config.n_estimators);
         let mut training_history = Vec::with_capacity(self.config.n_estimators);
         let builder = TreeBuilder {
+            max_split_candidates: self.config.max_split_candidates,
             max_depth: self.config.max_depth,
             min_samples_leaf: self.config.min_samples_leaf,
             min_gain: self.config.min_gain,
@@ -277,6 +283,7 @@ impl Classifier {
             feature_schema: Some(x.feature_schema_or_default()),
             class_values,
             training_config: Some(ClassifierTrainingConfigMetadata {
+                max_split_candidates: self.config.max_split_candidates,
                 backend: Some(self.backend.clone()),
                 n_estimators: self.config.n_estimators,
                 learning_rate: self.config.learning_rate,
@@ -635,6 +642,11 @@ fn validate_graph_leaf_smoothing(config: &ClassifierConfig, row_count: usize) ->
 }
 
 fn validate_classifier_config(config: &ClassifierConfig, feature_count: usize) -> Result<()> {
+    if config.max_split_candidates == Some(0) {
+        return Err(CartoBoostError::InvalidInput(
+            "max_split_candidates must be positive".into(),
+        ));
+    }
     if config.n_estimators == 0 {
         return Err(CartoBoostError::InvalidInput(
             "n_estimators must be positive".to_string(),
@@ -815,6 +827,7 @@ fn sigmoid(raw_prediction: f64) -> f64 {
 impl From<&ClassifierConfig> for ClassifierTrainingConfigMetadata {
     fn from(config: &ClassifierConfig) -> Self {
         Self {
+            max_split_candidates: config.max_split_candidates,
             backend: None,
             n_estimators: config.n_estimators,
             learning_rate: config.learning_rate,

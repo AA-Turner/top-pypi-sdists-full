@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 
-# Matches URI credentials
-_CREDENTIAL_RE = re.compile(r"(://)[^@\s]*:[^@\s]*(@)")
+from kedro.io.core import _redact_url_credentials
 
 
 @dataclass
@@ -43,7 +41,7 @@ class DatasetSnapshot:
         """Construct a ``DatasetSnapshot`` from a raw catalog config entry."""
         filepath = config.get("filepath")
         if filepath:
-            filepath = _CREDENTIAL_RE.sub(r"\1<redacted>\2", filepath)
+            filepath = _redact_url_credentials(filepath)
         return cls(
             name=name,
             type=config.get("type", ""),
@@ -52,22 +50,42 @@ class DatasetSnapshot:
 
 
 @dataclass
+class NodeSourceSnapshot:
+    """Source location metadata for a pipeline node's underlying function.
+
+    Attributes:
+        filepath: Project-relative path to the source file.
+        line_start: 1-based line number of the first line of the definition.
+        line_end: 1-based line number of the last line of the definition.
+    """
+
+    filepath: str
+    line_start: int
+    line_end: int
+
+
+@dataclass
 class NodeSnapshot:
     """Read-only snapshot of a single pipeline node.
 
     Attributes:
         name: Fully-qualified node name (includes namespace prefix if present).
+        func_name: Readable name of the node's underlying function.
         namespace: Node namespace, or ``None`` if the node has no namespace.
         tags: Sorted list of tags assigned to the node.
         inputs: Ordered list of input dataset names.
         outputs: Ordered list of output dataset names.
+        source: Source location of the node's underlying function, or ``None``
+            when the location cannot be resolved or lies outside the project.
     """
 
     name: str
+    func_name: str = field(kw_only=True)
     namespace: str | None = None
     tags: list[str] = field(default_factory=list)
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
+    source: NodeSourceSnapshot | None = None
 
 
 @dataclass

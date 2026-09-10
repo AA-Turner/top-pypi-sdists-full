@@ -12170,7 +12170,13 @@ paths:
         schema:
           example: ent_a0SApq3z,ent_b4AApz9b
           type: string
-      - description: mol-formatted string for a chemical substructure to search by
+      - description: 'mol-formatted string for a chemical substructure to search by.
+          Substructure queries using wildcard (any-atom) atoms need a connected group
+          of at least 3 non-wildcard atoms, wildcard atoms can make up at most 50%
+          of the query, and the query must have at least one bond between two atoms;
+          requests that don''t meet these constraints are rejected with a 400 response.
+
+          '
         in: query
         name: chemicalSubstructure.mol
         schema:
@@ -12182,7 +12188,13 @@ paths:
             \ O   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0  0  0  0\n  2 \
             \ 3  1  0  0  0  0\nM  END\n"
           type: string
-      - description: SMILES string for a chemical substructure to search by
+      - description: 'SMILES string for a chemical substructure to search by. Substructure
+          queries using wildcard (any-atom) atoms need a connected group of at least
+          3 non-wildcard atoms, wildcard atoms can make up at most 50% of the query,
+          and the query must have at least one bond between two atoms; requests that
+          don''t meet these constraints are rejected with a 400 response.
+
+          '
         in: query
         name: chemicalSubstructure.smiles
         schema:
@@ -21199,6 +21211,14 @@ components:
       allOf:
       - $ref: '#/components/schemas/AaSequenceBaseRequest'
       - $ref: '#/components/schemas/AaSequenceRequestRegistryFields'
+      - properties:
+          name:
+            description: 'Name of the AA sequence. Cannot be updated to an empty string.
+
+              '
+            minLength: 1
+            type: string
+        type: object
     AaSequenceUpsert:
       allOf:
       - $ref: '#/components/schemas/EntityBulkUpsertBaseRequest'

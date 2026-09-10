@@ -638,10 +638,13 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
         for model in models:
             offerings = ai_catalog_manager.offerings_for(str(model.id))
             if not offerings:
-                # Deprecated + unroutable is the expected retirement state — never an orphan.
-                # But a deprecated model WITH offerings still ROUTES, so it MUST be priced:
-                # skipping it here recorded $0 cost on real provider-billed calls.
-                if not getattr(model, "is_deprecated", False):
+                # Deprecated/retired + unroutable is an expected state — never an orphan.
+                # But a deprecated model WITH offerings still ROUTES (ruled 2026-09-09),
+                # so it MUST be priced: skipping it here recorded $0 cost on real
+                # provider-billed calls.
+                if not getattr(model, "is_deprecated", False) and not getattr(
+                    model, "retired_at", None
+                ):
                     orphan_models.append(f"{getattr(model, 'name', '') or '<unnamed>'} ({model.id})")
                 continue
             priced_offerings: list[ModelPricing] = []

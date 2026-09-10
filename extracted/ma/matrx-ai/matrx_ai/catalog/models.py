@@ -369,8 +369,14 @@ class ResolvedCallProfile(BaseModel):
     pricing: Any = None
     usage_basis: str | None = None
     token_billed: bool = False
+    # Lifecycle (ai_075, ruled 2026-09-09): deprecated = hidden by default but
+    # RUNNABLE (warned once per process); retired_at = dead — resolve_call_profile
+    # refuses before a profile is ever built, so a profile with model_retired_at
+    # set only exists for display/history readers.
     model_is_deprecated: bool = False
     model_is_primary: bool = False
+    model_retired_at: str | None = None
+    model_successor_id: str | None = None
     offering_metadata: dict[str, Any] = {}
     tts_voice_ids: tuple[str, ...] = ()
     tts_default_voice_id: str | None = None

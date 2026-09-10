@@ -95,8 +95,12 @@ async def test_cascade_board_sync_exits_non_zero_when_refused(capsys):
 async def test_cascade_board_sync_exits_zero_when_queued(capsys):
     from src.cli.commands.sync import SyncCommands
 
+    # `wait=False`, because "queued" is only an outcome under --no-wait now:
+    # waiting for the run to finish is the default since #741.
     client = _queued_client()
-    rc = await SyncCommands._sync_board(client, "org-1", "proj-1", _Config())
+    rc = await SyncCommands._sync_board(
+        client, "org-1", "proj-1", _Config(), wait=False
+    )
 
     assert "sync-1" in capsys.readouterr().out
     assert rc == 0
@@ -105,13 +109,15 @@ async def test_cascade_board_sync_exits_zero_when_queued(capsys):
 # ---------------------------------------------------------- innoday board sync
 
 
-def _board_sync_args():
+def _board_sync_args(no_wait=False):
     return argparse.Namespace(
         board_command="sync",
         board_id="board-1",
         full=False,
         dry_run=False,
         force=False,
+        no_wait=no_wait,
+        wait_timeout=5.0,
     )
 
 
@@ -132,7 +138,9 @@ async def test_board_sync_exits_zero_when_queued(capsys):
     from src.cli.commands.boards import BoardCommands
 
     client = _queued_client()
-    rc = await BoardCommands._handle_sync(_board_sync_args(), client, _Config())
+    rc = await BoardCommands._handle_sync(
+        _board_sync_args(no_wait=True), client, _Config()
+    )
 
     assert "sync-1" in capsys.readouterr().out
     assert rc == 0

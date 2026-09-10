@@ -54,6 +54,103 @@ def _unprocessable_checkin_error(
     )
 
 
+@pytest.mark.parametrize("key_hash", ["abc123", None])
+def test_submit_llm_routing_checkin_returns_body_and_carries_hash(
+    key_hash: str | None,
+) -> None:
+    client = Mock()
+    response = {"device_key_status": "active", "device_key": "k"}
+    client.submit_aiwatch_checkin.return_value = response
+
+    result = aiwatch_checkin.submit_llm_routing_checkin(
+        client,
+        ctx=_device_ctx(),
+        tools=[],
+        status="ok",
+        device_key_hash=key_hash,
+    )
+
+    assert result == response
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert payload["feature"] == "llm_routing"
+    assert payload["status"] == "ok"
+    assert "device_key_hash" in payload
+    assert payload["device_key_hash"] == key_hash
+
+
+def test_submit_llm_routing_checkin_rotate_flag() -> None:
+    rotating_client = Mock()
+    aiwatch_checkin.submit_llm_routing_checkin(
+        rotating_client,
+        ctx=_device_ctx(),
+        tools=[],
+        status="ok",
+        device_key_hash=None,
+        rotate=True,
+    )
+    rotating_payload = rotating_client.submit_aiwatch_checkin.call_args.args[0]
+    assert rotating_payload["rotate"] is True
+
+    default_client = Mock()
+    aiwatch_checkin.submit_llm_routing_checkin(
+        default_client,
+        ctx=_device_ctx(),
+        tools=[],
+        status="ok",
+        device_key_hash="abc123",
+    )
+    default_payload = default_client.submit_aiwatch_checkin.call_args.args[0]
+    assert "rotate" not in default_payload
+
+
+def test_submit_llm_routing_checkin_returns_none_when_unsupported() -> None:
+    client = Mock()
+    client.submit_aiwatch_checkin.return_value = {"unsupported": True}
+
+    result = aiwatch_checkin.submit_llm_routing_checkin(
+        client,
+        ctx=_device_ctx(),
+        tools=[],
+        status="ok",
+        device_key_hash=None,
+    )
+
+    assert result is None
+
+
+def test_submit_llm_routing_checkin_retries_then_returns_none() -> None:
+    client = Mock()
+    client.submit_aiwatch_checkin.side_effect = httpx.ConnectError("refused")
+
+    with patch.object(aiwatch_checkin.time, "sleep"):
+        result = aiwatch_checkin.submit_llm_routing_checkin(
+            client,
+            ctx=_device_ctx(),
+            tools=[],
+            status="ok",
+            device_key_hash=None,
+        )
+
+    assert result is None
+    assert client.submit_aiwatch_checkin.call_count == 3
+
+
+def test_submit_llm_routing_checkin_returns_none_on_http_status_error() -> None:
+    client = Mock()
+    client.submit_aiwatch_checkin.side_effect = _unprocessable_checkin_error()
+
+    result = aiwatch_checkin.submit_llm_routing_checkin(
+        client,
+        ctx=_device_ctx(),
+        tools=[],
+        status="ok",
+        device_key_hash=None,
+    )
+
+    assert result is None
+    client.submit_aiwatch_checkin.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("exc", "expected_attempts"),
     [

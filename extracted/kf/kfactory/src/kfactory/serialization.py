@@ -5,7 +5,7 @@ import inspect
 from collections import UserDict, UserList
 from collections.abc import Callable, Hashable
 from hashlib import sha3_512
-from types import FunctionType
+from types import FunctionType, UnionType
 from typing import TYPE_CHECKING, Any, TypeGuard, overload
 
 import numpy as np
@@ -99,10 +99,10 @@ def clean_value(
     if isinstance(value, kdb.LayerInfo):
         return f"{value.name or str(value.layer) + '_' + str(value.datatype)}"
     if isinstance(value, list | tuple):
-        return "_".join(clean_value(v) for v in value)  # ty:ignore[invalid-argument-type]
+        return "_".join(clean_value(v) for v in value)
     if isinstance(value, dict):
         try:
-            return dict2name(**value)  # ty:ignore[invalid-argument-type]
+            return dict2name(**value)
         except TypeError as e:
             raise CellNameError(
                 "Dictionaries passed to functions as args/kwargs"
@@ -263,13 +263,12 @@ def serialize_setting(setting: MetaData) -> JSONSerializable:
         return None
     if isinstance(setting, dict):
         return {
-            str(name): serialize_setting(_setting)  # ty:ignore[invalid-argument-type]
-            for name, _setting in setting.items()
+            str(name): serialize_setting(_setting) for name, _setting in setting.items()
         }
     if isinstance(setting, list):
-        return [serialize_setting(s) for s in setting]  # ty:ignore[invalid-argument-type]
+        return [serialize_setting(s) for s in setting]
     if isinstance(setting, tuple):
-        return tuple(serialize_setting(s) for s in setting)  # ty:ignore[invalid-argument-type]
+        return tuple(serialize_setting(s) for s in setting)
     if serializible_shape_guard(setting):
         return f"!#{setting.__class__.__name__} {setting!s}"
     return setting  # ty:ignore[invalid-return-type]
@@ -279,9 +278,8 @@ def deserialize_setting(setting: JSONSerializable) -> MetaData:
     """Deserialize a setting."""
     if isinstance(setting, dict):
         return {
-            name: deserialize_setting(_setting)  # ty:ignore[invalid-argument-type]
-            for name, _setting in setting.items()
-        }  # ty:ignore[invalid-return-type]
+            name: deserialize_setting(_setting) for name, _setting in setting.items()
+        }
     if isinstance(setting, list):
         return [deserialize_setting(s) for s in setting]
     if isinstance(setting, tuple):
@@ -313,113 +311,64 @@ def get_cell_name(
     return name
 
 
+_ISHAPES: UnionType = (
+    kdb.Box
+    | kdb.Edge
+    | kdb.Path
+    | kdb.Polygon
+    | kdb.Region
+    | kdb.SimplePolygon
+    | kdb.Text
+)
+_DSHAPES: UnionType = (
+    kdb.DBox | kdb.DEdge | kdb.DPath | kdb.DPolygon | kdb.DSimplePolygon | kdb.DText
+)
+_SERIALIZABLE_SHAPES: UnionType = (
+    kdb.CplxTrans
+    | kdb.DCplxTrans
+    | kdb.DEdgePair
+    | kdb.DPoint
+    | kdb.DTrans
+    | kdb.DVector
+    | kdb.EdgePair
+    | kdb.EdgePairs
+    | kdb.Edges
+    | kdb.ICplxTrans
+    | kdb.LayerInfo
+    | kdb.Matrix2d
+    | kdb.Matrix3d
+    | kdb.Point
+    | kdb.Texts
+    | kdb.Trans
+    | kdb.VCplxTrans
+    | kdb.Vector
+    | lay.LayerProperties
+    | _ISHAPES
+    | _DSHAPES
+)
+_SERIALIZABLE_VALUES_OR_SHAPES: UnionType = (
+    bool | int | float | str | _SERIALIZABLE_SHAPES
+)
+
+
 def serializible_value_or_shape_guard(
     value: Any,
 ) -> TypeGuard[int | float | bool | str | SerializableShape]:
-    return isinstance(
-        value,
-        int
-        | float
-        | bool
-        | str
-        | kdb.Box
-        | kdb.DBox
-        | kdb.Edge
-        | kdb.DEdge
-        | kdb.EdgePair
-        | kdb.DEdgePair
-        | kdb.EdgePairs
-        | kdb.Edges
-        | lay.LayerProperties
-        | kdb.Matrix2d
-        | kdb.Matrix3d
-        | kdb.Path
-        | kdb.DPath
-        | kdb.Point
-        | kdb.DPoint
-        | kdb.Polygon
-        | kdb.DPolygon
-        | kdb.SimplePolygon
-        | kdb.DSimplePolygon
-        | kdb.Region
-        | kdb.Text
-        | kdb.DText
-        | kdb.Texts
-        | kdb.Trans
-        | kdb.DTrans
-        | kdb.CplxTrans
-        | kdb.ICplxTrans
-        | kdb.DCplxTrans
-        | kdb.VCplxTrans
-        | kdb.Vector
-        | kdb.DVector
-        | kdb.LayerInfo,
-    )
+    return isinstance(value, _SERIALIZABLE_VALUES_OR_SHAPES)
 
 
 def serializible_shape_guard(
     value: Any,
 ) -> TypeGuard[SerializableShape]:
-    return isinstance(
-        value,
-        kdb.Box
-        | kdb.DBox
-        | kdb.Edge
-        | kdb.DEdge
-        | kdb.EdgePair
-        | kdb.DEdgePair
-        | kdb.EdgePairs
-        | kdb.Edges
-        | lay.LayerProperties
-        | kdb.Matrix2d
-        | kdb.Matrix3d
-        | kdb.Path
-        | kdb.DPath
-        | kdb.Point
-        | kdb.DPoint
-        | kdb.Polygon
-        | kdb.DPolygon
-        | kdb.SimplePolygon
-        | kdb.DSimplePolygon
-        | kdb.Region
-        | kdb.Text
-        | kdb.DText
-        | kdb.Texts
-        | kdb.Trans
-        | kdb.DTrans
-        | kdb.CplxTrans
-        | kdb.ICplxTrans
-        | kdb.DCplxTrans
-        | kdb.VCplxTrans
-        | kdb.Vector
-        | kdb.DVector
-        | kdb.LayerInfo,
-    )
+    return isinstance(value, _SERIALIZABLE_SHAPES)
 
 
 def ishape_guard(value: Any) -> TypeGuard[IShapeLike]:
-    return isinstance(
-        value,
-        kdb.Polygon
-        | kdb.Edge
-        | kdb.Path
-        | kdb.Box
-        | kdb.Text
-        | kdb.SimplePolygon
-        | kdb.Region,
-    )
+    return isinstance(value, _ISHAPES)
 
 
 def dshape_guard(value: Any) -> TypeGuard[DShapeLike]:
-    return isinstance(
-        value,
-        kdb.DPolygon
-        | kdb.DEdge
-        | kdb.DPath
-        | kdb.DBox
-        | kdb.DText
-        | kdb.DSimplePolygon,
-    )
+    return isinstance(value, _DSHAPES)
 
 
 def get_function_name(f: Callable[..., Any]) -> str:

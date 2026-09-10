@@ -277,6 +277,7 @@ class gltf(bpy.ops._BPyOpsSubModOp):
         export_attributes: bool | None = False,
         use_mesh_edges: bool | None = False,
         use_mesh_vertices: bool | None = False,
+        export_pointclouds: bool | None = True,
         export_cameras: bool | None = False,
         use_selection: bool | None = False,
         use_visible: bool | None = False,
@@ -469,6 +470,7 @@ class gltf(bpy.ops._BPyOpsSubModOp):
                 :param export_attributes: Attributes, Export Attributes (when starting with underscore) (optional)
                 :param use_mesh_edges: Loose Edges, Export loose edges as lines, using the material from the first material slot (optional)
                 :param use_mesh_vertices: Loose Points, Export loose points as glTF points, using the material from the first material slot (optional)
+                :param export_pointclouds: Point Clouds, Export point clouds (optional)
                 :param export_cameras: Cameras, Export cameras (optional)
                 :param use_selection: Selected Objects, Export selected objects only (optional)
                 :param use_visible: Visible Objects, Export visible objects only (optional)

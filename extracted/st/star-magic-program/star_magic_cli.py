@@ -107,6 +107,20 @@ def cmd_well(args) -> int:
 
 
 
+def cmd_fluid(args) -> int:
+    """Draw the coarse 3D fluid field (Stam, NUMERICAL_EVIDENCE)."""
+    from uqff_ns_assembly import draw_field
+    r = draw_field(n=args.n, steps=args.steps,
+                   ppm_path=args.out if args.out else None)
+    print(r['ascii'])
+    print()
+    print('bounded:', r['bounded'], '| max speed %.4f' % r['max_speed'])
+    print(r['label'])
+    if 'ppm' in r:
+        print('image written:', r['ppm'], '(PPM - any image viewer opens it)')
+    return 0
+
+
 def cmd_guide(_args) -> int:
     """Print TESTER_GUIDE.md - the click-by-click instructions a
     non-technical tester follows (field-tested against the Windows
@@ -206,6 +220,14 @@ def main(argv=None) -> int:
     p_calc.add_argument("paper", nargs="?", default="")
     p_calc.add_argument("--list", action="store_true")
     p_calc.set_defaults(fn=cmd_calc)
+    p_fl = sub.add_parser(
+        "fluid", help="draw the coarse 3D fluid field (Stam stable-fluids, "
+                      "labeled NUMERICAL_EVIDENCE - the honest tier of the "
+                      "NS assembly)")
+    p_fl.add_argument("--n", type=int, default=32, help="grid (default 32)")
+    p_fl.add_argument("--steps", type=int, default=10)
+    p_fl.add_argument("--out", default="", help="write a PPM heat map here")
+    p_fl.set_defaults(fn=cmd_fluid)
     p_gate = sub.add_parser("gate", help="full fidelity gate (works from site-packages)")
     p_gate.set_defaults(fn=cmd_gate)
     p_well = sub.add_parser(

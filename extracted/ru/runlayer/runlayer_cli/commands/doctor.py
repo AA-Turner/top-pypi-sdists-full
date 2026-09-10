@@ -1597,13 +1597,16 @@ def manual_oauth_checks(
 
 
 def _callback_port_available(port: int) -> bool:
-    """Bind test mirroring ``oauth._ensure_callback_port_available``.
+    """Bind test mirroring ``oauth._callback_listener``.
 
     Same rule as `runlayer run`: it refuses to start the OAuth callback
     listener when the fixed port is already owned by another process.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if sys.platform == "win32":
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             probe.bind(("127.0.0.1", port))
             probe.listen(1)

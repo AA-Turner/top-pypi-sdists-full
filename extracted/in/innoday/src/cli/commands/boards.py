@@ -5,9 +5,12 @@ Handles board management and summarization operations.
 """
 
 import argparse
+import asyncio
 import json
-from typing import Any, Dict, Optional
+import time
+from typing import Any, Dict, NamedTuple, Optional, Tuple
 
+import httpx
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -58,6 +61,288 @@ def format_sync_status(raw_status: Optional[str], *, dry_run: bool = False) -> s
     if status == "FAILED":
         return format_error("❌ Last sync failed")
     return f"Status: {display}"
+
+
+#: A sync is over when its history row reaches one of these. Everything else
+#: (``PENDING``, ``IN_PROGRESS``) means it is still moving. Compared in the
+#: same normalised form ``format_sync_status`` uses, because the same status
+#: arrives lowercase from the API and uppercase from the database column.
+TERMINAL_SYNC_STATUSES = frozenset({"COMPLETED", "FAILED"})
+
+#: How long a wait gives a board sync before reporting that it did not finish,
+#: and how often it asks. Minutes, not seconds: a 257-ticket board took 153s on
+#: 2026-09-08, which is what made "queued" being reported as success a bug you
+#: could act on (#741).
+DEFAULT_SYNC_WAIT_TIMEOUT = 900.0
+SYNC_POLL_INTERVAL = 3.0
+
+#: A sync-history read that comes back one of these will come back the same
+#: way three seconds later: the token expired, the caller lost the role, the
+#: board was deregistered. Waiting them out costs the operator the full
+#: timeout and then reports a run the CLI never once observed.
+FATAL_READ_STATUSES = frozenset({401, 403, 404})
+
+#: How many consecutive unreadable polls to tolerate before giving up on the
+#: route. One is a hiccup -- `_poll_for_token` retries a transient read the
+#: same way -- but a read that has failed this many times running is not
+#: transient, and a wrong diagnosis fifteen minutes late is worse than a
+#: right one now.
+MAX_CONSECUTIVE_READ_FAILURES = 5
+
+
+def is_terminal_sync_status(raw_status: Optional[str]) -> bool:
+    """Whether a sync-history row's status means the run is over."""
+    return str(raw_status or "").upper().replace(" ", "_") in TERMINAL_SYNC_STATUSES
+
+
+def is_sync_completed(raw_status: Optional[str]) -> bool:
+    """Whether a finished run finished *well*."""
+    return str(raw_status or "").upper().replace(" ", "_") == "COMPLETED"
+
+
+def render_sync_record(data: Dict[str, Any], *, dry_run: Optional[bool] = None) -> None:
+    """Print one sync-history row -- status line, counts, duration, error.
+
+    Shared by `board sync-status` and by the wait that both sync commands do
+    when their run finishes: what a completed sync *did* is one report, and
+    growing a second copy of it is how the two came to disagree before.
+
+    `dry_run` overrides what the row says about itself, because the
+    sync-history route does not return that column -- so a caller that *asked*
+    for a preview must say so, or this reports "completed successfully" over
+    counts nothing was written from.
+    """
+    preview = bool(data.get("dry_run") if dry_run is None else dry_run)
+    console.print(format_sync_status(data.get("sync_status"), dry_run=preview))
+    verb = "would create" if preview else "created"
+    verb_u = "would update" if preview else "updated"
+
+    if data.get("started_at"):
+        console.print(f"  Started: {data['started_at']}")
+    if data.get("completed_at"):
+        console.print(f"  Completed: {data['completed_at']}")
+    if data.get("tickets_found") is not None:
+        console.print(f"  Tickets found: {data['tickets_found']}")
+    if data.get("tickets_created") is not None:
+        console.print(f"  Tickets {verb}: {data['tickets_created']}")
+    if data.get("tickets_updated") is not None:
+        console.print(f"  Tickets {verb_u}: {data['tickets_updated']}")
+    if data.get("tickets_unchanged"):
+        console.print(f"  Tickets unchanged: {data['tickets_unchanged']}")
+    if data.get("tickets_skipped") is not None:
+        console.print(f"  Tickets skipped: {data['tickets_skipped']}")
+    if data.get("duration_seconds") is not None:
+        console.print(f"  Duration: {data['duration_seconds']} seconds")
+    if data.get("error_message"):
+        console.print(f"  Error: {data['error_message']}")
+
+
+class _ReadFailure(NamedTuple):
+    """Why a sync-history poll could not answer.
+
+    `status` is None for a transport error, which has no HTTP status to
+    judge -- so it is never fatal and always worth asking again.
+    """
+
+    status: Optional[int]
+    message: str
+
+    @property
+    def is_fatal(self) -> bool:
+        return self.status in FATAL_READ_STATUSES
+
+
+async def _latest_sync_record(
+    client: InnoDayAPIClient,
+    org_id: str,
+    board_id: str,
+    sync_id: str,
+) -> Tuple[Optional[Dict[str, Any]], Optional[_ReadFailure]]:
+    """The row for `sync_id`, and why the read failed if it did.
+
+    `(row, None)` when the run's row was read. `(None, None)` means "ask
+    again" -- the route answered but our row was not among the rows it
+    returned. `(None, failure)` means the route could not be read at all,
+    which the caller needs kept apart: a status route that cannot answer says
+    nothing about the run, and a wait that treated it as an answer would
+    report an outcome it never saw. Collapsing both into None is how an
+    expired token became fifteen minutes of spinner and then a timeout.
+
+    Matched on the id the POST returned -- it is the history row's own id --
+    rather than trusting the newest row to be ours: otherwise a *previous*
+    completed sync ends the wait immediately, and a sync someone else starts
+    while we wait hides ours. There is deliberately no "newest row" fallback
+    for a missing id; `sync_id` is required, because the fallback is only a
+    trap. A handful of rows is asked for so a concurrent run cannot push ours
+    out of view.
+    """
+    try:
+        response = await client.get(
+            f"/organizations/{org_id}/boards/{board_id}/sync-history",
+            params={"limit": 5},
+        )
+    except (APIError, httpx.HTTPError) as exc:
+        return None, _ReadFailure(None, str(exc) or exc.__class__.__name__)
+    if response.status_code != 200:
+        return None, _ReadFailure(response.status_code, f"HTTP {response.status_code}")
+    entries = response.json()
+    if not isinstance(entries, list):
+        return None, _ReadFailure(None, "sync history was not a list of rows")
+    rows = [row for row in entries if isinstance(row, dict)]
+    return next((row for row in rows if row.get("id") == sync_id), None), None
+
+
+async def wait_for_board_sync(
+    client: InnoDayAPIClient,
+    org_id: str,
+    board_id: str,
+    *,
+    sync_id: str,
+    timeout: Optional[float] = None,
+    interval: Optional[float] = None,
+    progress: Optional[ProgressReporter] = None,
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Poll a board's sync history until the run reaches a terminal state.
+
+    Returns ``(record, error)``: on a terminal row, the row and None; on the
+    deadline passing, the last row seen (or None) and ``"timeout"``; on a
+    route that will not answer, the last row seen (or None) and the read
+    failure itself.
+
+    Shaped after `SessionCommands._poll_for_token` -- one deadline, a fixed
+    interval, a read that cannot answer costing a retry rather than the whole
+    wait, and, like it, ``"timeout"`` or the failure rather than the two
+    collapsed together. That last part is the difference between "still
+    importing" and "never read once", and only one of them is a reason to
+    wait. The defaults are read at call time so a caller (and a test) can
+    override the interval without a second constant.
+    """
+    timeout = DEFAULT_SYNC_WAIT_TIMEOUT if timeout is None else float(timeout)
+    interval = SYNC_POLL_INTERVAL if interval is None else float(interval)
+    started = time.monotonic()
+    deadline = started + timeout
+    last: Optional[Dict[str, Any]] = None
+    last_failure: Optional[_ReadFailure] = None
+    consecutive_failures = 0
+
+    while True:
+        record, failure = await _latest_sync_record(client, org_id, board_id, sync_id)
+        if failure is not None:
+            last_failure = failure
+            consecutive_failures += 1
+            # A 401 will not clear by asking again, and a route that has
+            # refused five times running is not having a moment.
+            too_many = consecutive_failures >= MAX_CONSECUTIVE_READ_FAILURES
+            if failure.is_fatal or too_many:
+                return last, failure.message
+        else:
+            consecutive_failures = 0
+            if record is not None:
+                last = record
+                if is_terminal_sync_status(record.get("sync_status")):
+                    return record, None
+        if progress is not None:
+            state = str((last or {}).get("sync_status") or "pending").lower()
+            found = (last or {}).get("tickets_found")
+            seen = f" · {found} tickets so far" if found else ""
+            progress.update(
+                f"Board sync {state}{seen} — {int(time.monotonic() - started)}s elapsed"
+            )
+        # Checked after the poll, so the shortest possible wait still asks once.
+        if time.monotonic() >= deadline:
+            # Never read the row once? Then the timeout is not the finding --
+            # the unreadable route is, and saying "it may still be running"
+            # asserts an outcome nothing here ever saw.
+            if last is None and last_failure is not None:
+                return None, last_failure.message
+            return last, "timeout"
+        await asyncio.sleep(interval)
+
+
+async def wait_and_report_board_sync(
+    client: InnoDayAPIClient,
+    org_id: str,
+    board_id: str,
+    *,
+    sync_id: Optional[str],
+    timeout: Optional[float] = None,
+    dry_run: Optional[bool] = None,
+) -> int:
+    """Wait for a queued board sync and report what it actually did.
+
+    `sync_id` is required rather than defaulted: it is what identifies this
+    run, and a caller that has not got one has nothing to wait *for* (see the
+    guard below).
+
+    0 only when the run completed. A run that failed, one whose status could
+    not be read, or one still going when the wait gives up, exits 1 -- every
+    "I did not do what you asked" in this CLI does (#622), and this one is
+    read by the caller that syncs and then immediately reads the tickets back.
+    """
+    if not sync_id:
+        # `sync_id` is the only thing that identifies *this* run's history
+        # row. Without it the only thing left to match on is recency, and the
+        # newest row is routinely a previous COMPLETED sync -- which would end
+        # this wait instantly and report that run's counts as ours. That is the
+        # instant false success the whole wait exists to prevent (#741), so it
+        # is a failure here rather than a fallback in the poll.
+        console.print(
+            format_error(
+                "The server accepted the sync but returned no sync_id, so "
+                "there is no way to tell this run's result from an earlier "
+                "one's. Nothing was waited for."
+            )
+        )
+        console.print(
+            "  [dim]Check status with: "
+            f"innoday board sync-status --board-id {board_id}[/dim]"
+        )
+        return 1
+
+    waited = DEFAULT_SYNC_WAIT_TIMEOUT if timeout is None else float(timeout)
+    with ProgressReporter("Waiting for the board sync to finish...") as progress:
+        record, error = await wait_for_board_sync(
+            client,
+            org_id,
+            board_id,
+            sync_id=sync_id,
+            timeout=waited,
+            progress=progress,
+        )
+
+    if error is not None and error != "timeout":
+        # Not a timeout: the run's status could not be read at all, so
+        # nothing here knows how it went. Say which of the two happened --
+        # "it may still be running" over an expired token sends the operator
+        # looking at the board instead of at their credentials.
+        console.print(format_error(f"Could not read the board sync's status: {error}"))
+        console.print(
+            "  [dim]The sync itself may still be running. Check it with: "
+            f"innoday board sync-status --board-id {board_id}[/dim]"
+        )
+        return 1
+
+    if error == "timeout":
+        console.print(
+            format_error(
+                f"Board sync did not finish within {int(waited)}s — it may still "
+                "be running, so anything read now may be incomplete."
+            )
+        )
+        console.print(
+            "  [dim]Check status with: "
+            f"innoday board sync-status --board-id {board_id}[/dim]"
+        )
+        return 1
+
+    if record is None:
+        # Terminal without a row is not reachable through `wait_for_board_sync`;
+        # guarded so a future caller cannot turn it into a success.
+        console.print(format_error("Could not read the board's sync result."))
+        return 1
+
+    render_sync_record(record, dry_run=dry_run)
+    return 0 if is_sync_completed(record.get("sync_status")) else 1
 
 
 class BoardCommands:
@@ -221,6 +506,27 @@ class BoardCommands:
             "--dry-run",
             action="store_true",
             help="Preview changes without applying them",
+        )
+        sync_parser.add_argument(
+            "--no-wait",
+            action="store_true",
+            dest="no_wait",
+            help=(
+                "Return as soon as the sync is queued instead of waiting for "
+                "it to finish. The exit code then says only that the server "
+                "accepted the request."
+            ),
+        )
+        sync_parser.add_argument(
+            "--wait-timeout",
+            dest="wait_timeout",
+            type=float,
+            metavar="SECONDS",
+            default=DEFAULT_SYNC_WAIT_TIMEOUT,
+            help=(
+                "How long to wait for the sync to finish "
+                f"(default: {int(DEFAULT_SYNC_WAIT_TIMEOUT)})"
+            ),
         )
 
         # Clear board tickets
@@ -950,13 +1256,32 @@ class BoardCommands:
                     )
 
                     if getattr(args, "sync", False):
+                        # One live display at a time -- `_handle_sync` starts
+                        # its own spinner, and rich raises on the second.
+                        progress.stop()
                         console.print()
                         console.print("Running initial sync...")
+                        # **Registration queues the sync; it does not wait.**
+                        # Both fields are spelled out because this Namespace is
+                        # hand-built, and `getattr` defaults silently opted a
+                        # third command into a 900-second block (#741).
+                        #
+                        # No wait, deliberately: `register` returns 0 whatever
+                        # the sync does -- the board is created and is never
+                        # rolled back -- so waiting cannot change the exit code
+                        # or the caller's next move. All it buys is up to fifteen
+                        # minutes of an onboarding command blocked on a result it
+                        # then discards, and a run that merely timed out printed
+                        # as "the initial sync failed". The queued line already
+                        # names `board sync-status`, which is what the wait would
+                        # have told them to run anyway.
                         sync_args = argparse.Namespace(
                             board_command="sync",
                             board_id=data["id"],
                             full=False,
                             dry_run=False,
+                            no_wait=True,
+                            wait_timeout=None,
                         )
                         sync_rc = await BoardCommands._handle_sync(
                             sync_args, client, config
@@ -1201,25 +1526,66 @@ class BoardCommands:
                     data = None
 
                 if data and "sync_id" in data:
+                    sync_id = data.get("sync_id")
+                    if not sync_id:
+                        # `"sync_id" in data` is true for `{"sync_id": null}`.
+                        # An empty id cannot be matched against the sync-history
+                        # row, so there would be nothing left to identify this
+                        # run by but recency -- and the newest row is routinely
+                        # an earlier COMPLETED sync. Reported as a failure
+                        # before the tick, not waited on (#741).
+                        progress.stop()
+                        console.print(
+                            format_error(
+                                "The server accepted the sync but returned no "
+                                "sync_id, so there is no way to tell this run's "
+                                "result from an earlier one's."
+                            )
+                        )
+                        console.print(
+                            "  [dim]Check status with: "
+                            f"innoday board sync-status --board-id {board_id}[/dim]"
+                        )
+                        return 1
+
                     progress.update("Board sync initiated")
 
                     # Display sync info
-                    console.print(format_success(f"✅ Sync started: {data['sync_id']}"))
-                    console.print(f"  Status: {data.get('status', 'PENDING')}")
-                    console.print(
-                        f"  Message: {data.get('message', 'Sync in progress')}"
+                    console.print(format_success(f"✅ Sync started: {sync_id}"))
+
+                    # **The POST only queues the work.** The route hands the
+                    # sync to a background task and returns at once, so this
+                    # branch used to report success over an import that had
+                    # not started -- and a script reading the tickets straight
+                    # afterwards got whatever was there before (#741).
+                    if getattr(args, "no_wait", False):
+                        console.print(f"  Status: {data.get('status', 'PENDING')}")
+                        console.print(
+                            f"  Message: {data.get('message', 'Sync in progress')}"
+                        )
+
+                        if data.get("tickets_found") is not None:
+                            console.print(f"  Tickets found: {data['tickets_found']}")
+
+                        console.print()
+                        console.print(
+                            "💡 Tip: Check sync status with: "
+                            f"innoday board sync-status --board-id {board_id}"
+                        )
+
+                        return 0
+
+                    # One live spinner at a time: hand the display over rather
+                    # than nesting a second one inside this `with`.
+                    progress.stop()
+                    return await wait_and_report_board_sync(
+                        client,
+                        org_id,
+                        board_id,
+                        sync_id=sync_id,
+                        timeout=getattr(args, "wait_timeout", None),
+                        dry_run=bool(sync_data["dry_run"]),
                     )
-
-                    if data.get("tickets_found") is not None:
-                        console.print(f"  Tickets found: {data['tickets_found']}")
-
-                    console.print()
-                    console.print(
-                        "💡 Tip: Check sync status with: "
-                        f"innoday board sync-status --board-id {board_id}"
-                    )
-
-                    return 0
                 elif response.status_code == 429:
                     # The server's detail names the blocking run and the way
                     # past it; this line used to say "please wait", the wrong
@@ -1389,31 +1755,7 @@ class BoardCommands:
                     )
                     return 0
 
-                data = entries[0]
-
-                preview = bool(data.get("dry_run"))
-                console.print(
-                    format_sync_status(data.get("sync_status"), dry_run=preview)
-                )
-                verb = "would create" if preview else "created"
-                verb_u = "would update" if preview else "updated"
-
-                if data.get("started_at"):
-                    console.print(f"  Started: {data['started_at']}")
-                if data.get("completed_at"):
-                    console.print(f"  Completed: {data['completed_at']}")
-                if data.get("tickets_found") is not None:
-                    console.print(f"  Tickets found: {data['tickets_found']}")
-                if data.get("tickets_created") is not None:
-                    console.print(f"  Tickets {verb}: {data['tickets_created']}")
-                if data.get("tickets_updated") is not None:
-                    console.print(f"  Tickets {verb_u}: {data['tickets_updated']}")
-                if data.get("tickets_skipped") is not None:
-                    console.print(f"  Tickets skipped: {data['tickets_skipped']}")
-                if data.get("duration_seconds") is not None:
-                    console.print(f"  Duration: {data['duration_seconds']} seconds")
-                if data.get("error_message"):
-                    console.print(f"  Error: {data['error_message']}")
+                render_sync_record(entries[0])
 
                 return 0
             else:

@@ -825,7 +825,7 @@ impl ApiClient {
     ) -> Result<Paginated<QueryWithStateTimingModel>> {
         self.get(&format!("/api/v1/workspace/{workspace_id}/query"))
             .pagination(&pagination)
-            .parameter("order", "id,asc")
+            .parameter("order", "request_time,asc")
             .parameter_opt("cluster_id", filters.cluster_id)
             .parameter_opt("user_id", filters.user_id)
             .await?

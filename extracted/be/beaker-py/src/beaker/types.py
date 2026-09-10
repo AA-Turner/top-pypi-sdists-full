@@ -48,6 +48,7 @@ __all__ = [
     "BeakerEnvVar",
     "BeakerDataSource",
     "BeakerDataMount",
+    "BeakerMountMode",
     "BeakerResultSpec",
     "BeakerTaskResources",
     "BeakerTaskContext",
@@ -392,6 +393,17 @@ class BeakerEnvVar(_BeakerSpecBase):
     secret: str | None = None
 
 
+class BeakerMountMode(StrEnum):
+    """
+    The access mode for a data mount. Which modes a mount supports depends on its data source:
+    datasets and secrets are read-only, host paths and weka buckets are read-write, and volumes
+    accept either, subject to the workspace's claim on the volume.
+    """
+
+    readonly = "readonly"
+    readwrite = "readwrite"
+
+
 @dataclass
 class BeakerDataSource(_BeakerSpecBase):
     """
@@ -404,6 +416,7 @@ class BeakerDataSource(_BeakerSpecBase):
     weka: str | None = None
     result: str | None = None
     secret: str | None = None
+    volume: str | None = None
 
 
 @dataclass
@@ -416,6 +429,7 @@ class BeakerDataMount(_BeakerSpecBase):
     source: BeakerDataSource
     mount_path: str
     sub_path: str | None = None
+    mode: BeakerMountMode | str | None = None
 
     @classmethod
     def new(
@@ -427,16 +441,20 @@ class BeakerDataMount(_BeakerSpecBase):
         weka: str | None = None,
         result: str | None = None,
         secret: str | None = None,
+        volume: str | None = None,
+        mode: BeakerMountMode | str | None = None,
     ) -> BeakerDataMount:
         return cls(
             mount_path=mount_path,
             sub_path=sub_path,
+            mode=None if mode is None else BeakerMountMode(mode),
             source=BeakerDataSource(
                 beaker=beaker,
                 host_path=host_path,
                 weka=weka,
                 result=result,
                 secret=secret,
+                volume=volume,
             ),
         )
 

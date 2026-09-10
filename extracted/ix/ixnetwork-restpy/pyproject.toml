@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["ixnetwork_restpy","uhd_restpy"]
+packages = ["ixnetwork_restpy"]
 include-package-data = true
 
 [tool.setuptools.dynamic]

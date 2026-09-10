@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optuna-dashboard
-Version: 0.20.0
+Version: 0.21.0
 Summary: Real-time dashboard for Optuna
 Author-email: Masashi Shibata <mshibata@preferred.jp>
 License: MIT License
@@ -12,15 +12,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Intended Audience :: Science/Research
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: bottle>=0.13.0
@@ -31,9 +29,9 @@ Requires-Dist: torch; extra == "preferential"
 Requires-Dist: botorch; extra == "preferential"
 Provides-Extra: docs
 Requires-Dist: boto3; extra == "docs"
-Requires-Dist: torch; python_version >= "3.9" and extra == "docs"
-Requires-Dist: botorch; python_version >= "3.9" and extra == "docs"
-Requires-Dist: openai; extra == "docs"
+Requires-Dist: torch; extra == "docs"
+Requires-Dist: botorch; extra == "docs"
+Requires-Dist: openai>=3.0.0; extra == "docs"
 Requires-Dist: streamlit; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"

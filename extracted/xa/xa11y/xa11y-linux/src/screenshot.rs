@@ -24,7 +24,7 @@ use zbus::blocking::Connection as ZbusConnection;
 use zbus::blocking::Proxy;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
-use xa11y_core::{Error, Rect, Result, Screenshot, ScreenshotProvider};
+use xa11y_core::{Error, Point, Rect, Result, Screenshot, ScreenshotProvider};
 
 /// Choose the Linux screenshot backend based on session environment.
 pub struct LinuxScreenshot {
@@ -153,7 +153,7 @@ impl LinuxScreenshot {
         }
 
         let mut rgba = Vec::with_capacity(reply.data.len());
-        for chunk in reply.data.chunks_exact(4) {
+        for chunk in reply.data.as_chunks::<4>().0 {
             // X11 BGRX little-endian → RGBA
             rgba.push(chunk[2]);
             rgba.push(chunk[1]);
@@ -161,12 +161,7 @@ impl LinuxScreenshot {
             rgba.push(0xFF);
         }
 
-        Ok(Screenshot {
-            width: w as u32,
-            height: h as u32,
-            pixels: rgba,
-            scale: 1.0,
-        })
+        Ok(Screenshot::new(w as u32, h as u32, rgba, 1.0))
     }
 
     fn capture_wayland(&self, conn: &ZbusConnection, rect: Option<Rect>) -> Result<Screenshot> {
@@ -255,7 +250,7 @@ impl LinuxScreenshot {
 }
 
 impl ScreenshotProvider for LinuxScreenshot {
-    fn capture_full(&self) -> Result<Screenshot> {
+    fn capture_full(&self) -> Result<(Screenshot, Point)> {
         // Captured pixels are physical; stamp the physical-to-logical ratio so
         // callers can map logical bounds onto them. `capture_*` produce the
         // raw pixels; the scale is metadata applied here. See `crate::scale`.
@@ -265,7 +260,13 @@ impl ScreenshotProvider for LinuxScreenshot {
             Backend::Wayland { conn } => self.capture_wayland(conn, None),
         }?;
         shot.scale = scale as f32;
-        Ok(shot)
+        // Both paths start at the coordinate-space origin, so unlike Windows
+        // and macOS there is no offset to subtract: X11 reads the root window,
+        // whose top-left is (0, 0) by definition, and the portal hands back the
+        // whole screen. This is asserted rather than assumed — a backend that
+        // grew a per-output capture would have to report that output's origin
+        // here, per `ScreenshotProvider::capture_full`.
+        Ok((shot, Point::new(0, 0)))
     }
 
     fn capture_region(&self, rect: Rect) -> Result<Screenshot> {
@@ -306,7 +307,7 @@ fn decode_png_to_rgba(bytes: &[u8]) -> Result<Screenshot> {
         (png::ColorType::Rgba, png::BitDepth::Eight) => buf,
         (png::ColorType::Rgb, png::BitDepth::Eight) => {
             let mut out = Vec::with_capacity((info.width * info.height * 4) as usize);
-            for px in buf.chunks_exact(3) {
+            for px in buf.as_chunks::<3>().0 {
                 out.extend_from_slice(&[px[0], px[1], px[2], 0xFF]);
             }
             out
@@ -319,21 +320,11 @@ fn decode_png_to_rgba(bytes: &[u8]) -> Result<Screenshot> {
         }
     };
 
-    Ok(Screenshot {
-        width: info.width,
-        height: info.height,
-        pixels: rgba,
-        scale: 1.0,
-    })
+    Ok(Screenshot::new(info.width, info.height, rgba, 1.0))
 }
 
 fn crop_rgba(shot: Screenshot, rect: Rect) -> Result<Screenshot> {
-    let Screenshot {
-        width: sw,
-        height: sh,
-        pixels,
-        scale,
-    } = shot;
+    let (sw, sh, pixels, scale) = (shot.width, shot.height, shot.pixels, shot.scale);
     let x = rect.x.max(0) as u32;
     let y = rect.y.max(0) as u32;
     if x >= sw || y >= sh {
@@ -356,10 +347,5 @@ fn crop_rgba(shot: Screenshot, rect: Rect) -> Result<Screenshot> {
         let end = start + (w as usize) * 4;
         out.extend_from_slice(&pixels[start..end]);
     }
-    Ok(Screenshot {
-        width: w,
-        height: h,
-        pixels: out,
-        scale,
-    })
+    Ok(Screenshot::new(w, h, out, scale))
 }

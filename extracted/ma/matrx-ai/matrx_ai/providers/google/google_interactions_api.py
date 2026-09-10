@@ -13,6 +13,7 @@ from google import genai
 from matrx_ai.config import ImageContent, TextContent, UnifiedConfig, VideoContent
 from matrx_ai.providers.base_media import BaseMediaGeneration, GeneratedAsset
 from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 
 class GoogleInteractionsVideoGeneration(BaseMediaGeneration):
@@ -108,7 +109,9 @@ class GoogleInteractionsVideoGeneration(BaseMediaGeneration):
                 message="Interactions usage is experimental.*",
                 category=UserWarning,
             )
-            return self.client.interactions.create(**kwargs)
+            return self.client.interactions.create(
+                **route_undeclared_params(self.client.interactions.create, kwargs, provider="google")
+            )
 
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:
         status = str(getattr(raw, "status", "") or "")

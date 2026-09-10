@@ -47,6 +47,7 @@ __all__ = (
     "ListOriginEndpointsPaginatorName",
     "Mediapackagev2ServiceName",
     "MssManifestLayoutType",
+    "MultiviewLayoutTypeType",
     "OutputLockingModeType",
     "OutputTimestampModeType",
     "PaginatorName",
@@ -88,13 +89,16 @@ EndpointErrorConditionType = Literal[
 ]
 HarvestJobFinishedWaiterName = Literal["harvest_job_finished"]
 HarvestJobStatusType = Literal["CANCELLED", "COMPLETED", "FAILED", "IN_PROGRESS", "QUEUED"]
-InputTypeType = Literal["CMAF", "HLS"]
+InputTypeType = Literal["CMAF", "HLS", "MULTIVIEW"]
 IsmEncryptionMethodType = Literal["CENC"]
 ListChannelGroupsPaginatorName = Literal["list_channel_groups"]
 ListChannelsPaginatorName = Literal["list_channels"]
 ListHarvestJobsPaginatorName = Literal["list_harvest_jobs"]
 ListOriginEndpointsPaginatorName = Literal["list_origin_endpoints"]
 MssManifestLayoutType = Literal["COMPACT", "FULL"]
+MultiviewLayoutTypeType = Literal[
+    "LAYOUT_2EH", "LAYOUT_2PL", "LAYOUT_3EL", "LAYOUT_3PL", "LAYOUT_4E", "LAYOUT_4PL"
+]
 OutputLockingModeType = Literal["EPOCH_LOCKED", "NON_EPOCH_LOCKED"]
 OutputTimestampModeType = Literal["PASSTHROUGH", "REBASED_TO_CHANNEL_START"]
 PresetSpeke20AudioType = Literal[

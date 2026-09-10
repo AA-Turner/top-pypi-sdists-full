@@ -1,6 +1,7 @@
 import re
 import time
 import typing as t
+from enum import Enum
 
 from pydantic import UUID4, BaseModel, parse_obj_as
 
@@ -23,6 +24,25 @@ def _arg_matches(role_value: str, filter_value: str) -> bool:
     A role value of "*" becomes ".*" matching anything.
     """
     return bool(re.fullmatch(role_value.replace("*", ".*"), filter_value))
+
+
+# Party acting on the subject's behalf; the value of the RFC 8693 `act.sub` claim.
+class Actor(str, Enum):
+    # The MCP proxy, calling downstream APIs with the token it exchanged for an external client's.
+    MCP_SERVER = "mcp-server"
+    # A copilot session's runner acting for the user: the unified copilot and the analytics copilots.
+    COPILOT = "copilot"
+    # The case copilot, generating hints on a case as its assignee, without the user present.
+    CASE_COPILOT = "case-copilot"
+    # A Taktile Agent run's runner, calling flow, entity, event and case APIs as the user.
+    AGENT = "agent"
+
+
+# Values an internal caller may request on /login/access-token; MCP_SERVER is never requestable.
+class RequestableActor(str, Enum):
+    COPILOT = Actor.COPILOT.value
+    CASE_COPILOT = Actor.CASE_COPILOT.value
+    AGENT = Actor.AGENT.value
 
 
 class TaktileIdToken(BaseModel):

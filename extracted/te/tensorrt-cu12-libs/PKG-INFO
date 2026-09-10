@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorrt_cu12_libs
-Version: 11.2.1.2
+Version: 11.3.0.99
 Summary: TensorRT Libraries
 Author: NVIDIA Corporation
 License: Proprietary

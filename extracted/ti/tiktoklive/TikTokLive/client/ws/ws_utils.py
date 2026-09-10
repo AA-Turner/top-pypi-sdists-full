@@ -3,6 +3,7 @@ from gzip import GzipFile
 from http.cookies import SimpleCookie
 from io import BytesIO
 from typing import Mapping
+from urllib.parse import quote
 
 from TikTokLive.client.errors import InitialCursorMissingError, WebsocketURLMissingError
 from TikTokLive.client.logger import TikTokLiveLogHandler
@@ -34,9 +35,14 @@ def build_webcast_uri(
     if not initial_webcast_response.route_params:
         raise WebsocketURLMissingError("Websocket parameters missing.")
 
-    # Build the URI parameters dict
+    # Build the URI parameters dict. Route params arrive verbatim from the
+    # sign server and must be percent-encoded: the Euler Stream fallback push
+    # server echoes the raw user agent back as a route param, and its spaces
+    # and parentheses are illegal in an HTTP request-target (the server answers
+    # 400). Base params are left as-is because the device presets already ship
+    # pre-encoded values (e.g. ``browser_version``), which would double-encode.
     uri_params: dict = {
-        **{k: v for k, v in initial_webcast_response.route_params.items() if v},
+        **{k: quote(str(v), safe="") for k, v in initial_webcast_response.route_params.items() if v},
         **base_uri_params,
     }
 

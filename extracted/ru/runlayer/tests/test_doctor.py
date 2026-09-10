@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import io
 import json
 import socket
@@ -312,7 +313,7 @@ class TestCallbackPort:
 
     def test_fixed_port_already_in_use_warns(self):
         # `runlayer run` refuses to start when another process owns the
-        # fixed port (_ensure_callback_port_available); mirror the rule.
+        # fixed port (_callback_listener); mirror the rule.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
             try:
                 listener.bind(("127.0.0.1", 0))
@@ -324,6 +325,30 @@ class TestCallbackPort:
         assert result.status == "warn"
         assert f"callback port {port} is already in use" in result.detail
         assert "close the conflicting process" in (result.remedy or "")
+
+    def test_windows_shared_callback_port_warns(self, monkeypatch):
+        """Model Winsock's shared bind so doctor must request exclusive ownership."""
+        exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", -5)
+        options = set()
+        probe = MagicMock()
+        probe.__enter__.return_value = probe
+        probe.setsockopt.side_effect = lambda level, option, value: options.add(option)
+
+        def bind(address):
+            if exclusive in options:
+                raise OSError(errno.EADDRINUSE, "occupied test port")
+
+        probe.bind.side_effect = bind
+        with monkeypatch.context() as patch:
+            patch.setattr(sys, "platform", "win32")
+            patch.setattr(socket, "SO_EXCLUSIVEADDRUSE", exclusive, raising=False)
+            patch.setattr(socket, "socket", lambda *args: probe)
+            result = callback_port_check(self._manual_server(), 8123, None)
+
+        assert result.status == "warn"
+        assert "callback port 8123 is already in use" in result.detail
+        assert "close the conflicting process" in (result.remedy or "")
+        assert socket.SO_REUSEADDR not in options
 
 
 class TestManualOAuthChecks:

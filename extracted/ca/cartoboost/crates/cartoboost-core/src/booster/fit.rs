@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoosterConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_split_candidates: Option<usize>,
     pub n_estimators: usize,
     pub learning_rate: f64,
     pub max_depth: usize,
@@ -45,6 +47,7 @@ pub struct Booster {
 impl Default for BoosterConfig {
     fn default() -> Self {
         Self {
+            max_split_candidates: None,
             n_estimators: 100,
             learning_rate: 0.05,
             max_depth: 4,
@@ -89,6 +92,11 @@ impl Booster {
     }
 
     pub fn fit(&self, x: &Dataset, y: &[f64], sample_weight: Option<&[f64]>) -> Result<Model> {
+        if self.config.max_split_candidates == Some(0) {
+            return Err(CartoBoostError::InvalidInput(
+                "max_split_candidates must be positive".into(),
+            ));
+        }
         let profile_enabled = profile::enabled();
         if profile_enabled {
             profile::reset();
@@ -146,6 +154,7 @@ impl Booster {
         let mut trees = Vec::with_capacity(self.config.n_estimators);
         let mut training_history = Vec::with_capacity(self.config.n_estimators);
         let builder = TreeBuilder {
+            max_split_candidates: self.config.max_split_candidates,
             max_depth: self.config.max_depth,
             min_samples_leaf: self.config.min_samples_leaf,
             min_gain: self.config.min_gain,
@@ -228,6 +237,7 @@ impl Booster {
             feature_schema: Some(x.feature_schema_or_default()),
             target_name: None,
             training_config: Some(TrainingConfigMetadata {
+                max_split_candidates: self.config.max_split_candidates,
                 backend: Some(self.backend.clone()),
                 n_estimators: self.config.n_estimators,
                 learning_rate: self.config.learning_rate,

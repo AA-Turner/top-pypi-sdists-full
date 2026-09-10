@@ -1386,6 +1386,7 @@ class TestKmipEngine(testtools.TestCase):
         e._data_session.add(certificate)
         e._data_session.add(opaque_object)
         e._data_session.commit()
+        e._data_session.refresh(symmetric_key)
         e._data_session = e._data_store_session_factory()
 
         result = e._get_attribute_from_managed_object(
@@ -1537,7 +1538,7 @@ class TestKmipEngine(testtools.TestCase):
             'Initial Date'
         )
         self.assertIsNotNone(result)
-        self.assertIsInstance(result, six.integer_types)
+        self.assertIsInstance(result, int)
 
         result = e._get_attribute_from_managed_object(
             symmetric_key,
@@ -1660,6 +1661,7 @@ class TestKmipEngine(testtools.TestCase):
         e._data_session.add(symmetric_key)
         e._data_session.add(certificate)
         e._data_session.commit()
+        e._data_session.refresh(symmetric_key)
         e._data_session = e._data_store_session_factory()
 
         e._set_attribute_on_managed_object(
@@ -2302,6 +2304,7 @@ class TestKmipEngine(testtools.TestCase):
 
         e._data_session.add(symmetric_key)
         e._data_session.commit()
+        e._data_session.refresh(symmetric_key)
         e._data_session = e._data_store_session_factory()
 
         e._set_attribute_on_managed_object(

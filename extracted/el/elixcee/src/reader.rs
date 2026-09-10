@@ -1946,7 +1946,6 @@ pub(crate) fn xlsx_worksheet_rels_for_stream(xml: &str) -> Result<HashMap<String
 pub(crate) fn xlsx_sheet_cells_for_stream(xml: &str, shared: &[String]) -> XlsxSheetData {
     xlsx_sheet_cells(xml, shared, &[])
 }
-#[cfg(feature = "python")]
 pub(crate) fn xlsx_shared_strings_for_stream(xml: &str) -> Vec<String> {
     xlsx_shared_strings(xml)
 }
@@ -1971,10 +1970,21 @@ pub(crate) fn validate_shared_string_refs_for_stream(
 /// do not occupy a large save-time memory copy. Not called from any read-only
 /// path (`check`/`snapshot`/`diagnose`/`test-workbook` never write a workbook
 /// back out), so those paths never pay this cost — see `docs/xlsx-architecture.md`.
+#[cfg(test)]
 pub(crate) fn read_raw_zip_entries(path: &str) -> Result<HashMap<String, Vec<u8>>, String> {
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
     let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
     validate_zip_archive(&mut archive)?;
+    read_raw_zip_entries_from_archive(&mut archive)
+}
+
+/// Read save-path entries from an already validated source archive. Keeping the
+/// archive open lets the writer reuse the same file handle for raw passthrough,
+/// avoiding a second open and full validation while preserving the validated
+/// source snapshot used by the save.
+pub(crate) fn read_raw_zip_entries_from_archive<R: Read + Seek>(
+    archive: &mut ZipArchive<R>,
+) -> Result<HashMap<String, Vec<u8>>, String> {
     let mut out = HashMap::new();
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
@@ -3524,6 +3534,18 @@ fn xlsx_workbook_date1904(xml: &str) -> bool {
         }
     }
     false
+}
+
+/// Read the workbook-level date system without exposing the internal XML
+/// parser to the VM. ODS and missing workbook parts use the 1900 default.
+pub(crate) fn xlsx_date1904_for_path(path: &str) -> Result<bool, String> {
+    let Some(bytes) = read_raw_zip_entry_if_present(path, "xl/workbook.xml")? else {
+        return Ok(false);
+    };
+    let Ok(xml) = String::from_utf8(bytes) else {
+        return Ok(false);
+    };
+    Ok(xlsx_workbook_date1904(&xml))
 }
 
 /// Returns `[(sheet_name, rId, sheetId, state)]` in document order. `state` is the

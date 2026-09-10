@@ -4,11 +4,15 @@ import base64
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
 import modelscope_hub._upload as upload_module
+from modelscope_hub import HubApi
 from modelscope_hub._upload import UploadManager
-from modelscope_hub.errors import NetworkError
+from modelscope_hub.errors import InvalidParameter, NetworkError
 
 
 def _make_manager() -> tuple[UploadManager, MagicMock]:
@@ -25,6 +29,142 @@ def _make_manager() -> tuple[UploadManager, MagicMock]:
     client.validate_blobs.side_effect = validate_blobs
     client.upload_blob.side_effect = upload_blob
     return UploadManager(client, MagicMock()), client
+
+
+@pytest.mark.parametrize("repo_type", ["model", "dataset"])
+def test_delete_files_commits_atomic_delete_actions(repo_type: str) -> None:
+    manager, client = _make_manager()
+
+    result = manager.delete_files(
+        repo_id="owner/repo",
+        repo_type=repo_type,
+        file_paths=["old.bin", "nested/deprecated.json", "old.bin"],
+        commit_message="Remove obsolete files",
+        revision="main",
+    )
+
+    client.create_commit.assert_called_once_with(
+        repo_id="owner/repo",
+        repo_type=repo_type,
+        operations=[
+            {
+                "action": "delete",
+                "path": "old.bin",
+                "type": "normal",
+                "size": 0,
+                "sha256": "",
+                "content": "",
+                "encoding": "",
+            },
+            {
+                "action": "delete",
+                "path": "nested/deprecated.json",
+                "type": "normal",
+                "size": 0,
+                "sha256": "",
+                "content": "",
+                "encoding": "",
+            },
+        ],
+        commit_message="Remove obsolete files",
+        revision="main",
+    )
+    assert result == {
+        "deleted_files": ["old.bin", "nested/deprecated.json"],
+        "failed_files": [],
+        "total_files": 2,
+    }
+
+
+def test_delete_files_rejects_empty_paths() -> None:
+    manager, client = _make_manager()
+
+    with pytest.raises(InvalidParameter, match="at least one"):
+        manager.delete_files(
+            repo_id="owner/repo", repo_type="model", file_paths=["", ""])
+
+    client.create_commit.assert_not_called()
+
+
+@pytest.mark.parametrize("repo_type", ["model", "dataset"])
+@pytest.mark.parametrize("file_paths", [["", "old.bin"], "old.bin"])
+def test_hub_api_delete_files_delegates_to_upload_manager(
+    repo_type: str, file_paths: list[str] | str
+) -> None:
+    api = HubApi(token="test-token")
+    api._uploader = MagicMock()
+    api._uploader.delete_files.return_value = {"deleted_files": ["old.bin"]}
+
+    result = api.delete_files(
+        "owner/repo",
+        repo_type,
+        file_paths,
+        commit_message="Remove obsolete files",
+        revision="main",
+    )
+
+    api._uploader.delete_files.assert_called_once_with(
+        repo_id="owner/repo",
+        repo_type=repo_type,
+        file_paths=["old.bin"],
+        commit_message="Remove obsolete files",
+        revision="main",
+    )
+    assert result == {"deleted_files": ["old.bin"]}
+
+
+@pytest.mark.parametrize("repo_type", ["model", "dataset"])
+def test_hub_api_delete_patterns_resolve_remote_paths(repo_type: str) -> None:
+    api = HubApi(token="test-token")
+    api._uploader = MagicMock()
+    api._uploader.delete_files.return_value = {
+        "deleted_files": ["config.json", "nested/metadata.json"],
+        "failed_files": [],
+        "total_files": 2,
+    }
+    api.list_repo_files = MagicMock(
+        return_value=[
+            SimpleNamespace(path="config.json", type="blob"),
+            SimpleNamespace(path="nested/metadata.json", type="blob"),
+            SimpleNamespace(path="weights.bin", type="blob"),
+            SimpleNamespace(path="nested", type="tree"),
+        ])
+
+    result = api.delete_files(
+        "owner/repo",
+        repo_type,
+        delete_patterns="*.json",
+        commit_message="Remove JSON files",
+        revision="main",
+    )
+
+    api.list_repo_files.assert_called_once_with(
+        "owner/repo", repo_type, revision="main", recursive=True)
+    api._uploader.delete_files.assert_called_once_with(
+        repo_id="owner/repo",
+        repo_type=repo_type,
+        file_paths=["config.json", "nested/metadata.json"],
+        commit_message="Remove JSON files",
+        revision="main",
+    )
+    assert result["total_files"] == 2
+
+
+def test_hub_api_delete_patterns_with_no_match_is_noop() -> None:
+    api = HubApi(token="test-token")
+    api._uploader = MagicMock()
+    api.list_repo_files = MagicMock(
+        return_value=[SimpleNamespace(path="weights.bin", type="blob")])
+
+    result = api.delete_files(
+        "owner/repo", "model", delete_patterns="*.json")
+
+    api._uploader.delete_files.assert_not_called()
+    assert result == {
+        "deleted_files": [],
+        "failed_files": [],
+        "total_files": 0,
+    }
 
 
 def test_upload_file_normal_commits_inline_without_blob_api() -> None:

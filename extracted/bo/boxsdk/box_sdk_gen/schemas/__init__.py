@@ -324,6 +324,8 @@ from box_sdk_gen.schemas.sign_request_signer_input_ssn_validation import *
 
 from box_sdk_gen.schemas.sign_request_signer_input_zip_4_validation import *
 
+from box_sdk_gen.schemas.sign_request_signer_input_zipjp_validation import *
+
 from box_sdk_gen.schemas.sign_request_signer_input_zip_validation import *
 
 from box_sdk_gen.schemas.sign_request_signer_input_validation import *
@@ -379,6 +381,14 @@ from box_sdk_gen.schemas.upload_part import *
 from box_sdk_gen.schemas.upload_parts import *
 
 from box_sdk_gen.schemas.uploaded_part import *
+
+from box_sdk_gen.schemas.upload_part_plan import *
+
+from box_sdk_gen.schemas.upload_session_plan_request import *
+
+from box_sdk_gen.schemas.upload_part_plan_hit import *
+
+from box_sdk_gen.schemas.upload_session_plan_response import *
 
 from box_sdk_gen.schemas.upload_session import *
 

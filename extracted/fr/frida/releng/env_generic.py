@@ -12,6 +12,12 @@ from .machine_file import strv_to_meson
 from .machine_spec import MachineSpec
 
 
+def target_abi_of(machine: MachineSpec) -> Optional[str]:
+    if machine.config_is_msabi:
+        return "microsoft"
+    return None
+
+
 def init_machine_config(machine: MachineSpec,
                         build_machine: MachineSpec,
                         is_cross_build: bool,
@@ -32,8 +38,9 @@ def init_machine_config(machine: MachineSpec,
     options["c_link_args"] = "linker_flags"
     options["cpp_link_args"] = "linker_flags + cxx_link_flags"
     options["b_lundef"] = str(not allow_undefined_symbols).lower()
-    if machine.config == "softfloat":
-        options["b_staticpic"] = "false"
+    softfloat = machine.config_is_softfloat
+    if softfloat:
+        options["b_staticpic"] = str(machine.config_is_pic).lower()
 
     binaries = config["binaries"]
     cc = None
@@ -173,6 +180,18 @@ def init_machine_config(machine: MachineSpec,
 
     if cc is None:
         suffix = ":\n" + diagnostics if diagnostics is not None else ""
+        if machine.os == "none" and diagnostics is None:
+            if triplet is not None:
+                suffix = f"\n\nLooked for {triplet}-gcc and the rest of that toolchain on PATH."
+            else:
+                suffix = "".join([
+                    "\n\nNothing names one for a bare-metal target. Either say which to use:",
+                    "\n\n    CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib NM=llvm-nm \\",
+                    "\n        STRIP=llvm-strip OBJCOPY=llvm-objcopy READELF=llvm-readelf \\",
+                    "\n        ./releng/deps.py build --bundle=sdk --host=" + machine.identifier,
+                    "\n\nor pass --host=<triplet> with that toolchain on PATH, which is looked",
+                    "\nup as <triplet>-gcc, <triplet>-nm, and so on.",
+                ])
         raise CompilerNotFoundError("no C compiler found" + suffix)
 
     if "cpp" not in binaries:
@@ -207,12 +226,22 @@ def init_machine_config(machine: MachineSpec,
             common_flags += ARCH_COMMON_FLAGS_QNX.get(machine.arch, [])
         else:
             common_flags += ARCH_COMMON_FLAGS_UNIX.get(machine.arch, [])
-        c_like_flags += ARCH_C_LIKE_FLAGS_UNIX.get(machine.arch, [])
-        bare_softfloat = machine.os == "none" and machine.config == "softfloat"
-        if machine.config == "softfloat":
+        if not softfloat:
+            c_like_flags += ARCH_C_LIKE_FLAGS_UNIX.get(machine.arch, [])
+        bare = machine.os == "none"
+        if softfloat:
             common_flags += ARCH_SOFTFLOAT_FLAGS_UNIX.get(machine.arch, [])
-            if bare_softfloat:
-                common_flags += [f"--target={machine.cpu_family}-none-elf"]
+            common_flags += ["-fPIC"] if machine.config_is_pic else ["-fno-pic"]
+            # A Linux module is mapped into the top 2GB and is built absolute, the kernel
+            # code model saying so. A position-independent image goes where the host puts
+            # it, thus it keeps the default model.
+            if machine.arch == "x86_64" and not machine.config_is_pic:
+                common_flags += ["-mcmodel=kernel"]
+
+            if bare:
+                target_arch = BARE_TARGET_ARCHS.get(machine.arch, machine.cpu_family)
+                target_env = BARE_TARGET_ENVIRONMENTS.get(machine.arch, "elf")
+                common_flags += [f"--target={target_arch}-none-{target_env}"]
                 # picolibc is a package like any other here, so the libc lives in the
                 # SDK rather than beside the compiler. While rolling there is no SDK
                 # yet, and the prefix being filled is what to compile against. Not
@@ -220,19 +249,27 @@ def init_machine_config(machine: MachineSpec,
                 # aiming it at either of those loses it.
                 sysroot = sdk_prefix if sdk_prefix is not None else environ.get("FRIDA_HOST_SYSROOT")
                 if sysroot is not None:
-                    common_flags += [f"--sysroot={sysroot}"]
+                    # Only clang's bare-metal driver, which it selects for arm64 but
+                    # not for the x86 targets, searches the sysroot on its own.
+                    # Spelling both paths out covers the targets where it does not.
+                    common_flags += [
+                        f"--sysroot={sysroot}",
+                        "-isystem", f"{sysroot}/include",
+                    ]
+                    linker_flags += [f"-L{sysroot}/lib"]
 
         c_like_flags += [
             "-ffunction-sections",
             "-fdata-sections",
         ]
 
-        if bare_softfloat:
+        if bare:
             # The host's GNU ld cannot be told to target this. Name the runtime
             # ourselves too: clang would look for its own copy beside the compiler,
             # and the one that matches this ABI is the one in the sysroot.
             linker_flags += [
                 "-fuse-ld=lld",
+                "-Wl,-no-pie",
                 "-nostdlib",
                 "-lc",
                 "-lclang_rt.builtins",
@@ -252,18 +289,14 @@ def init_machine_config(machine: MachineSpec,
                 linker_flags += ["-Wl,-z,relro"]
             cxx_link_flags += ["-static-libstdc++"]
 
-        if linker_flavor == "apple":
+        if linker_flavor == "apple" and not bare:
             linker_flags += ["-Wl,-dead_strip"]
-        elif not bare_softfloat:
+        elif not bare:
             # Would leave a link with no entry point holding on to nothing at all,
             # and every configure check that links would then trivially pass.
             linker_flags += ["-Wl,--gc-sections"]
         if linker_flavor == "gnu-gold":
             linker_flags += ["-Wl,--icf=all"]
-
-        # newlib's syscall stubs; the soft-float flavour brings picolibc instead.
-        if machine.os == "none" and machine.config != "softfloat":
-            linker_flags += ["-specs=nosys.specs"]
 
     constants = config["constants"]
     constants["common_flags"] = strv_to_meson(common_flags)
@@ -399,17 +432,59 @@ ARCH_COMMON_FLAGS_QNX = {
     ],
 }
 
+X86_SOFTFLOAT_FLAGS_UNIX = [
+    "-Xclang", "-target-feature", "-Xclang", "+soft-float",
+    "-mno-mmx",
+    "-mno-sse",
+    # long double is x87's 80-bit format here, which soft-float has no
+    # lowering for at all: LLVM crashes selecting it rather than calling out
+    # to a builtin. Nothing in this stack wants more than a double.
+    "-mlong-double-64",
+]
+
 # AAPCS64 mandates hardware FP, so only clang can pass doubles in general-purpose
-# registers. x18 and -fno-pic travel with it because the first host needing this is
-# the Linux arm64 kernel, which reserves the former and whose module loader rejects
-# GOT relocations.
+# registers. x18 travels with it because the first host needing this is the Linux
+# arm64 kernel, which reserves it.
+#
+# On x86_64 the same reasoning lands on LLVM's +soft-float, which is the feature
+# Rust's own x86_64-unknown-none turns on — the two halves have to agree on where a
+# double travels. -mno-sse alone does not: it leaves the ABI returning in xmm0 and
+# the compiler then refuses the function outright. There is no driver flag for the
+# feature, hence -Xclang. The rest is what any x86_64 kernel module is built with:
+# no MMX/SSE, no red zone below the stack pointer that an interrupt would clobber,
+# and endbr64 on every address-taken function since CONFIG_X86_KERNEL_IBT faults an
+# indirect call that lands on anything else.
 ARCH_SOFTFLOAT_FLAGS_UNIX = {
+    "x86": X86_SOFTFLOAT_FLAGS_UNIX,
+    "x86_64": X86_SOFTFLOAT_FLAGS_UNIX + [
+        "-mno-red-zone",
+        "-fcf-protection=branch",
+        # A jump table is reached by an indirect jump, which the compiler marks
+        # notrack and the kernel does not permit, having left NOTRACK_EN clear.
+        # Its own C is compiled this way for the same reason.
+        "-fno-jump-tables",
+    ],
     "arm64": [
         "-mabi=aapcs-soft",
         "-mgeneral-regs-only",
         "-ffixed-x18",
-        "-fno-pic",
     ],
+    "arm": [
+        "-march=armv7-a",
+        "-mcpu=cortex-a7",
+        "-mthumb",
+        "-mfloat-abi=soft",
+        "-mfpu=none",
+    ],
+}
+
+BARE_TARGET_ARCHS = {
+    "x86": "i686",
+    "arm": "armv7a",
+}
+
+BARE_TARGET_ENVIRONMENTS = {
+    "arm": "eabi",
 }
 
 ARCH_C_LIKE_FLAGS_UNIX = {

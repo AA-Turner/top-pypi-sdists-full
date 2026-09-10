@@ -29,22 +29,11 @@ from matrx_ai.tools.vfs.workspace import clear_workspace_cache
 
 
 def _ensure_commands_loaded() -> None:
-    # Other test modules (e.g. tests/vfs/test_command_base.py) clear() the
-    # global command registry. The @register decorators only run on first
-    # import, so a plain load_all() after clear() is a no-op. Force-reload the
-    # command modules to re-execute their top-level @register decorators.
-    import importlib
-    import sys
-
+    # load_all() reloads after a clear(), so it is enough on its own — the
+    # hand-rolled force-reload that used to live here is gone with the one-way
+    # clear() it worked around (registry.isolated(), 2026-09-09).
     load_all()
-    if not is_registered("echo"):
-        for mod_name in list(sys.modules):
-            if mod_name.startswith("matrx_ai.tools.vfs.commands.") and mod_name not in (
-                "matrx_ai.tools.vfs.commands.base",
-                "matrx_ai.tools.vfs.commands.registry",
-                "matrx_ai.tools.vfs.commands.runner",
-            ):
-                importlib.reload(sys.modules[mod_name])
+    assert is_registered("echo"), "load_all() left the command registry empty"
 
     if not is_registered("sleep"):
 

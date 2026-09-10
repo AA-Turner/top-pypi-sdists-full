@@ -1,4 +1,4 @@
-.PHONY: build clean test-release release install-test version-bump test test-e2e test-install-scripts typecheck lint lint-fix format regex-engine check check-fix package-aiwatch-binary package-aiwatch-hook-macos package-aiwatch-hook-windows package-aiwatch-hook-linux package-aiwatch-macos package-aiwatch-windows package-aiwatch-py2exe package-cli-binary package-cli-macos package-cli-windows package-cli-linux package-aiwatch-linux package-desktop-macos package-desktop-windows
+.PHONY: build clean test-release release install-test version-bump test test-e2e test-install-scripts typecheck lint lint-fix format regex-engine check check-fix package-aiwatch-binary package-aiwatch-hook-macos package-aiwatch-hook-windows package-aiwatch-hook-linux package-aiwatch-macos package-aiwatch-uninstall-macos package-aiwatch-windows package-aiwatch-py2exe package-cli-binary package-cli-macos package-cli-windows package-cli-linux package-aiwatch-linux package-desktop-macos package-desktop-windows
 
 
 clean:
@@ -100,6 +100,11 @@ package-aiwatch-hook-windows: package-aiwatch-binary
 
 package-aiwatch-macos: package-aiwatch-hook-macos
 	./packaging/macos/build_pkg.sh
+
+package-aiwatch-uninstall-macos:
+	uv pip install pyinstaller
+	uv run pyinstaller --noconfirm packaging/aiwatch_uninstall.spec
+	./packaging/macos/build_uninstall_pkg.sh
 
 package-aiwatch-windows: package-aiwatch-hook-windows
 	powershell -ExecutionPolicy Bypass -File packaging\windows\build_msi.ps1

@@ -139,3 +139,9 @@ async def test_failed_anchor_insert_never_admits_wrong_owner_or_missing_row(
             await gate.ensure_conversation_exists(str(uuid4()), "")
         else:
             await gate._create_user_request(request_id=str(uuid4()), user_id=None)
+
+
+def test_missing_argument_cannot_discard_ambient_human_actor():
+    assert not is_organization_system_actor(
+        None, SimpleNamespace(system_run=True, organization_id=ORG, user_id=str(uuid4()))
+    )

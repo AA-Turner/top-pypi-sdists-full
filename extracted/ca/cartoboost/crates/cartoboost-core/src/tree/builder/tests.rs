@@ -2,6 +2,25 @@
 mod tests {
     use super::*;
 
+    #[test]
+    fn bounded_candidates_preserve_order_and_cover_range() {
+        let bounded_candidate_positions =
+            |count, limit| super::bounded_candidate_positions(count, limit).collect::<Vec<_>>();
+        assert_eq!(bounded_candidate_positions(0, Some(4)), Vec::<usize>::new());
+        assert_eq!(bounded_candidate_positions(5, None), vec![0, 1, 2, 3, 4]);
+        assert_eq!(bounded_candidate_positions(5, Some(8)), vec![0, 1, 2, 3, 4]);
+        assert_eq!(bounded_candidate_positions(9, Some(3)), vec![0, 4, 8]);
+        assert_eq!(bounded_candidate_positions(9, Some(1)), vec![4]);
+        for count in 1..100 {
+            for limit in 1..20 {
+                let positions = bounded_candidate_positions(count, Some(limit));
+                assert_eq!(positions.len(), count.min(limit));
+                assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+                assert!(positions.iter().all(|&position| position < count));
+            }
+        }
+    }
+
     fn assert_close(actual: f64, expected: f64) {
         assert!(
             (actual - expected).abs() < 1e-12,
@@ -71,6 +90,7 @@ mod tests {
         let y = vec![0.0, 0.0, 1.0, 1.0];
         let weights = vec![1.0; y.len()];
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: 1,
             min_samples_leaf: 1,
             min_gain: 0.0,
@@ -129,6 +149,7 @@ mod tests {
         let y = vec![0.0, 0.0, 0.0, 5.0, 5.0, 5.0];
         let weights = vec![1.0; y.len()];
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: 1,
             min_samples_leaf: 1,
             min_gain: 0.0,
@@ -164,6 +185,7 @@ mod tests {
         let y = vec![0.0, 0.0, 10.0, 10.0];
         let weights = vec![1.0; y.len()];
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: 1,
             min_samples_leaf: 1,
             min_gain: 0.0,
@@ -214,6 +236,7 @@ mod tests {
         let y = vec![7.0, 7.0, -2.0, -2.0];
         let weights = vec![1.0; y.len()];
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: 1,
             min_samples_leaf: 1,
             min_gain: 0.0,
@@ -260,6 +283,7 @@ mod tests {
         let y = vec![3.0, 3.0, -1.0, -1.0];
         let weights = vec![1.0; y.len()];
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: 1,
             min_samples_leaf: 1,
             min_gain: 0.0,
@@ -311,6 +335,7 @@ mod tests {
         let y = vec![0.0, 0.0, 10.0, 10.0];
         let weights = vec![1.0; y.len()];
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: 1,
             min_samples_leaf: 1,
             min_gain: 0.0,
@@ -352,6 +377,7 @@ mod tests {
         let y = vec![9.0, 9.0, -4.0, -4.0];
         let weights = vec![1.0; y.len()];
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: 1,
             min_samples_leaf: 2,
             min_gain: 0.0,

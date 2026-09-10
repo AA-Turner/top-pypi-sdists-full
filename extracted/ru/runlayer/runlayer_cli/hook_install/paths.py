@@ -8,6 +8,7 @@ import platform
 import shutil
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 _BINARY_BASENAME_UNIX = "aiwatch"
 _BINARY_BASENAME_WINDOWS = "aiwatch.exe"
@@ -15,6 +16,7 @@ _HOOK_SHIM_BASENAME_UNIX = "aiwatch-hook"
 _HOOK_SHIM_BASENAME_WINDOWS = "aiwatch-hook.exe"
 _PREFERRED_SYMLINK_UNIX = Path("/usr/local/bin/aiwatch")
 _HOOK_SUBCOMMAND = "hook"
+_CREDENTIAL_SUBCOMMAND = "credential"
 
 
 class InstallScope(str, enum.Enum):
@@ -26,6 +28,13 @@ class InstallScope(str, enum.Enum):
 
 class ManagedPathError(ValueError):
     """A managed per-user path would escape its trusted user-home boundary."""
+
+
+class HelperCommand(TypedDict):
+    """Executable + leading args; writers append ``credential <client>``."""
+
+    executable: str
+    args: list[str]
 
 
 def _frozen_bundle_dir() -> Path | None:
@@ -54,6 +63,55 @@ def resolve_hook_binary() -> Path | None:
         return _PREFERRED_SYMLINK_UNIX
 
     return None
+
+
+def resolve_credential_helper(scope: InstallScope) -> HelperCommand:
+    """Resolve the executable clients use for short-lived gateway tokens.
+
+    MDM scope only wires a root-owned binary: the package symlink, else the
+    frozen bundle's ``aiwatch``. A missing binary raises so the route fails
+    instead of writing a helper command the clients cannot run.
+    """
+    system = platform.system()
+    if scope == InstallScope.MDM:
+        if system != "Windows" and _PREFERRED_SYMLINK_UNIX.exists():
+            return {"executable": str(_PREFERRED_SYMLINK_UNIX), "args": []}
+        binary = resolve_hook_binary()
+        if binary is None:
+            raise FileNotFoundError("no aiwatch binary on disk for the helper")
+        return {"executable": str(binary), "args": []}
+
+    binary = resolve_hook_binary()
+    if binary is not None:
+        return {"executable": str(binary), "args": []}
+    name = _BINARY_BASENAME_WINDOWS if system == "Windows" else _BINARY_BASENAME_UNIX
+    invoked = _invoked_runlayer_binary(name)
+    if invoked is not None:
+        return {"executable": str(invoked), "args": []}
+    on_path = shutil.which(name)
+    if on_path is not None:
+        return {"executable": on_path, "args": []}
+    return {
+        "executable": sys.executable,
+        "args": ["-m", "runlayer_cli.aiwatch"],
+    }
+
+
+def render_claude_helper_command(helper: HelperCommand) -> str:
+    """Render Claude Code's shell command for its API-key helper."""
+    return " ".join(
+        [
+            _quote_for_hook_command(helper["executable"]),
+            *helper["args"],
+            _CREDENTIAL_SUBCOMMAND,
+            "claude",
+        ]
+    )
+
+
+def codex_helper_args(helper: HelperCommand) -> list[str]:
+    """Render Codex auth args after the helper executable."""
+    return [*helper["args"], _CREDENTIAL_SUBCOMMAND, "codex"]
 
 
 def resolve_hook_shim_binary() -> Path | None:

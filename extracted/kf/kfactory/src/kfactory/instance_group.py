@@ -12,7 +12,7 @@ from .exceptions import (
     PortWidthMismatchError,
 )
 from .geometry import DBUGeometricObject, GeometricObject, UMGeometricObject
-from .instance import DInstance, Instance, ProtoTInstance, VInstance
+from .instance import DInstance, Instance, ProtoInstance, ProtoTInstance, VInstance
 from .port import BasePort, DPort, Port, ProtoPort
 from .ports import DCreatePort, DPorts, ICreatePort, Ports, ProtoPorts
 
@@ -30,7 +30,7 @@ __all__ = [
 ]
 
 
-class ProtoInstanceGroup[T: (int, float), TI: ProtoTInstance[Any] | VInstance[Any]](
+class ProtoInstanceGroup[T: (int, float), TI: ProtoInstance[Any]](
     GeometricObject[T], ABC
 ):
     insts: list[TI]

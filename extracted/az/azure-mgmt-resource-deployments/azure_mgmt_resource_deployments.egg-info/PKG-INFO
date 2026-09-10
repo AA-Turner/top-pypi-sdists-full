@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-resource-deployments
-Version: 1.0.0
+Version: 2.0.0
 Summary: Microsoft Azure Deployments Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -86,6 +86,22 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 2.0.0 (2026-08-25)
+
+### Features Added
+
+  - Model `DeploymentExtensionDefinition` added property `config_hash`
+  - Model `DeploymentWhatIfProperties` added property `resource_predictions`
+  - Model `ResourceReference` added property `symbolic_name_path`
+  - Model `TargetResource` added property `symbolic_name_path`
+  - Model `WhatIfChange` added property `resource_type`
+  - Added model `DeploymentResourceWhatIfPrediction`
+
+### Breaking Changes
+
+  - Model `DeploymentExtensionConfigItem` deleted or renamed its instance variable `type`
+  - Deleted or renamed model `ExtensionConfigPropertyType`
 
 ## 1.0.0 (2026-07-20)
 

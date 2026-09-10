@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: titiler-extensions
-Version: 2.2.1
+Version: 2.2.2
 Summary: Extensions for TiTiler Factories.
 Project-URL: Homepage, https://developmentseed.org/titiler/
 Project-URL: Documentation, https://developmentseed.org/titiler/
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.11
-Requires-Dist: titiler-core==2.2.1
+Requires-Dist: titiler-core==2.2.2
 Requires-Dist: typing-extensions; python_version < '3.12'
 Provides-Extra: cogeo
 Requires-Dist: rio-cogeo<8.0,>=7.0; extra == 'cogeo'
@@ -82,7 +82,7 @@ tiler = TilerFactory(
     router_prefix="/cog",
     extensions=[
         cogValidateExtension()  # the cogeoExtension will add a rio-cogeo /validate endpoint
-    ]
+    ],
 )
 
 # Register endpoints to the application
@@ -163,12 +163,9 @@ class thumbnailExtension(FactoryExtension):
 
             return Response(content, media_type=media_type)
 
+
 # Use it
 app = FastAPI()
-tiler = TilerFactory(
-    extensions=[
-        thumbnailExtension(max_size=64)
-    ]
-)
+tiler = TilerFactory(extensions=[thumbnailExtension(max_size=64)])
 app.include_router(tiler.router)
 ```

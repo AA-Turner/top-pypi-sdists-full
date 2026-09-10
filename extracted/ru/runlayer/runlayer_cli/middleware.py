@@ -1,11 +1,13 @@
 """Basic on_message middleware for MCP CLI with OAuth support."""
 
+import inspect
 import sys
-from typing import Any
+from typing import Any, cast
 
 import anyio
 from anyio.abc import TaskGroup
 import httpx
+from fastmcp import Client
 from fastmcp.server.middleware.middleware import Middleware, MiddlewareContext, CallNext
 import structlog
 import mcp.types as mt
@@ -42,6 +44,29 @@ _UPSTREAM_CONNECTION_ERRORS = (
 # can't hang the client forever. tools/call is intentionally unbounded
 # (long-running tools are legitimate).
 _LIST_TOOLS_UPSTREAM_TIMEOUT_SECONDS = 30.0
+
+# Upper bound on the detached first upstream connect. Generous because a cold
+# remote connect may wait on a human finishing a browser OAuth login; bounded
+# so a dead upstream releases the callback port instead of holding it forever.
+_FIRST_CONNECT_TIMEOUT_SECONDS = 300.0
+
+# Transports whose first connect may run a browser OAuth flow.
+_OAUTH_TRANSPORT_TYPES = frozenset({"sse", "streaming-http"})
+
+# Requests the proxy forwards upstream, so they wait on the detached first
+# connect. fastmcp routes initialize (and ping) through on_request too; those
+# must answer before any login completes. tools/list waits inside its own
+# upstream bound in on_list_tools instead.
+_FIRST_CONNECT_GATED_METHODS = frozenset(
+    {
+        "prompts/list",
+        "prompts/get",
+        "resources/list",
+        "resources/templates/list",
+        "resources/read",
+        "tools/call",
+    }
+)
 
 _RUNLAYER_INJECTED_SESSION_ID_ARG = "_runlayer_session_id"
 
@@ -127,6 +152,9 @@ class RunlayerMiddleware(Middleware):
         # ~30s per call; inline sync made clients kill the connection.
         self.background_tasks: TaskGroup | None = None
         self._sync_in_flight = False
+        # Set once the detached first upstream connect has finished (any
+        # outcome); None until the first request asks for it.
+        self._first_connect: anyio.Event | None = None
 
     def _handle_upstream_unreachable(
         self,
@@ -284,6 +312,87 @@ class RunlayerMiddleware(Middleware):
         finally:
             self._sync_in_flight = False
 
+    async def _await_first_upstream_connect(self) -> None:
+        """Run the first remote connect outside the request that triggered it.
+
+        A cold connect may wait on a human finishing a browser OAuth login.
+        Clients cancel their initial requests after ~30s (Claude Desktop) and
+        tools/list is bounded the same way; when the request owns the connect,
+        that cancellation tears the OAuth flow down and a login finished
+        seconds later lands on nothing. Detaching the connect into the
+        background task group gives the login the OAuth timeout instead. The
+        tokens persist to disk, so the request (or the client's next attempt)
+        connects with them.
+        """
+        if self._first_connect is None:
+            self._first_connect = anyio.Event()
+            if (
+                self.background_tasks is None
+                or self.proxy is None
+                or self.server.transport_type not in _OAUTH_TRANSPORT_TYPES
+            ):
+                self._first_connect.set()
+            else:
+                self.background_tasks.start_soon(self._run_first_upstream_connect)
+        await self._first_connect.wait()
+
+    async def _run_first_upstream_connect(self) -> None:
+        """Open the shared upstream client once and hold it for the process.
+
+        The proxy reuses a single client (``reuse_client_factory``); its
+        reentrant session must be opened exactly once and never reopened. This
+        SDK version wedges on a task-affine OAuth lock if a session is closed
+        and reconnected, so we do not open-then-close a warm session. Instead
+        we enter the shared client here (running the OAuth flow) and keep it
+        open with an idle wait; requests reuse it by re-entering (nesting),
+        and process teardown closes it once via the finally.
+        """
+        assert self.proxy is not None
+        assert self._first_connect is not None
+        flow_trace.reset_flow()
+        client = self.proxy.client_factory()
+        if inspect.isawaitable(client):
+            client = await client
+        client = cast(Client, client)
+        try:
+            # Bound only the connect (the OAuth login), not the idle hold.
+            with anyio.fail_after(_FIRST_CONNECT_TIMEOUT_SECONDS):
+                await client.__aenter__()
+        except TimeoutError:
+            logger.warning(
+                "first_upstream_connect_timed_out",
+                server_id=self.server.id,
+                timeout_seconds=_FIRST_CONNECT_TIMEOUT_SECONDS,
+            )
+            self._first_connect.set()
+            return
+        except Exception:
+            # A failed first connect leaves no session; a later request opens
+            # its own and surfaces the error. (Not a reconnect of a live one.)
+            logger.debug("first_upstream_connect_failed", exc_info=True)
+            self._first_connect.set()
+            return
+        self._first_connect.set()
+        try:
+            # Hold the session open (nesting stays >=1) until teardown cancels
+            # the background task group.
+            await anyio.sleep_forever()
+        finally:
+            with anyio.CancelScope(shield=True):
+                try:
+                    await client.__aexit__(None, None, None)
+                except Exception:
+                    logger.debug("first_upstream_client_close_failed", exc_info=True)
+
+    async def on_request(
+        self,
+        context: MiddlewareContext[mt.Request[Any, Any]],
+        call_next: CallNext[mt.Request[Any, Any], Any],
+    ) -> Any:
+        if context.method in _FIRST_CONNECT_GATED_METHODS:
+            await self._await_first_upstream_connect()
+        return await call_next(context)
+
     @flow_trace.operation("cli.call_tool")
     async def on_call_tool(
         self,
@@ -379,6 +488,7 @@ class RunlayerMiddleware(Middleware):
         try:
             async with flow_trace.step("upstream", kind="remote"):
                 with anyio.fail_after(_LIST_TOOLS_UPSTREAM_TIMEOUT_SECONDS):
+                    await self._await_first_upstream_connect()
                     result = await call_next(context)
         except Exception as exc:
             unreachable = _unreachable_error(exc)

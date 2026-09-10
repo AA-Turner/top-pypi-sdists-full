@@ -14,20 +14,34 @@ from aws_durable_execution_sdk_python.concurrency.models import (
     CompletionReason,
     Executable,
 )
+from aws_durable_execution_sdk_python.identifier import OperationIdNamespace
 from aws_durable_execution_sdk_python.config import (
     CompletionConfig,
-    ItemBatcher,
+    CompletionDecision,
+    CompletionStatus,
     MapConfig,
     NestingType,
+    complete_batch,
+    continue_batch,
 )
 from aws_durable_execution_sdk_python.context import DurableContext, ExecutionContext
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
 from aws_durable_execution_sdk_python.lambda_service import OperationSubType
 from aws_durable_execution_sdk_python.operation import child  # PLC0415
-from aws_durable_execution_sdk_python.operation.map import MapExecutor, map_handler
+from aws_durable_execution_sdk_python.operation.map import (
+    MapExecutor,
+    map_handler,
+)
 from aws_durable_execution_sdk_python.serdes import serialize
 from aws_durable_execution_sdk_python.state import ExecutionState
 from tests.serdes_test import CustomStrSerDes
+
+
+class _StubNamespace(OperationIdNamespace):
+    """Test namespace producing readable ids matching checkpoint fixtures."""
+
+    def create_id_for_step(self, step: int) -> str:
+        return f"op_{step}"
 
 
 def create_test_context(
@@ -63,6 +77,7 @@ def test_map_executor_init():
         name_prefix="test-",
         serdes=None,
         nesting_type=NestingType.FLAT,
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert executor.items == items
@@ -79,12 +94,18 @@ def test_map_executor_from_items():
 
     config = MapConfig(max_concurrency=3, nesting_type=NestingType.FLAT)
 
-    executor = MapExecutor.from_items(items, callable_func, config)
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        config,
+        operation_id_namespace=_StubNamespace(),
+    )
 
     assert len(executor.executables) == 3
     assert executor.items == items
-    assert all(exe.func == callable_func for exe in executor.executables)
     assert [exe.index for exe in executor.executables] == [0, 1, 2]
+    # Each executable binds its item: calling it runs the user function.
+    assert executor.executables[1].func(Mock()) == "B"
     assert executor.nesting_type is NestingType.FLAT
 
 
@@ -99,6 +120,7 @@ def test_map_executor_from_items_default_config():
         items,
         callable_func,
         MapConfig(),
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert len(executor.executables) == 1
@@ -106,7 +128,7 @@ def test_map_executor_from_items_default_config():
     assert executor.nesting_type is NestingType.NESTED
 
 
-@patch("aws_durable_execution_sdk_python.operation.map.logger")
+@patch("aws_durable_execution_sdk_python.concurrency.executor.logger")
 def test_map_executor_execute_item(mock_logger):
     """Test MapExecutor.execute_item method with logging."""
     items = ["hello", "world"]
@@ -118,6 +140,7 @@ def test_map_executor_execute_item(mock_logger):
         items,
         callable_func,
         MapConfig(),
+        operation_id_namespace=_StubNamespace(),
     )
     executable = executor.executables[0]
 
@@ -125,8 +148,8 @@ def test_map_executor_execute_item(mock_logger):
 
     assert result == "hello_0"
     assert mock_logger.debug.call_count == 2
-    mock_logger.debug.assert_any_call("🗺️ Processing map item: %s", 0)
-    mock_logger.debug.assert_any_call("✅ Processed map item: %s", 0)
+    mock_logger.debug.assert_any_call("▶️ Processing branch: %s", 0)
+    mock_logger.debug.assert_any_call("✅ Processed branch: %s", 0)
 
 
 def test_map_executor_execute_item_with_context():
@@ -140,6 +163,7 @@ def test_map_executor_execute_item_with_context():
         items,
         callable_func,
         MapConfig(),
+        operation_id_namespace=_StubNamespace(),
     )
     executable = executor.executables[1]
 
@@ -160,6 +184,9 @@ def test_map_handler():
 
     # Create a minimal ExecutionState mock
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         def get_checkpoint_result(self, operation_id):
             mock_result = Mock()
             mock_result.is_succeeded.return_value = False
@@ -178,6 +205,7 @@ def test_map_handler():
         execution_state,
         mock_run_in_child_context,
         operation_identifier,
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert isinstance(result, BatchResult)
@@ -194,6 +222,9 @@ def test_map_handler_with_none_config():
         return func("mock_context")
 
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         def get_checkpoint_result(self, operation_id):
             mock_result = Mock()
             mock_result.is_succeeded.return_value = False
@@ -214,6 +245,7 @@ def test_map_handler_with_none_config():
         execution_state,
         mock_run_in_child_context,
         operation_identifier,
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert isinstance(result, BatchResult)
@@ -235,6 +267,7 @@ def test_map_executor_execute_item_accesses_all_parameters():
         items,
         callable_func,
         MapConfig(),
+        operation_id_namespace=_StubNamespace(),
     )
     executable = executor.executables[2]
 
@@ -254,6 +287,7 @@ def test_map_executor_from_items_empty_list():
         items,
         callable_func,
         MapConfig(),
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert len(executor.executables) == 0
@@ -271,6 +305,7 @@ def test_map_executor_from_items_single_item():
         items,
         callable_func,
         MapConfig(),
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert len(executor.executables) == 1
@@ -289,6 +324,7 @@ def test_map_executor_inheritance():
         items,
         callable_func,
         MapConfig(),
+        operation_id_namespace=_StubNamespace(),
     )
 
     # Verify it has inherited attributes from ConcurrentExecutor
@@ -310,7 +346,7 @@ def test_map_handler_calls_executor_execute():
     )
 
     executor_context = Mock()
-    executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
+    executor_context._create_step_id_for_logical_step = lambda *args: "1"
     executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
     with patch.object(
@@ -318,6 +354,9 @@ def test_map_handler_calls_executor_execute():
     ) as mock_execute:
 
         class MockExecutionState:
+            def register_branch_pool(self, pool):
+                pass
+
             def get_checkpoint_result(self, operation_id):
                 mock_result = Mock()
                 mock_result.is_succeeded.return_value = False
@@ -336,6 +375,7 @@ def test_map_handler_calls_executor_execute():
             execution_state,
             executor_context,
             operation_identifier,
+            operation_id_namespace=_StubNamespace(),
         )
 
         # Verify execute was called
@@ -363,10 +403,13 @@ def test_map_handler_with_none_config_creates_default():
         mock_from_items.return_value = mock_executor
 
         executor_context = Mock()
-        executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
+        executor_context._create_step_id_for_logical_step = lambda *args: "1"
         executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
         class MockExecutionState:
+            def register_branch_pool(self, pool):
+                pass
+
             def get_checkpoint_result(self, operation_id):
                 mock_result = Mock()
                 mock_result.is_succeeded.return_value = False
@@ -384,6 +427,7 @@ def test_map_handler_with_none_config_creates_default():
             execution_state,
             executor_context,
             operation_identifier,
+            operation_id_namespace=_StubNamespace(),
         )
 
         # Verify from_items was called with a MapConfig instance
@@ -411,12 +455,15 @@ def test_map_handler_with_serdes():
         return f"RESULT_{item.upper()}"
 
     executor_context = Mock()
-    executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
+    executor_context._create_step_id_for_logical_step = lambda *args: "1"
     child_context = Mock()
     child_context.state.wrap_user_function = lambda func, *args, **kwargs: func
     executor_context.create_child_context = lambda *args, **kwargs: child_context
 
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         def get_checkpoint_result(self, operation_id):
             mock_result = Mock()
             mock_result.is_succeeded.return_value = False
@@ -435,10 +482,13 @@ def test_map_handler_with_serdes():
         execution_state,
         executor_context,
         operation_identifier,
+        operation_id_namespace=_StubNamespace(),
     )
 
-    # Verify execute was called
-    assert result.all[0].result == "RESULT_TEST_ITEM"
+    # Verify execute was called. The item result is the serdes round-tripped
+    # value: CustomStrSerDes uppercases on serialize and lowercases on
+    # deserialize, so "RESULT_TEST_ITEM" round-trips to "result_test_item".
+    assert result.all[0].result == "result_test_item"
 
 
 def test_map_handler_with_summary_generator():
@@ -454,10 +504,15 @@ def test_map_handler_with_summary_generator():
     config = MapConfig(summary_generator=mock_summary_generator)
 
     executor_context = Mock()
-    executor_context._create_step_id_for_logical_step = Mock(side_effect=["1", "2"])  # noqa SLF001
-    executor_context.create_child_context = Mock(return_value=Mock())
+    executor_context._create_step_id_for_logical_step = Mock(side_effect=["1", "2"])
+    _child_ctx = Mock()
+    _child_ctx.state.wrap_user_function = lambda func, *a, **k: func
+    executor_context.create_child_context = Mock(return_value=_child_ctx)
 
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         def get_checkpoint_result(self, operation_id):
             mock_result = Mock()
             mock_result.is_succeeded.return_value = False
@@ -476,34 +531,11 @@ def test_map_handler_with_summary_generator():
         execution_state,
         executor_context,
         operation_identifier,
+        operation_id_namespace=_StubNamespace(),
     )
 
     # Verify that create_child_context was called twice (N=2 items)
     assert executor_context.create_child_context.call_count == 2
-
-    # Verify that _create_step_id_for_logical_step was called twice with unique values
-    assert executor_context._create_step_id_for_logical_step.call_count == 2  # noqa SLF001
-    calls = executor_context._create_step_id_for_logical_step.call_args_list  # noqa SLF001
-    # Verify unique values were passed
-    assert calls[0] != calls[1]
-
-
-def test_map_executor_from_items_with_summary_generator():
-    """Test MapExecutor.from_items preserves summary_generator."""
-    items = ["item1"]
-
-    def callable_func(ctx, item, idx, items):
-        return f"result_{item}"
-
-    def mock_summary_generator(result):
-        return f"Map summary: {result}"
-
-    config = MapConfig(summary_generator=mock_summary_generator)
-
-    executor = MapExecutor.from_items(items, callable_func, config)
-
-    # Verify that the summary_generator is preserved in the executor
-    assert executor.summary_generator is mock_summary_generator
 
 
 def test_map_handler_default_summary_generator():
@@ -514,10 +546,13 @@ def test_map_handler_default_summary_generator():
         return f"result_{item}"
 
     executor_context = Mock()
-    executor_context._create_step_id_for_logical_step = Mock(return_value="1")  # noqa SLF001
+    executor_context._create_step_id_for_logical_step = Mock(return_value="1")
     executor_context.create_child_context = Mock(return_value=Mock())  # SLF001
 
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         def get_checkpoint_result(self, operation_id):
             mock_result = Mock()
             mock_result.is_succeeded.return_value = False
@@ -536,38 +571,11 @@ def test_map_handler_default_summary_generator():
         execution_state,
         executor_context,
         operation_identifier,
+        operation_id_namespace=_StubNamespace(),
     )
 
     # Verify that create_child_context was called once (N=1 item)
     assert executor_context.create_child_context.call_count == 1
-
-    # Verify that _create_step_id_for_logical_step was called once
-    assert executor_context._create_step_id_for_logical_step.call_count == 1  # noqa SLF001
-
-
-def test_map_executor_init_with_summary_generator():
-    """Test MapExecutor initialization with summary_generator."""
-    items = ["item1"]
-    executables = [Executable(index=0, func=lambda: None)]
-
-    def mock_summary_generator(result):
-        return f"Summary: {result}"
-
-    executor = MapExecutor(
-        executables=executables,
-        items=items,
-        max_concurrency=2,
-        completion_config=CompletionConfig(),
-        top_level_sub_type=OperationSubType.MAP,
-        iteration_sub_type=OperationSubType.MAP_ITERATION,
-        name_prefix="test-",
-        serdes=None,
-        summary_generator=mock_summary_generator,
-    )
-
-    assert executor.summary_generator is mock_summary_generator
-    assert executor.items == items
-    assert executor.executables == executables
 
 
 def test_map_handler_with_explicit_none_summary_generator():
@@ -581,6 +589,9 @@ def test_map_handler_with_explicit_none_summary_generator():
     config = MapConfig(summary_generator=None)
 
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         def get_checkpoint_result(self, operation_id):
             mock_result = Mock()
             mock_result.is_succeeded.return_value = False
@@ -592,10 +603,12 @@ def test_map_handler_with_explicit_none_summary_generator():
     )
 
     executor_context = Mock()
-    executor_context._create_step_id_for_logical_step = Mock(  # noqa: SLF001
+    executor_context._create_step_id_for_logical_step = Mock(
         side_effect=["1", "2", "3"]
     )
-    executor_context.create_child_context = Mock(return_value=Mock())
+    _child_ctx = Mock()
+    _child_ctx.state.wrap_user_function = lambda func, *a, **k: func
+    executor_context.create_child_context = Mock(return_value=_child_ctx)
 
     # Call map_handler
     map_handler(
@@ -605,6 +618,7 @@ def test_map_handler_with_explicit_none_summary_generator():
         execution_state=execution_state,
         map_context=executor_context,
         operation_identifier=operation_identifier,
+        operation_id_namespace=_StubNamespace(),
     )
 
     # Verify that create_child_context was called 3 times (N=3 items)
@@ -620,6 +634,9 @@ def test_map_handler_replay_mechanism():
 
     # Mock execution state that indicates operation already succeeded
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         durable_execution_arn = "arn:aws:durable:us-east-1:123456789012:execution/test"
 
         def get_checkpoint_result(self, operation_id):
@@ -638,7 +655,7 @@ def test_map_handler_replay_mechanism():
 
     # Mock map context
     map_context = Mock()
-    map_context._create_step_id_for_logical_step = Mock(  # noqa: SLF001
+    map_context._create_step_id_for_logical_step = Mock(
         side_effect=["child_1", "child_2"]
     )
 
@@ -668,10 +685,12 @@ def test_map_handler_replay_mechanism():
             execution_state,
             map_context,
             operation_identifier,
+            operation_id_namespace=_StubNamespace(),
         )
 
         # Verify replay was called instead of execute
-        mock_replay.assert_called_once_with(execution_state, map_context)
+        mock_replay.assert_called_once()
+        assert mock_replay.call_args.args[:2] == (execution_state, map_context)
         assert result == expected_batch_result
 
 
@@ -684,6 +703,9 @@ def test_map_handler_replay_with_replay_children():
 
     # Mock execution state that indicates operation succeeded but children need replay
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         def get_checkpoint_result(self, operation_id):
             mock_result = Mock()
             if operation_id == "test_op":
@@ -701,7 +723,7 @@ def test_map_handler_replay_with_replay_children():
 
     # Mock map context
     map_context = Mock()
-    map_context._create_step_id_for_logical_step = Mock(return_value="child_1")  # noqa: SLF001
+    map_context._create_step_id_for_logical_step = Mock(return_value="child_1")
 
     # Mock the executor's replay method and _execute_item_in_child_context
     with (
@@ -730,9 +752,11 @@ def test_map_handler_replay_with_replay_children():
             execution_state,
             map_context,
             operation_identifier,
+            operation_id_namespace=_StubNamespace(),
         )
 
-        mock_replay.assert_called_once_with(execution_state, map_context)
+        mock_replay.assert_called_once()
+        assert mock_replay.call_args.args[:2] == (execution_state, map_context)
         assert result == expected_batch_result
 
 
@@ -742,7 +766,6 @@ def test_map_config_with_explicit_none_summary_generator():
 
     assert config.summary_generator is None
     assert config.max_concurrency is None
-    assert isinstance(config.item_batcher, ItemBatcher)
     assert isinstance(config.completion_config, CompletionConfig)
     assert config.serdes is None
 
@@ -779,6 +802,9 @@ def test_map_handler_first_execution_then_replay_integration():
     execution_count = 0
 
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         durable_execution_arn = "arn:aws:durable:us-east-1:123456789012:execution/test"
 
         def get_checkpoint_result(self, operation_id):
@@ -813,7 +839,13 @@ def test_map_handler_first_execution_then_replay_integration():
         # FIRST EXECUTION - should call execute
         execution_count = 0
         map_handler(
-            items, test_func, config, execution_state, map_context, operation_identifier
+            items,
+            test_func,
+            config,
+            execution_state,
+            map_context,
+            operation_identifier,
+            operation_id_namespace=_StubNamespace(),
         )
 
         # Verify execute was called, replay was not
@@ -827,7 +859,13 @@ def test_map_handler_first_execution_then_replay_integration():
         # SECOND EXECUTION - should call replay
         execution_count = 1
         map_handler(
-            items, test_func, config, execution_state, map_context, operation_identifier
+            items,
+            test_func,
+            config,
+            execution_state,
+            map_context,
+            operation_identifier,
+            operation_id_namespace=_StubNamespace(),
         )
 
         # Verify replay was called, execute was not
@@ -884,7 +922,14 @@ def test_map_item_serialize(mock_serialize, item_serdes, batch_serdes):
             else f"child-{i}"
         )
 
-    with patch.object(DurableContext, "_create_step_id_for_logical_step", create_id):
+    with (
+        patch.object(DurableContext, "_create_step_id_for_logical_step", create_id),
+        patch.object(
+            OperationIdNamespace,
+            "create_id_for_step",
+            lambda self, step: f"child-{step}",
+        ),
+    ):
         context = create_test_context(state=mock_state)
         context.map(
             ["a", "b"],
@@ -949,7 +994,14 @@ def test_map_item_deserialize(mock_deserialize, item_serdes, batch_serdes):
             else f"child-{i}"
         )
 
-    with patch.object(DurableContext, "_create_step_id_for_logical_step", create_id):
+    with (
+        patch.object(DurableContext, "_create_step_id_for_logical_step", create_id),
+        patch.object(
+            OperationIdNamespace,
+            "create_id_for_step",
+            lambda self, step: f"child-{step}",
+        ),
+    ):
         context = create_test_context(state=mock_state)
         context.map(
             ["a", "b"],
@@ -962,9 +1014,13 @@ def test_map_item_deserialize(mock_deserialize, item_serdes, batch_serdes):
         call.kwargs["operation_id"]: call.kwargs
         for call in mock_deserialize.call_args_list
     }
-    assert set(deserialize_calls) == {"child-0", "child-1"}
+    # Children deserialize from their checkpoints with the item serdes; the
+    # parent also deserializes its BatchResult (the first-run round-trip) with
+    # the batch serdes.
+    assert set(deserialize_calls) == {"child-0", "child-1", "parent"}
     assert deserialize_calls["child-0"]["serdes"] is expected
     assert deserialize_calls["child-1"]["serdes"] is expected
+    assert deserialize_calls["parent"]["serdes"] is batch_serdes
 
 
 def test_map_result_serialization_roundtrip():
@@ -976,6 +1032,9 @@ def test_map_result_serialization_roundtrip():
         return {"item": item.upper(), "index": idx}
 
     class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
         durable_execution_arn = "arn:test"
 
         def get_checkpoint_result(self, operation_id):
@@ -985,7 +1044,7 @@ def test_map_result_serialization_roundtrip():
 
     execution_state = MockExecutionState()
     map_context = Mock()
-    map_context._create_step_id_for_logical_step = Mock(side_effect=["1", "2", "3"])  # noqa SLF001
+    map_context._create_step_id_for_logical_step = Mock(side_effect=["1", "2", "3"])
     child_context = Mock()
     child_context.state.wrap_user_function = lambda func, *args, **kwargs: func
     map_context.create_child_context = Mock(return_value=child_context)
@@ -995,7 +1054,13 @@ def test_map_result_serialization_roundtrip():
 
     # Execute map
     result = map_handler(
-        items, func, MapConfig(), execution_state, map_context, operation_identifier
+        items,
+        func,
+        MapConfig(),
+        execution_state,
+        map_context,
+        operation_identifier,
+        operation_id_namespace=_StubNamespace(),
     )
 
     # Serialize the BatchResult
@@ -1060,15 +1125,29 @@ def test_map_handler_serializes_batch_result():
                     else f"child-{i}"
                 )
 
-            with patch.object(
-                DurableContext, "_create_step_id_for_logical_step", create_id
+            with (
+                patch.object(
+                    DurableContext, "_create_step_id_for_logical_step", create_id
+                ),
+                patch.object(
+                    OperationIdNamespace,
+                    "create_id_for_step",
+                    lambda self, step: f"child-{step}",
+                ),
             ):
                 context = create_test_context(state=mock_state)
                 result = context.map(["a", "b"], lambda ctx, item, idx, items: item)
 
             assert len(mock_serdes_serialize.call_args_list) == 3
             parent_call = mock_serdes_serialize.call_args_list[2]
-            assert parent_call[1]["value"] is result
+            # The value serialized (checkpointed) at the parent level is the raw
+            # BatchResult.
+            assert isinstance(parent_call[1]["value"], BatchResult)
+            # The first run returns the round-trip of that checkpointed payload,
+            # matching what replay would deserialize from the checkpoint (with
+            # serialize mocked to a plain string, the round-trip yields that
+            # string).
+            assert result == "serialized"
     finally:
         importlib.reload(child)
 
@@ -1119,8 +1198,15 @@ def test_map_default_serdes_serializes_batch_result():
                     else f"child-{i}"
                 )
 
-            with patch.object(
-                DurableContext, "_create_step_id_for_logical_step", create_id
+            with (
+                patch.object(
+                    DurableContext, "_create_step_id_for_logical_step", create_id
+                ),
+                patch.object(
+                    OperationIdNamespace,
+                    "create_id_for_step",
+                    lambda self, step: f"child-{step}",
+                ),
             ):
                 context = create_test_context(state=mock_state)
                 result = context.map(["a", "b"], lambda ctx, item, idx, items: item)
@@ -1130,7 +1216,10 @@ def test_map_default_serdes_serializes_batch_result():
             parent_call = mock_serialize.call_args_list[2]
             assert parent_call[1]["serdes"] is None
             assert isinstance(parent_call[1]["value"], BatchResult)
-            assert parent_call[1]["value"] is result
+            # First run returns the round-tripped BatchResult, which equals the
+            # value serialized into the checkpoint (default serdes round-trips
+            # as identity).
+            assert parent_call[1]["value"] == result
     finally:
         importlib.reload(child)
 
@@ -1139,12 +1228,22 @@ def test_map_custom_serdes_serializes_batch_result():
     """Verify custom serdes is used for BatchResult serialization."""
 
     custom_serdes = CustomStrSerDes()
+    round_tripped: BatchResult = BatchResult(
+        all=[BatchItem(index=0, status=BatchItemStatus.SUCCEEDED, result="test")],
+        completion_reason=CompletionReason.ALL_COMPLETED,
+    )
 
     try:
-        with patch(
-            "aws_durable_execution_sdk_python.serdes.serialize"
-        ) as mock_serialize:
+        with (
+            patch(
+                "aws_durable_execution_sdk_python.serdes.serialize"
+            ) as mock_serialize,
+            patch(
+                "aws_durable_execution_sdk_python.serdes.deserialize"
+            ) as mock_deserialize,
+        ):
             mock_serialize.return_value = '"serialized"'
+            mock_deserialize.return_value = round_tripped
             importlib.reload(child)
 
             parent_checkpoint = Mock()
@@ -1185,8 +1284,15 @@ def test_map_custom_serdes_serializes_batch_result():
                     else f"child-{i}"
                 )
 
-            with patch.object(
-                DurableContext, "_create_step_id_for_logical_step", create_id
+            with (
+                patch.object(
+                    DurableContext, "_create_step_id_for_logical_step", create_id
+                ),
+                patch.object(
+                    OperationIdNamespace,
+                    "create_id_for_step",
+                    lambda self, step: f"child-{step}",
+                ),
             ):
                 context = create_test_context(state=mock_state)
                 result = context.map(
@@ -1195,12 +1301,14 @@ def test_map_custom_serdes_serializes_batch_result():
                     config=MapConfig(serdes=custom_serdes),
                 )
 
-            assert isinstance(result, BatchResult)
             assert len(mock_serialize.call_args_list) == 3
             parent_call = mock_serialize.call_args_list[2]
             assert parent_call[1]["serdes"] is custom_serdes
+            # The parent serializes a BatchResult with the custom serdes and
+            # returns the round-tripped BatchResult.
             assert isinstance(parent_call[1]["value"], BatchResult)
-            assert parent_call[1]["value"] is result
+            assert isinstance(result, BatchResult)
+            assert result is round_tripped
     finally:
         importlib.reload(child)
 
@@ -1253,6 +1361,7 @@ def test_map_executor_get_iteration_name_default():
         items=items,
         func=lambda ctx, item, idx, items: item,
         config=config,
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert executor.get_iteration_name(0) == "map-item-0"
@@ -1272,6 +1381,7 @@ def test_map_executor_get_iteration_name_with_item_namer():
         items=items,
         func=lambda ctx, item, idx, items: item,
         config=config,
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert executor.get_iteration_name(0) == "process-order-1"
@@ -1294,12 +1404,12 @@ def test_map_executor_item_namer_receives_item_and_index():
         items=items,
         func=lambda ctx, item, idx, items: item,
         config=config,
+        operation_id_namespace=_StubNamespace(),
     )
 
-    executor.get_iteration_name(0)
-    executor.get_iteration_name(2)
-
-    assert received_args == [("alpha", 0), ("gamma", 2)]
+    assert received_args == [("alpha", 0), ("beta", 1), ("gamma", 2)]
+    assert executor.get_iteration_name(0) == "item-0-alpha"
+    assert executor.get_iteration_name(2) == "item-2-gamma"
 
 
 def test_map_executor_item_namer_uses_index():
@@ -1311,6 +1421,7 @@ def test_map_executor_item_namer_uses_index():
         items=items,
         func=lambda ctx, item, idx, items: item,
         config=config,
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert executor.get_iteration_name(0) == "step-1"
@@ -1327,6 +1438,7 @@ def test_map_executor_item_namer_none_falls_back_to_default():
         items=items,
         func=lambda ctx, item, idx, items: item,
         config=config,
+        operation_id_namespace=_StubNamespace(),
     )
 
     assert executor.get_iteration_name(0) == "map-item-0"
@@ -1342,9 +1454,10 @@ def test_map_executor_from_items_passes_item_namer():
         items=["a"],
         func=lambda ctx, item, idx, items: item,
         config=config,
+        operation_id_namespace=_StubNamespace(),
     )
 
-    assert executor._item_namer is namer
+    assert executor.executables[0].name == "custom-0"
 
 
 def test_map_config_generic_with_item_namer():
@@ -1358,3 +1471,141 @@ def test_map_config_generic_with_item_namer():
 
 
 # endregion
+
+
+def test_map_handler_defaults_summary_generator_for_user_config():
+    """A user config without a summary generator gets the default (JS parity).
+
+    Without the default, a large result checkpoints an empty summary and
+    replay cannot reconstruct the exact live result.
+    """
+
+    class MockExecutionState:
+        def register_branch_pool(self, pool):
+            pass
+
+        durable_execution_arn = "arn:aws:durable:us-east-1:123456789012:execution/test"
+
+        def get_checkpoint_result(self, operation_id):
+            mock_result = Mock()
+            mock_result.is_succeeded.return_value = False
+            mock_result.is_failed.return_value = False
+            mock_result.is_existent.return_value = False
+            return mock_result
+
+    captured_configs: list[MapConfig] = []
+    original_from_items = MapExecutor.from_items.__func__
+
+    def capturing_from_items(cls, items, func, config, operation_id_namespace):
+        captured_configs.append(config)
+        return original_from_items(cls, items, func, config, operation_id_namespace)
+
+    operation_identifier = OperationIdentifier(
+        "test_op", OperationSubType.MAP, "parent", "test_map"
+    )
+    with patch.object(MapExecutor, "from_items", classmethod(capturing_from_items)):
+        result = map_handler(
+            [],
+            lambda ctx, item, idx, items: item,
+            MapConfig(max_concurrency=5),
+            MockExecutionState(),
+            Mock(),
+            operation_identifier,
+            operation_id_namespace=_StubNamespace(),
+        )
+
+    assert len(captured_configs) == 1
+    assert captured_configs[0].summary_generator is None
+    assert captured_configs[0].max_concurrency == 5
+    assert result.total_count == 0
+
+
+# region Custom completion predicate (should_complete) tests
+
+
+def test_map_handler_with_should_complete_predicate():
+    """Test map_handler passes should_complete through to executor."""
+    items: list[str] = ["a", "b", "c", "d", "e"]
+
+    def callable_func(ctx, item, idx, items):
+        return f"result_{item}"
+
+    def predicate(s: CompletionStatus) -> CompletionDecision:
+        return complete_batch() if s.success_count >= 2 else continue_batch()
+
+    config: MapConfig = MapConfig(
+        max_concurrency=1,
+        completion_config=CompletionConfig(should_complete=predicate),
+    )
+
+    mock_batch_result: BatchResult = BatchResult(
+        all=[
+            BatchItem(index=0, status=BatchItemStatus.SUCCEEDED, result="result_a"),
+            BatchItem(index=1, status=BatchItemStatus.SUCCEEDED, result="result_b"),
+            BatchItem(index=2, status=BatchItemStatus.STARTED),
+            BatchItem(index=3, status=BatchItemStatus.STARTED),
+            BatchItem(index=4, status=BatchItemStatus.STARTED),
+        ],
+        completion_reason=CompletionReason.CUSTOM_COMPLETION_SUCCEEDED,
+    )
+
+    executor_context = Mock()
+
+    with patch.object(
+        MapExecutor, "execute", return_value=mock_batch_result
+    ) as mock_execute:
+
+        class MockExecutionState:
+            def register_branch_pool(self, pool):
+                pass
+
+            def get_checkpoint_result(self, operation_id):
+                mock_result = Mock()
+                mock_result.is_succeeded.return_value = False
+                return mock_result
+
+        execution_state = MockExecutionState()
+        operation_identifier: OperationIdentifier = OperationIdentifier(
+            "test_op", OperationSubType.MAP, "parent", "test_map"
+        )
+
+        result: BatchResult = map_handler(
+            items,
+            callable_func,
+            config,
+            execution_state,
+            executor_context,
+            operation_identifier,
+            operation_id_namespace=_StubNamespace(),
+        )
+
+        mock_execute.assert_called_once()
+        assert result.completion_reason is CompletionReason.CUSTOM_COMPLETION_SUCCEEDED
+        assert result.success_count == 2
+
+
+def test_map_executor_from_items_preserves_should_complete():
+    """Test MapExecutor.from_items passes should_complete to the policy."""
+    items: list[str] = ["a", "b", "c"]
+
+    def predicate(s: CompletionStatus) -> CompletionDecision:
+        return complete_batch() if s.success_count >= 1 else continue_batch()
+
+    def callable_func(ctx, item, idx, items):
+        return item.upper()
+
+    config: MapConfig = MapConfig(
+        completion_config=CompletionConfig(should_complete=predicate),
+    )
+
+    executor: MapExecutor = MapExecutor.from_items(
+        items,
+        callable_func,
+        config,
+        operation_id_namespace=_StubNamespace(),
+    )
+
+    assert executor.policy.should_complete is predicate
+
+
+# endregion Custom completion predicate (should_complete) tests

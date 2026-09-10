@@ -79,7 +79,7 @@ class ConfigurationFormResponse(_message.Message):
     table_selection_supported: bool
     fields: _containers.RepeatedCompositeFieldContainer[FormField]
     tests: _containers.RepeatedCompositeFieldContainer[ConfigurationTest]
-    def __init__(self, schema_selection_supported: _Optional[bool] = ..., table_selection_supported: _Optional[bool] = ..., fields: _Optional[_Iterable[_Union[FormField, _Mapping]]] = ..., tests: _Optional[_Iterable[_Union[ConfigurationTest, _Mapping]]] = ...) -> None: ...
+    def __init__(self, schema_selection_supported: bool = ..., table_selection_supported: bool = ..., fields: _Optional[_Iterable[_Union[FormField, _Mapping]]] = ..., tests: _Optional[_Iterable[_Union[ConfigurationTest, _Mapping]]] = ...) -> None: ...
 
 class FormField(_message.Message):
     __slots__ = ("name", "label", "required", "description", "text_field", "dropdown_field", "toggle_field", "conditional_fields", "upload_field", "descriptive_dropdown_fields", "default_value", "placeholder")
@@ -107,7 +107,7 @@ class FormField(_message.Message):
     descriptive_dropdown_fields: DescriptiveDropDownFields
     default_value: str
     placeholder: str
-    def __init__(self, name: _Optional[str] = ..., label: _Optional[str] = ..., required: _Optional[bool] = ..., description: _Optional[str] = ..., text_field: _Optional[_Union[TextField, str]] = ..., dropdown_field: _Optional[_Union[DropdownField, _Mapping]] = ..., toggle_field: _Optional[_Union[ToggleField, _Mapping]] = ..., conditional_fields: _Optional[_Union[ConditionalFields, _Mapping]] = ..., upload_field: _Optional[_Union[UploadField, _Mapping]] = ..., descriptive_dropdown_fields: _Optional[_Union[DescriptiveDropDownFields, _Mapping]] = ..., default_value: _Optional[str] = ..., placeholder: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., label: _Optional[str] = ..., required: bool = ..., description: _Optional[str] = ..., text_field: _Optional[_Union[TextField, str]] = ..., dropdown_field: _Optional[_Union[DropdownField, _Mapping]] = ..., toggle_field: _Optional[_Union[ToggleField, _Mapping]] = ..., conditional_fields: _Optional[_Union[ConditionalFields, _Mapping]] = ..., upload_field: _Optional[_Union[UploadField, _Mapping]] = ..., descriptive_dropdown_fields: _Optional[_Union[DescriptiveDropDownFields, _Mapping]] = ..., default_value: _Optional[str] = ..., placeholder: _Optional[str] = ...) -> None: ...
 
 class DescriptiveDropDownFields(_message.Message):
     __slots__ = ("descriptive_dropdown_field",)
@@ -151,7 +151,7 @@ class VisibilityCondition(_message.Message):
     bool_value: bool
     string_value: str
     empty_value: bool
-    def __init__(self, condition_field: _Optional[str] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., empty_value: _Optional[bool] = ...) -> None: ...
+    def __init__(self, condition_field: _Optional[str] = ..., bool_value: bool = ..., string_value: _Optional[str] = ..., empty_value: bool = ...) -> None: ...
 
 class DropdownField(_message.Message):
     __slots__ = ("dropdown_field",)
@@ -192,7 +192,7 @@ class TestResponse(_message.Message):
     FAILURE_FIELD_NUMBER: _ClassVar[int]
     success: bool
     failure: str
-    def __init__(self, success: _Optional[bool] = ..., failure: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., failure: _Optional[str] = ...) -> None: ...
 
 class SchemaList(_message.Message):
     __slots__ = ("schemas",)
@@ -264,7 +264,7 @@ class ValueType(_message.Message):
     json: str
     xml: str
     naive_time: _timestamp_pb2.Timestamp
-    def __init__(self, null: _Optional[bool] = ..., bool: _Optional[bool] = ..., short: _Optional[int] = ..., int: _Optional[int] = ..., long: _Optional[int] = ..., float: _Optional[float] = ..., double: _Optional[float] = ..., naive_date: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., naive_datetime: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., utc_datetime: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., decimal: _Optional[str] = ..., binary: _Optional[bytes] = ..., string: _Optional[str] = ..., json: _Optional[str] = ..., xml: _Optional[str] = ..., naive_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, null: bool = ..., bool: bool = ..., short: _Optional[int] = ..., int: _Optional[int] = ..., long: _Optional[int] = ..., float: _Optional[float] = ..., double: _Optional[float] = ..., naive_date: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., naive_datetime: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., utc_datetime: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., decimal: _Optional[str] = ..., binary: _Optional[bytes] = ..., string: _Optional[str] = ..., json: _Optional[str] = ..., xml: _Optional[str] = ..., naive_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Table(_message.Message):
     __slots__ = ("name", "columns")
@@ -284,7 +284,7 @@ class Column(_message.Message):
     type: DataType
     primary_key: bool
     params: DataTypeParams
-    def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[DataType, str]] = ..., primary_key: _Optional[bool] = ..., params: _Optional[_Union[DataTypeParams, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[DataType, str]] = ..., primary_key: bool = ..., params: _Optional[_Union[DataTypeParams, _Mapping]] = ...) -> None: ...
 
 class Warning(_message.Message):
     __slots__ = ("message",)

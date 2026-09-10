@@ -42,6 +42,239 @@ def get_rmsd_with_timeout(matcher, ref_pmg, structure, timeout=10):
             print(f"RMSD calculation timed out after {timeout} seconds")
             return None
 
+
+def _resolve_delta_angle(delta_angle, default=15.0):
+    """Return a scalar perturbation step from a scalar or nested delta_angle spec."""
+    if isinstance(delta_angle, (int, float, np.floating)):
+        return float(delta_angle)
+    if isinstance(delta_angle, (list, tuple, np.ndarray)):
+        flat = []
+        for item in delta_angle:
+            if item is None:
+                continue
+            if isinstance(item, (list, tuple, np.ndarray)):
+                flat.extend(float(x) for x in item if x is not None)
+            else:
+                flat.append(float(item))
+        return min(flat) if flat else default
+    return default
+
+
+def _wrap_dof(value, lb, ub):
+    """Wrap a DOF value into [lb, ub), handling periodic fractional coords."""
+    span = float(ub - lb)
+    if span <= 0:
+        return float(value)
+    v = float(value)
+    if abs(span - 1.0) < 1e-6:
+        v = (v - lb) % span
+        if v < 0:
+            v += span
+        return lb + v
+    while v < lb:
+        v += span
+    while v >= ub:
+        v -= span
+    return v
+
+
+def _qrs_dof_steps(bounds, cell_lengths, delta_length, delta_angle, skip_frac=True, both_signs=False):
+    """Deterministic single-DOF perturbations: (dof_idx, signed_delta).
+
+    Angle DOFs are listed first.  Fractional coords are omitted when
+    ``skip_frac`` is True.  By default only +eps is used (``both_signs=False``)
+    to cut the number of re-relaxations roughly in half.
+    """
+    angle_steps = []
+    frac_steps = []
+    coord_idx = 0
+    angle_step = _resolve_delta_angle(delta_angle)
+    signs = (1.0, -1.0) if both_signs else (1.0,)
+    for dof_idx, (lb, ub) in enumerate(bounds):
+        span = float(ub - lb)
+        if abs(span - 1.0) < 1e-6:
+            edge = float(cell_lengths[coord_idx]) if coord_idx < len(cell_lengths) else 1.0
+            coord_idx += 1
+            if skip_frac:
+                continue
+            eps = 0.5 * float(delta_length) / max(edge, 1e-6)
+            if eps <= 0:
+                continue
+            for s in signs:
+                frac_steps.append((dof_idx, s * eps))
+        else:
+            eps = 0.5 * angle_step
+            if eps <= 0:
+                continue
+            for s in signs:
+                angle_steps.append((dof_idx, s * eps))
+    return angle_steps + frac_steps
+
+
+def _perturbable_bounds(site, skip_torsions=True):
+    """Return Wyckoff bounds to perturb, optionally excluding fixed-conformer torsions."""
+    bounds = site.get_bounds()
+    if not skip_torsions:
+        return bounds
+    torsionlist = getattr(site.molecule, "torsionlist", None)
+    n_torsion = len(torsionlist) if torsionlist is not None else 0
+    if n_torsion <= 0 or n_torsion >= len(bounds):
+        return bounds
+    return bounds[:-n_torsion]
+
+
+def _light_charmm_relax(xtal, atom_info, workdir, job_tag, steps=1000):
+    """Cheap fixed-lattice re-relax used by sweep_qrs (far fewer CHARMM steps)."""
+    cwd = os.getcwd()
+    os.chdir(workdir)
+    try:
+        calc = CHARMM(xtal, job_tag, steps=[int(steps)], atom_info=atom_info)
+        calc.run()
+        if calc.error or calc.structure is None:
+            return None
+        eng = getattr(calc.structure, "energy", None)
+        if eng is None or not np.isfinite(eng):
+            return None
+        return {"xtal": calc.structure, "energy": float(eng)}
+    except Exception:
+        return None
+    finally:
+        os.chdir(cwd)
+
+
+def _is_zprime_ge2(xtal):
+    """True when any molecular component has Z' >= 2."""
+    try:
+        zp = xtal.get_zprime()
+        return bool(zp) and max(int(z) for z in zp) >= 2
+    except Exception:
+        return len(getattr(xtal, "mol_sites", []) or []) >= 2
+
+
+def sweep_qrs(
+    xtal,
+    comp,
+    c_info,
+    w_dir,
+    job_tag,
+    mlp,
+    skip_mlp,
+    optimizer,
+    delta_length=1.0,
+    delta_angle=5.0,
+    eng_tol=0.01,
+    opt_lat=False,
+    eng0=None,
+    skip_torsions=True,
+    skip_frac=True,
+    both_signs=False,
+    max_trials=None,
+    light_steps=5000,
+    max_sites=None,
+):
+    """
+    Deterministically perturb Wyckoff DOFs on a fixed lattice and re-relax.
+
+    Each DOF is shifted by half the QRS grid spacing.  Defaults are tuned for
+    speed while still detecting shallow minima:
+
+    - orientation (angle) DOFs only (``skip_frac=True``)
+    - +eps only (``both_signs=False``) — set True to also try -eps
+    - short CHARMM re-relax (``light_steps``) when ``skip_mlp`` is True
+
+    Torsion DOFs are skipped by default so fixed pregenerated conformers are
+    not perturbed.  ``max_trials`` caps re-relaxations per structure
+    (None = unlimited).  ``max_sites`` limits how many mol_sites are probed
+    (None = all); Z'>=2 callers typically pass 1.
+
+    Returns:
+        xtal0: best relaxed structure found
+        eng0: its total energy
+        stable: True if no lower-energy basin was found
+    """
+    N = sum(xtal.numMols)
+    comp = xtal.get_1D_comp()
+    smiles = [m.smile for m in xtal.molecules]
+    xtal0 = xtal
+    eng0 = float(xtal.energy if eng0 is None else eng0)
+    stable = True
+    cell_lengths = list(xtal0.lattice.get_para()[:3])
+    n_trials = 0
+
+    # Prefer the cheap CHARMM path for FF-only QRS; fall back to full optimizer.
+    use_light = bool(skip_mlp) and light_steps is not None and light_steps > 0
+
+    rep = representation.from_pyxtal(xtal0)
+    base_x = [list(row) for row in rep.x]
+    site_limit = len(xtal0.mol_sites)
+    if max_sites is not None:
+        site_limit = max(0, min(site_limit, int(max_sites)))
+
+    for site_idx, site in enumerate(xtal0.mol_sites[:site_limit]):
+        bounds = _perturbable_bounds(site, skip_torsions=skip_torsions)
+        steps = _qrs_dof_steps(
+            bounds,
+            cell_lengths,
+            delta_length,
+            delta_angle,
+            skip_frac=skip_frac,
+            both_signs=both_signs,
+        )
+        if site_idx + 1 >= len(base_x):
+            continue
+
+        for dof_idx, delta in steps:
+            if max_trials is not None and n_trials >= max_trials:
+                return xtal0, eng0, stable
+            if 1 + dof_idx >= len(base_x[site_idx + 1]):
+                continue
+            x_try = [list(row) for row in base_x]
+            lb, ub = bounds[dof_idx]
+            old_val = x_try[site_idx + 1][1 + dof_idx]
+            new_val = _wrap_dof(old_val + delta, lb, ub)
+            if abs(new_val - old_val) < 1e-12:
+                continue
+            x_try[site_idx + 1][1 + dof_idx] = new_val
+            try:
+                xtal1 = representation(x_try, smiles).to_pyxtal(composition=comp)
+            except Exception:
+                continue
+            if xtal1 is None or len(xtal1.check_short_distances(exclude_H=True)) > 0:
+                continue
+
+            if use_light:
+                res = _light_charmm_relax(
+                    xtal1, c_info, w_dir, job_tag, steps=light_steps,
+                )
+            else:
+                res = optimizer(
+                    xtal1,
+                    c_info,
+                    w_dir,
+                    job_tag,
+                    opt_lat,
+                    mlp=mlp,
+                    skip_mlp=skip_mlp,
+                )
+            n_trials += 1
+            if res is None:
+                continue
+            xtal2, eng = res["xtal"], res["energy"]
+            if eng < eng0 - eng_tol:
+                rep2 = xtal2.get_1D_representation()
+                print(
+                    rep2.to_string(None, eng / N) + f" <- {eng0 / N:.3f} "
+                    f"(site{site_idx} dof{dof_idx} {delta:+.3g})",
+                    flush=True,
+                )
+                xtal0, eng0 = xtal2, eng
+                stable = False
+                rep = representation.from_pyxtal(xtal0)
+                base_x = [list(row) for row in rep.x]
+
+    return xtal0, eng0, stable
+
+
 def sweep(xtal, comp, c_info, w_dir, job_tag, mlp, skip_mlp, optimizer, eps=[0.05, -0.02]):
     """
     Check the stability of input xtal based on 5% tension
@@ -320,6 +553,7 @@ def optimizer(
     skip_mlp = False,
     output_mlp = True,
     pre_opt = False,
+    xyz_only = False,
 ):
     """
     Structural relaxation for each individual pyxtal structure.
@@ -343,6 +577,33 @@ def optimizer(
     # Perform pre-relaxation
     if pre_opt:
         struc.optimize_lattice_and_rotation()
+
+    if xyz_only:
+        cwd = os.getcwd()
+        t0 = time()
+        os.makedirs(workdir, exist_ok=True)
+        os.chdir(workdir)
+        try:
+            s = ASE_relax(
+                struc,
+                mlp,
+                opt_lat=opt_lat,
+                step=200 if opt_lat else 50,
+                fmax=0.1,
+                logfile="ase.log",
+            )
+            if s is None:
+                return None
+            eng = s.get_potential_energy()
+            stress = max(abs(s.get_stress())) / units.GPa
+            if stress > 30.0:
+                return None
+
+            xtal = pyxtal(molecular=True)
+            xtal.from_seed(ase2pymatgen(s), molecules=struc.molecules)
+            return {"xtal": xtal, "energy": eng, "time": time() - t0}
+        finally:
+            os.chdir(cwd)
 
     if calculators is None:
         calculators = ["CHARMM"]
@@ -392,19 +653,19 @@ def optimizer(
                             os.chdir(cwd)
                             return None
 
-                # Check if there exists a 2nd FF model for better energy ranking
-                if os.path.exists("pyxtal1.prm"):
-                    calc = CHARMM(
-                        calc.structure,
-                        tag,
-                        prefix="pyxtal1",
-                        steps=[2000],
-                        atom_info=atom_info,
-                    )
-                    calc.run()
-                    if calc.error:
-                        os.chdir(cwd)
-                        return None
+            # Check if there exists a 2nd FF model for better energy ranking
+            if os.path.exists("pyxtal1.prm"):
+                calc = CHARMM(
+                    calc.structure,
+                    tag,
+                    prefix="pyxtal1",
+                    steps=[2000],
+                    atom_info=atom_info,
+                )
+                calc.run()
+                if calc.error:
+                    os.chdir(cwd)
+                    return None
 
         if calc.error:
             os.chdir(cwd)
@@ -421,25 +682,24 @@ def optimizer(
             struc.energy < 9999
             and struc.lattice.is_valid_matrix()
             # and struc.check_distance()
-            and 0.25 < struc.get_density() < 3.0
+            and 1.25 < struc.get_density() < 3.0
         ):
             s = struc.to_ase()
-            step = 50 if mlp in ['MACE', 'ANI'] else 10
-            s = ASE_relax(s, mlp, step=step, fmax=0.1, logfile="ase.log")
+            step = 50 if mlp in ['MACE', 'ANI'] else 25
+            s = ASE_relax(s, mlp, opt_lat=opt_lat, step=step, fmax=0.1, logfile="ase.log")
             if s is None: return None
             eng = s.get_potential_energy()
             stress = max(abs(s.get_stress())) / units.GPa
 
             t = time() - t0
             if t > max_time:
-                try:
-                    print("!!!Long time in ani calculation", t)
-                    print(struc.get_1D_representation().to_string())
-                    struc.optimize_lattice()
-                except:
-                    print("Trouble in optLat")
-                    return None
-            elif stress < stress_tol:
+                # The relaxation has already completed successfully.  Do not
+                # discard it merely because it exceeded this advisory target;
+                # the worker-level SIGALRM enforces the actual timeout.
+                print(f"MLP relaxation exceeded advisory time: {t:.1f} s "
+                      f"(target {max_time:.1f} s)")
+
+            if stress < stress_tol:
                 results = {}
                 if output_mlp:
                     xtal = pyxtal(molecular=True)
@@ -472,6 +732,7 @@ def optimizer_par(
     ids,
     mutates,
     job_tags,
+    labels,
     randomizer,
     optimizer,
     smiles,
@@ -487,6 +748,7 @@ def optimizer_par(
     sites,
     ref_pmg,
     matcher,
+    max_rmsd,
     ref_pxrd,
     use_hall,
     mlp,
@@ -494,6 +756,10 @@ def optimizer_par(
     output_mlp,
     check_stable,
     pre_opt,
+    opt_lat=None,
+    delta_length=1.0,
+    delta_angle=15.0,
+    xyz_only=False,
 ):
     """
     A routine used for parallel structure optimization
@@ -528,6 +794,7 @@ def optimizer_par(
             sites,
             ref_pmg,
             matcher,
+            max_rmsd,
             ref_pxrd,
             use_hall,
             mlp,
@@ -535,6 +802,11 @@ def optimizer_par(
             output_mlp,
             check_stable,
             pre_opt,
+            opt_lat=opt_lat,
+            delta_length=delta_length,
+            delta_angle=delta_angle,
+            xyz_only=xyz_only,
+            label=labels[i] if labels is not None else None,
         )
         results.append((id, xtal, match, stable))
     return results
@@ -560,6 +832,7 @@ def optimizer_single(
     sites,
     ref_pmg,
     matcher,
+    max_rmsd,
     ref_pxrd,
     use_hall,
     mlp,
@@ -567,6 +840,11 @@ def optimizer_single(
     output_mlp,
     check_stable,
     pre_opt,
+    opt_lat=None,
+    delta_length=1.0,
+    delta_angle=15.0,
+    xyz_only=False,
+    label=None,
 ):
     """
     A routine used for individual structure optimization
@@ -579,7 +857,9 @@ def optimizer_single(
     """
 
     # 1. Obtain the structure model
-    opt_lat = lattice is None
+    # Preserve the historical automatic behavior when no explicit choice is
+    # supplied, while allowing callers to relax a provided starting lattice.
+    opt_lat = lattice is None if opt_lat is None else bool(opt_lat)
     if xtal is None:
         xtal = randomizer(
             smiles,
@@ -603,7 +883,7 @@ def optimizer_single(
             xtal = mutator(xtal, smiles, opt_lat, None)
             tag = "Mutation "
         else:
-            tag = "Kept "
+            tag = label if label is not None else "Kept "
 
     # 2. Optimization
     if xtal is None:
@@ -611,24 +891,69 @@ def optimizer_single(
     else:
         res = optimizer(xtal, atom_info, workdir, job_tag, opt_lat,
                         mlp=mlp, skip_mlp=skip_mlp, output_mlp=output_mlp,
-                        pre_opt=pre_opt)
+                        pre_opt=pre_opt, xyz_only=xyz_only)
 
     match = False # used for matching with reference
     stable = True # used for tagging if the structure is stable
     if res is not None:
         xtal, eng = res["xtal"], res["energy"]
         N = sum(xtal.numMols)
+        if not np.isfinite(eng) or eng >= 9999.:
+            return None, match, stable
         if check_stable and eng < 9999.:
-            res = sweep(xtal, comp, atom_info, workdir, job_tag,
-                        mlp, skip_mlp, optimizer)
+            if opt_lat:
+                res = sweep(
+                    xtal, comp, atom_info, workdir, job_tag,
+                    mlp, skip_mlp, optimizer,
+                )
+            else:
+                # Z'>=2: site 0 Euler angles only (±eps → 6 light CHARMM runs).
+                # Full per-site ±eps on all sites scales as ~6*Z'.
+                if _is_zprime_ge2(xtal):
+                    res = sweep_qrs(
+                        xtal,
+                        comp,
+                        atom_info,
+                        workdir,
+                        job_tag,
+                        mlp,
+                        skip_mlp,
+                        optimizer,
+                        delta_length=delta_length,
+                        delta_angle=delta_angle,
+                        opt_lat=opt_lat,
+                        eng0=eng,
+                        both_signs=True,
+                        max_sites=1,
+                        max_trials=6,
+                        light_steps=5000,
+                    )
+                else:
+                    res = sweep_qrs(
+                        xtal,
+                        comp,
+                        atom_info,
+                        workdir,
+                        job_tag,
+                        mlp,
+                        skip_mlp,
+                        optimizer,
+                        delta_length=delta_length,
+                        delta_angle=delta_angle,
+                        opt_lat=opt_lat,
+                        eng0=eng,
+                    )
             if res is not None:
                 xtal, eng, stable = res
                 if stable:
                     tag += 'Stable'
                 else:
                     tag += 'Shallow'
-        rep = xtal.get_1D_representation()
-        strs = rep.to_string(None, eng / N, tag)
+        try:
+            rep = xtal.get_1D_representation()
+            strs = rep.to_string(None, eng / N, tag)
+        except Exception:
+            strs = f"{tag:8s} E={eng / N:12.3f}"
 
         # 3. Check match w.r.t the reference
         if ref_pmg is not None:
@@ -639,11 +964,11 @@ def optimizer_single(
                 rmsd = get_rmsd_with_timeout(matcher, ref_pmg, pmg_s1)
             except:
                 rmsd = None
-            if rmsd is not None:
+            if rmsd is not None and rmsd[1] < max_rmsd:
                 # Further refine the structure
                 match = True
                 str1 = f"Match {rmsd[0]:6.2f} {rmsd[1]:6.2f} {eng / N:12.3f} "
-                if not skip_mlp:
+                if not skip_mlp and not xyz_only:
                     xtal, eng1 = refine_struc(xtal, smiles, ASE_relax, mlp)
                     str1 += f"Full Relax -> {eng1 / N:12.3f}"
                     eng = eng1
@@ -657,7 +982,7 @@ def optimizer_single(
             strs += f" {match:.3f}"
 
         xtal.energy = eng
-        print(f"{id:3d} " + strs)#; import sys; sys.exit()
+        print(f"{id:3d} " + strs)
         return xtal, match, stable
     else:
         return None, match, stable
@@ -672,9 +997,9 @@ def refine_struc(xtal, smiles, calculator, mlp):
         calculator: ANI_relax or MACE_relax
     """
     s = xtal.to_ase()
-    s = calculator(s, mlp, step=50, fmax=0.1, logfile="ase.log")
-    s = calculator(s, mlp, step=250, opt_cell=True, logfile="ase.log")
-    s = calculator(s, mlp, step=50, fmax=0.1, logfile="ase.log")
+    s = calculator(s, mlp, opt_lat=False, step=50, fmax=0.1, logfile="ase.log")
+    s = calculator(s, mlp, opt_lat=True, step=250, logfile="ase.log")
+    s = calculator(s, mlp, opt_lat=False, step=50, fmax=0.1, logfile="ase.log")
     eng1 = s.get_potential_energy()  # /sum(xtal.numMols)
 
     xtal = pyxtal(molecular=True)

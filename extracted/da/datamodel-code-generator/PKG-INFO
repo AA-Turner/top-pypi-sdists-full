@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: datamodel-code-generator
-Version: 0.77.0
+Version: 0.78.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/datamodel-code-generator/datamodel-code-generator
 Project-URL: Source, https://github.com/datamodel-code-generator/datamodel-code-generator
@@ -29,14 +29,18 @@ Requires-Dist: pydantic<3,>=2; python_version < '3.14'
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: tomli<3,>=2.2.1; python_version < '3.11'
 Provides-Extra: all
+Requires-Dist: black>=19.10b0; (sys_platform != 'emscripten') and extra == 'all'
 Requires-Dist: graphql-core>=3.2.3; extra == 'all'
 Requires-Dist: grpcio-tools<2,>=1.62; extra == 'all'
 Requires-Dist: httpx>=0.24.1; extra == 'all'
+Requires-Dist: isort<9,>=4.3.21; (sys_platform != 'emscripten') and extra == 'all'
 Requires-Dist: openapi-spec-validator<0.8,>=0.2.8; extra == 'all'
 Requires-Dist: prance>=0.18.2; extra == 'all'
 Requires-Dist: pysnooper<2,>=0.4.1; extra == 'all'
 Requires-Dist: ruff>=0.9.10; extra == 'all'
 Requires-Dist: watchfiles>=1.1; extra == 'all'
+Provides-Extra: black
+Requires-Dist: black>=19.10b0; (sys_platform != 'emscripten') and extra == 'black'
 Provides-Extra: debug
 Requires-Dist: pysnooper<2,>=0.4.1; extra == 'debug'
 Provides-Extra: graphql
@@ -45,6 +49,8 @@ Provides-Extra: http
 Requires-Dist: httpx>=0.24.1; extra == 'http'
 Provides-Extra: httpx2
 Requires-Dist: httpx2<3,>=2; extra == 'httpx2'
+Provides-Extra: isort
+Requires-Dist: isort<9,>=4.3.21; (sys_platform != 'emscripten') and extra == 'isort'
 Provides-Extra: protobuf
 Requires-Dist: grpcio-tools<2,>=1.62; extra == 'protobuf'
 Provides-Extra: ruff
@@ -187,11 +193,11 @@ datamodel-codegen \
   --input schema.json \
   --input-file-type jsonschema \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20260826 \
+  --preset standard-py312-20260909 \
   --output model.py
 ```
 
-This quick start uses `standard-py312-20260826` as the modern Python 3.12 baseline.
+This quick start uses `standard-py312-20260909` as the modern Python 3.12 baseline.
 Preset names include the target Python version: `py312` means Python 3.12.
 
 See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/) for all options. See [Presets](https://datamodel-code-generator.koxudaxi.dev/presets/),
@@ -199,7 +205,7 @@ See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/
 [`--output-model-type`](https://datamodel-code-generator.koxudaxi.dev/cli-reference/model-customization/#output-model-type) for this command.
 
 For more schema-aware output that preserves schema-authored names, reuses models, and embeds generated
-documentation, use [`practical-py312-20260826`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20260826).
+documentation, use [`practical-py312-20260909`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20260909).
 
 <details>
 <summary>Input (<code>schema.json</code>)</summary>
@@ -266,14 +272,24 @@ class Pet(BaseModel):
     vaccinated: bool = False
 ```
 
-### ⚡ Speed up generation
+### Choose a formatter
 
-By default, generated Python is currently formatted with `black` and `isort`. For faster generation without external
-formatter dependencies, add `--formatters builtin` for standard generated model modules. In a future version, the
-Black/isort dependencies will become opt-in and the default formatter will change to `builtin`.
+Choose a formatter to match your project and generation priorities:
 
-If you prefer Ruff, install it with `pip install 'datamodel-code-generator[ruff]'` and use
-`--formatters ruff-check ruff-format` for a fast external formatter.
+- **Projects using Ruff:** use `--formatters ruff-check ruff-format` to keep generated code consistent with the
+  project's formatting and lint policy. Install it with `pip install 'datamodel-code-generator[ruff]'`.
+- **No Ruff, Black, or isort, or generation speed is the priority:** use `--formatters builtin` to avoid running
+  external formatters on standard generated model modules.
+- **Projects using Black/isort:** keep `--formatters black isort` to preserve the project's formatting and existing
+  generated output.
+
+The current default remains Black/isort, which are still required dependencies. Omitting formatter options continues
+normal generation. The future builtin default is intended to reduce required installation dependencies and version
+constraints; Ruff will still be recommended for projects that use Ruff. Formatters are never selected automatically
+based on installed packages or Ruff configuration. The new `[black]` and `[isort]` extras prepare for later
+optional installation; their ranges and environment markers match the current required dependencies.
+Selecting only a formatter preserves your other generation settings; a preset also supplies model-generation options.
+Explicit formatter selection does not pin formatter versions or guarantee byte-for-byte output stability.
 
 Custom templates can emit Python outside the standard generated model patterns covered by `builtin`, so
 custom-template output is not exhaustively validated. If `--formatters builtin` produces invalid or poorly formatted

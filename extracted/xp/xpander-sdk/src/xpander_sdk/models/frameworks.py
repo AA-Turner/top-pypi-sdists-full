@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel
 
 
@@ -14,8 +14,9 @@ class Framework(str, Enum):
         OpenAIAgents (str): OpenAI Agents framework identifier.
         Strands (str): Strands Agents framework identifier.
         OpenClaw (str): OpenClaw framework identifier.
-        ClaudeCode (str): Claude Code CLI harness identifier.
-        Codex (str): Codex CLI harness identifier.
+        ExternalHarness (str): the always-on container running every installed CLI.
+        ClaudeCode / Codex (str): legacy single-CLI values, read as ExternalHarness
+            with that CLI as the default.
     """
 
     Agno = "agno"
@@ -24,19 +25,117 @@ class Framework(str, Enum):
     OpenAIAgents = "open-ai-agents"
     Strands = "strands-agents"
     OpenClaw = "open-claw"
+    ExternalHarness = "external-harness"
     ClaudeCode = "claude-code"
     Codex = "codex"
 
 
-HARNESS_FRAMEWORKS = frozenset({Framework.ClaudeCode, Framework.Codex})
+class HarnessCli(str, Enum):
+    """A CLI the harness container can run.
+
+    Chosen per conversation through ``Task.harness_cli``, never per agent.
+    """
+
+    ClaudeCode = "claude-code"
+    Codex = "codex"
 
 
-def is_harness_framework(value: "Framework | str | None") -> bool:
-    """True for the CLI harness frameworks; accepts enum, str or None."""
+HARNESS_CLIS = frozenset(HarnessCli)
+DEFAULT_HARNESS_CLI = HarnessCli.ClaudeCode
+
+# the vendor values stay readable until the platform's row migration rewrites every agent
+HARNESS_FRAMEWORKS = frozenset(
+    {Framework.ExternalHarness, Framework.ClaudeCode, Framework.Codex}
+)
+LEGACY_HARNESS_FRAMEWORKS = frozenset({Framework.ClaudeCode, Framework.Codex})
+
+
+def _wire(value: Union[Enum, str, None]) -> Optional[str]:
+    """Lower-cased, stripped wire value of an enum member or string.
+
+    Args:
+        value: An enum member, a plain string, or None.
+
+    Returns:
+        The normalized wire value, or None for None / blank input.
+    """
     if value is None:
-        return False
-    raw = value.value if isinstance(value, Framework) else str(value)
-    return raw.strip().lower() in {f.value for f in HARNESS_FRAMEWORKS}
+        return None
+    raw = value.value if isinstance(value, Enum) else str(value)
+    raw = raw.strip().lower()
+    return raw or None
+
+
+def is_harness_framework(value: Union[Framework, str, None]) -> bool:
+    """True for the CLI harness frameworks; accepts enum, str or None.
+
+    Args:
+        value: A framework enum member, its wire value, or None.
+
+    Returns:
+        True for ``external-harness`` and the legacy ``claude-code`` / ``codex``
+        values, False for every other framework and for None.
+    """
+    return _wire(value) in {f.value for f in HARNESS_FRAMEWORKS}
+
+
+def is_legacy_harness_framework(value: Union[Framework, str, None]) -> bool:
+    """True for a pre-migration single-CLI harness value.
+
+    Args:
+        value: A framework enum member, its wire value, or None.
+
+    Returns:
+        True only for ``claude-code`` / ``codex``; ``external-harness`` and every
+        non-harness framework answer False.
+    """
+    return _wire(value) in {f.value for f in LEGACY_HARNESS_FRAMEWORKS}
+
+
+def normalize_harness_cli(
+    value: Union[HarnessCli, Framework, str, None],
+) -> Optional[str]:
+    """Wire value of a harness CLI when the input names one.
+
+    Args:
+        value: A ``HarnessCli`` member, a legacy framework value that names a CLI,
+            a plain string, or None.
+
+    Returns:
+        ``"claude-code"`` or ``"codex"``; None for ``external-harness``, any other
+        framework, unsupported strings, blank input and None.
+    """
+    raw = _wire(value)
+    return raw if raw in {c.value for c in HARNESS_CLIS} else None
+
+
+def normalize_permission_mode(value: Union[Enum, str, None]) -> Optional[str]:
+    """Lower-case and strip a harness permission mode; blank becomes None, unknown values pass for the platform to judge."""
+    if value is None:
+        return None
+    normalized = str(getattr(value, "value", value)).strip().lower()
+    return normalized or None
+
+
+def harness_default_cli(
+    framework: Union[Framework, str, None],
+    default_cli: Union[HarnessCli, str, None] = None,
+) -> HarnessCli:
+    """The CLI a harness runs when a task names none.
+
+    Args:
+        framework: The agent's framework value (any spelling, or None).
+        default_cli: The agent's configured ``harness_settings.default_cli``.
+
+    Returns:
+        The configured default when it names a CLI, else the CLI a legacy framework
+        value names, else ``HarnessCli.ClaudeCode``. Never raises.
+    """
+    return HarnessCli(
+        normalize_harness_cli(default_cli)
+        or normalize_harness_cli(framework)
+        or DEFAULT_HARNESS_CLI.value
+    )
 
 
 class AgnoSettings(BaseModel):

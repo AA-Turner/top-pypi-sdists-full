@@ -114547,6 +114547,9 @@ class UILayout(bpy_struct):
     operator_context: typing.Literal[bpy.stub_internal.rna_enums.OperatorContextItems]
     """ Typically set to 'INVOKE_REGION_WIN', except some cases in `bpy.types.Menu` when it's set to 'EXEC_REGION_WIN'. (default 'INVOKE_DEFAULT')"""
 
+    property_split_factor: float
+    """ Factor used by the layout system when property split is enabled (in [-inf, inf], default 0.4, readonly)"""
+
     scale_x: float
     """ Scale factor along the X for items in this (sub)layout (in [0, inf], default 0.0)"""
 

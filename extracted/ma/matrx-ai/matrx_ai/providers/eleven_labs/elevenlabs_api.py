@@ -20,6 +20,7 @@ from matrx_ai.providers.outbound_capture import (
     emit_explicit_context_analysis,
     stamp_call_meta,
 )
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 from .client import get_elevenlabs_client
 
@@ -354,7 +355,11 @@ class ElevenLabsChat:
                         kwargs["output_format"] = _ELEVENLABS_MP3_OUTPUT_FORMAT
                     if locators:
                         kwargs["pronunciation_dictionary_locators"] = locators
-                    yield from self.client.text_to_dialogue.stream(**kwargs)
+                    yield from self.client.text_to_dialogue.stream(
+                        **route_undeclared_params(
+                            self.client.text_to_dialogue.stream, kwargs, provider="elevenlabs"
+                        )
+                    )
                     return
                 # Plain text-to-speech: one call per turn, each with its own
                 # voice_id (a single-speaker request is exactly one turn).
@@ -368,7 +373,11 @@ class ElevenLabsChat:
                         turn_kwargs["output_format"] = _ELEVENLABS_MP3_OUTPUT_FORMAT
                     if locators:
                         turn_kwargs["pronunciation_dictionary_locators"] = locators
-                    yield from self.client.text_to_speech.stream(**turn_kwargs)
+                    yield from self.client.text_to_speech.stream(
+                        **route_undeclared_params(
+                            self.client.text_to_speech.stream, turn_kwargs, provider="elevenlabs"
+                        )
+                    )
 
             batch_bytes, seq = await self._collect_streaming_bytes(
                 lambda: _stream_batch(batch),

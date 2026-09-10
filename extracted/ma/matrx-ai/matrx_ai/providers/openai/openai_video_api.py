@@ -23,6 +23,7 @@ from matrx_ai.providers.base_media import (
 )
 from matrx_ai.providers.keys import keyed_provider_client
 from matrx_ai.providers.outbound_capture import make_capture_http_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 from .translator import OpenAITranslator
 
@@ -99,8 +100,12 @@ class OpenAIVideoGeneration(BaseMediaGeneration):
         # Default: create + poll. The SDK exposes either create_and_poll
         # or create (we have to poll manually) depending on version.
         if hasattr(self.client.videos, "create_and_poll"):
-            return await self.client.videos.create_and_poll(**kwargs)
-        return await self.client.videos.create(**kwargs)
+            return await self.client.videos.create_and_poll(
+                **route_undeclared_params(self.client.videos.create_and_poll, kwargs, provider="openai")
+            )
+        return await self.client.videos.create(
+            **route_undeclared_params(self.client.videos.create, kwargs, provider="openai")
+        )
 
     async def _poll_if_long_running(self, raw: Any) -> Any:
         """Poll if the SDK didn't already do it for us."""

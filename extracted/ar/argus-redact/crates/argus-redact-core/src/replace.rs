@@ -120,11 +120,16 @@ pub struct ReplaceResult {
     /// emits a `SecurityWarning` here; the binding/wrapper surfaces it).
     pub keep_downgraded: bool,
     /// Entity types for which a mask-family strategy (`mask` / `name_mask` /
-    /// `landline_mask` / `category`) produced a REAL collision — two different
-    /// originals wanting the same visible label — that `resolve_collision`
-    /// disambiguated with a trailing circled-digit (or numeric) suffix. One
-    /// entry per collided entity (not deduped), so `.len()` is the count the
-    /// Python wrapper warns/reports with.
+    /// `landline_mask` / `category`) had its visible label disambiguated with a
+    /// trailing circled-digit (or numeric) suffix. Two triggers now feed this:
+    /// (1) a REAL cross-entity collision — two different originals wanting the
+    /// same visible label; and (2) an in-document containment hit — the minted
+    /// label equals a value the source document already carries verbatim, so it
+    /// is bumped off that pre-existing occurrence (the in-document capture guard).
+    /// One entry is pushed per bump; the `①`-suffixed-doc loop can bump a single
+    /// entity more than once (a conservative OVER-count), so `.len()` — the count
+    /// the Python wrapper warns/reports with — may exceed the number of collided
+    /// entities. This fails safe: it over-warns, never under-warns.
     ///
     /// The collided entry STAYS in `key` (a direct in-process restore still
     /// works) — this field only SIGNALS that the disambiguator is fragile: an
@@ -353,24 +358,129 @@ impl<'f, F: PseudoFactory> ReplaceSession<'f, F> {
         &self.result_key
     }
 
-    /// Consume the session, returning the accumulated replacement → original key.
-    pub fn into_key(self) -> HashMap<String, String> {
-        self.result_key
-    }
-
     /// `resolve_collision` for a mask-family label, recording the collision (by
     /// entity type) when a real disambiguation happened. The mask / name_mask /
     /// landline_mask / category arms all need this exact pair.
+    ///
+    /// A saturation `Err` from `resolve_collision` is re-wrapped to name the
+    /// entity TYPE — never the label, which is the caller's own visible masked
+    /// value/name/category text and could otherwise leak through an HTTP 400
+    /// body. The bare `resolve_collision` call sites in `process` below (the
+    /// `remove`/default-redact fallbacks, which have no entity-type-scoped
+    /// tracked variant) still surface the type-less base message — acceptable,
+    /// since those paths don't have a stable "entity type" to attach either.
     fn resolve_collision_tracked(
         &mut self,
         label: &str,
         entity_type: &str,
     ) -> Result<String, String> {
-        let resolved = resolve_collision(label, &self.used_labels)?;
+        let resolved = resolve_collision(label, &self.used_labels)
+            .map_err(|e| format!("{e} for entity type {entity_type}"))?;
         if resolved != label {
             self.mask_collisions.push(entity_type.to_string());
         }
         Ok(resolved)
+    }
+
+    /// Resolve a mask / category / remove-replacement / default-redact candidate
+    /// against BOTH the reserved set AND the document text, so a minted visible
+    /// label can never equal a value the document already carries verbatim.
+    ///
+    /// `resolve_collision` alone is membership-only — it bumps a label off other
+    /// RESERVED labels but a raw `text.contains` does not self-bump, so a label
+    /// that happens to already appear in the document would pass through unchanged
+    /// and then collide on restore. This seeds the candidate (and each bumped
+    /// form the document ALSO contains — the `①`-suffixed doc case) into the
+    /// reserved set so `resolve_collision` disambiguates it, pushing every seeded
+    /// token to `cell_added` for the per-cell revert (byte-identical reserved set).
+    ///
+    /// `track` selects the `mask_collisions`-recording resolver (mask family /
+    /// category) vs the bare one (remove-replacement / default-redact, which have
+    /// never contributed to `mask_collisions`).
+    ///
+    /// When `capture_indoc` is false this degenerates to a single bare
+    /// `resolve_collision` / `resolve_collision_tracked` — the pre-capture body,
+    /// executed through the same statements (the differential oracle).
+    fn resolve_against_document(
+        &mut self,
+        cand: &str,
+        entity_type: &str,
+        text: &str,
+        cell_added: &mut Vec<String>,
+        capture_indoc: bool,
+        track: bool,
+    ) -> Result<String, String> {
+        // An empty candidate is the `remove` "delete" sentinel (`replacement: ""`)
+        // — it registers no key entry and reserves nothing, and `text.contains("")`
+        // is trivially true, so it must NEVER enter the seed/bump path (which would
+        // manufacture a spurious `①` label out of "nothing"). Guard on non-empty.
+        if capture_indoc
+            && !cand.is_empty()
+            && (self.used_labels.contains(cand) || text.contains(cand))
+        {
+            if self.used_labels.insert(cand.to_string()) {
+                cell_added.push(cand.to_string());
+            }
+        }
+        let mut resolved = self.resolve_maybe_tracked(cand, entity_type, track)?;
+        // Cover doc forms that already carry the `①`-suffixed (or `(21)`-suffixed)
+        // disambiguation: keep bumping while the resolved label ALSO appears in the
+        // document. Terminates — the text is finite and each pass consumes a fresh
+        // suffix. Skipped entirely when `capture_indoc` is false or the candidate
+        // is empty (`resolved` is then "" and `text.contains("")` would spin).
+        while capture_indoc && !cand.is_empty() && text.contains(&resolved) {
+            if self.used_labels.insert(resolved.clone()) {
+                cell_added.push(resolved.clone());
+            }
+            resolved = self.resolve_maybe_tracked(cand, entity_type, track)?;
+        }
+        Ok(resolved)
+    }
+
+    /// Resolve one candidate against the reserved set, dispatching on `track`:
+    /// the `mask_collisions`-recording resolver (mask family / category) when
+    /// `true`, else the bare `resolve_collision`. Extracted so
+    /// [`resolve_against_document`](Self::resolve_against_document) expresses the
+    /// dispatch once instead of at both the seed and bump sites.
+    fn resolve_maybe_tracked(
+        &mut self,
+        cand: &str,
+        entity_type: &str,
+        track: bool,
+    ) -> Result<String, String> {
+        if track {
+            self.resolve_collision_tracked(cand, entity_type)
+        } else {
+            resolve_collision(cand, &self.used_labels)
+        }
+    }
+
+    /// The set of code prefixes whose `<PREFIX>-<digits>` forms are scanned for
+    /// in the document: `{person_prefix, org_prefix} ∪ {unified_prefix if set} ∪
+    /// {every non-empty `TypeInfo.prefix`}`, excluding the empty prefix (a `""`
+    /// prefix would build a degenerate `-<digits>` matcher). Over-inclusion is
+    /// byte-safe — a prefix no generator ever mints simply finds nothing, or
+    /// seeds a token no generator ever draws. Returned as a de-duplicated `Vec`;
+    /// the ORDER is irrelevant (every match is unioned into the reserved set).
+    fn code_prefixes<'a>(&'a self, type_info: &'a HashMap<String, TypeInfo>) -> Vec<&'a str> {
+        let mut set: HashSet<&str> = HashSet::new();
+        if !self.person_prefix.is_empty() {
+            set.insert(self.person_prefix.as_str());
+        }
+        if !self.org_prefix.is_empty() {
+            set.insert(self.org_prefix.as_str());
+        }
+        if let Some(u) = self.unified_prefix.as_deref() {
+            if !u.is_empty() {
+                set.insert(u);
+            }
+        }
+        for info in type_info.values() {
+            if !info.prefix.is_empty() {
+                set.insert(info.prefix.as_str());
+            }
+        }
+        set.into_iter().collect()
     }
 
     /// Redact one cell over the persistent session state, returning its redacted
@@ -383,6 +493,34 @@ impl<'f, F: PseudoFactory> ReplaceSession<'f, F> {
         type_info: &HashMap<String, TypeInfo>,
         keep_whitelist: &HashSet<String>,
         faker_factory: Option<&dyn FakerFactory>,
+    ) -> Result<String, String> {
+        self.process_with_capture(
+            text,
+            entities,
+            type_info,
+            keep_whitelist,
+            faker_factory,
+            true,
+        )
+    }
+
+    /// Body of [`process`], parameterized by whether in-document code/label
+    /// capture is active (`capture_indoc`). Production always calls it with
+    /// `true` (via [`process`]); the `#[cfg(test)]` differential oracle drives it
+    /// with `false` to reproduce the pre-capture behaviour through the SAME code
+    /// paths, so the fuzz proves the capture branches are inert on any input that
+    /// carries no in-document collision (see the tests module). When `false`, the
+    /// seed loop is skipped and [`resolve_against_document`](Self::resolve_against_document)
+    /// degenerates to the bare `resolve_collision` / `resolve_collision_tracked`
+    /// call it wraps — byte-for-byte the old body.
+    fn process_with_capture(
+        &mut self,
+        text: &str,
+        entities: &[PatternMatch],
+        type_info: &HashMap<String, TypeInfo>,
+        keep_whitelist: &HashSet<String>,
+        faker_factory: Option<&dyn FakerFactory>,
+        capture_indoc: bool,
     ) -> Result<String, String> {
         // No-entities early return (Python: `return text, key or {}, aliases`).
         if entities.is_empty() {
@@ -400,6 +538,29 @@ impl<'f, F: PseudoFactory> ReplaceSession<'f, F> {
         for e in entities {
             if self.used_labels.insert(e.text.clone()) {
                 cell_added.push(e.text.clone());
+            }
+        }
+
+        // Seed pre-existing `<PREFIX>-<digits>` codes already present in the
+        // document into the reserved set, so a minted pseudonym / remove code can
+        // never re-issue (nor restore-substring-collide with) a value the text
+        // already carries — e.g. a document that literally contains `P-83811`
+        // before 王芳 is minted. Membership-only: a seeded token changes a
+        // generator's draw ONLY if that generator would otherwise mint exactly it,
+        // so the output is byte-identical on every input WITHOUT such a collision.
+        // Reverted per-cell via `cell_added` below (kept iff it became a key
+        // original), keeping the per-cell reserved set byte-identical to the
+        // stateless single-call path.
+        // Every needle `scan_code_tokens` builds is `"{prefix}-"`, so a cell whose
+        // text carries no `-` can never yield a match — short-circuit on that cheap
+        // check to skip the prefix `HashSet` build and the O(P×N) scan entirely
+        // (provably byte-identical: the loop body would insert nothing).
+        if capture_indoc && text.contains('-') {
+            let prefixes = self.code_prefixes(type_info);
+            for cap in scan_code_tokens(text, &prefixes) {
+                if self.used_labels.insert(cap.clone()) {
+                    cell_added.push(cap);
+                }
             }
         }
 
@@ -592,16 +753,46 @@ impl<'f, F: PseudoFactory> ReplaceSession<'f, F> {
             } else if strategy == "mask" {
                 let (vp, vs) = info.map(|i| (i.visible_prefix, i.visible_suffix)).unwrap_or((0, 0));
                 let masked = mask_value(&entity.text, &entity.type_, vp, vs);
-                self.resolve_collision_tracked(&masked, &entity.type_)?
+                self.resolve_against_document(
+                    &masked,
+                    &entity.type_,
+                    text,
+                    &mut cell_added,
+                    capture_indoc,
+                    true,
+                )?
             } else if strategy == "name_mask" {
                 let masked = mask_name(&entity.text);
-                self.resolve_collision_tracked(&masked, &entity.type_)?
+                self.resolve_against_document(
+                    &masked,
+                    &entity.type_,
+                    text,
+                    &mut cell_added,
+                    capture_indoc,
+                    true,
+                )?
             } else if strategy == "landline_mask" {
                 let masked = mask_landline(&entity.text);
-                self.resolve_collision_tracked(&masked, &entity.type_)?
+                self.resolve_against_document(
+                    &masked,
+                    &entity.type_,
+                    text,
+                    &mut cell_added,
+                    capture_indoc,
+                    true,
+                )?
             } else if strategy == "remove" {
                 if let Some(repl) = info.and_then(|i| i.replacement.as_deref()) {
-                    resolve_collision(repl, &self.used_labels)?
+                    // Bare (untracked) resolver: the remove-strategy replacement
+                    // has never contributed to `mask_collisions`, so keep it out.
+                    self.resolve_against_document(
+                        repl,
+                        &entity.type_,
+                        text,
+                        &mut cell_added,
+                        capture_indoc,
+                        false,
+                    )?
                 } else {
                     let pg = get_type_gen(
                         &mut self.type_gens,
@@ -644,9 +835,25 @@ impl<'f, F: PseudoFactory> ReplaceSession<'f, F> {
                     .and_then(|i| i.label.clone())
                     .or_else(|| info.map(|i| i.default_category_label.clone()))
                     .unwrap_or_else(|| format!("[{}]", entity.type_));
-                self.resolve_collision_tracked(&label, &entity.type_)?
+                self.resolve_against_document(
+                    &label,
+                    &entity.type_,
+                    text,
+                    &mut cell_added,
+                    capture_indoc,
+                    true,
+                )?
             } else {
-                resolve_collision(DEFAULT_REDACT_LABEL, &self.used_labels)?
+                // Default `[REDACTED]` fallback: bare (untracked) resolver, as the
+                // pre-capture body used `resolve_collision` here directly.
+                self.resolve_against_document(
+                    DEFAULT_REDACT_LABEL,
+                    &entity.type_,
+                    text,
+                    &mut cell_added,
+                    capture_indoc,
+                    false,
+                )?
             };
 
             entity_replacements.insert(entity.text.clone(), replacement.clone());
@@ -842,9 +1049,135 @@ fn get_type_gen<'a, F: PseudoFactory>(
     })
 }
 
+/// Hand-scan `text` for pre-existing pseudonym / remove codes shaped
+/// `<PREFIX>-<digits>`, returning every `≥5`-ASCII-digit prefix of each run so a
+/// minted code can never re-issue — nor restore-substring-collide with — one
+/// already in the document.
+///
+/// Deliberately NOT a regex: `replace.rs` pulls in no regex crate, a per-cell
+/// compiled lookbehind would be an O(cell) hot-path regression, and a Unicode
+/// `\b`/`\d` pattern mis-handles CJK — CJK scalars count as `\w`, so `\bP-\d\b`
+/// would never fire in `老客户P-83811推荐`. Instead:
+///
+/// - the byte immediately before `<PREFIX>` must NOT be an ASCII alphanumeric
+///   (`[A-Za-z0-9]`) — start-of-text, CJK (a UTF-8 continuation byte), or ASCII
+///   punctuation / whitespace all qualify. This is the check that makes the
+///   CJK-adjacent case (`户P-83811`) fire where a word-boundary regex would not,
+///   and that a bracketed doc token `[X-NNNNN]` seeds the BARE `X-NNNNN` for
+///   (brackets are added AFTER reservation, so the bare code is the collision
+///   surface);
+/// - the run after the dash must be `≥5` ASCII digits `[0-9]` (minted codes are
+///   `{:05}`; saturation only ever WIDENS to 6+, never narrows);
+/// - no trailing boundary is required; every length-`5..=min(L, MAX_CODE_DIGITS)`
+///   prefix of an `L`-digit run is emitted so a shorter minted code cannot
+///   restore-substring-collide with a longer document code (`P-83811` ⊂
+///   `P-838110`). The cap is what keeps this linear: a minted code is
+///   `<PREFIX>-{:05}` of a `u32` counter (see `pseudonym.rs`), so it carries
+///   between 5 and 10 ASCII digits and NEVER more — a run prefix longer than 10
+///   digits can therefore never equal, nor be a collision surface for, any
+///   mintable code, and reserving it would never change a generator draw.
+///   Emitting the full `5..=L` set (the pre-cap behaviour) was O(L²) in time and
+///   memory for a single long digit run — a per-cell availability blow-up on a
+///   value that is byte-identical either way. Capping at `MAX_CODE_DIGITS` keeps
+///   the emitted set — and hence every downstream output — byte-identical on
+///   every input while making the scan linear in the cell length.
+///
+/// The seeded set is also read by `resolve_collision` (the visible mask / category
+/// / remove / faker labels), not only the pseudonym generator, and the cap stays
+/// byte-identical there too: a dropped `>10`-digit token ends in an ASCII digit,
+/// whereas every `resolve_collision` bump-form ends in a circled digit or `)` —
+/// so a dropped token can never be another candidate's disambiguation form — and
+/// if a candidate *equals* a dropped token it is by construction a substring of
+/// the cell, so `resolve_against_document`'s `text.contains(cand)` clause fires
+/// identically whether or not the token was reserved.
+fn scan_code_tokens(text: &str, prefixes: &[&str]) -> Vec<String> {
+    scan_code_tokens_capped(text, prefixes, MAX_CODE_DIGITS)
+}
+
+/// Widest digit run a minted `<PREFIX>-{:05}` code can carry: the code number is
+/// a `u32` (`pseudonym.rs`), so `u32::MAX` = 4_294_967_295 is 10 digits, and
+/// `{:05}` only ever pads UP to 5. No mintable code exceeds 10 digits.
+const MAX_CODE_DIGITS: usize = 10;
+
+/// `#[cfg(test)]` emit-work counter — incremented by each emitted prefix's digit
+/// length, so a test can pin that the capped scan copies O(cell) bytes while the
+/// uncapped `max_digits = usize::MAX` oracle copies O(run²). Compiled out of the
+/// release `_core` (counter and increment both behind `#[cfg(test)]`), so it
+/// never exists in shipped code and cannot perturb the byte-identical output.
+#[cfg(test)]
+thread_local! {
+    static SCAN_EMIT_BYTES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// Body of [`scan_code_tokens`], parameterized by the prefix-length cap so the
+/// `#[cfg(test)]` operation-count oracle can drive the pre-cap `usize::MAX`
+/// behaviour through the SAME code path (mirrors how [`process_with_capture`]
+/// parameterizes `capture_indoc`). Production always calls it with
+/// [`MAX_CODE_DIGITS`].
+fn scan_code_tokens_capped(text: &str, prefixes: &[&str], max_digits: usize) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut out: Vec<String> = Vec::new();
+    for &prefix in prefixes {
+        if prefix.is_empty() {
+            continue;
+        }
+        let needle = format!("{prefix}-");
+        let nbytes = needle.as_bytes();
+        let nlen = nbytes.len();
+        let mut i = 0usize;
+        while i + nlen <= bytes.len() {
+            if &bytes[i..i + nlen] != nbytes {
+                i += 1;
+                continue;
+            }
+            // Leading boundary: byte before the prefix must not be ASCII alnum.
+            let leading_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+            if !leading_ok {
+                i += 1;
+                continue;
+            }
+            // Count the ASCII-digit run after the dash.
+            let dstart = i + nlen;
+            let mut j = dstart;
+            while j < bytes.len() && bytes[j].is_ascii_digit() {
+                j += 1;
+            }
+            let run = j - dstart;
+            if run >= 5 {
+                // Emit every length-5..=min(run, max_digits) prefix. Prefixes past
+                // MAX_CODE_DIGITS can never equal a mintable code (the code number
+                // is a u32), so capping there is byte-identical while making a long
+                // digit run O(1) to emit instead of O(run²). The needle and digits
+                // are all ASCII, so `text[dstart..dstart + take]` is a valid char
+                // boundary.
+                for take in 5..=run.min(max_digits) {
+                    out.push(format!("{needle}{}", &text[dstart..dstart + take]));
+                    #[cfg(test)]
+                    SCAN_EMIT_BYTES.with(|c| c.set(c.get() + take as u64));
+                }
+            }
+            // Advance past the run (never re-scan its interior); always progress.
+            i = j.max(i + nlen);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // A tiny deterministic LCG so the fuzz tests are reproducible without a dep.
+    struct Lcg(u64);
+    impl Lcg {
+        fn next(&mut self, bound: usize) -> usize {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((self.0 >> 33) as usize) % bound.max(1)
+        }
+    }
 
     // A deterministic RandomSource that returns a fixed sequence (cycling).
     struct SeqRng {
@@ -1497,18 +1830,6 @@ mod tests {
         // normal pipeline merges away but the Presidio bring-your-own-detector
         // path can still feed in, which the end-to-end goldens cannot reach.
 
-        // A tiny deterministic LCG so the fuzz is reproducible without a dep.
-        struct Lcg(u64);
-        impl Lcg {
-            fn next(&mut self, bound: usize) -> usize {
-                self.0 = self
-                    .0
-                    .wrapping_mul(6364136223846793005)
-                    .wrapping_add(1442695040888963407);
-                ((self.0 >> 33) as usize) % bound.max(1)
-            }
-        }
-
         // Dedup EXACTLY as `process` does: stable descending sort by start, keep
         // the first-seen (start,end). Shared by the reference and the production
         // driver so the differential isolates the ASSEMBLY change (the dedup is
@@ -1602,5 +1923,505 @@ mod tests {
         // the fast forward pass (or the fallback) it claims to cover.
         assert!(fast_seen > 0, "fast forward path never exercised");
         assert!(slow_seen > 0, "splice fallback path never exercised");
+    }
+
+    #[test]
+    fn resolve_collision_tracked_saturated_error_names_type_not_label() {
+        // The label is the caller's own visible masked value/name/category text
+        // (here deliberately label-shaped so a leak would be obvious); a
+        // saturation error must never echo it back, since this error text can
+        // reach an HTTP 400 body.
+        let factory = SeqFactory;
+        let mut session: ReplaceSession<'_, SeqFactory> =
+            ReplaceSession::new(&factory, None, "P-", "O-", None, None);
+        let label = "138****5678";
+        session.used_labels.insert(label.to_string());
+        // Saturate every candidate resolve_collision could produce for this
+        // label by feeding its own output back in as "already used", until it
+        // starts erroring — without hardcoding the circled-digit/numeric-suffix
+        // internals of masks.rs.
+        loop {
+            match resolve_collision(label, &session.used_labels) {
+                Ok(candidate) => {
+                    session.used_labels.insert(candidate);
+                }
+                Err(_) => break,
+            }
+        }
+        let err = session
+            .resolve_collision_tracked(label, "phone")
+            .unwrap_err();
+        assert!(
+            err.contains("phone"),
+            "error should name the entity type: {err}"
+        );
+        assert!(
+            !err.contains(label),
+            "error must NOT leak the offending label: {err}"
+        );
+    }
+
+    // --- In-document code capture ---
+
+    // A factory whose stream draws 83811 first (→ P-83811), then 42. Independent
+    // of seed, so it forces the exact collision with a document that already
+    // carries `P-83811`.
+    struct DocCollisionFactory;
+    impl PseudoFactory for DocCollisionFactory {
+        type Source = SeqRng;
+        fn make(&self, _seed: Option<u64>) -> SeqRng {
+            SeqRng { values: vec![83811, 42], idx: 0 }
+        }
+    }
+
+    #[test]
+    fn scan_code_tokens_boundaries_and_cjk() {
+        // CJK-adjacent (户P-83811) fires — the case a Unicode `\b` regex misses.
+        assert_eq!(
+            scan_code_tokens("老客户P-83811推荐", &["P"]),
+            vec!["P-83811".to_string()]
+        );
+        // Start-of-text, space, and punctuation leading all qualify.
+        assert_eq!(scan_code_tokens("P-12345", &["P"]), vec!["P-12345".to_string()]);
+        assert_eq!(scan_code_tokens(" P-12345", &["P"]), vec!["P-12345".to_string()]);
+        // A bracketed doc token seeds the BARE code (brackets added after reserve).
+        assert_eq!(scan_code_tokens("[X-94349]", &["X"]), vec!["X-94349".to_string()]);
+        // Leading ASCII alphanumeric (mid-identifier) is rejected.
+        assert!(scan_code_tokens("AP-83811", &["P"]).is_empty());
+        assert!(scan_code_tokens("9P-83811", &["P"]).is_empty());
+        // A run shorter than 5 digits is rejected (minted codes are {:05}).
+        assert!(scan_code_tokens("P-8381", &["P"]).is_empty());
+        // The empty prefix is skipped (never a degenerate `-<digits>` matcher).
+        assert!(scan_code_tokens("-12345", &[""]).is_empty());
+    }
+
+    #[test]
+    fn scan_code_tokens_emits_every_prefix_of_a_long_run() {
+        // A 7-digit run emits its length-5/6/7 prefixes so a shorter minted code
+        // cannot restore-substring-collide with the longer document code. 7 ≤
+        // MAX_CODE_DIGITS, so the cap does not touch this legitimate short run.
+        assert_eq!(
+            scan_code_tokens("户P-8381100元", &["P"]),
+            vec![
+                "P-83811".to_string(),
+                "P-838110".to_string(),
+                "P-8381100".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn scan_code_tokens_caps_run_at_max_code_digits() {
+        // A run longer than MAX_CODE_DIGITS emits ONLY its length-5..=10 prefixes:
+        // an 11+-digit prefix can never be a mintable code (the code number is a
+        // u32 ≤ 10 digits), so reserving it is inert. The emitted set — and every
+        // downstream output — is byte-identical to the pre-cap loop, which would
+        // have emitted 5..=15 (and copied O(15²) bytes doing it).
+        let got = scan_code_tokens("P-123456789012345", &["P"]); // 15-digit run
+        assert_eq!(
+            got,
+            vec![
+                "P-12345".to_string(),
+                "P-123456".to_string(),
+                "P-1234567".to_string(),
+                "P-12345678".to_string(),
+                "P-123456789".to_string(),
+                "P-1234567890".to_string(),
+            ]
+        );
+        assert_eq!(got.len(), MAX_CODE_DIGITS - 5 + 1);
+    }
+
+    // Operation-count gate for the in-document code scan. Emitting bytes for one
+    // digit run of `n` digits after a `P-`. The capped production scan is O(1) per
+    // run (≤ MAX_CODE_DIGITS prefixes); the uncapped oracle is O(n²).
+    #[cfg(test)]
+    fn scan_emit_bytes(run_len: usize, max_digits: usize) -> u64 {
+        let text = format!("P-{}", "1".repeat(run_len));
+        SCAN_EMIT_BYTES.with(|c| c.set(0));
+        let _ = scan_code_tokens_capped(&text, &["P"], max_digits);
+        SCAN_EMIT_BYTES.with(|c| c.get())
+    }
+
+    #[test]
+    fn scan_code_tokens_emit_work_is_linear() {
+        // Capped scan: doubling the run length leaves the emit work flat (the cap
+        // pins it at MAX_CODE_DIGITS prefixes regardless of run length), so the
+        // ratio is ~1× — well under the 3.0 midpoint a quadratic loop would blow
+        // through. (Excluded from release: SCAN_EMIT_BYTES is `#[cfg(test)]`.)
+        let k = scan_emit_bytes(4000, MAX_CODE_DIGITS);
+        let k2 = scan_emit_bytes(8000, MAX_CODE_DIGITS);
+        let ratio = k2 as f64 / k as f64;
+        assert!(
+            ratio < 3.0,
+            "capped scan emit work must be flat/linear: bytes(4000)={k} (8000)={k2}, \
+             ratio {ratio:.2} (quadratic would be ~4×)"
+        );
+    }
+
+    #[test]
+    fn scan_code_tokens_uncapped_emit_work_is_quadratic() {
+        // Pins that the linear gate above has real discriminating power. The
+        // pre-cap loop (max_digits = usize::MAX) copies Σ(5..=n) ≈ n²/2 bytes for
+        // one n-digit run, so doubling n ~quadruples the work. If the cap were
+        // reverted, the production ratio would flip from ~1× to ~4× and
+        // `scan_code_tokens_emit_work_is_linear` (< 3.0) would fail.
+        let n = scan_emit_bytes(4000, usize::MAX);
+        let n2 = scan_emit_bytes(8000, usize::MAX);
+        let ratio = n2 as f64 / n as f64;
+        assert!(
+            ratio > 3.0,
+            "uncapped scan emit work must be quadratic: bytes(4000)={n} (8000)={n2}, \
+             ratio {ratio:.2} (linear would be ~2×)"
+        );
+    }
+
+    #[test]
+    fn in_document_pseudonym_code_is_not_reissued() {
+        // A document literally carrying `P-83811` (not an entity — just text) must
+        // not have that code re-minted for a fresh person entity. The RNG is
+        // scripted to draw 83811 first, so without the fix the collision is forced.
+        let mut info_map = HashMap::new();
+        info_map.insert("person".to_string(), info("pseudonym", "P"));
+        let wl = empty_whitelist();
+        // 老(0)客(1)户(2)P(3)-(4)8(5)3(6)8(7)1(8)1(9)推(10)荐(11)了(12)新(13)客(14)户(15)王(16)芳(17)
+        let text = "老客户P-83811推荐了新客户王芳";
+        let ents = vec![pm("王芳", "person", 16, 18)];
+
+        // capture ON (production): the doc's P-83811 is seeded, so 王芳 gets a
+        // DIFFERENT code (P-00042) and the literal P-83811 survives untouched.
+        let factory = DocCollisionFactory;
+        let mut s = ReplaceSession::new(&factory, Some(&Salt::Int(42)), "P", "O", None, None);
+        let out = s.process(text, &ents, &info_map, &wl, None).unwrap();
+        let code = s
+            .result_key
+            .iter()
+            .find(|(_, v)| *v == "王芳")
+            .map(|(k, _)| k.clone())
+            .expect("王芳 must be pseudonymized");
+        assert_ne!(code, "P-83811", "must not re-issue the document's own code");
+        assert!(
+            !s.result_key.contains_key("P-83811"),
+            "P-83811 must not become a key entry: {:?}",
+            s.result_key
+        );
+        assert_eq!(
+            out.matches("P-83811").count(),
+            1,
+            "the document's own P-83811 must survive exactly once: {out}"
+        );
+        assert!(out.contains(&code));
+
+        // capture OFF (pre-fix differential oracle): the identical RNG re-issues
+        // P-83811 and corrupts — this is the behaviour the fix removes.
+        let factory2 = DocCollisionFactory;
+        let mut s2 = ReplaceSession::new(&factory2, Some(&Salt::Int(42)), "P", "O", None, None);
+        s2.process_with_capture(text, &ents, &info_map, &wl, None, false)
+            .unwrap();
+        assert_eq!(
+            s2.result_key.get("P-83811"),
+            Some(&"王芳".to_string()),
+            "pre-fix behaviour must re-issue the document code (else the test proves nothing)"
+        );
+    }
+
+    #[test]
+    fn in_document_mask_label_is_bumped() {
+        // A phone masks to `138****5678`; when the document ALSO carries that
+        // masked form verbatim, the minted label must be bumped so a later
+        // restore cannot rewrite the pre-existing occurrence.
+        let mut info_map = HashMap::new();
+        info_map.insert("phone".to_string(), info("mask", "P"));
+        let wl = empty_whitelist();
+        // 见(0)过(1) (2)1(3)3(4)8(5)*(6)*(7)*(8)*(9)5(10)6(11)7(12)8(13) (14)吗(15) (16)1(17)...8(27)
+        let text = "见过 138****5678 吗 13812345678";
+        let ents = vec![pm("13812345678", "phone", 17, 28)];
+
+        // capture ON: the doc's literal 138****5678 is seeded → minted label is
+        // bumped to 138****5678① and a mask_collision is recorded.
+        let factory = SeqFactory;
+        let mut s = ReplaceSession::new(&factory, Some(&Salt::Int(42)), "P", "O", None, None);
+        let out = s.process(text, &ents, &info_map, &wl, None).unwrap();
+        assert_eq!(
+            s.result_key.get("138****5678①"),
+            Some(&"13812345678".to_string()),
+            "minted label must be bumped off the pre-existing doc form: {:?}",
+            s.result_key
+        );
+        assert!(
+            !s.result_key.contains_key("138****5678"),
+            "the doc's own masked form must NOT become a key (restore would corrupt it): {:?}",
+            s.result_key
+        );
+        assert_eq!(s.mask_collisions, vec!["phone".to_string()]);
+        // The pre-existing 138****5678 survives; the entity got the bumped form.
+        assert!(out.contains("138****5678 吗"));
+        assert!(out.ends_with("138****5678①"));
+
+        // capture OFF (pre-fix oracle): the minted label collides with the doc
+        // form and no collision is recorded — the corruption the fix removes.
+        let factory2 = SeqFactory;
+        let mut s2 = ReplaceSession::new(&factory2, Some(&Salt::Int(42)), "P", "O", None, None);
+        s2.process_with_capture(text, &ents, &info_map, &wl, None, false)
+            .unwrap();
+        assert_eq!(
+            s2.result_key.get("138****5678"),
+            Some(&"13812345678".to_string()),
+            "pre-fix behaviour keys the un-bumped label (restore would rewrite the doc form)"
+        );
+        assert!(s2.mask_collisions.is_empty());
+    }
+
+    #[test]
+    fn in_document_category_label_is_bumped() {
+        // A category label already present in the document must be bumped too.
+        let mut info_map = HashMap::new();
+        info_map.insert("id_number".to_string(), {
+            let mut i = info("category", "ID");
+            i.label = Some("[身份证]".to_string());
+            i
+        });
+        let wl = empty_whitelist();
+        // 有(0)个(1)[(2)身(3)份(4)证(5)](6) (7)1(8)1(9)0(10)... 18 digits ...
+        let text = "有个[身份证] 110101199003074610";
+        let ents = vec![pm("110101199003074610", "id_number", 8, 26)];
+        let factory = SeqFactory;
+        let mut s = ReplaceSession::new(&factory, Some(&Salt::Int(42)), "P", "O", None, None);
+        s.process(text, &ents, &info_map, &wl, None).unwrap();
+        assert_eq!(
+            s.result_key.get("[身份证]①"),
+            Some(&"110101199003074610".to_string()),
+            "category label must be bumped off the pre-existing doc form: {:?}",
+            s.result_key
+        );
+        assert!(!s.result_key.contains_key("[身份证]"));
+    }
+
+    #[test]
+    fn remove_empty_replacement_is_not_bumped_by_capture() {
+        // `remove` with `replacement: ""` is the delete sentinel: it must produce
+        // an empty label (no key entry), NEVER a spurious `①`. `text.contains("")`
+        // is always true, so without the empty-candidate guard the in-document
+        // capture path would manufacture a `①` label out of nothing.
+        let mut info_map = HashMap::new();
+        info_map.insert("phone".to_string(), {
+            let mut i = info("remove", "P");
+            i.replacement = Some(String::new());
+            i
+        });
+        let wl = empty_whitelist();
+        let text = "打 13812345678";
+        let ents = vec![pm("13812345678", "phone", 2, 13)];
+        let factory = SeqFactory;
+        let mut s = ReplaceSession::new(&factory, Some(&Salt::Int(42)), "P", "O", None, None);
+        let out = s.process(text, &ents, &info_map, &wl, None).unwrap();
+        // The phone is deleted with no surrogate; no key entry registered.
+        assert_eq!(out, "打 ");
+        assert!(s.result_key.is_empty(), "empty replacement registers no key: {:?}", s.result_key);
+    }
+
+    #[test]
+    fn indoc_capture_is_byte_identical_on_noncolliding_inputs() {
+        // The byte-identity crux. Fuzz a corpus that MIXES code-shaped tokens
+        // (both MINTABLE-band and out-of-band), mask-shaped tokens, CJK, and clean
+        // inputs, running the SAME `process` body with in-document capture ON
+        // (production) and OFF (the pre-capture oracle — same statements, capture
+        // branches skipped). Assert:
+        //   (1) on every input, capture ON never mints a code that equals a
+        //       document code the scan would seed (the mint-side guarantee);
+        //   (2) whenever the input carries NO real collision — no capture-OFF key
+        //       appears verbatim in the document AND no capture-OFF key equals a
+        //       seeded code — capture ON == capture OFF byte-for-byte (redacted
+        //       text, key, AND mask_collisions). This now covers code-shaped
+        //       inputs too (the old `seeded.is_empty()` guard skipped them all);
+        //   (3) the corpus drives BOTH the identical path AND the divergent
+        //       (collision-fix) path, INCLUDING the pseudonym re-draw — the
+        //       injected codes land in the MINTABLE band, so a seeded document
+        //       code genuinely collides with a code the OFF path would mint.
+        // Teeth: with the capture-seed block removed, a seeded code lands in
+        // `key1` on the pseudonym path and assertion (1) fails.
+
+        // Run one cell through a fresh session with capture on/off.
+        fn run(
+            capture: bool,
+            text: &str,
+            ents: &[PatternMatch],
+            info_map: &HashMap<String, TypeInfo>,
+            wl: &HashSet<String>,
+        ) -> (String, HashMap<String, String>, Vec<String>) {
+            let factory = SeqFactory;
+            let mut s = ReplaceSession::new(&factory, Some(&Salt::Int(42)), "P", "O", None, None);
+            let out = s
+                .process_with_capture(text, ents, info_map, wl, None, capture)
+                .unwrap();
+            (out, s.result_key.clone(), s.mask_collisions.clone())
+        }
+
+        let mut info_map = HashMap::new();
+        info_map.insert("person".to_string(), info("pseudonym", "P"));
+        info_map.insert("organization".to_string(), info("pseudonym", "O"));
+        info_map.insert("phone".to_string(), info("mask", "PH"));
+        info_map.insert("zh_name".to_string(), info("name_mask", "N"));
+        info_map.insert("misc".to_string(), info("remove", "M"));
+        info_map.insert("id_number".to_string(), {
+            let mut i = info("category", "ID");
+            i.label = Some("[类别]".to_string());
+            i
+        });
+        info_map.insert("custom_repl".to_string(), {
+            let mut i = info("remove", "C");
+            i.replacement = Some("~REDACTED~".to_string()); // custom-replacement path
+            i
+        });
+        info_map.insert("deleted".to_string(), {
+            let mut i = info("remove", "D");
+            i.replacement = Some(String::new()); // empty-replacement (delete) path
+            i
+        });
+        info_map.insert("landline".to_string(), info("landline_mask", "L"));
+        // Unknown strategy → the `[REDACTED]` default (`else`) branch.
+        info_map.insert("fallback".to_string(), info("generic_default", "F"));
+        let wl = empty_whitelist();
+
+        // Discover the exact codes the OFF path mints FIRST for a person / an
+        // organization, so an injected document fragment provably collides with a
+        // MINTABLE code (SeqFactory mints in a small band around `seed % 1000`, so
+        // a hardcoded out-of-band code could never collide — which made the old
+        // pseudonym identity assertion vacuous).
+        let person_code = run(false, "甲", &[pm("甲", "person", 0, 1)], &info_map, &wl)
+            .1
+            .keys()
+            .next()
+            .expect("person mints a code")
+            .clone();
+        let org_code = run(false, "乙", &[pm("乙", "organization", 0, 1)], &info_map, &wl)
+            .1
+            .keys()
+            .next()
+            .expect("organization mints a code")
+            .clone();
+
+        // Non-colliding building blocks: CJK filler + entity values whose masks /
+        // codes cannot appear in the filler.
+        let fillers = ["的", "是", "和", "在", "了", " ", "公司", "推荐"];
+        // (value, type) pairs — one per routed site so all six resolve paths and
+        // both pseudonym generators are fuzzed.
+        let entity_kinds: [(&str, &str); 10] = [
+            ("张三", "person"),
+            ("字节跳动", "organization"),
+            ("13812345678", "phone"),          // mask_value
+            ("王芳", "zh_name"),               // mask_name
+            ("秘密", "misc"),                  // remove → per-type code
+            ("110101199003074610", "id_number"), // category
+            ("机密", "custom_repl"),           // remove + replacement
+            ("删除", "deleted"),               // remove + empty replacement
+            ("010-12345678", "landline"),      // mask_landline
+            ("绝密", "fallback"),              // [REDACTED] default
+        ];
+
+        let prefixes: Vec<&str> = vec!["P", "O", "PH", "N", "M", "ID", "C", "D", "L", "F"];
+
+        let mut rng = Lcg(0xDEAD_BEEF_1234_5678);
+        let mut identical = 0usize;
+        let mut diverged = 0usize;
+        let mut pseudo_diverged = 0usize;
+
+        for _ in 0..8000 {
+            // Assemble a text + entity list, tracking char offsets for spans.
+            let mut text = String::new();
+            let mut char_len = 0usize;
+            let mut ents: Vec<PatternMatch> = Vec::new();
+            let mut has_phone = false;
+
+            let n_parts = rng.next(5); // 0..=4
+            for _ in 0..n_parts {
+                // filler
+                let f = fillers[rng.next(fillers.len())];
+                text.push_str(f);
+                char_len += f.chars().count();
+
+                if rng.next(2) == 0 {
+                    // entity
+                    let (val, ty) = entity_kinds[rng.next(entity_kinds.len())];
+                    let start = char_len;
+                    text.push_str(val);
+                    let vlen = val.chars().count();
+                    char_len += vlen;
+                    ents.push(pm(val, ty, start, start + vlen));
+                    if ty == "phone" {
+                        has_phone = true;
+                    }
+                }
+            }
+
+            // Occasionally inject a COLLISION fragment into the filler (leading CJK
+            // boundary so the scan accepts it):
+            match rng.next(5) {
+                // MINTABLE-band person code — collides with the OFF path's first
+                // person mint, so the pseudonym re-draw genuinely diverges.
+                0 => text.push_str(&format!("户{person_code}")),
+                // MINTABLE-band organization code — same, via the org generator.
+                1 => text.push_str(&format!("户{org_code}")),
+                // The phone mask → forces a mask/category label bump.
+                2 if has_phone => text.push_str("见138****5678"),
+                // OUT-OF-band code-shaped token (never mintable by SeqFactory):
+                // exercises byte-identity on a code-shaped input that does NOT
+                // collide (the old guard skipped these entirely).
+                3 => text.push_str(&format!("户P-{:05}", 10000 + rng.next(80000))),
+                _ => {}
+            }
+
+            // Independent seed set for this text (same prefixes `process` scans).
+            let seeded: HashSet<String> =
+                scan_code_tokens(&text, &prefixes).into_iter().collect();
+
+            let (out0, key0, mc0) = run(false, &text, &ents, &info_map, &wl);
+            let (out1, key1, mc1) = run(true, &text, &ents, &info_map, &wl);
+
+            // (1) Mint-side guarantee: capture ON never leaves a key equal to a
+            // seeded document code. (This is the assertion the teeth-check trips.)
+            for k in key1.keys() {
+                assert!(
+                    !seeded.contains(k),
+                    "capture ON re-issued a seeded document code {k:?}; text={text:?} key={key1:?}"
+                );
+            }
+
+            // (2) No-real-collision inputs must be byte-identical. Capture can only
+            // fire if a capture-OFF key equals a seeded code (pseudonym re-draw) OR
+            // a capture-OFF key appears verbatim in the document (label bump); the
+            // absence of BOTH proves capture cannot have fired — so ON must equal
+            // OFF, code-shaped inputs included.
+            let label_in_doc = key0.keys().any(|k| text.contains(k));
+            let key_hits_seed = key0.keys().any(|k| seeded.contains(k));
+            let no_collision = !label_in_doc && !key_hits_seed;
+            let same = out0 == out1 && key0 == key1 && mc0 == mc1;
+            if no_collision {
+                assert!(
+                    same,
+                    "byte-identity broken on a non-colliding input:\n text={text:?}\n off=({out0:?},{key0:?},{mc0:?})\n on =({out1:?},{key1:?},{mc1:?})"
+                );
+                identical += 1;
+            } else if same {
+                identical += 1;
+            } else {
+                diverged += 1;
+                // A divergence whose OFF key equalled a seeded CODE is the
+                // pseudonym re-draw path (as opposed to a mask/label bump).
+                if key_hits_seed {
+                    pseudo_diverged += 1;
+                }
+            }
+        }
+
+        assert!(identical > 0, "fuzz never exercised the byte-identical path");
+        assert!(
+            diverged > 0,
+            "fuzz never exercised the collision-fix (divergent) path"
+        );
+        assert!(
+            pseudo_diverged > 0,
+            "fuzz never exercised the pseudonym re-draw divergence (teeth check)"
+        );
     }
 }

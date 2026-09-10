@@ -72,6 +72,20 @@ def _database_connected(session: Session) -> Tuple[bool, Optional[int]]:
         return False, None
 
 
+def _database_dialect(session: Session) -> Optional[str]:
+    """`postgresql`, or whatever this session is actually bound to.
+
+    Read rather than assumed. Every deployed environment is Postgres, but the
+    test fixtures build SQLite, and a health table that printed "postgres"
+    against a SQLite session would be stating the one thing it is there to
+    establish.
+    """
+    try:
+        return session.get_bind().dialect.name
+    except Exception:  # noqa: BLE001 - a label must not fail the report
+        return None
+
+
 def _last_repo_sync(session: Session, project_id: str) -> Optional[datetime]:
     """When this project's repositories were last discovered from GitHub.
 
@@ -511,6 +525,7 @@ async def get_project_health(
         "status": status,
         "database": "connected" if database_connected else "disconnected",
         "database_latency_ms": database_latency_ms,
+        "database_dialect": _database_dialect(session),
         "project_id": project_id,
         "boards": board_reports,
         "github": github,

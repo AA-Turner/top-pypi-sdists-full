@@ -36,7 +36,7 @@ from .polling import (
 from .presentation import MacOSPresentationController
 from .preview import WindowPreviewStreamer
 from .process_lifecycle import cancel_and_drain, race_against_cancellation, race_sleep_against_cancellation
-from .sanitize import sanitize_command_preview
+from .sanitize import COMMAND_PRESENTATION_MAX_CHARACTERS, sanitize_command_preview
 from .transport import (
     CuaDriverConnectionError,
     CuaDriverToolError,
@@ -360,6 +360,7 @@ class MacOSComputer:
         scope: Literal["desktop", "window"] = "desktop",
         target_window: "MacOSWindowTarget | None" = None,
         allow_foreground_fallback: bool = False,
+        exclude_overlay_from_capture: bool = True,
     ) -> None:
         if transport is not None and owns_transport is None:
             raise ValueError("owns_transport must be explicit when transport is injected")
@@ -372,6 +373,10 @@ class MacOSComputer:
         self.session = session or f"yutori-n2-{uuid.uuid4().hex[:12]}"
         self.presentation_requested = presentation
         self.show_stop_button = show_stop_button
+        # False keeps the overlay in screen recordings and screen shares of the run: the model's
+        # desktop frames then come from the overlay host, which leaves its own windows out of the
+        # capture (`presentation.capture_source == "overlay"`), and only fall back to hiding it.
+        self.exclude_overlay_from_capture = exclude_overlay_from_capture
         self.allow_local_shell = allow_local_shell
         self.execution_deadline = execution_deadline
         self.cancellation = cancellation or CancellationLatch()
@@ -669,21 +674,8 @@ class MacOSComputer:
         capture_id = self._capture_id
         png_bytes = self._initial_png
         self._initial_png = None
-        hidden = False
         if png_bytes is None:
-            if self.presentation is not None:
-                hidden = await self.presentation.before_capture(capture_id)
-            try:
-                png_bytes, width, height = await self._capture_png()
-            finally:
-                if hidden and self.presentation is not None:
-                    geometry = (
-                        (width, height) if "width" in locals() and "height" in locals() else self._native_size or (1, 1)
-                    )
-                    await self.presentation.after_capture(
-                        capture_id,
-                        *geometry,
-                    )
+            png_bytes, width, height = await self._capture_observation_png(capture_id)
         else:
             assert self._native_size is not None
             width, height = self._native_size
@@ -1265,9 +1257,13 @@ class MacOSComputer:
             cache_directory=self.overlay_cache_directory,
             show_stop_button=self.show_stop_button,
             restore_native_cursor=self._restore_native_cursor,
+            exclude_from_capture=self.exclude_overlay_from_capture,
         )
         try:
             await controller.start()
+            # One desktop frame with the host's probe on screen, before the overlay shows: from
+            # here on captures skip the hide/reveal fade unless the probe was in that frame.
+            await controller.verify_capture_exclusion(self._capture_desktop_png)
             await self._configure_cursor(False)
             await controller.reveal()
             self.presentation = controller
@@ -1309,6 +1305,27 @@ class MacOSComputer:
         if self.window_mode:
             return await self._capture_window_png()
         return await self._capture_desktop_png()
+
+    async def _capture_observation_png(self, capture_id: int) -> tuple[bytes, int, int]:
+        """The model's frame: the driven window; else the overlay host's own desktop capture with its
+        windows left out; else the driver's desktop capture with the overlay hidden around it."""
+        if self.window_mode:
+            return await self._capture_window_png()
+        presentation = self.presentation
+        if presentation is not None:
+            frame = await self._await_with_cancellation(presentation.capture_desktop())
+            if frame is not None:
+                return frame
+        hidden = presentation is not None and await presentation.before_capture(capture_id)
+        frame = None
+        try:
+            frame = await self._capture_desktop_png()
+        finally:
+            if hidden:
+                assert presentation is not None
+                geometry = frame[1:] if frame is not None else self._native_size or (1, 1)
+                await presentation.after_capture(capture_id, *geometry)
+        return frame
 
     async def _capture_desktop_png(self) -> tuple[bytes, int, int]:
         last_error: "Exception | None" = None
@@ -1620,8 +1637,11 @@ class MacOSComputer:
             return
         width, height = self._native_size
         normalized = (x / width * 1000, y / height * 1000)
-        if self.presentation.blocks_point(normalized):
+        surface = self.presentation.blocking_surface(normalized)
+        if surface == "stop":
             raise MacOSActionRefusedError("Action refused because it intersects the Stop control.")
+        if surface is not None:
+            raise MacOSActionRefusedError("Action refused because it intersects the Yutori activity window's grip.")
 
     async def _try_enable_native_cursor(self) -> bool:
         """Enable the native cursor, reporting failure instead of raising.
@@ -1714,7 +1734,11 @@ class MacOSComputer:
     ) -> Any:
         self._require_local_shell()
         raw_presentation_command = presentation_command or command
-        preview = sanitize_command_preview(raw_presentation_command, known_secrets=self._known_secrets)
+        preview = sanitize_command_preview(
+            raw_presentation_command,
+            known_secrets=self._known_secrets,
+            max_characters=COMMAND_PRESENTATION_MAX_CHARACTERS,
+        )
         task_id = f"shell-{uuid.uuid4().hex[:8]}"
         await self._present_shell(ShellPresentationEvent(task_id, preview, False, "starting"))
         started_at = time.monotonic()
@@ -1748,7 +1772,9 @@ class MacOSComputer:
         return (rendered, reported_cwd) if cwd_sentinel else rendered
 
     async def _run_background_shell(self, command: str) -> str:
-        preview = sanitize_command_preview(command, known_secrets=self._known_secrets)
+        preview = sanitize_command_preview(
+            command, known_secrets=self._known_secrets, max_characters=COMMAND_PRESENTATION_MAX_CHARACTERS
+        )
         task_id = f"bash-{uuid.uuid4().hex[:8]}"
         await self._present_shell(ShellPresentationEvent(task_id, preview, True, "starting"))
         descriptor, output_path_text = tempfile.mkstemp(prefix=f"yutori-n2-{task_id}-", suffix=".log")

@@ -1,11 +1,15 @@
 import atexit
 import datetime as dt
+import numbers
 import os
 import re
 import shutil
 import struct
 import subprocess
+from collections import Counter
+from contextlib import contextmanager
 from pathlib import Path
+from uuid import uuid4
 
 import aem
 import appscript
@@ -17,6 +21,7 @@ from appscript.reference import CommandError
 import xlwings
 
 from . import base_classes, mac_dict, utils
+from ._names import NameIndex
 from .constants import ColorIndex
 from .utils import (
     VersionNumber,
@@ -941,6 +946,10 @@ class Range(base_classes.Range):
         return Font(self, self.xl.font_object)
 
     @property
+    def borders(self):
+        return Borders(self, self.xl)
+
+    @property
     def column_width(self):
         if self.xl is not None:
             rv = self.xl.column_width.get()
@@ -1353,6 +1362,174 @@ class Shape(base_classes.Shape):
     @property
     def characters(self):
         raise AttributeError("Characters isn't supported on macOS with shapes.")
+
+
+# None is the normalized form of "none", see main.Borders
+_BORDER_LINE_STYLE_TO_KW = {
+    "continuous": kw.continuous,
+    "dash": kw.dash,
+    "dash_dot": kw.dash_dot,
+    "dash_dot_dot": kw.dash_dot_dot,
+    "dot": kw.dot,
+    "double": kw.double,
+    "slant_dash_dot": kw.slant_dash_dot,
+    None: kw.line_style_none,
+}
+_BORDER_LINE_STYLE_FROM_KW = {
+    keyword: name or "none" for name, keyword in _BORDER_LINE_STYLE_TO_KW.items()
+}
+_BORDER_WEIGHT_TO_KW = {
+    "hairline": kw.border_weight_hairline,
+    "thin": kw.border_weight_thin,
+    "medium": kw.border_weight_medium,
+    "thick": kw.border_weight_thick,
+}
+_BORDER_WEIGHT_FROM_KW = {
+    keyword: name for name, keyword in _BORDER_WEIGHT_TO_KW.items()
+}
+
+
+class Border(base_classes.Border):
+    def __init__(self, parent, side, xl):
+        # xl is the reference returned by range.get_border(which_border=...)
+        self.parent = parent
+        self.side = side
+        self.xl = xl
+
+    @property
+    def api(self):
+        return self.xl
+
+    def _value(self, attribute):
+        """The value Excel reports for the range as a whole.
+
+        Excel doesn't flag a range whose cells disagree, so a mixed range
+        reports one of its values rather than None, and a multi-cell range
+        reports no color for its diagonals even right after one was set.
+        Read a single cell to get an unambiguous answer.
+        """
+        if self.xl is None:
+            return None
+        if attribute == "color" and self.xl.color_index.get() == kw.color_index_none:
+            return None
+        value = getattr(self.xl, attribute).get()
+        if value == kw.missing_value:
+            return None
+        return tuple(value) if attribute == "color" else value
+
+    @property
+    def line_style(self):
+        return _BORDER_LINE_STYLE_FROM_KW.get(self._value("line_style"))
+
+    @line_style.setter
+    def line_style(self, value):
+        if self.xl is not None:
+            self.xl.line_style.set(_BORDER_LINE_STYLE_TO_KW[value])
+
+    @property
+    def weight(self):
+        # The dictionary's "weight" is the enum; "line_weight" is a plain int
+        return _BORDER_WEIGHT_FROM_KW.get(self._value("weight"))
+
+    @weight.setter
+    def weight(self, value):
+        if self.xl is not None:
+            self.xl.weight.set(_BORDER_WEIGHT_TO_KW[value])
+
+    @property
+    def color(self):
+        return self._value("color")
+
+    @color.setter
+    def color(self, color_or_rgb):
+        if isinstance(color_or_rgb, str):
+            color_or_rgb = utils.hex_to_rgb(color_or_rgb)
+        if self.xl is not None:
+            if isinstance(color_or_rgb, int):
+                self.xl.color.set(int_to_rgb(color_or_rgb))
+            else:
+                self.xl.color.set(color_or_rgb)
+
+
+class Borders(base_classes.Borders):
+    def __init__(self, parent, xl):
+        # xl is the range reference: the sides are looked up via get_border
+        self.parent = parent
+        self.xl = xl
+
+    @property
+    def api(self):
+        return self.xl
+
+    def __getitem__(self, side):
+        if self.xl is not None:
+            return Border(
+                self.parent, side, self.xl.get_border(which_border=getattr(kw, side))
+            )
+        return Border(self.parent, side, None)
+
+    def _common_value(self, attribute):
+        """The value the existing grid sides share, or None if they differ."""
+        if self.xl is None:
+            return None
+        values = {getattr(self[side], attribute) for side in self._grid_sides()}
+        return values.pop() if len(values) == 1 else None
+
+    @property
+    def line_style(self):
+        return self._common_value("line_style")
+
+    @line_style.setter
+    def line_style(self, value):
+        self.set(base_classes.BORDER_GRID_SIDES, line_style=value)
+
+    @property
+    def weight(self):
+        return self._common_value("weight")
+
+    @weight.setter
+    def weight(self, value):
+        self.set(base_classes.BORDER_GRID_SIDES, weight=value)
+
+    @property
+    def color(self):
+        return self._common_value("color")
+
+    @color.setter
+    def color(self, color_or_rgb):
+        self.set(base_classes.BORDER_GRID_SIDES, color=color_or_rgb)
+
+    def set(
+        self,
+        which,
+        *,
+        line_style=base_classes._UNSET,
+        weight=base_classes._UNSET,
+        color=base_classes._UNSET,
+    ):
+        # `which` arrives validated and expanded by main.Borders. The fixed
+        # order color, weight, line style is documented: Excel's border
+        # attributes interfere, and this makes the line style win.
+        if self.xl is None:
+            return
+        # Writing borders with screen updating on is about 3x slower
+        app = self.parent.sheet.book.app
+        screen_updating_state = app.screen_updating
+        app.screen_updating = False
+        try:
+            for side in which:
+                border = self[side]
+                if color is not base_classes._UNSET:
+                    border.color = color
+                if weight is not base_classes._UNSET:
+                    border.weight = weight
+                if line_style is not base_classes._UNSET:
+                    border.line_style = line_style
+        finally:
+            app.screen_updating = screen_updating_state
+
+    def clear(self, which):
+        self.set(which, line_style=None)
 
 
 class Font(base_classes.Font):
@@ -1981,7 +2158,48 @@ class Names(base_classes.Names):
         self.xl = xl
 
     def __call__(self, name_or_index):
+        if isinstance(name_or_index, numbers.Number):
+            name = self.xl[name_or_index].name.get()
+            return Name(
+                self.parent,
+                collection=self,
+                index=NameIndex(
+                    name_or_index, name, self._sheet_names() if "!" in name else ()
+                ),
+            )
         return Name(self.parent, xl=self.xl[name_or_index])
+
+    def _name_strings(self):
+        names = self.xl.name.get()
+        if names == kw.missing_value:
+            return []
+        # Excel's bulk read can repeat a sheet-local name in place of a shadowed
+        # workbook name. Indexed reads distinguish them; verify only collisions.
+        counts = Counter(names)
+        return [
+            self.xl[i].name.get() if counts[name] > 1 else name
+            for i, name in enumerate(names, 1)
+        ]
+
+    def _name_at_index(self, index):
+        try:
+            return self.xl[index].name.get()
+        except CommandError:
+            # An earlier deletion can leave the cached index past the end.
+            return None
+
+    def _sheet_names(self):
+        book = self.parent if isinstance(self.parent, Book) else self.parent.book
+        names = book.xl.worksheets.name.get()
+        return () if names == kw.missing_value else tuple(names)
+
+    def snapshot(self):
+        names = self._name_strings()
+        sheets = self._sheet_names() if any("!" in name for name in names) else ()
+        return [
+            (name, Name(self.parent, collection=self, index=NameIndex(i, name, sheets)))
+            for i, name in enumerate(names, 1)
+        ]
 
     def contains(self, name_or_index):
         try:
@@ -2010,20 +2228,143 @@ class Names(base_classes.Names):
 
 
 class Name(base_classes.Name):
-    def __init__(self, parent, xl):
+    def __init__(self, parent, xl=None, collection=None, index=None):
         self.parent = parent
-        self.xl = xl
+        self._xl = xl
+        self._collection = collection
+        self._index = index
+
+    @property
+    def xl(self):
+        if self._index is None:
+            return self._xl
+        index = self._index.resolve(
+            self._collection._name_at_index,
+            self._collection._name_strings,
+            self._collection._sheet_names,
+        )
+        return self._collection.xl[index]
+
+    @contextmanager
+    def _mutation_context(self, new_name=None, refers_to=None):
+        # Excel can route even indexed mutations of a workbook name to a local
+        # name on the active sheet. Use a sheet without that shadow while writing.
+        name = self.name
+        if "!" in name:
+            yield refers_to
+            return
+        names = {name.lower()}
+        if new_name is not None and "!" not in new_name:
+            names.add(new_name.lower())
+        book = self.parent if isinstance(self.parent, Book) else self.parent.book
+        try:
+            active_sheet = book.sheets.active
+            local_names = (
+                active_sheet.names._name_strings() if active_sheet.xl.exists() else None
+            )
+        except CommandError:
+            # A chart sheet cannot be addressed through the worksheets collection.
+            local_names = None
+        if local_names is not None and not any(
+            item.rsplit("!", 1)[-1].lower() in names for item in local_names
+        ):
+            yield refers_to
+            return
+        previous_book = book.app.books.active
+        # Keep a native sheets reference so chart sheets can also be restored.
+        previous_sheet = book.xl.sheets[book.xl.active_sheet.name.get()]
+        temporary_sheet = None
+        if refers_to is not None and local_names is not None:
+            # Excel interprets input relative references from A1, while reads
+            # depend on the selected cell. Normalize on the original sheet at A1.
+            selection = book.app.selection
+            try:
+                book.sheets.active.range("A1").select()
+                temporary_name = book.names.add(f"xw_tmp_{uuid4().hex[:16]}", refers_to)
+                try:
+                    refers_to = temporary_name.refers_to
+                finally:
+                    temporary_name.delete()
+            finally:
+                if selection is not None:
+                    selection.select()
+        try:
+            if refers_to is not None or local_names is None:
+                temporary_sheet = self._add_mutation_sheet(book)
+                temporary_sheet.activate()
+            else:
+                for sheet in book.sheets:
+                    if sheet.visible and not any(
+                        item.rsplit("!", 1)[-1].lower() in names
+                        for item in sheet.names._name_strings()
+                    ):
+                        sheet.activate()
+                        break
+                else:
+                    temporary_sheet = self._add_mutation_sheet(book)
+                    temporary_sheet.activate()
+            yield refers_to
+        finally:
+            try:
+                previous_sheet.activate_object()
+                if temporary_sheet is not None:
+                    temporary_sheet.delete()
+            finally:
+                previous_book.activate()
+
+    def _add_mutation_sheet(self, book):
+        try:
+            return book.sheets.add(after=book.sheets(len(book.sheets)))
+        except CommandError as exc:
+            raise xlwings.XlwingsError(
+                f"Cannot modify defined name {self.name!r}: Excel could not create "
+                "the temporary worksheet needed to preserve its scope. "
+                "Check whether the workbook structure is protected."
+            ) from exc
 
     def delete(self):
-        self.xl.delete()
+        with self._mutation_context():
+            self.xl.delete()
 
     @property
     def name(self):
-        return self.xl.name.get()
+        if self._index is None:
+            return self.xl.name.get()
+        self._index.resolve(
+            self._collection._name_at_index,
+            self._collection._name_strings,
+            self._collection._sheet_names,
+        )
+        return self._index.name
 
     @name.setter
     def name(self, value):
-        self.xl.name.set(value)
+        with self._mutation_context(new_name=value):
+            native = self.xl
+            old_name = native.name.get()
+            expected_name = value
+            if "!" not in value and "!" in old_name:
+                scope = old_name.rsplit("!", 1)[0]
+                expected_name = f"{scope}!{value}"
+            native.name.set(value)
+            collection = (
+                self._collection if self._collection is not None else self.parent.names
+            )
+            names = collection._name_strings()
+            if expected_name not in names or (
+                old_name != expected_name and old_name in names
+            ):
+                # Excel can display an alert and return normally without renaming.
+                # Keep the old identity until the native collection confirms it.
+                raise xlwings.XlwingsError(
+                    f"Excel did not rename defined name {old_name!r} to {value!r}."
+                )
+            self._collection = collection
+            self._index = NameIndex(
+                names.index(expected_name) + 1,
+                expected_name,
+                collection._sheet_names() if "!" in expected_name else (),
+            )
 
     @property
     def refers_to(self):
@@ -2031,7 +2372,8 @@ class Name(base_classes.Name):
 
     @refers_to.setter
     def refers_to(self, value):
-        self.xl.properties(kw.references).set(value)
+        with self._mutation_context(refers_to=value) as refers_to:
+            self.xl.references.set(refers_to)
 
     @property
     def refers_to_range(self):

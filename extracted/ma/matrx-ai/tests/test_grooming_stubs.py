@@ -7,6 +7,7 @@ value_ref_key / model_stub_at from the ToolResult. Snapshot redaction —
 materialized swap values are reverse-substituted back to their keys, failing
 CLOSED to a drop.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -130,6 +131,42 @@ async def test_logger_skips_stamp_without_key(monkeypatch):
 # ── Snapshot redaction ───────────────────────────────────────────────────────
 
 
+def test_a_new_requests_swaps_invalidate_the_previous_sends_materialized_map():
+    """Forcing function: ``set_wire_swaps`` must reset ``_MATERIALIZED_WIRE_SWAPS``.
+
+    Both are ContextVars. ``redact_wire_payload`` prefers the MATERIALIZED map
+    (post-budget truncated heads), so a request that sets new swaps and then
+    fails before ``build_wire_config`` runs would reverse its snapshot against
+    the PREVIOUS request's map — replacing values that are not on this wire and
+    leaving this request's reference content in ``cx_request_snapshot``, which
+    is the exact thing redaction's fail-closed contract promises never happens.
+
+    Gut check: drop the ``_MATERIALIZED_WIRE_SWAPS.set(None)`` from
+    ``set_wire_swaps`` and this fails. It was also why four tests in this file
+    were red or green purely by collection order (2026-09-09).
+    """
+    from matrx_ai.config import picklist_runtime as pr
+
+    pr.set_wire_swaps({"@@old@@": "OLD VALUE THAT IS PLENTY LONG ENOUGH"})
+    pr._MATERIALIZED_WIRE_SWAPS.set({"@@old@@": "OLD VALUE THAT IS PLENTY LONG ENOUGH"})
+
+    new_value = "THE NEW REQUESTS OWN REFERENCE VALUE"
+    pr.set_wire_swaps({"@@new@@": new_value})
+    try:
+        assert pr._MATERIALIZED_WIRE_SWAPS.get() is None, (
+            "a new request's swaps left the previous send's materialized map in place"
+        )
+        redacted = pr.redact_wire_payload({"content": f"prefix {new_value} suffix"})
+        assert redacted is not None
+        assert new_value not in str(redacted), (
+            "this request's reference value survived into the snapshot — it was "
+            "reversed against the PREVIOUS request's map"
+        )
+        assert "@@new@@" in str(redacted)
+    finally:
+        pr.set_wire_swaps({})
+
+
 def test_redact_wire_payload_reverses_swaps():
     from matrx_ai.config.picklist_runtime import redact_wire_payload, set_wire_swaps
 
@@ -156,7 +193,7 @@ def test_redact_handles_multiline_values_and_double_encoding():
 
     from matrx_ai.config.picklist_runtime import redact_wire_payload, set_wire_swaps
 
-    value = "-----BEGIN KEY-----\nline1 \"quoted\"\nline2\\path\n-----END-----"
+    value = '-----BEGIN KEY-----\nline1 "quoted"\nline2\\path\n-----END-----'
     set_wire_swaps({"@@token@@": value})
     try:
         # Single-encoded occurrence: redacted.

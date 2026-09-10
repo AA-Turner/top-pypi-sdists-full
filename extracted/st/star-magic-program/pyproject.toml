@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.428.0"
-description = "Star-Magic UQFF calculator v0.428.0: THE VELOCITY TIER SHIP - the Vp tier CANONIZED on Daniel's ruling (PAPER_2262): seventeen sonic landmarks composed live from the locked lattice, ELEVEN exact on midpoint anchors with the softness DISCLOSED; dolomite = (A_5+SO_5)/SO_5 - the H_0 integer surfacing in a laboratory acoustic anchor; unit-free dolomite/halite cross-ratio = 20/13 EXACT. Simulator v1.90.0. 2,258 papers, gate 6,085/0, acceptance 109/109."
+version = "0.431.0"
+description = "Star-Magic UQFF calculator v0.431.0: THE CAP THEOREM SHIP - the L_buoy variational derivation (PAPER_2265, Daniel's session order): the NS enstrophy cap upgrades postulate -> DERIVED MODULO ONE NAMED LEMMA; surplus = F_TRZ exact from the (1+F_TRZ) canonical forms at F_U = 0; rivals 0.90/0.81 ELIMINATED - only projected-linear lands on 17/20; drain = g_phonon, the LENR carrier; bridge lemma OPEN in the registry. 2,261 papers, gate 6,093/0, acceptance 109/109."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -65,6 +65,7 @@ packages = ["uqff_downhole_simulator"]
 include-package-data = true
 py-modules = ["uqff_paths", "star_magic_cli", "star_magic_shell", "generate_wheel_manifest", "uqff_session_closures", "uqff_fubii_variants", "uqff_ngc_catalog", "uqff_primitive_identities", "uqff_material_landmarks", "uqff_backbone_locks", "uqff_derived_functions", "uqff_derived_constants", 
     "uqff_registry_primitives",
+    "uqff_ns_assembly",
     "uqff_calculator",
     "uqff_fidelity_tests",
     "uqff_registry_status",
@@ -155,6 +156,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "uqff_fubii_variants.py",
     "uqff_material_landmarks.py",
     "uqff_ngc_catalog.py",
+    "uqff_ns_assembly.py",
     "uqff_paths.py",
     "uqff_primitive_identities.py",
     "uqff_registry_graph.py",
@@ -2024,6 +2026,9 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_2260_TRIPLE_DERIVATION_SESSION_SSQ_CUBED_OMEGA_RATIO_IKEDA_BOSE_ANCHOR_HOLMLID_TRIPLE_CONVERGENCE_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2261_K4_GEOLOGICAL_LANDMARK_FAMILY_ROCK_DENSITY_INVENTORY_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2262_VP_DISCRIMINATOR_TIER_PRIMITIVE_CANONIZATION_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2263_NS_ASSEMBLY_EVALUATOR_GAP_CLOSURE_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2264_NS_CAP_BALANCE_ZONE_READING_PAIR_CAP_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2265_L_BUOY_VARIATIONAL_DERIVATION_NS_CAP_UQFF_LANDMARK.md",
     "whitepapers/PAPER_226_MagnetarSGR0501_11Term_MUGE_UQFF.md",
     "whitepapers/PAPER_227_Tapestry_LMC_Stellar_Wind_UQFF.md",
     "whitepapers/PAPER_228_Westerlund2_OB_StellarWind_MUGE.md",

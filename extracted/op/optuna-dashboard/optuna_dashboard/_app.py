@@ -23,6 +23,7 @@ import optuna
 from optuna.exceptions import DuplicatedStudyError
 from optuna.storages import BaseStorage
 from optuna.study import StudyDirection
+from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
 
 from . import _note as note
@@ -61,6 +62,7 @@ if typing.TYPE_CHECKING:
     from typing import Any
     from typing import Literal
 
+    from rustuna.storages import StorageProtocol
     from _typeshed.wsgi import WSGIApplication
     from optuna.artifacts._protocol import ArtifactStore
     from optuna_dashboard.artifact.protocol import ArtifactBackend
@@ -174,7 +176,7 @@ def create_app(
             study_id = create_new_study(storage, study_name, directions)
         except DuplicatedStudyError:
             response.status = 400  # Bad request
-            return {"reason": f"'{study_name}' already exists"}
+            return {"reason": "Study name already exists."}
 
         study = get_study(storage, study_id)
         if study is None:
@@ -208,12 +210,12 @@ def create_app(
             note.copy_notes(storage, src_study, dst_study)
         except DuplicatedStudyError:
             response.status = 400  # Bad request
-            return {"reason": f"study_name={dst_study_name} is duplicaated"}
-        except Exception as e:
+            return {"reason": "Study name already exists."}
+        except Exception:
             logger.exception("Unexpected error:")
             response.status = 500
             storage.delete_study(dst_study._study_id)
-            return {"reason": str(e)}
+            return {"reason": "Failed to rename study."}
         new_study = get_study(storage, dst_study._study_id)
         if new_study is None:
             response.status = 500
@@ -316,8 +318,9 @@ def create_app(
             ]
             return {"param_importances": importances}
         except ValueError as e:
+            logger.warning("Failed to calculate parameter importances: %s", e)
             response.status = 400  # Bad request
-            return {"reason": str(e)}
+            return {"reason": "Failed to calculate parameter importances."}
 
     @app.get("/api/studies/<study_id:int>/plot/<plot_type>")
     @json_api_view
@@ -325,41 +328,36 @@ def create_app(
         study = optuna.load_study(
             study_name=storage.get_study_name_from_id(study_id), storage=storage
         )
+
+        if len(study.directions) == 1:
+            target = None
+        else:
+            # TODO: Allow callers to select which objective is used for multi-objective plots.
+            def target(trial: FrozenTrial) -> float:
+                assert trial.values is not None
+                return trial.values[0]
+
+        target_name = "Objective 0" if target is not None else "Objective Value"
         if plot_type == "contour":
-            fig = optuna.visualization.plot_contour(study)
+            fig = optuna.visualization.plot_contour(study, target=target, target_name=target_name)
         elif plot_type == "slice":
-            fig = optuna.visualization.plot_slice(study)
+            fig = optuna.visualization.plot_slice(study, target=target, target_name=target_name)
             # Note: Optuna's implementation forces a minimum width.
             # We override it to prevent the figure from going beyond the screen width.
             # https://github.com/optuna/optuna/blob/2abd0ae81eaf3683ce1dd580429904c8a705300d/optuna/visualization/_slice.py#L237-L239
             fig.update_layout(width=None)
         elif plot_type == "parallel_coordinate":
-            fig = optuna.visualization.plot_parallel_coordinate(study)
+            fig = optuna.visualization.plot_parallel_coordinate(
+                study, target=target, target_name=target_name
+            )
         elif plot_type == "rank":
-            fig = optuna.visualization.plot_rank(study)
+            fig = optuna.visualization.plot_rank(study, target=target, target_name=target_name)
         elif plot_type == "edf":
-            fig = optuna.visualization.plot_edf(study)
+            fig = optuna.visualization.plot_edf(study, target=target, target_name=target_name)
         elif plot_type == "timeline":
             fig = optuna.visualization.plot_timeline(study)
-        elif plot_type == "param_importances":
-            fig = optuna.visualization.plot_param_importances(study)
         elif plot_type == "pareto_front":
             fig = optuna.visualization.plot_pareto_front(study)
-        else:
-            response.status = 404  # Not found
-            return {"reason": f"plot_type={plot_type} is not supported."}
-        return fig.to_json()
-
-    @app.get("/api/compare-studies/plot/<plot_type>")
-    @json_api_view
-    def get_compare_studies_plot(plot_type: str) -> dict[str, Any]:
-        study_ids = map(int, request.query.getall("study_ids[]"))
-        studies = [
-            optuna.load_study(study_name=storage.get_study_name_from_id(study_id), storage=storage)
-            for study_id in study_ids
-        ]
-        if plot_type == "edf":
-            fig = optuna.visualization.plot_edf(studies)
         else:
             response.status = 404  # Not found
             return {"reason": f"plot_type={plot_type} is not supported."}
@@ -644,7 +642,7 @@ def create_app(
 
 
 def run_server(
-    storage: str | BaseStorage,
+    storage: str | BaseStorage | StorageProtocol,
     host: str = "localhost",
     port: int = 8080,
     artifact_store: ArtifactStore | ArtifactBackend | None = None,
@@ -685,7 +683,7 @@ def run_server(
 
 
 def wsgi(
-    storage: str | BaseStorage,
+    storage: str | BaseStorage | StorageProtocol,
     artifact_store: ArtifactBackend | ArtifactStore | None = None,
     *,
     artifact_backend: ArtifactBackend | None = None,

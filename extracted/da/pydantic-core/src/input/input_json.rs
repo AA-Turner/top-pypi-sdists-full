@@ -236,6 +236,13 @@ impl<'py, 'data> Input<'py> for JsonValue<'data> {
         self.validate_dict(false)
     }
 
+    fn strict_frozendict(&self) -> ValMatch<Self::Dict<'_>> {
+        match self {
+            JsonValue::Object(dict) => Ok(ValidationMatch::strict(dict)),
+            _ => Err(ValError::new(ErrorTypeDefaults::FrozenDictType, self)),
+        }
+    }
+
     type List<'a>
         = &'a JsonArray<'data>
     where
@@ -245,6 +252,14 @@ impl<'py, 'data> Input<'py> for JsonValue<'data> {
         match self {
             JsonValue::Array(a) => Ok(ValidationMatch::exact(a)),
             _ => Err(ValError::new(ErrorTypeDefaults::ListType, self)),
+        }
+    }
+
+    fn validate_deque(&self, _strict: bool) -> ValMatch<(&JsonArray<'data>, Option<usize>)> {
+        // we allow a list here since otherwise it would be impossible to create a deque from JSON
+        match self {
+            JsonValue::Array(a) => Ok(ValidationMatch::strict((a, None))),
+            _ => Err(ValError::new(ErrorTypeDefaults::DequeType, self)),
         }
     }
 
@@ -486,10 +501,20 @@ impl<'py> Input<'py> for str {
         Err(ValError::new(ErrorTypeDefaults::DictType, self))
     }
 
+    #[cfg_attr(has_coverage_attribute, coverage(off))]
+    fn strict_frozendict(&self) -> ValMatch<Never> {
+        Err(ValError::new(ErrorTypeDefaults::FrozenDictType, self))
+    }
+
     type List<'a> = Never;
 
     fn validate_list(&self, _strict: bool) -> ValMatch<Never> {
         Err(ValError::new(ErrorTypeDefaults::ListType, self))
+    }
+
+    #[cfg_attr(has_coverage_attribute, coverage(off))]
+    fn validate_deque(&self, _strict: bool) -> ValMatch<(Never, Option<usize>)> {
+        Err(ValError::new(ErrorTypeDefaults::DequeType, self))
     }
 
     type Tuple<'a> = Never;

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-google-cloud-ndb"
-version = "2.4.0.20260906"
+version = "2.4.0.20260909"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for google-cloud-ndb"
@@ -35,7 +35,7 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`dfb509fb0e8a5178b457c40e3ab68d685ee269e2`](https://github.com/python/typeshed/commit/dfb509fb0e8a5178b457c40e3ab68d685ee269e2).
+[`ad332530d3e53cb79ffa411054a615e8d9623211`](https://github.com/python/typeshed/commit/ad332530d3e53cb79ffa411054a615e8d9623211).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

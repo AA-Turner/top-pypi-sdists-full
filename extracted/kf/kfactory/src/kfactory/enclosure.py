@@ -329,14 +329,14 @@ def extrude_path_dynamic_points(
     if callable(widths):
         length = sum(((p2 - p1).abs() for p2, p1 in itertools.pairwise(path)))
         z: float = 0
-        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[call-top-callable, unsupported-operator]
+        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[unsupported-operator]
         vector_top = [start_trans * ref_vector]
         vector_bot = [start_trans * kdb.DCplxTrans.R180 * ref_vector]
         p_old = path[0]
         p = path[1]
         z += (p - p_old).abs()
         for point in path[2:]:
-            ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[call-top-callable, unsupported-operator]
+            ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[unsupported-operator]
             p_new = point
             v = p_new - p_old
             angle = np.rad2deg(np.arctan2(v.y, v.x))
@@ -346,7 +346,7 @@ def extrude_path_dynamic_points(
             z += (p_new - p).abs()
             p_old = p
             p = p_new
-        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[call-top-callable, unsupported-operator]
+        ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths(z / length) / 2))  # ty:ignore[unsupported-operator]
     else:
         ref_vector = kdb.DCplxTrans(kdb.DVector(0, widths[0] / 2))
         vector_top = [start_trans * ref_vector]
@@ -574,13 +574,20 @@ class LayerSection(BaseModel):
 
 
 class DLayerEnclosure(BaseModel, arbitrary_types_allowed=True):
+    """um based version of [LayerEnclosure][kfactory.enclosure.LayerEnclosure]."""
+
     sections: list[tuple[kdb.LayerInfo, float] | tuple[kdb.LayerInfo, float, float]]
     name: str | None = None
     main_layer: kdb.LayerInfo
+    bbox_sections: list[tuple[kdb.LayerInfo, float]] = Field(default_factory=list)
 
     def to_itype(self, kcl: KCLayout) -> LayerEnclosure:
         return LayerEnclosure(
-            dsections=self.sections, name=self.name, main_layer=self.main_layer, kcl=kcl
+            dsections=self.sections,
+            name=self.name,
+            main_layer=self.main_layer,
+            dbbox_sections=self.bbox_sections,
+            kcl=kcl,
         )
 
 
@@ -590,6 +597,9 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
     Attributes:
         layer_sections: Mapping of layers to their layer sections.
         main_layer: Layer which to use unless specified otherwise.
+        bbox_sections: Mapping of layers to their bbox offset. Sorted by layer on
+            construction, so iteration order is deterministic (the enclosure is
+            frozen).
     """
 
     layer_sections: dict[kdb.LayerInfo, LayerSection]
@@ -623,6 +633,7 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
         ]
         | None = None,
         bbox_sections: Sequence[tuple[kdb.LayerInfo, int]] = [],
+        dbbox_sections: Sequence[tuple[kdb.LayerInfo, float]] | None = None,
         kcl: KCLayout | None = None,
     ) -> None:
         """Constructor of new enclosure.
@@ -634,9 +645,13 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
                 cell name this name will be used for enclosure arguments.
             main_layer: Main layer used if the functions don't get an explicit layer.
             dsections: Same as sections but min/max defined in um
+            bbox_sections: tuples of (layer, offset) to grow the bounding box of the
+                reference by `offset` on `layer`.
+            dbbox_sections: Same as `bbox_sections` but the offset defined in um.
             kcl: `KCLayout` Used for conversion dbu -> um or when copying.
-                Must be specified if `desections` is not `None`. Also necessary
-                if copying to another layout and not all layers used are LayerInfos.
+                Must be specified if `dsections` or `dbbox_sections` is not `None`.
+                Also necessary if copying to another layout and not all layers used
+                are LayerInfos.
         """
         layer_sections: dict[kdb.LayerInfo, LayerSection] = {}
 
@@ -656,6 +671,15 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
                         )
                     )
 
+        if dbbox_sections is not None:
+            assert kcl is not None, (
+                "If bbox sections in um are defined, kcl must be set"
+            )
+            bbox_sections = [
+                *bbox_sections,
+                *((layer, kcl.to_dbu(offset)) for layer, offset in dbbox_sections),
+            ]
+
         for sec in sorted(
             sections,
             key=lambda sec: (sec[0].name, sec[0].layer, sec[0].datatype, sec[1]),
@@ -666,19 +690,21 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
                 ls = LayerSection()
                 layer_sections[sec[0]] = ls
             ls.add_section(Section(d_max=sec[1])) if len(sec) < 3 else ls.add_section(
-                Section(d_max=sec[2], d_min=sec[1])  # ty:ignore[index-out-of-bounds]
+                Section(d_max=sec[2], d_min=sec[1])
             )
         super().__init__(
             main_layer=main_layer,
             kcl=kcl,
             layer_sections=layer_sections,
-            bbox_sections={t[0]: t[1] for t in bbox_sections},
+            bbox_sections={
+                t[0]: t[1] for t in sorted(bbox_sections, key=lambda t: str(t[0]))
+            },
         )
-        self._name = name  # ty:ignore[invalid-assignment]
+        self._name = name
 
     @model_serializer
     def _serialize(self) -> dict[str, Any]:
-        return {
+        serialized: dict[str, Any] = {
             "name": self.name,
             "sections": [
                 (layer, s.d_max) if s.d_min is None else (layer, s.d_min, s.d_max)
@@ -687,10 +713,22 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
             ],
             "main_layer": self.main_layer,
         }
+        if self.bbox_sections:
+            serialized["bbox_sections"] = list(self.bbox_sections.items())
+        return serialized
 
     def __hash__(self) -> int:  # make hashable BaseModel subclass
         """Calculate a unique hash of the enclosure."""
-        return hash((str(self), self.main_layer, tuple(self.layer_sections.items())))
+        return hash(
+            (
+                str(self),
+                self.main_layer,
+                tuple(self.layer_sections.items()),
+                tuple(
+                    (str(layer), offset) for layer, offset in self.bbox_sections.items()
+                ),
+            )
+        )
 
     def to_dtype(self, kcl: KCLayout) -> DLayerEnclosure:
         """Convert the enclosure to a um based enclosure."""
@@ -706,6 +744,10 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
                 for section in layer_section.sections
             ],
             main_layer=self.main_layer,
+            bbox_sections=[
+                (layer, kcl.to_um(offset))
+                for layer, offset in self.bbox_sections.items()
+            ],
         )
 
     @property
@@ -729,9 +771,7 @@ class LayerEnclosure(BaseModel, arbitrary_types_allowed=True, frozen=True):
         list_to_hash: list[tuple[str, ...]] = [(str(self.main_layer),)]
         for layer, layer_section in self.layer_sections.items():
             list_to_hash.append((str(layer), str(layer_section.sections)))
-        for layer, offset in sorted(
-            self.bbox_sections.items(), key=lambda kv: str(kv[0])
-        ):
+        for layer, offset in self.bbox_sections.items():
             list_to_hash.append((str(layer), "bbox", str(offset)))
         return sha1(str(list_to_hash).encode("UTF-8")).hexdigest()[-8:]  # noqa: S324
 
@@ -1184,6 +1224,8 @@ class LayerEnclosureSpec(TypedDict):
     dsections: NotRequired[
         list[tuple[kdb.LayerInfo, float] | tuple[kdb.LayerInfo, float, float]]
     ]
+    bbox_sections: NotRequired[list[tuple[kdb.LayerInfo, int]]]
+    dbbox_sections: NotRequired[list[tuple[kdb.LayerInfo, float]]]
 
 
 class LayerEnclosureCollection(BaseModel):
@@ -1238,11 +1280,21 @@ class KCellLayerEnclosures(BaseModel):
     ) -> LayerEnclosure:
         if isinstance(enclosure, str):
             return self[enclosure]
-        if isinstance(enclosure, dict) and enclosure.get("dsections") is None:
+        if isinstance(enclosure, dict):
+            if (
+                enclosure.get("dsections") is not None
+                or enclosure.get("dbbox_sections") is not None
+            ):
+                raise ValueError(
+                    "um based enclosure specs (`dsections`/`dbbox_sections`) cannot be"
+                    " converted without a `KCLayout`. Use `KCLayout.get_enclosure` or"
+                    " pass a `LayerEnclosure` instead."
+                )
             enclosure = LayerEnclosure(
                 sections=enclosure.get("sections", []),
                 name=enclosure.get("name"),
                 main_layer=enclosure["main_layer"],
+                bbox_sections=enclosure.get("bbox_sections", []),
             )
 
         if enclosure not in self.enclosures:
@@ -1772,6 +1824,8 @@ class LayerEnclosureModel(RootModel[dict[str, LayerEnclosure]]):
                     dsections=enclosure.get("dsections", []),
                     name=enclosure.get("name"),
                     main_layer=enclosure["main_layer"],
+                    bbox_sections=enclosure.get("bbox_sections", []),
+                    dbbox_sections=enclosure.get("dbbox_sections"),
                     kcl=kcl,
                 )
             else:
@@ -1779,6 +1833,8 @@ class LayerEnclosureModel(RootModel[dict[str, LayerEnclosure]]):
                     sections=enclosure.get("sections", []),
                     name=enclosure.get("name"),
                     main_layer=enclosure["main_layer"],
+                    bbox_sections=enclosure.get("bbox_sections", []),
+                    dbbox_sections=enclosure.get("dbbox_sections"),
                     kcl=kcl,
                 )
         enclosure = cast("LayerEnclosure", enclosure)

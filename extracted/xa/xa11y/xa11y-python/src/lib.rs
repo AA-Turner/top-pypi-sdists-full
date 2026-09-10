@@ -57,7 +57,7 @@ fn attach_diagnosis_attrs(
     elapsed_secs: Option<f64>,
     diagnosis: Option<&xa11y::Diagnosis>,
 ) -> PyErr {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let value = err.value(py);
         // Best-effort by design: the rendered message already carries the
         // same content, and replacing the original exception with an
@@ -143,6 +143,13 @@ fn to_py_err(e: xa11y::Error) -> PyErr {
         xa11y::Error::Unsupported { feature } => {
             ActionNotSupportedError::new_err(format!("Unsupported: {feature}"))
         }
+        // `xa11y::Error` is `#[non_exhaustive]`, so the compiler no longer
+        // forces a new variant to be mapped here. `cargo xtask
+        // check-bindings-parity` does instead: it fails when a core variant
+        // is not named in this function. This arm exists so a core built
+        // ahead of the bindings still raises something meaningful rather
+        // than failing to compile.
+        other => XA11yError::new_err(other.to_string()),
     }
 }
 
@@ -151,7 +158,7 @@ fn to_py_err(e: xa11y::Error) -> PyErr {
 /// Convert a `serde_json::Value` to a Python object. Used by `Element.raw` to
 /// expose platform-specific data that arrives as JSON (the provider traits
 /// store it as `HashMap<String, serde_json::Value>`).
-fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<PyObject> {
+fn json_to_py(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     Ok(match value {
         serde_json::Value::Null => py.None(),
         serde_json::Value::Bool(b) => b.into_pyobject(py)?.to_owned().into_any().unbind(),
@@ -232,7 +239,7 @@ fn make_py_element(
     )
 }
 
-fn tree_node_to_py(py: Python<'_>, node: &xa11y::TreeNode) -> PyResult<PyObject> {
+fn tree_node_to_py(py: Python<'_>, node: &xa11y::TreeNode) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("role", &node.role)?;
     match &node.name {
@@ -243,7 +250,7 @@ fn tree_node_to_py(py: Python<'_>, node: &xa11y::TreeNode) -> PyResult<PyObject>
         Some(v) => dict.set_item("value", v)?,
         None => dict.set_item("value", py.None())?,
     }
-    let children: Vec<PyObject> = node
+    let children: Vec<Py<PyAny>> = node
         .children
         .iter()
         .map(|child| tree_node_to_py(py, child))
@@ -254,7 +261,7 @@ fn tree_node_to_py(py: Python<'_>, node: &xa11y::TreeNode) -> PyResult<PyObject>
 
 // ── Data Classes ────────────────────────────────────────────────────────────
 
-#[pyclass(frozen)]
+#[pyclass(frozen, from_py_object)]
 #[derive(Clone)]
 struct Rect {
     #[pyo3(get)]
@@ -353,7 +360,7 @@ impl Element {
         let provider = self.provider.clone();
         let data = self.inner_data.clone();
         let children = py
-            .allow_threads(move || provider.get_children(Some(&data)))
+            .detach(move || provider.get_children(Some(&data)))
             .map_err(to_py_err)?;
         children
             .iter()
@@ -366,7 +373,7 @@ impl Element {
         let provider = self.provider.clone();
         let data = self.inner_data.clone();
         let parent = py
-            .allow_threads(move || provider.get_parent(&data))
+            .detach(move || provider.get_parent(&data))
             .map_err(to_py_err)?;
         match parent {
             Some(p) => Ok(Some(make_py_element(py, &p, self.provider.clone())?)),
@@ -379,7 +386,7 @@ impl Element {
         let provider = self.provider.clone();
         let data = self.inner_data.clone();
         let sub = py
-            .allow_threads(move || provider.subscribe(&data))
+            .detach(move || provider.subscribe(&data))
             .map_err(to_py_err)?;
         Ok(Subscription {
             inner: std::sync::Mutex::new(Some(sub)),
@@ -393,10 +400,10 @@ impl Element {
     /// (a list of dicts with the same shape). ``max_depth`` limits traversal:
     /// ``0`` = only this node, ``1`` = node + direct children, ``None`` = full subtree.
     #[pyo3(signature = (max_depth=None))]
-    fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<PyObject> {
+    fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<Py<PyAny>> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
         let node = py
-            .allow_threads(move || element.tree(max_depth))
+            .detach(move || element.tree(max_depth))
             .map_err(to_py_err)?;
         tree_node_to_py(py, &node)
     }
@@ -407,7 +414,7 @@ impl Element {
     #[pyo3(signature = (max_depth=None))]
     fn dump(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<String> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.dump(max_depth))
+        py.detach(move || element.dump(max_depth))
             .map_err(to_py_err)
     }
 
@@ -431,7 +438,7 @@ impl Element {
     /// the cross-platform fields (`role`, `name`, `states`, etc.) for
     /// portable logic.
     #[getter]
-    fn raw(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn raw(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (k, v) in &self.inner_data.raw {
             dict.set_item(k, json_to_py(py, v)?)?;
@@ -447,94 +454,87 @@ impl Element {
     /// Press (default activate) this element.
     fn press(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.press()).map_err(to_py_err)
+        py.detach(move || element.press()).map_err(to_py_err)
     }
     /// Move keyboard focus to this element.
     fn focus(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.focus()).map_err(to_py_err)
+        py.detach(move || element.focus()).map_err(to_py_err)
     }
     /// Remove keyboard focus from this element.
     fn blur(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.blur()).map_err(to_py_err)
+        py.detach(move || element.blur()).map_err(to_py_err)
     }
     /// Toggle this element's checked state.
     fn toggle(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.toggle())
-            .map_err(to_py_err)
+        py.detach(move || element.toggle()).map_err(to_py_err)
     }
     /// Expand this element (e.g. tree node, combo box).
     fn expand(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.expand())
-            .map_err(to_py_err)
+        py.detach(move || element.expand()).map_err(to_py_err)
     }
     /// Collapse this element.
     fn collapse(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.collapse())
-            .map_err(to_py_err)
+        py.detach(move || element.collapse()).map_err(to_py_err)
     }
     /// Select this element (e.g. list item, tab).
     fn select(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.select())
-            .map_err(to_py_err)
+        py.detach(move || element.select()).map_err(to_py_err)
     }
     /// Show this element's context menu.
     fn show_menu(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.show_menu())
-            .map_err(to_py_err)
+        py.detach(move || element.show_menu()).map_err(to_py_err)
     }
     /// Scroll this element into view.
     fn scroll_into_view(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.scroll_into_view())
+        py.detach(move || element.scroll_into_view())
             .map_err(to_py_err)
     }
     /// Increment this element's value (e.g. slider, spinner).
     fn increment(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.increment())
-            .map_err(to_py_err)
+        py.detach(move || element.increment()).map_err(to_py_err)
     }
     /// Decrement this element's value.
     fn decrement(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.decrement())
-            .map_err(to_py_err)
+        py.detach(move || element.decrement()).map_err(to_py_err)
     }
     /// Replace this element's text value.
     fn set_value(&self, py: Python<'_>, value: &str) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.set_value(value))
+        py.detach(move || element.set_value(value))
             .map_err(to_py_err)
     }
     /// Set this element's numeric value.
     fn set_numeric_value(&self, py: Python<'_>, value: f64) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.set_numeric_value(value))
+        py.detach(move || element.set_numeric_value(value))
             .map_err(to_py_err)
     }
     /// Insert text at the current cursor position.
     fn type_text(&self, py: Python<'_>, text: &str) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.type_text(text))
+        py.detach(move || element.type_text(text))
             .map_err(to_py_err)
     }
     /// Select the text range from `start` to `end` (0-based character offsets).
     fn select_text(&self, py: Python<'_>, start: u32, end: u32) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.select_text(start, end))
+        py.detach(move || element.select_text(start, end))
             .map_err(to_py_err)
     }
     /// Perform an action by its ``snake_case`` name.
     fn perform_action(&self, py: Python<'_>, action: &str) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.perform_action(action))
+        py.detach(move || element.perform_action(action))
             .map_err(to_py_err)
     }
 
@@ -615,27 +615,23 @@ impl Locator {
 
     fn exists(&self, py: Python<'_>) -> PyResult<bool> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.exists()).map_err(to_py_err)
+        py.detach(move || inner.exists()).map_err(to_py_err)
     }
 
     fn count(&self, py: Python<'_>) -> PyResult<usize> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.count()).map_err(to_py_err)
+        py.detach(move || inner.count()).map_err(to_py_err)
     }
 
     fn element(&self, py: Python<'_>) -> PyResult<Py<Element>> {
         let inner = self.inner.clone();
-        let el = py
-            .allow_threads(move || inner.element())
-            .map_err(to_py_err)?;
+        let el = py.detach(move || inner.element()).map_err(to_py_err)?;
         make_py_element(py, el.data(), el.provider().clone())
     }
 
     fn elements(&self, py: Python<'_>) -> PyResult<Vec<Py<Element>>> {
         let inner = self.inner.clone();
-        let els = py
-            .allow_threads(move || inner.elements())
-            .map_err(to_py_err)?;
+        let els = py.detach(move || inner.elements()).map_err(to_py_err)?;
         els.iter()
             .map(|el| make_py_element(py, el.data(), el.provider().clone()))
             .collect()
@@ -651,10 +647,10 @@ impl Locator {
     /// Resolves the selector once; fails fast with
     /// :class:`SelectorNotMatchedError` if no match — does not auto-wait.
     #[pyo3(signature = (max_depth=None))]
-    fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<PyObject> {
+    fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<Py<PyAny>> {
         let locator = self.inner.clone();
         let node = py
-            .allow_threads(move || locator.tree(max_depth))
+            .detach(move || locator.tree(max_depth))
             .map_err(to_py_err)?;
         tree_node_to_py(py, &node)
     }
@@ -666,7 +662,7 @@ impl Locator {
     #[pyo3(signature = (max_depth=None))]
     fn dump(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<String> {
         let locator = self.inner.clone();
-        py.allow_threads(move || locator.dump(max_depth))
+        py.detach(move || locator.dump(max_depth))
             .map_err(to_py_err)
     }
 
@@ -674,76 +670,70 @@ impl Locator {
 
     fn press(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.press()).map_err(to_py_err)
+        py.detach(move || inner.press()).map_err(to_py_err)
     }
     fn focus(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.focus()).map_err(to_py_err)
+        py.detach(move || inner.focus()).map_err(to_py_err)
     }
     fn blur(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.blur()).map_err(to_py_err)
+        py.detach(move || inner.blur()).map_err(to_py_err)
     }
     fn toggle(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.toggle()).map_err(to_py_err)
+        py.detach(move || inner.toggle()).map_err(to_py_err)
     }
     fn expand(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.expand()).map_err(to_py_err)
+        py.detach(move || inner.expand()).map_err(to_py_err)
     }
     fn collapse(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.collapse())
-            .map_err(to_py_err)
+        py.detach(move || inner.collapse()).map_err(to_py_err)
     }
     fn select(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.select()).map_err(to_py_err)
+        py.detach(move || inner.select()).map_err(to_py_err)
     }
     fn show_menu(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.show_menu())
-            .map_err(to_py_err)
+        py.detach(move || inner.show_menu()).map_err(to_py_err)
     }
     fn scroll_into_view(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.scroll_into_view())
+        py.detach(move || inner.scroll_into_view())
             .map_err(to_py_err)
     }
     fn increment(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.increment())
-            .map_err(to_py_err)
+        py.detach(move || inner.increment()).map_err(to_py_err)
     }
     fn decrement(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.decrement())
-            .map_err(to_py_err)
+        py.detach(move || inner.decrement()).map_err(to_py_err)
     }
     fn set_value(&self, py: Python<'_>, value: &str) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.set_value(value))
-            .map_err(to_py_err)
+        py.detach(move || inner.set_value(value)).map_err(to_py_err)
     }
     fn set_numeric_value(&self, py: Python<'_>, value: f64) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.set_numeric_value(value))
+        py.detach(move || inner.set_numeric_value(value))
             .map_err(to_py_err)
     }
     fn type_text(&self, py: Python<'_>, text: &str) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.type_text(text))
-            .map_err(to_py_err)
+        py.detach(move || inner.type_text(text)).map_err(to_py_err)
     }
     fn select_text(&self, py: Python<'_>, start: u32, end: u32) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.select_text(start, end))
+        py.detach(move || inner.select_text(start, end))
             .map_err(to_py_err)
     }
     fn perform_action(&self, py: Python<'_>, action: &str) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.perform_action(action))
+        py.detach(move || inner.perform_action(action))
             .map_err(to_py_err)
     }
 
@@ -759,7 +749,7 @@ impl Locator {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
         let el = py
-            .allow_threads(move || inner.wait_visible(timeout))
+            .detach(move || inner.wait_visible(timeout))
             .map_err(to_py_err)?;
         make_py_element(py, el.data(), el.provider().clone())
     }
@@ -769,7 +759,7 @@ impl Locator {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
         let el = py
-            .allow_threads(move || inner.wait_attached(timeout))
+            .detach(move || inner.wait_attached(timeout))
             .map_err(to_py_err)?;
         make_py_element(py, el.data(), el.provider().clone())
     }
@@ -778,7 +768,7 @@ impl Locator {
     fn wait_detached(&self, py: Python<'_>, timeout: Option<f64>) -> PyResult<()> {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.wait_detached(timeout))
+        py.detach(move || inner.wait_detached(timeout))
             .map_err(to_py_err)
     }
 
@@ -787,7 +777,7 @@ impl Locator {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
         let el = py
-            .allow_threads(move || inner.wait_enabled(timeout))
+            .detach(move || inner.wait_enabled(timeout))
             .map_err(to_py_err)?;
         make_py_element(py, el.data(), el.provider().clone())
     }
@@ -796,7 +786,7 @@ impl Locator {
     fn wait_hidden(&self, py: Python<'_>, timeout: Option<f64>) -> PyResult<()> {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
-        py.allow_threads(move || inner.wait_hidden(timeout))
+        py.detach(move || inner.wait_hidden(timeout))
             .map_err(to_py_err)
     }
 
@@ -805,7 +795,7 @@ impl Locator {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
         let el = py
-            .allow_threads(move || inner.wait_disabled(timeout))
+            .detach(move || inner.wait_disabled(timeout))
             .map_err(to_py_err)?;
         make_py_element(py, el.data(), el.provider().clone())
     }
@@ -815,7 +805,7 @@ impl Locator {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
         let el = py
-            .allow_threads(move || inner.wait_focused(timeout))
+            .detach(move || inner.wait_focused(timeout))
             .map_err(to_py_err)?;
         make_py_element(py, el.data(), el.provider().clone())
     }
@@ -825,7 +815,7 @@ impl Locator {
         let timeout = effective_timeout(timeout)?;
         let inner = self.inner.clone();
         let el = py
-            .allow_threads(move || inner.wait_unfocused(timeout))
+            .detach(move || inner.wait_unfocused(timeout))
             .map_err(to_py_err)?;
         make_py_element(py, el.data(), el.provider().clone())
     }
@@ -839,7 +829,7 @@ impl Locator {
     fn wait_until(
         &self,
         py: Python<'_>,
-        predicate: PyObject,
+        predicate: Py<PyAny>,
         timeout: Option<f64>,
     ) -> PyResult<()> {
         let timeout = effective_timeout(timeout)?;
@@ -852,15 +842,15 @@ impl Locator {
         // burning the remaining timeout; the stash check after the loop
         // takes precedence over the loop's own result.
         let pred_err: std::sync::Mutex<Option<PyErr>> = std::sync::Mutex::new(None);
-        let result = py.allow_threads(|| {
+        let result = py.detach(|| {
             inner.wait_until(
                 |element_data: Option<&xa11y::ElementData>| {
-                    Python::with_gil(|py| -> bool {
+                    Python::attach(|py| -> bool {
                         let mut stash = pred_err.lock().unwrap_or_else(|e| e.into_inner());
                         if stash.is_some() {
                             return true;
                         }
-                        let arg: PyObject = match element_data {
+                        let arg: Py<PyAny> = match element_data {
                             Some(data) => match make_py_element(py, data, provider.clone()) {
                                 Ok(el) => el.into_any(),
                                 Err(e) => {
@@ -917,6 +907,9 @@ fn event_kind_to_str(kind: &xa11y::EventKind) -> &'static str {
         xa11y::EventKind::MenuClosed => "menu_closed",
         xa11y::EventKind::TextChanged => "text_changed",
         xa11y::EventKind::Announcement => "announcement",
+        // See the note on `to_py_err`: variant coverage is enforced by
+        // `cargo xtask check-bindings-parity`, not by the compiler.
+        _ => "unknown",
     }
 }
 
@@ -933,6 +926,9 @@ fn state_flag_to_str(flag: xa11y::StateFlag) -> &'static str {
         xa11y::StateFlag::Modal => "modal",
         xa11y::StateFlag::Required => "required",
         xa11y::StateFlag::Busy => "busy",
+        // See the note on `to_py_err`: variant coverage is enforced by
+        // `cargo xtask check-bindings-parity`, not by the compiler.
+        _ => "unknown",
     }
 }
 
@@ -973,7 +969,7 @@ impl EventType {
 
 // ── Event ──────────────────────────────────────────────────────────────────
 
-#[pyclass(frozen)]
+#[pyclass(frozen, from_py_object)]
 #[derive(Clone)]
 struct Event {
     /// String representation of the event kind (e.g. "focus_changed").
@@ -1060,14 +1056,12 @@ impl Subscription {
     fn recv(&self, py: Python<'_>, timeout: f64) -> PyResult<Event> {
         let dur = Duration::from_secs_f64(timeout);
         let provider = self.provider.clone();
-        py.allow_threads(|| {
-            self.with_sub(|sub| sub.recv(dur).map(|e| Event::from_core(e, provider)))
-        })
-        .and_then(|r| r.map_err(to_py_err))
+        py.detach(|| self.with_sub(|sub| sub.recv(dur).map(|e| Event::from_core(e, provider))))
+            .and_then(|r| r.map_err(to_py_err))
     }
 
     #[pyo3(signature = (predicate, timeout=5.0))]
-    fn wait_for(&self, py: Python<'_>, predicate: PyObject, timeout: f64) -> PyResult<Event> {
+    fn wait_for(&self, py: Python<'_>, predicate: Py<PyAny>, timeout: f64) -> PyResult<Event> {
         let dur = Duration::from_secs_f64(timeout);
         let start = std::time::Instant::now();
         let mut seen: usize = 0;
@@ -1075,19 +1069,19 @@ impl Subscription {
         loop {
             let remaining = dur.saturating_sub(start.elapsed());
             if remaining.is_zero() {
-                return Err(to_py_err(xa11y::Error::timeout(start.elapsed()).diagnose(
-                    xa11y::Diagnosis {
-                        condition: Some("event matching predicate".to_string()),
-                        last_observed: Some(format!("{seen} event(s) received, none matched")),
-                        ..Default::default()
-                    },
-                )));
+                return Err(to_py_err(
+                    xa11y::Error::timeout(start.elapsed()).diagnose(
+                        xa11y::Diagnosis::new()
+                            .condition("event matching predicate")
+                            .last_observed(format!("{seen} event(s) received, none matched")),
+                    ),
+                ));
             }
             let poll = remaining.min(Duration::from_millis(50));
             let provider = self.provider.clone();
             // Use recv_status so a sender-disconnect is surfaced explicitly
             // rather than silently spinning forever (tenet 1).
-            let status = py.allow_threads(|| self.with_sub(|sub| sub.recv_status(poll)))?;
+            let status = py.detach(|| self.with_sub(|sub| sub.recv_status(poll)))?;
             let py_event = match status {
                 xa11y::RecvStatus::Event(evt) => Event::from_core(*evt, provider),
                 xa11y::RecvStatus::Timeout => {
@@ -1149,9 +1143,8 @@ impl Subscription {
         // recv_status lets us surface only the actual end-of-stream condition
         // as StopIteration (tenet 1: no silent fallbacks).
         loop {
-            let status = py.allow_threads(|| {
-                self.with_sub(|sub| sub.recv_status(Duration::from_millis(100)))
-            })?;
+            let status =
+                py.detach(|| self.with_sub(|sub| sub.recv_status(Duration::from_millis(100))))?;
             match status {
                 xa11y::RecvStatus::Event(evt) => {
                     return Ok(Event::from_core(*evt, self.provider.clone()));
@@ -1233,7 +1226,7 @@ impl App {
         let timeout = effective_timeout(timeout)?;
         let provider = get_provider()?;
         let app = py
-            .allow_threads(move || xa11y::App::by_name_with(provider, name, timeout))
+            .detach(move || xa11y::App::by_name_with(provider, name, timeout))
             .map_err(to_py_err)?;
         Ok(Self::from_core(app))
     }
@@ -1260,7 +1253,7 @@ impl App {
         let timeout = effective_timeout(timeout)?;
         let provider = get_provider()?;
         let app = py
-            .allow_threads(move || xa11y::App::by_pid_with(provider, pid, timeout))
+            .detach(move || xa11y::App::by_pid_with(provider, pid, timeout))
             .map_err(to_py_err)?;
         Ok(Self::from_core(app))
     }
@@ -1278,7 +1271,7 @@ impl App {
         let timeout = effective_timeout(timeout)?;
         let provider = get_provider()?;
         let app = py
-            .allow_threads(move || xa11y::App::foreground_with(provider, timeout))
+            .detach(move || xa11y::App::foreground_with(provider, timeout))
             .map_err(to_py_err)?;
         Ok(Self::from_core(app))
     }
@@ -1292,7 +1285,7 @@ impl App {
     fn list(py: Python<'_>) -> PyResult<Vec<Self>> {
         let provider = get_provider()?;
         let apps = py
-            .allow_threads(move || xa11y::App::list_with(provider))
+            .detach(move || xa11y::App::list_with(provider))
             .map_err(to_py_err)?;
         Ok(apps.into_iter().map(Self::from_core).collect())
     }
@@ -1316,7 +1309,7 @@ impl App {
     /// ```
     #[staticmethod]
     #[pyo3(signature = (predicate, *, timeout=None))]
-    fn find(py: Python<'_>, predicate: PyObject, timeout: Option<f64>) -> PyResult<Self> {
+    fn find(py: Python<'_>, predicate: Py<PyAny>, timeout: Option<f64>) -> PyResult<Self> {
         let timeout = effective_timeout(timeout)?;
         let provider = get_provider()?;
         // The poll loop runs with the GIL released (tenet 5); the predicate
@@ -1333,13 +1326,13 @@ impl App {
         // "no match".
         //
         // A `Mutex` rather than a `RefCell`: the closure crosses
-        // `allow_threads`, which requires it to be `Send`, and `&RefCell` is
+        // `detach`, which requires it to be `Send`, and `&RefCell` is
         // not. There is no contention — the predicate runs on this thread —
         // so the lock costs nothing.
         let pred_err: std::sync::Mutex<Option<PyErr>> = std::sync::Mutex::new(None);
-        let result = py.allow_threads(|| {
+        let result = py.detach(|| {
             xa11y::App::try_find_with(provider.clone(), timeout, |data| {
-                Python::with_gil(|py| -> xa11y::Result<bool> {
+                Python::attach(|py| -> xa11y::Result<bool> {
                     let outcome: PyResult<bool> = (|| {
                         let app = Py::new(py, App::from_data(data, provider.clone()))?;
                         predicate.call1(py, (app,))?.bind(py).is_truthy()
@@ -1418,7 +1411,7 @@ impl App {
         let provider = self.provider.clone();
         let data = self.inner_data.clone();
         let sub = py
-            .allow_threads(move || provider.subscribe(&data))
+            .detach(move || provider.subscribe(&data))
             .map_err(to_py_err)?;
         Ok(Subscription {
             inner: std::sync::Mutex::new(Some(sub)),
@@ -1431,7 +1424,7 @@ impl App {
         let provider = self.provider.clone();
         let data = self.inner_data.clone();
         let children = py
-            .allow_threads(move || provider.get_children(Some(&data)))
+            .detach(move || provider.get_children(Some(&data)))
             .map_err(to_py_err)?;
         children
             .iter()
@@ -1456,10 +1449,10 @@ impl App {
     ///
     /// Equivalent to ``Element.tree(...)`` on the application's root element.
     #[pyo3(signature = (max_depth=None))]
-    fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<PyObject> {
+    fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<Py<PyAny>> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
         let node = py
-            .allow_threads(move || element.tree(max_depth))
+            .detach(move || element.tree(max_depth))
             .map_err(to_py_err)?;
         tree_node_to_py(py, &node)
     }
@@ -1475,7 +1468,7 @@ impl App {
     #[pyo3(signature = (max_depth=None))]
     fn dump(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<String> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.allow_threads(move || element.dump(max_depth))
+        py.detach(move || element.dump(max_depth))
             .map_err(to_py_err)
     }
 
@@ -1513,13 +1506,232 @@ impl App {
     }
 }
 
+// ── ShellSurface ────────────────────────────────────────────────────────────
+
+/// The `kind` spellings a caller may pass, named in the parse error.
+///
+/// Derived from `ShellSurfaceKind::ALL`, not written out: the enum is
+/// `#[non_exhaustive]`, so a `match` here could not fail to compile when a
+/// variant is added, and a hand-written list would go on naming eight kinds
+/// out of nine in an error whose whole job is to say what is accepted.
+/// Parsing itself goes through `from_snake_case`, the same way
+/// `parse_button` / `parse_anchor` work.
+fn shell_surface_kinds() -> &'static [&'static str] {
+    static KINDS: std::sync::LazyLock<Vec<&'static str>> = std::sync::LazyLock::new(|| {
+        xa11y::ShellSurfaceKind::ALL
+            .iter()
+            .map(|k| k.to_snake_case())
+            .collect()
+    });
+    KINDS.as_slice()
+}
+
+/// Parse a snake_case shell-surface kind name.
+///
+/// Runs before the provider is resolved and before any OS call, per the
+/// "parse arguments before the first OS call" convention: an unknown kind is
+/// a `ValueError` whether or not accessibility is set up on the machine.
+fn parse_shell_kind(name: &str) -> PyResult<xa11y::ShellSurfaceKind> {
+    xa11y::ShellSurfaceKind::from_snake_case(name).ok_or_else(|| {
+        PyValueError::new_err(format!(
+            "unknown shell surface kind '{name}'; expected one of: {}",
+            shell_surface_kinds().join(", ")
+        ))
+    })
+}
+
+/// One OS-owned shell surface — the taskbar, a desktop panel, the dock, the
+/// menu bar, a process's status items, the desktop, or an open flyout.
+///
+/// `ShellSurface` is **not** an `Element`. It represents the surface as a
+/// whole and provides a `locator()` to search its accessibility tree, exactly
+/// as `App` does for an application.
+#[pyclass(frozen)]
+struct ShellSurface {
+    #[pyo3(get)]
+    kind: String,
+    #[pyo3(get)]
+    name: String,
+    #[pyo3(get)]
+    pid: Option<u32>,
+    inner_data: xa11y::ElementData,
+    provider: Arc<dyn xa11y::Provider>,
+}
+
+#[pymethods]
+impl ShellSurface {
+    /// List the OS shell surfaces currently on screen.
+    ///
+    /// Single enumeration, no polling. The listing is live: ``flyout``
+    /// surfaces appear only while they are open, and enumerating never opens,
+    /// closes, focuses, or presses anything. A platform with no surface of a
+    /// given kind simply returns none — that is honest scope, not a failure.
+    #[staticmethod]
+    fn list(py: Python<'_>) -> PyResult<Vec<Self>> {
+        let provider = get_provider()?;
+        Self::list_impl(py, provider)
+    }
+
+    /// Wait for exactly one shell surface of `kind`.
+    ///
+    /// `kind` is the snake_case name of the surface kind: `"menu_bar"`,
+    /// `"status_items"`, `"taskbar"`, `"panel"`, `"dock"`, `"desktop"`,
+    /// `"flyout"`, `"unknown"`. An unknown name raises `ValueError` before
+    /// the accessibility API is touched.
+    ///
+    /// Polls until a single surface of that kind exists or `timeout` (in
+    /// seconds) elapses; see `App.by_name` for `timeout` semantics
+    /// (`None` = the process-wide default, `0` = a single attempt with no
+    /// waiting). The wait is what makes the Windows overflow workflow a
+    /// one-liner: press the taskbar's "Show Hidden Icons" button, then wait
+    /// for the flyout to materialise.
+    ///
+    /// Raises `SelectorNotMatchedError` when no surface of that kind is
+    /// present *and* when several are — ambiguity is refused rather than
+    /// first-matched, with the candidates on the exception's `candidates`
+    /// attribute so the caller can disambiguate via `list()` and a pid.
+    #[staticmethod]
+    #[pyo3(signature = (kind, *, timeout=None))]
+    fn by_kind(py: Python<'_>, kind: &str, timeout: Option<f64>) -> PyResult<Self> {
+        // Both arguments are validated before the provider is resolved, so a
+        // bad kind or timeout is a crisp `ValueError` regardless of whether
+        // accessibility is set up.
+        let kind = parse_shell_kind(kind)?;
+        let timeout = effective_timeout(timeout)?;
+        let provider = get_provider()?;
+        Self::by_kind_impl(py, provider, kind, timeout)
+    }
+
+    /// Create a Locator scoped to this surface's accessibility tree.
+    fn locator(&self, selector: &str) -> Locator {
+        Locator {
+            inner: xa11y::Locator::new(
+                self.provider.clone(),
+                Some(self.inner_data.clone()),
+                selector,
+            ),
+        }
+    }
+
+    /// Get direct children of the surface root.
+    fn children(&self, py: Python<'_>) -> PyResult<Vec<Py<Element>>> {
+        let provider = self.provider.clone();
+        let data = self.inner_data.clone();
+        let children = py
+            .detach(move || provider.get_children(Some(&data)))
+            .map_err(to_py_err)?;
+        children
+            .iter()
+            .map(|c| make_py_element(py, c, self.provider.clone()))
+            .collect()
+    }
+
+    /// Get an :class:`Element` handle for the surface root.
+    ///
+    /// Useful for invoking Element-level methods (``children()``,
+    /// ``parent()``, etc.) without going through a locator.
+    fn as_element(&self, py: Python<'_>) -> PyResult<Py<Element>> {
+        make_py_element(py, &self.inner_data, self.provider.clone())
+    }
+
+    /// Capture this surface's accessibility tree as a recursive dict snapshot.
+    ///
+    /// Each dict has keys ``role``, ``name``, ``value``, and ``children``
+    /// (a list of dicts with the same shape). ``max_depth`` limits traversal:
+    /// ``0`` = only the surface root, ``1`` = root + direct children,
+    /// ``None`` = full subtree.
+    ///
+    /// Equivalent to ``Element.tree(...)`` on the surface's root element.
+    #[pyo3(signature = (max_depth=None))]
+    fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<Py<PyAny>> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        let node = py
+            .detach(move || element.tree(max_depth))
+            .map_err(to_py_err)?;
+        tree_node_to_py(py, &node)
+    }
+
+    /// Render this surface's accessibility tree as an indented string.
+    ///
+    /// Returns the string without printing it. Same depth semantics as
+    /// ``tree()``. This is the primary inspection helper — call
+    /// ``print(surface.dump())`` to discover the role and name of every
+    /// element in the surface before writing selectors.
+    #[pyo3(signature = (max_depth=None))]
+    fn dump(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<String> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.dump(max_depth))
+            .map_err(to_py_err)
+    }
+
+    fn __repr__(&self) -> String {
+        match self.pid {
+            Some(pid) => format!(
+                "ShellSurface(kind='{}', name='{}', pid={})",
+                self.kind, self.name, pid
+            ),
+            None => format!("ShellSurface(kind='{}', name='{}')", self.kind, self.name),
+        }
+    }
+
+    fn __str__(&self) -> String {
+        self.__repr__()
+    }
+}
+
+impl ShellSurface {
+    fn from_core(surface: &xa11y::ShellSurface, provider: Arc<dyn xa11y::Provider>) -> Self {
+        Self {
+            kind: surface.kind.to_snake_case().to_string(),
+            name: surface.name.clone(),
+            pid: surface.pid,
+            inner_data: surface.data.clone(),
+            provider,
+        }
+    }
+
+    /// Enumeration against an explicit provider. `list` supplies the platform
+    /// singleton; the mock-backed test helper supplies the mock, so both go
+    /// through the same GIL-release and error-mapping path.
+    fn list_impl(py: Python<'_>, provider: Arc<dyn xa11y::Provider>) -> PyResult<Vec<Self>> {
+        let enumerating = provider.clone();
+        // Enumeration blocks — on macOS it fans out over every running process
+        // — so it runs with the GIL released (tenet 5).
+        let surfaces = py
+            .detach(move || xa11y::ShellSurface::list_with(enumerating))
+            .map_err(to_py_err)?;
+        Ok(surfaces
+            .iter()
+            .map(|s| Self::from_core(s, provider.clone()))
+            .collect())
+    }
+
+    /// Lookup against an explicit provider, with `kind` and `timeout` already
+    /// parsed by the caller (parse-before-OS-call).
+    fn by_kind_impl(
+        py: Python<'_>,
+        provider: Arc<dyn xa11y::Provider>,
+        kind: xa11y::ShellSurfaceKind,
+        timeout: Duration,
+    ) -> PyResult<Self> {
+        let polling = provider.clone();
+        // The poll loop sleeps between attempts; holding the GIL across it
+        // would freeze every other thread in the process for the whole
+        // timeout (tenet 5).
+        let surface = py
+            .detach(move || xa11y::ShellSurface::by_kind_with(polling, kind, timeout))
+            .map_err(to_py_err)?;
+        Ok(Self::from_core(&surface, provider))
+    }
+}
+
 // ── Input simulation ────────────────────────────────────────────────────────
 //
 // The worked example for "Binding Shape Conventions" in AGENTS.md: core's
 // `click_with` / `drag_with` folded into keyword-only arguments of `click` /
 // `drag`, enum values as identically-spelled snake_case strings in both
 // bindings, durations in seconds on the Python side, every argument parsed
-// before an OS event is posted, and each OS call inside `allow_threads`.
+// before an OS event is posted, and each OS call inside `detach`.
 // Read that section before adding a method here.
 
 /// Input-simulation façade. Constructed via [`input_sim()`][input_sim_fn].
@@ -1555,13 +1767,11 @@ impl InputSim {
         anchor: Option<Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         let pt = parse_target_anchored(&target, parse_anchor(anchor.as_ref())?)?;
-        let opts = xa11y::ClickOptions {
-            button: parse_button(button)?,
-            count,
-            held: parse_keys(held)?,
-            ..Default::default()
-        };
-        py.allow_threads(move || {
+        let opts = xa11y::ClickOptions::new()
+            .button(parse_button(button)?)
+            .count(count)
+            .held(parse_keys(held)?);
+        py.detach(move || {
             self.inner
                 .mouse()
                 .click_with(xa11y::ClickTarget::Point(pt), opts)
@@ -1572,21 +1782,21 @@ impl InputSim {
     /// Left double-click at `target`.
     fn double_click(&self, py: Python<'_>, target: Bound<'_, PyAny>) -> PyResult<()> {
         let pt = parse_target(&target)?;
-        py.allow_threads(move || self.inner.mouse().double_click(pt))
+        py.detach(move || self.inner.mouse().double_click(pt))
             .map_err(to_py_err)
     }
 
     /// Right-click at `target`.
     fn right_click(&self, py: Python<'_>, target: Bound<'_, PyAny>) -> PyResult<()> {
         let pt = parse_target(&target)?;
-        py.allow_threads(move || self.inner.mouse().right_click(pt))
+        py.detach(move || self.inner.mouse().right_click(pt))
             .map_err(to_py_err)
     }
 
     /// Move the pointer to `target` without pressing any button.
     fn move_to(&self, py: Python<'_>, target: Bound<'_, PyAny>) -> PyResult<()> {
         let pt = parse_target(&target)?;
-        py.allow_threads(move || self.inner.mouse().move_to(pt))
+        py.detach(move || self.inner.mouse().move_to(pt))
             .map_err(to_py_err)
     }
 
@@ -1598,7 +1808,7 @@ impl InputSim {
     #[pyo3(signature = (button="left"))]
     fn mouse_down(&self, py: Python<'_>, button: &str) -> PyResult<()> {
         let b = parse_button(button)?;
-        py.allow_threads(move || self.inner.mouse().down(b))
+        py.detach(move || self.inner.mouse().down(b))
             .map_err(to_py_err)
     }
 
@@ -1606,7 +1816,7 @@ impl InputSim {
     #[pyo3(signature = (button="left"))]
     fn mouse_up(&self, py: Python<'_>, button: &str) -> PyResult<()> {
         let b = parse_button(button)?;
-        py.allow_threads(move || self.inner.mouse().up(b))
+        py.detach(move || self.inner.mouse().up(b))
             .map_err(to_py_err)
     }
 
@@ -1628,12 +1838,11 @@ impl InputSim {
     ) -> PyResult<()> {
         let from = parse_target(&start)?;
         let to = parse_target(&end)?;
-        let opts = xa11y::DragOptions {
-            button: parse_button(button)?,
-            held: parse_keys(held)?,
-            duration: parse_duration(duration)?,
-        };
-        py.allow_threads(move || self.inner.mouse().drag_with(from, to, opts))
+        let opts = xa11y::DragOptions::new()
+            .button(parse_button(button)?)
+            .held(parse_keys(held)?)
+            .duration(parse_duration(duration)?);
+        py.detach(move || self.inner.mouse().drag_with(from, to, opts))
             .map_err(to_py_err)
     }
 
@@ -1642,7 +1851,7 @@ impl InputSim {
     #[pyo3(signature = (target, dx=0, dy=0))]
     fn scroll(&self, py: Python<'_>, target: Bound<'_, PyAny>, dx: i32, dy: i32) -> PyResult<()> {
         let pt = parse_target(&target)?;
-        py.allow_threads(move || {
+        py.detach(move || {
             self.inner
                 .mouse()
                 .scroll(pt, xa11y::ScrollDelta::new(dx, dy))
@@ -1653,7 +1862,7 @@ impl InputSim {
     /// Tap a key (press + release). See the class docstring for key names.
     fn press(&self, py: Python<'_>, key: &str) -> PyResult<()> {
         let k = parse_key(key)?;
-        py.allow_threads(move || self.inner.keyboard().press(k))
+        py.detach(move || self.inner.keyboard().press(k))
             .map_err(to_py_err)
     }
 
@@ -1662,7 +1871,7 @@ impl InputSim {
     fn chord(&self, py: Python<'_>, key: &str, held: Vec<String>) -> PyResult<()> {
         let k = parse_key(key)?;
         let held: Vec<_> = held.iter().map(|s| parse_key(s)).collect::<PyResult<_>>()?;
-        py.allow_threads(move || self.inner.keyboard().chord(k, &held))
+        py.detach(move || self.inner.keyboard().chord(k, &held))
             .map_err(to_py_err)
     }
 
@@ -1673,20 +1882,20 @@ impl InputSim {
     /// as holding a key across several other actions.
     fn key_down(&self, py: Python<'_>, key: &str) -> PyResult<()> {
         let k = parse_key(key)?;
-        py.allow_threads(move || self.inner.keyboard().down(k))
+        py.detach(move || self.inner.keyboard().down(k))
             .map_err(to_py_err)
     }
 
     /// Release a key previously pressed with `key_down()`.
     fn key_up(&self, py: Python<'_>, key: &str) -> PyResult<()> {
         let k = parse_key(key)?;
-        py.allow_threads(move || self.inner.keyboard().up(k))
+        py.detach(move || self.inner.keyboard().up(k))
             .map_err(to_py_err)
     }
 
     /// Type literal text into the currently focused control.
     fn type_text(&self, py: Python<'_>, text: &str) -> PyResult<()> {
-        py.allow_threads(move || self.inner.keyboard().type_text(text))
+        py.detach(move || self.inner.keyboard().type_text(text))
             .map_err(to_py_err)
     }
 }
@@ -1706,7 +1915,7 @@ fn parse_target_anchored(
     target: &Bound<'_, PyAny>,
     anchor: xa11y::Anchor,
 ) -> PyResult<xa11y::Point> {
-    if let Ok(el) = target.downcast::<Element>() {
+    if let Ok(el) = target.cast::<Element>() {
         let element = el.borrow();
         let (x, y, width, height) = element
             .bounds_data
@@ -1838,11 +2047,127 @@ fn input_sim() -> PyResult<InputSim> {
 
 // ── Screenshot ──────────────────────────────────────────────────────────────
 
+/// One drawn annotation box: the tag in the image, and the element it came
+/// from.
+///
+/// `bounds` is in logical screen coordinates — the same space as
+/// `Element.bounds`, not the capture's pixel space. `color` is the RGB triple
+/// the box was drawn in, for correlating a box with its entry by eye.
+#[pyclass(frozen, from_py_object)]
+#[derive(Clone)]
+struct LegendEntry {
+    /// What is drawn in the box — ``"B7"``.
+    #[pyo3(get)]
+    tag: String,
+    /// 1-based, matching the position of this element's locator in
+    /// ``annotate=``.
+    #[pyo3(get)]
+    group: usize,
+    /// 1-based, and exactly the ``:nth(n)`` argument in `selector`.
+    #[pyo3(get)]
+    index: usize,
+    /// A selector usable as-is against the same scope the group had.
+    #[pyo3(get)]
+    selector: String,
+    /// The element's role, snake_case as everywhere else.
+    #[pyo3(get)]
+    role: String,
+    /// The element's accessible name, when it has one.
+    #[pyo3(get)]
+    name: Option<String>,
+    /// The element's bounds in logical screen coordinates.
+    #[pyo3(get)]
+    bounds: Rect,
+    /// The box colour as an ``(r, g, b)`` tuple.
+    #[pyo3(get)]
+    color: (u8, u8, u8),
+}
+
+#[pymethods]
+impl LegendEntry {
+    fn __repr__(&self) -> String {
+        format!(
+            "LegendEntry(tag={:?}, group={}, index={}, selector={:?}, role={:?}, name={:?})",
+            self.tag, self.group, self.index, self.selector, self.role, self.name,
+        )
+    }
+}
+
+impl LegendEntry {
+    fn from_core(entry: xa11y::LegendEntry) -> Self {
+        let [r, g, b] = entry.color;
+        Self {
+            tag: entry.tag,
+            group: entry.group,
+            index: entry.index,
+            selector: entry.selector,
+            role: entry.role,
+            name: entry.name,
+            bounds: Rect {
+                x: entry.bounds.x,
+                y: entry.bounds.y,
+                width: entry.bounds.width,
+                height: entry.bounds.height,
+            },
+            color: (r, g, b),
+        }
+    }
+}
+
+/// An element that matched an ``annotate=`` selector but is not in the image.
+///
+/// Reported rather than dropped: a legend that disagreed with the picture,
+/// with no way to find out why, is what this exists to prevent.
+#[pyclass(frozen, from_py_object)]
+#[derive(Clone)]
+struct Omission {
+    /// The selector that would reach this element.
+    #[pyo3(get)]
+    selector: String,
+    /// The element's role, snake_case.
+    #[pyo3(get)]
+    role: String,
+    /// The element's accessible name, when it has one.
+    #[pyo3(get)]
+    name: Option<String>,
+    /// Why it could not be drawn: ``"no_bounds"``, ``"zero_area"`` or
+    /// ``"outside_capture"``.
+    #[pyo3(get)]
+    reason: String,
+}
+
+#[pymethods]
+impl Omission {
+    fn __repr__(&self) -> String {
+        format!(
+            "Omission(selector={:?}, role={:?}, name={:?}, reason={:?})",
+            self.selector, self.role, self.name, self.reason
+        )
+    }
+}
+
+impl Omission {
+    fn from_core(omission: xa11y::Omission) -> Self {
+        Self {
+            selector: omission.selector,
+            role: omission.role,
+            name: omission.name,
+            // `as_str` is core's own exhaustive match, so a new reason cannot
+            // reach Python as a name this binding invented.
+            reason: omission.reason.as_str().to_string(),
+        }
+    }
+}
+
 /// A captured image: raw RGBA8 pixels plus dimensions and scale.
 ///
 /// `width` and `height` are in physical pixels. `scale` is the physical-to-
 /// logical ratio (1.0 on standard displays, 2.0 on typical Retina). `pixels`
 /// length is `width * height * 4` (RGBA).
+///
+/// `legend`, `omitted` and `truncated` describe what `annotate=` drew. They
+/// are `[]`, `[]` and `0` on an unannotated capture, so consumers need no
+/// version check.
 #[pyclass(frozen)]
 struct Screenshot {
     #[pyo3(get)]
@@ -1851,7 +2176,54 @@ struct Screenshot {
     height: u32,
     #[pyo3(get)]
     scale: f32,
+    /// One entry per drawn box, in group order and then match order.
+    #[pyo3(get)]
+    legend: Vec<LegendEntry>,
+    /// Elements that matched an ``annotate=`` selector but could not be drawn.
+    #[pyo3(get)]
+    omitted: Vec<Omission>,
+    /// How many matched elements were not described at all because the
+    /// annotation cap was reached. ``0`` when the cap did not bite.
+    #[pyo3(get)]
+    truncated: usize,
     inner: xa11y::Screenshot,
+}
+
+impl Screenshot {
+    /// Wrap a plain capture — no annotations were requested.
+    fn plain(shot: xa11y::Screenshot) -> Self {
+        Self {
+            width: shot.width,
+            height: shot.height,
+            scale: shot.scale,
+            legend: Vec::new(),
+            omitted: Vec::new(),
+            truncated: 0,
+            inner: shot,
+        }
+    }
+
+    /// Wrap an annotated capture together with its legend.
+    fn annotated(result: xa11y::Annotated) -> Self {
+        let shot = result.screenshot;
+        Self {
+            width: shot.width,
+            height: shot.height,
+            scale: shot.scale,
+            legend: result
+                .legend
+                .into_iter()
+                .map(LegendEntry::from_core)
+                .collect(),
+            omitted: result
+                .omitted
+                .into_iter()
+                .map(Omission::from_core)
+                .collect(),
+            truncated: result.truncated,
+            inner: shot,
+        }
+    }
 }
 
 #[pymethods]
@@ -1881,6 +2253,33 @@ impl Screenshot {
     }
 }
 
+/// Parse one `annotate=` entry into a Locator.
+///
+/// A `Locator` brings its own scope, which is what every legend entry's
+/// `<selector>:nth(n)` resolves against. A bare `str` builds a rootless
+/// locator exactly as `xa11y.locator(s)` does, and `screenshot_annotated`
+/// refuses those: a rootless search runs once per application and
+/// concatenates, so its `:nth` counts within one application while the legend
+/// counts across all of them, and an entry would name a different element than
+/// the box beside it. The refusal happens in core, before any tree read or
+/// capture, and its message names the fix (`app.locator(...)`).
+///
+/// Runs before any capture, so a bad argument costs no pixels (AGENTS.md,
+/// "Parse arguments before the first OS call").
+fn parse_annotate_group(item: &Bound<'_, PyAny>) -> PyResult<xa11y::Locator> {
+    if let Ok(locator) = item.extract::<PyRef<'_, Locator>>() {
+        return Ok(locator.inner.clone());
+    }
+    if let Ok(selector) = item.extract::<String>() {
+        return Ok(xa11y::Locator::new(get_provider()?, None, &selector));
+    }
+    Err(PyTypeError::new_err(format!(
+        "screenshot(annotate=...): each entry must be a Locator or a selector \
+         string, got {}",
+        item.get_type().name()?,
+    )))
+}
+
 /// Capture pixels from the screen.
 ///
 /// With no arguments, captures the full primary display. Pass `element=` to
@@ -1888,13 +2287,25 @@ impl Screenshot {
 /// width, height)` to capture an explicit rectangle in logical screen
 /// coordinates.
 ///
-/// Raises `ValueError` if both `element` and `region` are given.
+/// `annotate=` draws a numbered box over every element each locator matches
+/// and fills in `legend` / `omitted` / `truncated` on the result. Each entry
+/// is one group, with its own colour and tag letter, and must be a `Locator`
+/// scoped to an application — `app.locator("button")`. Cropping and
+/// annotating are independent: annotations outside the captured area land in
+/// `omitted` rather than being clamped to an edge.
+///
+/// Raises `ValueError` if both `element` and `region` are given, `TypeError`
+/// for an `annotate=` entry that is neither a Locator nor a string, and
+/// `InvalidSelectorError` for a rootless group (a bare selector string, or
+/// `xa11y.locator(...)`) — its `:nth(n)` would count per application while
+/// the legend counts across all of them.
 #[pyfunction]
-#[pyo3(signature = (*, element=None, region=None))]
+#[pyo3(signature = (*, element=None, region=None, annotate=None))]
 fn screenshot(
     py: Python<'_>,
     element: Option<&Element>,
     region: Option<(i32, i32, u32, u32)>,
+    annotate: Option<Vec<Bound<'_, PyAny>>>,
 ) -> PyResult<Screenshot> {
     if element.is_some() && region.is_some() {
         return Err(PyValueError::new_err(
@@ -1902,28 +2313,58 @@ fn screenshot(
         ));
     }
 
-    let shot = if let Some(element) = element {
-        let el = xa11y::Element::new(element.inner_data.clone(), element.provider.clone());
-        py.allow_threads(move || xa11y::screenshot_element(&el))
-    } else if let Some((x, y, w, h)) = region {
-        let rect = xa11y::Rect {
-            x,
-            y,
-            width: w,
-            height: h,
-        };
-        py.allow_threads(move || xa11y::screenshot_region(rect))
-    } else {
-        py.allow_threads(xa11y::screenshot)
-    }
-    .map_err(to_py_err)?;
+    let rect = region.map(|(x, y, width, height)| xa11y::Rect {
+        x,
+        y,
+        width,
+        height,
+    });
 
-    Ok(Screenshot {
-        width: shot.width,
-        height: shot.height,
-        scale: shot.scale,
-        inner: shot,
-    })
+    let Some(annotate) = annotate else {
+        // No annotations requested: the plain capture path, unchanged.
+        let shot = if let Some(element) = element {
+            let el = xa11y::Element::new(element.inner_data.clone(), element.provider.clone());
+            py.detach(move || xa11y::screenshot_element(&el))
+        } else if let Some(rect) = rect {
+            py.detach(move || xa11y::screenshot_region(rect))
+        } else {
+            py.detach(xa11y::screenshot)
+        }
+        .map_err(to_py_err)?;
+        return Ok(Screenshot::plain(shot));
+    };
+
+    // Everything that needs the GIL happens up here: the locators are parsed
+    // and cloned out of their Python wrappers first. The capture, the tree
+    // reads behind each locator, and the drawing all happen below, inside
+    // `detach` (tenet 5).
+    let groups = annotate
+        .iter()
+        .map(parse_annotate_group)
+        .collect::<PyResult<Vec<_>>>()?;
+
+    // `screenshot_annotated` crops by region, so an `element=` target becomes
+    // that element's bounds — the same rectangle `screenshot_element` would
+    // have captured, and the same `NoElementBounds` when it has none.
+    let rect = match element {
+        Some(element) => Some(
+            element
+                .bounds_data
+                .map(|(x, y, width, height)| xa11y::Rect {
+                    x,
+                    y,
+                    width,
+                    height,
+                })
+                .ok_or_else(|| to_py_err(xa11y::Error::NoElementBounds))?,
+        ),
+        None => rect,
+    };
+
+    let result = py
+        .detach(move || xa11y::screenshot_annotated(rect, &groups))
+        .map_err(to_py_err)?;
+    Ok(Screenshot::annotated(result))
 }
 
 // ── Module-level functions ──────────────────────────────────────────────────
@@ -1980,9 +2421,12 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Event>()?;
     m.add_class::<EventType>()?;
     m.add_class::<InputSim>()?;
+    m.add_class::<LegendEntry>()?;
     m.add_class::<Locator>()?;
+    m.add_class::<Omission>()?;
     m.add_class::<Rect>()?;
     m.add_class::<Screenshot>()?;
+    m.add_class::<ShellSurface>()?;
     m.add_class::<Subscription>()?;
 
     register_exception::<XA11yError>(m, "XA11yError")?;
@@ -2014,6 +2458,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Test helpers
     m.add_function(wrap_pyfunction!(_make_test_locator, m)?)?;
     m.add_function(wrap_pyfunction!(_make_test_app, m)?)?;
+    m.add_function(wrap_pyfunction!(_make_test_shell_surfaces, m)?)?;
+    m.add_function(wrap_pyfunction!(_find_test_shell_surface, m)?)?;
     m.add_function(wrap_pyfunction!(_make_disconnected_subscription, m)?)?;
     m.add_function(wrap_pyfunction!(_make_test_action_probe, m)?)?;
 
@@ -2022,16 +2468,23 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 /// CLI entry point called from the Python `xa11y` console script.
 ///
-/// Runs the Rust CLI implementation with the given args (excluding program name).
+/// Runs the Rust CLI implementation with the given args (excluding the
+/// program name) and returns the process exit code: `0` success, `1`
+/// operation failed, `2` usage error. The error message is written to stderr
+/// by the shared entry point, so every launcher renders failures identically.
+///
+/// Returning a code rather than raising is deliberate. The exit-code contract
+/// is documented in the CLI help and honoured by the `xa11y` binary; mapping
+/// failures to exceptions here meant the console script collapsed all of them
+/// to `1` and lost the `2` for usage errors.
+///
+/// The whole run happens inside `detach` (tenet 5). `cli::run` never
+/// calls back into Python, and it blocks for as long as the operation takes —
+/// the lifetime of the process for `xa11y events` and `xa11y mcp`. Holding the
+/// GIL across that would freeze every other thread in the interpreter.
 #[pyfunction]
-fn _cli_main(args: Vec<String>) -> PyResult<()> {
-    xa11y::cli::run(&args).map_err(|e| match e {
-        // Underlying xa11y errors keep their typed Python exceptions.
-        xa11y::cli::CliError::Xa11y(inner) => to_py_err(inner),
-        // Usage / not-found errors are CLI-level; Display carries the full
-        // human-readable message (including the "usage error: " prefix).
-        other => XA11yError::new_err(other.to_string()),
-    })
+fn _cli_main(py: Python<'_>, args: Vec<String>) -> i32 {
+    py.detach(move || xa11y::cli::run_main(&args))
 }
 
 // ── Test helpers ────────────────────────────────────────────────────────────
@@ -2061,6 +2514,32 @@ fn _make_test_app() -> PyResult<App> {
     })
     .map_err(to_py_err)?;
     Ok(App::from_core(app))
+}
+
+/// List the mock provider's shell surfaces (taskbar + desktop fixtures).
+///
+/// `ShellSurface.list()` resolves the platform singleton provider, which no
+/// CI runner without a desktop session has; this helper runs the identical
+/// binding path against the shared mock instead.
+#[pyfunction]
+fn _make_test_shell_surfaces(py: Python<'_>) -> PyResult<Vec<ShellSurface>> {
+    let provider = xa11y::mock::build_provider() as Arc<dyn xa11y::Provider>;
+    ShellSurface::list_impl(py, provider)
+}
+
+/// Resolve one mock shell surface by kind — the mock-backed counterpart of
+/// `ShellSurface.by_kind()`, with the same parse-then-poll path.
+#[pyfunction]
+#[pyo3(signature = (kind, *, timeout=None))]
+fn _find_test_shell_surface(
+    py: Python<'_>,
+    kind: &str,
+    timeout: Option<f64>,
+) -> PyResult<ShellSurface> {
+    let kind = parse_shell_kind(kind)?;
+    let timeout = effective_timeout(timeout)?;
+    let provider = xa11y::mock::build_provider() as Arc<dyn xa11y::Provider>;
+    ShellSurface::by_kind_impl(py, provider, kind, timeout)
 }
 
 /// Create a Subscription whose backing channel has already been disconnected.
@@ -2096,7 +2575,7 @@ impl TestActionProbe {
     }
 
     /// Recorded action log: list of `(handle, action_name, optional_data)`.
-    fn actions(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn actions(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let entries = self.provider.actions();
         let list = PyList::empty(py);
         for (handle, name, data) in entries {

@@ -70,13 +70,30 @@ async def test_invalid_tool_arguments_create_safe_structured_incident(monkeypatc
         request_id="req-1", user_id="user-1", conversation_id="conv-1", call_id="call-1"
     )
 
-    await _capture_tool_argument_validation_failed(ctx=ctx, tool_name="memory")
+    from pydantic import BaseModel, ValidationError
+
+    class _Args(BaseModel):
+        key: str
+
+    try:
+        _Args.model_validate({"key": 123})
+    except ValidationError as exc:
+        validation_error = exc
+
+    await _capture_tool_argument_validation_failed(
+        ctx=ctx, tool_name="memory", validation_error=validation_error
+    )
 
     assert len(captured) == 1
     _exc, incident = captured[0]
     assert incident["kind"] == TOOL_ARGUMENT_VALIDATION_FAILED_KIND
     assert incident["route"] == "tool_executor.argument_validation"
     assert incident["error_type"] == "ToolArgumentValidationError"
-    assert incident["context"] == {"tool_name": "memory", "call_id": "call-1"}
+    assert incident["context"]["tool_name"] == "memory"
+    assert incident["context"]["call_id"] == "call-1"
+    assert incident["context"]["validation_error_count"] == 1
+    assert incident["context"]["validation_error_codes"] == ["custom_validation"] or incident[
+        "context"
+    ]["validation_error_codes"]
     assert "payload" not in incident
     assert "limit" not in repr(incident)

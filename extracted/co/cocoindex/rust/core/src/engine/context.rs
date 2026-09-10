@@ -759,10 +759,11 @@ impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
         }
     }
 
-    /// Register a freshly-mounted child as an active member of every enclosing
-    /// stats group, so each group's liveness tracking sees it (and, via the
-    /// strong parent-chain, its whole subtree). No-op when not in a group.
-    pub fn push_active_member(&self, child: &Component<Prof>) {
+    /// Register a child whose processing task is starting as a member of every
+    /// enclosing stats group, so each group's liveness tracking sees it (and,
+    /// since activity propagates up the parent chain, its whole subtree).
+    /// No-op when not in a group.
+    pub(crate) fn push_active_member(&self, child: &Component<Prof>) {
         for group in self.stats_groups.iter() {
             group.push_member(child);
         }
@@ -1294,8 +1295,7 @@ mod tests {
         path: &StablePath,
         cache: UserStateCache<TestData>,
     ) {
-        use crate::state_store::{CommitPlan, ExistenceReconciler};
-        use futures::future::BoxFuture;
+        use crate::state_store::CommitPlan;
 
         let plan_data = cache.into_flush_plan().unwrap();
         let plan = CommitPlan {
@@ -1309,13 +1309,8 @@ mod tests {
             user_state_writes: plan_data.writes,
             user_state_deletes: plan_data.deletes,
             user_state_clear_live: false,
-            child_path_set: None,
         };
-        let reconciler: ExistenceReconciler =
-            Box::new(|_wtxn| -> BoxFuture<'_, crate::prelude::Result<()>> {
-                Box::pin(async { Ok(()) })
-            });
-        store.commit(path, plan, reconciler).await.unwrap();
+        store.commit(path, plan, None).await.unwrap();
     }
 
     #[tokio::test]

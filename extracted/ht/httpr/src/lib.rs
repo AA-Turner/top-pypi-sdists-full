@@ -9,7 +9,7 @@ use foldhash::fast::RandomState;
 use indexmap::IndexMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyDict};
 use pythonize::depythonize;
 use reqwest::{
     header::{HeaderValue, COOKIE},
@@ -23,18 +23,28 @@ use tokio::{
     runtime::{self, Runtime},
 };
 use tokio_util::codec::{BytesCodec, FramedRead};
+use tokio_util::sync::CancellationToken;
 
 mod response;
 use response::{CaseInsensitiveHeaderMap, LineIterator, Response, StreamingResponse, TextIterator};
 
+mod params;
+use params::{merge_params, normalize_params, params_to_py, Pairs};
+
 mod traits;
-use traits::{CookiesTraits, HeadersTraits};
+use traits::{parse_cookie_header, CookiesTraits, HeadersTraits};
 
 mod utils;
 use utils::load_ca_certs;
 
 mod exceptions;
-use exceptions::{map_anyhow_error, map_reqwest_error};
+use exceptions::{map_anyhow_error, map_reqwest_error, ClientClosed};
+
+mod lifecycle;
+use lifecycle::ClientState;
+
+mod timeout;
+use timeout::Phase;
 
 type IndexMapSSR = IndexMap<String, String, RandomState>;
 
@@ -46,21 +56,254 @@ static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
         .expect("Failed to initialize Tokio runtime")
 });
 
+/// Error message for any operation on a client after `close()`; mirrors httpx.
+const CLIENT_CLOSED_MSG: &str = "Cannot send a request, as the client has been closed.";
+
+/// The constructor settings a rebuilt `reqwest::Client` has to carry over, so
+/// that assigning `client.proxy` keeps TLS verification, the CA bundle, the
+/// mTLS identity, redirects, `https_only` and the HTTP version (issue #84).
+/// Certificates and the identity are kept in their loaded form; a rebuild never
+/// touches the filesystem again.
+struct ClientConfig {
+    cookie_store: bool,
+    referer: bool,
+    /// `Some(max)` follows up to `max` redirects, `None` follows none.
+    max_redirects: Option<usize>,
+    verify: bool,
+    root_certs: Vec<reqwest::Certificate>,
+    identity: Option<Identity>,
+    https_only: bool,
+    http2_only: bool,
+}
+
+impl ClientConfig {
+    /// Builds a client from these settings plus the state that lives on the
+    /// `RClient` and may have changed since construction: the default headers
+    /// and the proxy. `layer` must come from the `ClientState` the client will
+    /// live in, so `close()` can cancel its pending connects. The timeout is
+    /// deliberately not part of the built client (see `timeout.rs`).
+    fn build(
+        &self,
+        layer: lifecycle::CancelConnectsLayer,
+        default_headers: reqwest::header::HeaderMap,
+        proxy: Option<&str>,
+    ) -> PyResult<reqwest::Client> {
+        let mut builder = reqwest::Client::builder()
+            .connector_layer(layer)
+            .cookie_store(self.cookie_store)
+            .referer(self.referer)
+            .redirect(match self.max_redirects {
+                Some(max) => Policy::limited(max),
+                None => Policy::none(),
+            })
+            .https_only(self.https_only);
+        if !default_headers.is_empty() {
+            builder = builder.default_headers(default_headers);
+        }
+        if let Some(proxy) = proxy {
+            builder = builder.proxy(reqwest::Proxy::all(proxy).map_err(map_reqwest_error)?);
+        }
+        if self.verify {
+            builder = builder.tls_built_in_root_certs(true);
+            for cert in &self.root_certs {
+                builder = builder.add_root_certificate(cert.clone());
+            }
+        } else {
+            builder = builder.danger_accept_invalid_certs(true);
+        }
+        // The mTLS identity applies regardless of `verify`: disabling server
+        // verification doesn't imply disabling client authentication.
+        if let Some(identity) = &self.identity {
+            builder = builder.identity(identity.clone());
+        }
+        if self.http2_only {
+            builder = builder.http2_prior_knowledge();
+        }
+        builder.build().map_err(map_reqwest_error)
+    }
+}
+
 #[pyclass(subclass)]
 /// HTTP client that can impersonate web browsers.
 pub struct RClient {
-    client: Arc<Mutex<reqwest::Client>>,
+    /// The `reqwest::Client`, its in-flight count and the cancellation token
+    /// for its pending connects; shared with the requests in flight so that
+    /// `close()` can release the pool no matter who drops it last. See
+    /// `lifecycle.rs`.
+    state: Arc<ClientState>,
+    /// What `set_proxy` rebuilds the client from.
+    config: ClientConfig,
     headers: Arc<Mutex<reqwest::header::HeaderMap>>,
     #[pyo3(get, set)]
     auth: Option<(String, Option<String>)>,
     #[pyo3(get, set)]
     auth_bearer: Option<String>,
-    #[pyo3(get, set)]
-    params: Option<IndexMapSSR>,
+    /// Client-level query parameters, merged into every request (see `params.rs`).
+    params: Option<Pairs>,
     #[pyo3(get, set)]
     proxy: Option<String>,
+    /// Default timeout in seconds for every request (`None` disables it).
+    /// Read at request time, so assigning it takes effect immediately.
     #[pyo3(get, set)]
     timeout: Option<f64>,
+}
+
+impl RClient {
+    /// A handle to the underlying `reqwest::Client` plus the in-flight guard
+    /// for one request, or `ClientClosed` if `close()` has been called.
+    fn begin_request(&self) -> PyResult<(reqwest::Client, lifecycle::InFlight)> {
+        self.state
+            .begin_request()
+            .ok_or_else(|| ClientClosed::new_err(CLIENT_CLOSED_MSG))
+    }
+}
+
+impl Drop for RClient {
+    /// A client that is garbage-collected without `close()` still releases its
+    /// pool. Safe to drive the runtime from here: every `block_on` in this
+    /// crate runs with the GIL released, so the thread deallocating a Python
+    /// object is never inside one.
+    fn drop(&mut self) {
+        self.state.close();
+    }
+}
+
+impl RClient {
+    /// Everything about a request that is settled before it is sent: the
+    /// builder with query, headers, cookies, body and auth applied, plus the
+    /// timeout to wait with (the request's own, else the client's).
+    /// `files` are attached by `send_request`, since opening them is async.
+    /// Shared by `request()` and `_stream()`.
+    ///
+    /// `client` is consumed so that the only remaining handle to the pool is
+    /// the one inside the returned builder, which the caller's future drops
+    /// before its `InFlight` guard (see `lifecycle.rs`).
+    fn build_request(
+        &self,
+        client: reqwest::Client,
+        method: &str,
+        url: &str,
+        params: Option<&Bound<'_, PyAny>>,
+        headers: Option<IndexMapSSR>,
+        cookies: Option<IndexMapSSR>,
+        content: Option<Vec<u8>>,
+        data: Option<&Bound<'_, PyAny>>,
+        json: Option<&Bound<'_, PyAny>>,
+        auth: Option<(String, Option<String>)>,
+        auth_bearer: Option<String>,
+        timeout: Option<f64>,
+    ) -> PyResult<(reqwest::RequestBuilder, Option<Duration>)> {
+        let timeout = timeout::duration(timeout.or(self.timeout))?;
+        let method = Method::from_bytes(method.as_bytes())
+            .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
+        let mut builder = client.request(method, url);
+
+        // Query: client-level params first, then the request's own; a key the
+        // request supplies replaces the client's values for it (issue #82).
+        let request_params = params
+            .map(|p| normalize_params(p, "params"))
+            .transpose()?
+            .unwrap_or_default();
+        let params = merge_params(self.params.as_deref().unwrap_or(&[]), request_params);
+        if !params.is_empty() {
+            builder = builder.query(&params);
+        }
+
+        // Headers from client, then per-request headers replacing same-named
+        // entries, so the request's values take precedence.
+        let mut header_map = self
+            .headers
+            .lock()
+            .map_err(|e| map_anyhow_error(anyhow!("Failed to acquire headers lock: {}", e)))?
+            .clone();
+        if let Some(headers) = headers {
+            for (name, value) in headers.to_headermap().iter() {
+                header_map.insert(name.clone(), value.clone());
+            }
+        }
+
+        // Cookies: per-request cookies are merged into the client's `Cookie`
+        // header (request wins per name) so exactly one header goes out
+        // (RFC 6265 §5.4, issue #82).
+        if let Some(cookies) = cookies {
+            let mut merged = match header_map.get(COOKIE) {
+                Some(existing) => parse_cookie_header(
+                    existing
+                        .to_str()
+                        .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?,
+                ),
+                None => IndexMap::with_hasher(RandomState::default()),
+            };
+            merged.extend(cookies);
+            header_map.insert(
+                COOKIE,
+                HeaderValue::from_str(&merged.to_string())
+                    .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?,
+            );
+        }
+        builder = builder.headers(header_map);
+
+        // Body: sent for any method the caller supplies one for (RFC 9110, matches httpx)
+        if let Some(content) = content {
+            builder = builder.body(content);
+        }
+        // Form data goes through the same normalisation as query params, so
+        // list values become repeated fields and insertion order is kept.
+        if let Some(data) = data {
+            builder = builder.form(&normalize_params(data, "data")?);
+        }
+        // Json - always serialize as JSON regardless of Accept header
+        if let Some(json) = json {
+            let json_value: Value =
+                depythonize(json).map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
+            builder = builder.json(&json_value);
+        }
+
+        // Auth
+        if let Some((username, password)) = auth.or_else(|| self.auth.clone()) {
+            builder = builder.basic_auth(username, password);
+        } else if let Some(token) = auth_bearer.or_else(|| self.auth_bearer.clone()) {
+            builder = builder.bearer_auth(token);
+        }
+
+        Ok((builder, timeout))
+    }
+}
+
+/// Attaches `files` as a multipart form, if any, and sends the request,
+/// waiting at most `timeout` for the response headers.
+async fn send_request(
+    mut builder: reqwest::RequestBuilder,
+    files: Option<IndexMap<String, String>>,
+    timeout: Option<Duration>,
+) -> anyhow::Result<reqwest::Response> {
+    if let Some(files) = files {
+        let mut form = multipart::Form::new();
+        for (file_name, file_path) in files {
+            let file = File::open(file_path).await.map_err(anyhow::Error::new)?;
+            let stream = FramedRead::new(file, BytesCodec::new());
+            let file_body = Body::wrap_stream(stream);
+            let part = multipart::Part::stream(file_body).file_name(file_name.clone());
+            form = form.part(file_name, part);
+        }
+        builder = builder.multipart(form);
+    }
+    timeout::with_timeout(timeout, Phase::Headers, builder.send()).await
+}
+
+/// Cookies, headers, status and final URL of a response.
+fn response_meta(resp: &reqwest::Response) -> (IndexMapSSR, IndexMapSSR, u16, String) {
+    let cookies: IndexMapSSR = resp
+        .cookies()
+        .map(|cookie| (cookie.name().to_string(), cookie.value().to_string()))
+        .collect();
+    let headers: IndexMapSSR = resp.headers().to_indexmap();
+    (
+        cookies,
+        headers,
+        resp.status().as_u16(),
+        resp.url().to_string(),
+    )
 }
 
 #[pymethods]
@@ -82,7 +325,8 @@ impl RClient {
     ///         in additional requests. Default is `true`.
     /// * `referer` - Enable or disable automatic setting of the `Referer` header. Default is `true`.
     /// * `proxy` - An optional proxy URL for HTTP requests.
-    /// * `timeout` - An optional timeout for HTTP requests in seconds.
+    /// * `timeout` - Timeout in seconds for waiting on the server: for the response headers, then
+    ///         for each chunk of the body. Default is 30. `None` disables it.
     /// * `follow_redirects` - A boolean to enable or disable following redirects. Default is `true`.
     /// * `max_redirects` - The maximum number of redirects to follow. Default is 20. Applies if `follow_redirects` is `true`.
     /// * `verify` - An optional boolean indicating whether to verify SSL certificates. Default is `true`.
@@ -115,12 +359,12 @@ impl RClient {
     /// ```
     #[new]
     #[pyo3(signature = (auth=None, auth_bearer=None, params=None, headers=None, cookies=None,
-        cookie_store=true, referer=true, proxy=None, timeout=None, follow_redirects=true,
+        cookie_store=true, referer=true, proxy=None, timeout=30.0, follow_redirects=true,
         max_redirects=20, verify=true, ca_cert_file=None, client_pem=None, client_pem_data=None, https_only=false, http2_only=false))]
     fn new(
         auth: Option<(String, Option<String>)>,
         auth_bearer: Option<String>,
-        params: Option<IndexMapSSR>,
+        params: Option<&Bound<'_, PyAny>>,
         headers: Option<IndexMapSSR>,
         cookies: Option<IndexMapSSR>,
         cookie_store: Option<bool>,
@@ -141,8 +385,7 @@ impl RClient {
                 "Only one of client_pem or client_pem_data may be set.",
             ));
         }
-        // Client builder
-        let mut client_builder = reqwest::Client::builder();
+        let params = params.map(|p| normalize_params(p, "params")).transpose()?;
 
         // Headers || Cookies
         let headers_headermap = if headers.is_some() || cookies.is_some() {
@@ -156,87 +399,65 @@ impl RClient {
                         .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?,
                 );
             }
-            client_builder = client_builder.default_headers(headers_headermap.clone());
             headers_headermap
         } else {
             reqwest::header::HeaderMap::new()
         };
 
-        // Cookie_store
-        if cookie_store.unwrap_or(true) {
-            client_builder = client_builder.cookie_store(true);
-        }
-
-        // Referer
-        if referer.unwrap_or(true) {
-            client_builder = client_builder.referer(true);
-        }
-
-        // Proxy
+        // Proxy: the argument wins, otherwise HTTPR_PROXY. Read once, here;
+        // `set_proxy` never consults the environment again.
         let proxy = proxy.or_else(|| std::env::var("HTTPR_PROXY").ok());
-        if let Some(proxy) = &proxy {
-            client_builder =
-                client_builder.proxy(reqwest::Proxy::all(proxy).map_err(map_reqwest_error)?);
-        }
 
-        // Timeout
-        if let Some(seconds) = timeout {
-            client_builder = client_builder.timeout(Duration::from_secs_f64(seconds));
-        }
-
-        // Redirects
-        if follow_redirects.unwrap_or(true) {
-            client_builder = client_builder.redirect(Policy::limited(max_redirects.unwrap_or(20)));
+        // CA bundle: the explicit `ca_cert_file` argument wins, otherwise fall back
+        // to the HTTPR_CA_BUNDLE environment variable. The environment is only
+        // ever read here, never written, so the setting stays scoped to this
+        // client (mirrors how `proxy` falls back to HTTPR_PROXY above).
+        let ca_cert_file = ca_cert_file.or_else(|| std::env::var("HTTPR_CA_BUNDLE").ok());
+        let verify = verify.unwrap_or(true);
+        let root_certs = if verify {
+            load_ca_certs(ca_cert_file.as_deref()).map_err(map_anyhow_error)?
         } else {
-            client_builder = client_builder.redirect(Policy::none());
-        }
+            Vec::new()
+        };
 
-        // Ca_cert_file. BEFORE!!! verify (fn load_ca_certs() reads env var HTTPR_CA_BUNDLE)
-        if let Some(ca_bundle_path) = &ca_cert_file {
-            std::env::set_var("HTTPR_CA_BUNDLE", ca_bundle_path);
-        }
-
-        // Verify
-        if verify.unwrap_or(true) {
-            client_builder = client_builder.tls_built_in_root_certs(true);
-            for cert in load_ca_certs().map_err(map_anyhow_error)? {
-                client_builder = client_builder.add_root_certificate(cert);
-            }
-        } else {
-            client_builder = client_builder.danger_accept_invalid_certs(true);
-        }
-
-        // Client mTLS identity must be applied regardless of `verify`: disabling
-        // server verification doesn't imply disabling client authentication.
-        let client_identity_pem = if let Some(pem_data) = &client_pem_data {
-            Some(pem_data.clone())
+        // Client mTLS identity, from bytes or from a file read once here.
+        let identity_pem = if let Some(pem_data) = client_pem_data {
+            Some(pem_data)
         } else if let Some(pem_path) = &client_pem {
             Some(fs::read(pem_path).map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?)
         } else {
             None
         };
+        let identity = identity_pem
+            .map(|pem| Identity::from_pem(&pem).map_err(map_reqwest_error))
+            .transpose()?;
 
-        if let Some(pem_bytes) = client_identity_pem {
-            let identity = Identity::from_pem(&pem_bytes).map_err(map_reqwest_error)?;
-            client_builder = client_builder.identity(identity);
-        }
+        let config = ClientConfig {
+            cookie_store: cookie_store.unwrap_or(true),
+            referer: referer.unwrap_or(true),
+            max_redirects: follow_redirects
+                .unwrap_or(true)
+                .then(|| max_redirects.unwrap_or(20)),
+            verify,
+            root_certs,
+            identity,
+            https_only: https_only.unwrap_or(false),
+            http2_only: http2_only.unwrap_or(false),
+        };
 
-        // Https_only
-        if let Some(true) = https_only {
-            client_builder = client_builder.https_only(true);
-        }
-
-        // Http2_only
-        if let Some(true) = http2_only {
-            client_builder = client_builder.http2_prior_knowledge();
-        }
-        let client = Arc::new(Mutex::new(
-            client_builder.build().map_err(map_reqwest_error)?,
-        ));
+        let connects = CancellationToken::new();
+        let client = config.build(
+            lifecycle::CancelConnectsLayer::new(connects.clone()),
+            headers_headermap.clone(),
+            proxy.as_deref(),
+        )?;
+        // Validate now so a bad value fails at construction, not on first use.
+        timeout::duration(timeout)?;
         let headers = Arc::new(Mutex::new(headers_headermap));
 
         Ok(RClient {
-            client,
+            state: ClientState::new(client, connects),
+            config,
             headers,
             auth,
             auth_bearer,
@@ -301,19 +522,14 @@ impl RClient {
             .headers
             .lock()
             .map_err(|e| map_anyhow_error(anyhow!("Failed to acquire headers lock: {}", e)))?;
-        let mut cookies: IndexMapSSR = IndexMap::with_hasher(RandomState::default());
-        if let Some(cookie_header) = headers.get(COOKIE) {
-            for part in cookie_header
-                .to_str()
-                .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?
-                .split(';')
-            {
-                if let Some((key, value)) = part.trim().split_once('=') {
-                    cookies.insert(key.to_string(), value.to_string());
-                }
-            }
+        match headers.get(COOKIE) {
+            Some(cookie_header) => Ok(parse_cookie_header(
+                cookie_header
+                    .to_str()
+                    .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?,
+            )),
+            None => Ok(IndexMap::with_hasher(RandomState::default())),
         }
-        Ok(cookies)
     }
 
     #[setter]
@@ -334,25 +550,72 @@ impl RClient {
         Ok(())
     }
 
+    /// Client-level query parameters as a dict; a key given more than once
+    /// maps to a `list[str]`. Assigning the result back reproduces the same
+    /// parameters.
+    #[getter]
+    pub fn get_params<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        self.params
+            .as_deref()
+            .map(|pairs| params_to_py(py, pairs))
+            .transpose()
+    }
+
+    #[setter]
+    pub fn set_params(&mut self, params: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
+        self.params = params.map(|p| normalize_params(p, "params")).transpose()?;
+        Ok(())
+    }
+
     #[getter]
     pub fn get_proxy(&self) -> PyResult<Option<String>> {
         Ok(self.proxy.to_owned())
     }
 
+    /// Rebuilds the underlying `reqwest::Client` with the new proxy (`None`
+    /// removes it; `HTTPR_PROXY` is not consulted again). Every other setting
+    /// from construction is carried over, along with the current default
+    /// headers; a `cookie_store` starts empty again. The old pool
+    /// is dropped and its idle connections are released; a connect the old
+    /// pool still had pending in the background is left to resolve on its own
+    /// (it is torn down the next time the runtime is driven). Raises
+    /// `ClientClosed` on a closed client.
     #[setter]
-    pub fn set_proxy(&mut self, proxy: String) -> PyResult<()> {
-        let rproxy = reqwest::Proxy::all(proxy.clone()).map_err(map_reqwest_error)?;
-        let new_client = reqwest::Client::builder()
-            .proxy(rproxy)
-            .build()
-            .map_err(map_reqwest_error)?;
-        let mut client = self
-            .client
+    pub fn set_proxy(&mut self, py: Python, proxy: Option<String>) -> PyResult<()> {
+        let default_headers = self
+            .headers
             .lock()
-            .map_err(|e| map_anyhow_error(anyhow!("Failed to acquire client lock: {}", e)))?;
-        *client = new_client;
-        self.proxy = Some(proxy);
+            .map_err(|e| map_anyhow_error(anyhow!("Failed to acquire headers lock: {}", e)))?
+            .clone();
+        let new_client = self.config.build(
+            self.state.connector_layer(),
+            default_headers,
+            proxy.as_deref(),
+        )?;
+        if !py.detach(|| self.state.replace(new_client)) {
+            return Err(ClientClosed::new_err(CLIENT_CLOSED_MSG));
+        }
+        self.proxy = proxy;
         Ok(())
+    }
+
+    /// Whether `close()` has been called on this client.
+    #[getter]
+    pub fn is_closed(&self) -> bool {
+        self.state.is_closed()
+    }
+
+    /// Close the client and release its connection pool.
+    ///
+    /// Drops the underlying `reqwest::Client` and cancels any connect the pool
+    /// still had pending, so idle pooled connections are shut down before this
+    /// returns. Requests already in flight hold their own handle to the pool
+    /// and finish normally; while any of them is running the pool, including
+    /// its idle connections, stays alive, and the last one to finish releases
+    /// it. Any later request on this client raises `ClientClosed`. Calling
+    /// `close()` more than once is a no-op.
+    pub fn close(&self, py: Python) {
+        py.detach(|| self.state.close());
     }
 
     /// Constructs an HTTP request with the given method, URL, and optionally sets a timeout, headers, and query parameters.
@@ -372,7 +635,7 @@ impl RClient {
     /// * `files` - A map of file fields to file paths to be sent as multipart/form-data. Default is None.
     /// * `auth` - A tuple containing the username and an optional password for basic authentication. Default is None.
     /// * `auth_bearer` - A string representing the bearer token for bearer token authentication. Default is None.
-    /// * `timeout` - The timeout for the request in seconds. Default is 30.
+    /// * `timeout` - The timeout for this request in seconds; defaults to the client's. See `timeout.rs`.
     ///
     /// # Returns
     ///
@@ -398,7 +661,7 @@ impl RClient {
         py: Python,
         method: &str,
         url: &str,
-        params: Option<IndexMapSSR>,
+        params: Option<&Bound<'_, PyAny>>,
         headers: Option<IndexMapSSR>,
         cookies: Option<IndexMapSSR>,
         content: Option<Vec<u8>>,
@@ -409,113 +672,26 @@ impl RClient {
         auth_bearer: Option<String>,
         timeout: Option<f64>,
     ) -> PyResult<Response> {
-        let client = Arc::clone(&self.client);
-        let method = Method::from_bytes(method.as_bytes())
-            .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
-        let is_post_put_patch = matches!(method, Method::POST | Method::PUT | Method::PATCH);
-        let params = params.or_else(|| self.params.clone());
-        let data_value: Option<Value> = data
-            .map(depythonize)
-            .transpose()
-            .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
-        let json_value: Option<Value> = json
-            .map(depythonize)
-            .transpose()
-            .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
-        let auth = auth.or(self.auth.clone());
-        let auth_bearer = auth_bearer.or(self.auth_bearer.clone());
-        let timeout: Option<f64> = timeout.or(self.timeout);
+        let (client, in_flight) = self.begin_request()?;
+        let (builder, timeout) = self.build_request(
+            client,
+            method,
+            url,
+            params,
+            headers,
+            cookies,
+            content,
+            data,
+            json,
+            auth,
+            auth_bearer,
+            timeout,
+        )?;
 
-        let future = async {
-            // Create request builder
-            let mut request_builder = client
-                .lock()
-                .map_err(|e| anyhow!("Failed to acquire client lock: {}", e))?
-                .request(method, url);
-
-            // Params
-            if let Some(params) = params {
-                request_builder = request_builder.query(&params);
-            }
-
-            // Headers from client
-            let client_headers = self
-                .headers
-                .lock()
-                .map_err(|e| anyhow!("Failed to acquire headers lock: {}", e))?
-                .clone();
-            request_builder = request_builder.headers(client_headers.clone());
-
-            // Headers
-            let mut combined_headers = client_headers;
-            if let Some(ref headers) = headers {
-                let header_map = headers.to_headermap();
-                for (key, value) in header_map.iter() {
-                    combined_headers.insert(key.clone(), value.clone());
-                }
-                request_builder = request_builder.headers(headers.to_headermap());
-            }
-
-            // Cookies
-            if let Some(cookies) = cookies {
-                request_builder = request_builder.header(
-                    COOKIE,
-                    HeaderValue::from_str(&cookies.to_string()).map_err(anyhow::Error::new)?,
-                );
-            }
-
-            // Only if method POST || PUT || PATCH
-            if is_post_put_patch {
-                // Content
-                if let Some(content) = content {
-                    request_builder = request_builder.body(content);
-                }
-                // Data
-                if let Some(form_data) = data_value {
-                    request_builder = request_builder.form(&form_data);
-                }
-                // Json - always serialize as JSON regardless of Accept header
-                if let Some(json_data) = json_value {
-                    request_builder = request_builder.json(&json_data);
-                }
-                // Files
-                if let Some(files) = files {
-                    let mut form = multipart::Form::new();
-                    for (file_name, file_path) in files {
-                        let file = File::open(file_path).await.map_err(anyhow::Error::new)?;
-                        let stream = FramedRead::new(file, BytesCodec::new());
-                        let file_body = Body::wrap_stream(stream);
-                        let part = multipart::Part::stream(file_body).file_name(file_name.clone());
-                        form = form.part(file_name, part);
-                    }
-                    request_builder = request_builder.multipart(form);
-                }
-            }
-
-            // Auth
-            if let Some((username, password)) = auth {
-                request_builder = request_builder.basic_auth(username, password);
-            } else if let Some(token) = auth_bearer {
-                request_builder = request_builder.bearer_auth(token);
-            }
-
-            // Timeout
-            if let Some(seconds) = timeout {
-                request_builder = request_builder.timeout(Duration::from_secs_f64(seconds));
-            }
-
-            // Send the request and await the response
-            let resp = request_builder.send().await.map_err(anyhow::Error::new)?;
-
-            // Response items
-            let cookies: IndexMapSSR = resp
-                .cookies()
-                .map(|cookie| (cookie.name().to_string(), cookie.value().to_string()))
-                .collect();
-            let headers: IndexMapSSR = resp.headers().to_indexmap();
-            let status_code = resp.status().as_u16();
-            let url = resp.url().to_string();
-            let buf = resp.bytes().await.map_err(anyhow::Error::new)?;
+        let future = async move {
+            let resp = send_request(builder, files, timeout).await?;
+            let (cookies, headers, status_code, url) = response_meta(&resp);
+            let buf = timeout::read_body(resp, timeout).await?;
 
             tracing::info!("response: {} {} {}", url, status_code, buf.len());
             Ok::<(Bytes, IndexMapSSR, IndexMapSSR, u16, String), anyhow::Error>((
@@ -529,7 +705,16 @@ impl RClient {
 
         // Execute an async future, releasing the Python GIL for concurrency.
         // Use Tokio global runtime to block on the future.
-        let result = py.detach(|| RUNTIME.block_on(future));
+        let result = py.detach(|| {
+            // The future owns the request builder and with it our clone of the
+            // reqwest client, which kept the pool alive for the duration of the
+            // request; `block_on` drops both.
+            let result = RUNTIME.block_on(future);
+            // If `close()` ran in the meantime, ending this request is what
+            // really tears the pool down, and the guard releases its sockets.
+            drop(in_flight);
+            result
+        });
         let (f_buf, f_cookies, f_headers, f_status_code, f_url) =
             result.map_err(map_anyhow_error)?;
 
@@ -571,7 +756,7 @@ impl RClient {
         py: Python,
         method: &str,
         url: &str,
-        params: Option<IndexMapSSR>,
+        params: Option<&Bound<'_, PyAny>>,
         headers: Option<IndexMapSSR>,
         cookies: Option<IndexMapSSR>,
         content: Option<Vec<u8>>,
@@ -582,112 +767,26 @@ impl RClient {
         auth_bearer: Option<String>,
         timeout: Option<f64>,
     ) -> PyResult<StreamingResponse> {
-        let client = Arc::clone(&self.client);
-        let method = Method::from_bytes(method.as_bytes())
-            .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
-        let is_post_put_patch = matches!(method, Method::POST | Method::PUT | Method::PATCH);
-        let params = params.or_else(|| self.params.clone());
-        let data_value: Option<Value> = data
-            .map(depythonize)
-            .transpose()
-            .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
-        let json_value: Option<Value> = json
-            .map(depythonize)
-            .transpose()
-            .map_err(|e| map_anyhow_error(anyhow::Error::new(e)))?;
-        let auth = auth.or(self.auth.clone());
-        let auth_bearer = auth_bearer.or(self.auth_bearer.clone());
-        let timeout: Option<f64> = timeout.or(self.timeout);
+        let (client, in_flight) = self.begin_request()?;
+        let (builder, timeout) = self.build_request(
+            client,
+            method,
+            url,
+            params,
+            headers,
+            cookies,
+            content,
+            data,
+            json,
+            auth,
+            auth_bearer,
+            timeout,
+        )?;
 
-        let future = async {
-            // Create request builder
-            let mut request_builder = client
-                .lock()
-                .map_err(|e| anyhow!("Failed to acquire client lock: {}", e))?
-                .request(method, url);
-
-            // Params
-            if let Some(params) = params {
-                request_builder = request_builder.query(&params);
-            }
-
-            // Headers from client
-            let client_headers = self
-                .headers
-                .lock()
-                .map_err(|e| anyhow!("Failed to acquire headers lock: {}", e))?
-                .clone();
-            request_builder = request_builder.headers(client_headers.clone());
-
-            // Headers
-            let mut combined_headers = client_headers;
-            if let Some(ref headers) = headers {
-                let header_map = headers.to_headermap();
-                for (key, value) in header_map.iter() {
-                    combined_headers.insert(key.clone(), value.clone());
-                }
-                request_builder = request_builder.headers(headers.to_headermap());
-            }
-
-            // Cookies
-            if let Some(cookies) = cookies {
-                request_builder = request_builder.header(
-                    COOKIE,
-                    HeaderValue::from_str(&cookies.to_string()).map_err(anyhow::Error::new)?,
-                );
-            }
-
-            // Only if method POST || PUT || PATCH
-            if is_post_put_patch {
-                // Content
-                if let Some(content) = content {
-                    request_builder = request_builder.body(content);
-                }
-                // Data
-                if let Some(form_data) = data_value {
-                    request_builder = request_builder.form(&form_data);
-                }
-                // Json - always serialize as JSON regardless of Accept header
-                if let Some(json_data) = json_value {
-                    request_builder = request_builder.json(&json_data);
-                }
-                // Files
-                if let Some(files) = files {
-                    let mut form = multipart::Form::new();
-                    for (file_name, file_path) in files {
-                        let file = File::open(file_path).await.map_err(anyhow::Error::new)?;
-                        let stream = FramedRead::new(file, BytesCodec::new());
-                        let file_body = Body::wrap_stream(stream);
-                        let part = multipart::Part::stream(file_body).file_name(file_name.clone());
-                        form = form.part(file_name, part);
-                    }
-                    request_builder = request_builder.multipart(form);
-                }
-            }
-
-            // Auth
-            if let Some((username, password)) = auth {
-                request_builder = request_builder.basic_auth(username, password);
-            } else if let Some(token) = auth_bearer {
-                request_builder = request_builder.bearer_auth(token);
-            }
-
-            // Timeout
-            if let Some(seconds) = timeout {
-                request_builder = request_builder.timeout(Duration::from_secs_f64(seconds));
-            }
-
+        let future = async move {
             // Send the request and await the response (but don't read body)
-            let resp = request_builder.send().await.map_err(anyhow::Error::new)?;
-
-            // Response items (extract before we move resp)
-            let cookies: IndexMapSSR = resp
-                .cookies()
-                .map(|cookie| (cookie.name().to_string(), cookie.value().to_string()))
-                .collect();
-            let headers: IndexMapSSR = resp.headers().to_indexmap();
-            let status_code = resp.status().as_u16();
-            let url = resp.url().to_string();
+            let resp = send_request(builder, files, timeout).await?;
+            let (cookies, headers, status_code, url) = response_meta(&resp);
 
             tracing::info!("streaming response: {} {}", url, status_code);
             Ok::<(reqwest::Response, IndexMapSSR, IndexMapSSR, u16, String), anyhow::Error>((
@@ -704,12 +803,16 @@ impl RClient {
         let (f_resp, f_cookies, f_headers, f_status_code, f_url) =
             result.map_err(map_anyhow_error)?;
 
+        // The response keeps the request in flight until it is closed: its
+        // connection stays busy, and a `close()` meanwhile must wait for it.
         Ok(StreamingResponse::new(
             f_resp,
+            in_flight,
             f_cookies,
             CaseInsensitiveHeaderMap::from_indexmap(f_headers),
             f_status_code,
             f_url,
+            timeout,
         ))
     }
 }
@@ -724,6 +827,7 @@ fn httpr(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<CaseInsensitiveHeaderMap>()?;
     m.add_class::<TextIterator>()?;
     m.add_class::<LineIterator>()?;
+    m.add("_CLIENT_CLOSED_MSG", CLIENT_CLOSED_MSG)?;
 
     // Register all exception types
     exceptions::register_exceptions(m)?;

@@ -7,12 +7,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aws_durable_execution_sdk_python.config import Duration, InvokeConfig
+from aws_durable_execution_sdk_python.config import InvokeConfig
 from aws_durable_execution_sdk_python.exceptions import (
-    CallableRuntimeError,
     ExecutionError,
+    InvokeError,
     SuspendExecution,
-    TimedSuspendExecution,
 )
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
 from aws_durable_execution_sdk_python.lambda_service import (
@@ -26,7 +25,6 @@ from aws_durable_execution_sdk_python.lambda_service import (
 )
 from aws_durable_execution_sdk_python.operation.invoke import InvokeOperationExecutor
 from aws_durable_execution_sdk_python.state import CheckpointedResult, ExecutionState
-from aws_durable_execution_sdk_python.suspend import suspend_with_optional_resume_delay
 from tests.serdes_test import CustomDictSerDes
 
 
@@ -53,6 +51,8 @@ def test_invoke_handler_already_succeeded():
     operation = Operation(
         operation_id="invoke1",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(result=json.dumps("test_result")),
     )
@@ -81,6 +81,8 @@ def test_invoke_handler_already_succeeded_none_result():
     operation = Operation(
         operation_id="invoke2",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(result=None),
     )
@@ -108,6 +110,8 @@ def test_invoke_handler_already_succeeded_no_chained_invoke_details():
     operation = Operation(
         operation_id="invoke3",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=None,
     )
@@ -141,13 +145,15 @@ def test_invoke_handler_already_terminated(kind: OperationStatus):
     operation = Operation(
         operation_id="invoke4",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=kind,
         chained_invoke_details=ChainedInvokeDetails(error=error),
     )
     mock_result = CheckpointedResult.create_from_operation(operation)
     mock_state.get_checkpoint_result.return_value = mock_result
 
-    with pytest.raises(CallableRuntimeError):
+    with pytest.raises(InvokeError):
         invoke_handler(
             function_name="test_function",
             payload="test_input",
@@ -170,13 +176,15 @@ def test_invoke_handler_already_timed_out():
     operation = Operation(
         operation_id="invoke5",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.TIMED_OUT,
         chained_invoke_details=ChainedInvokeDetails(error=error),
     )
     mock_result = CheckpointedResult.create_from_operation(operation)
     mock_state.get_checkpoint_result.return_value = mock_result
 
-    with pytest.raises(CallableRuntimeError):
+    with pytest.raises(InvokeError):
         invoke_handler(
             function_name="test_function",
             payload="test_input",
@@ -197,6 +205,8 @@ def test_invoke_handler_already_started(status):
     operation = Operation(
         operation_id="invoke6",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=status,
         chained_invoke_details=ChainedInvokeDetails(),
     )
@@ -218,23 +228,25 @@ def test_invoke_handler_already_started(status):
 
 
 @pytest.mark.parametrize("status", [OperationStatus.STARTED, OperationStatus.PENDING])
-def test_invoke_handler_already_started_with_timeout(status):
-    """Test invoke_handler when operation is already started with timeout config."""
+def test_invoke_handler_already_started_suspends(status):
+    """Test invoke_handler when operation is already started suspends indefinitely."""
     mock_state = Mock(spec=ExecutionState)
     mock_state.durable_execution_arn = "test_arn"
 
     operation = Operation(
         operation_id="invoke7",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=status,
         chained_invoke_details=ChainedInvokeDetails(),
     )
     mock_result = CheckpointedResult.create_from_operation(operation)
     mock_state.get_checkpoint_result.return_value = mock_result
 
-    config = InvokeConfig[str, str](timeout=Duration.from_seconds(30))
+    config = InvokeConfig[str, str]()
 
-    with pytest.raises(TimedSuspendExecution):
+    with pytest.raises(SuspendExecution) as exc_info:
         invoke_handler(
             function_name="test_function",
             payload="test_input",
@@ -244,6 +256,7 @@ def test_invoke_handler_already_started_with_timeout(status):
             ),
             config=config,
         )
+    assert type(exc_info.value) is SuspendExecution
 
 
 def test_invoke_handler_new_operation():
@@ -256,12 +269,14 @@ def test_invoke_handler_new_operation():
     started_op = Operation(
         operation_id="invoke8",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
     mock_state.get_checkpoint_result.side_effect = [not_found, started]
 
-    config = InvokeConfig[str, str](timeout=Duration.from_minutes(1))
+    config = InvokeConfig[str, str]()
 
     with pytest.raises(
         SuspendExecution, match="Invoke invoke8 started, suspending for completion"
@@ -288,62 +303,6 @@ def test_invoke_handler_new_operation():
     assert operation_update.chained_invoke_options.function_name == "test_function"
 
 
-def test_invoke_handler_new_operation_with_timeout():
-    """Test invoke_handler when starting a new operation with timeout."""
-    mock_state = Mock(spec=ExecutionState)
-    mock_state.durable_execution_arn = "test_arn"
-
-    not_found = CheckpointedResult.create_not_found()
-    started_op = Operation(
-        operation_id="invoke_test",
-        operation_type=OperationType.CHAINED_INVOKE,
-        status=OperationStatus.STARTED,
-    )
-    started = CheckpointedResult.create_from_operation(started_op)
-    mock_state.get_checkpoint_result.side_effect = [not_found, started]
-
-    config = InvokeConfig[str, str](timeout=Duration.from_seconds(30))
-
-    with pytest.raises(TimedSuspendExecution):
-        invoke_handler(
-            function_name="test_function",
-            payload="test_input",
-            state=mock_state,
-            operation_identifier=OperationIdentifier(
-                "invoke9", OperationSubType.CHAINED_INVOKE, None, "test_invoke"
-            ),
-            config=config,
-        )
-
-
-def test_invoke_handler_new_operation_no_timeout():
-    """Test invoke_handler when starting a new operation without timeout."""
-    mock_state = Mock(spec=ExecutionState)
-    mock_state.durable_execution_arn = "test_arn"
-
-    not_found = CheckpointedResult.create_not_found()
-    started_op = Operation(
-        operation_id="invoke_test",
-        operation_type=OperationType.CHAINED_INVOKE,
-        status=OperationStatus.STARTED,
-    )
-    started = CheckpointedResult.create_from_operation(started_op)
-    mock_state.get_checkpoint_result.side_effect = [not_found, started]
-
-    config = InvokeConfig[str, str](timeout=Duration.from_seconds(0))
-
-    with pytest.raises(SuspendExecution):
-        invoke_handler(
-            function_name="test_function",
-            payload="test_input",
-            state=mock_state,
-            operation_identifier=OperationIdentifier(
-                "invoke10", OperationSubType.CHAINED_INVOKE, None, "test_invoke"
-            ),
-            config=config,
-        )
-
-
 def test_invoke_handler_no_config():
     """Test invoke_handler when no config is provided."""
     mock_state = Mock(spec=ExecutionState)
@@ -353,6 +312,8 @@ def test_invoke_handler_no_config():
     started_op = Operation(
         operation_id="invoke_test",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -385,6 +346,8 @@ def test_invoke_handler_custom_serdes():
     operation = Operation(
         operation_id="invoke12",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(
             result='{"key": "VALUE", "number": "84", "list": [1, 2, 3]}',
@@ -420,6 +383,8 @@ def test_invoke_handler_custom_serdes_new_operation():
     started_op = Operation(
         operation_id="invoke_test",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -447,38 +412,6 @@ def test_invoke_handler_custom_serdes_new_operation():
     assert operation_update.payload == expected_serialized
 
 
-def test_suspend_with_optional_resume_delay_with_timeout():
-    """Test suspend_with_optional_resume_delay with timeout."""
-    with pytest.raises(TimedSuspendExecution) as exc_info:
-        suspend_with_optional_resume_delay("test message", 30)
-
-    assert "test message" in str(exc_info.value)
-
-
-def test_suspend_with_optional_resume_delay_no_timeout():
-    """Test suspend_with_optional_resume_delay without timeout."""
-    with pytest.raises(SuspendExecution) as exc_info:
-        suspend_with_optional_resume_delay("test message", None)
-
-    assert "test message" in str(exc_info.value)
-
-
-def test_suspend_with_optional_resume_delay_zero_timeout():
-    """Test suspend_with_optional_resume_delay with zero timeout."""
-    with pytest.raises(SuspendExecution) as exc_info:
-        suspend_with_optional_resume_delay("test message", 0)
-
-    assert "test message" in str(exc_info.value)
-
-
-def test_suspend_with_optional_resume_delay_negative_timeout():
-    """Test suspend_with_optional_resume_delay with negative timeout."""
-    with pytest.raises(SuspendExecution) as exc_info:
-        suspend_with_optional_resume_delay("test message", -5)
-
-    assert "test message" in str(exc_info.value)
-
-
 @pytest.mark.parametrize("status", [OperationStatus.STARTED, OperationStatus.PENDING])
 def test_invoke_handler_with_operation_name(status: OperationStatus):
     """Test invoke_handler uses operation name in logs when available."""
@@ -488,6 +421,8 @@ def test_invoke_handler_with_operation_name(status: OperationStatus):
     operation = Operation(
         operation_id="invoke14",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="named_invoke",
         status=status,
         chained_invoke_details=ChainedInvokeDetails(),
     )
@@ -515,6 +450,8 @@ def test_invoke_handler_without_operation_name(status: OperationStatus):
     operation = Operation(
         operation_id="invoke15",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name=None,
         status=status,
         chained_invoke_details=ChainedInvokeDetails(),
     )
@@ -542,6 +479,8 @@ def test_invoke_handler_with_none_payload():
     started_op = Operation(
         operation_id="invoke_test",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -572,6 +511,8 @@ def test_invoke_handler_already_succeeded_with_none_payload():
     operation = Operation(
         operation_id="invoke17",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(result=json.dumps("test_result")),
     )
@@ -605,6 +546,8 @@ def test_invoke_handler_suspend_does_not_raise(mock_suspend):
     started_op = Operation(
         operation_id="invoke_test",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -639,6 +582,8 @@ def test_invoke_handler_with_tenant_id():
     started_op = Operation(
         operation_id="invoke1",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name=None,
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -674,6 +619,8 @@ def test_invoke_handler_without_tenant_id():
     started_op = Operation(
         operation_id="invoke1",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name=None,
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -709,6 +656,8 @@ def test_invoke_handler_default_config_no_tenant_id():
     started_op = Operation(
         operation_id="invoke1",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name=None,
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -742,6 +691,8 @@ def test_invoke_handler_defaults_to_json_serdes():
     started_op = Operation(
         operation_id="invoke1",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name=None,
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -775,6 +726,8 @@ def test_invoke_handler_result_defaults_to_json_serdes():
     operation = Operation(
         operation_id="invoke_result_json",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name=None,
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(result=json.dumps(result_data)),
     )
@@ -812,6 +765,8 @@ def test_invoke_immediate_response_get_checkpoint_result_called_twice():
     started_op = Operation(
         operation_id="invoke_immediate_1",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -845,6 +800,8 @@ def test_invoke_immediate_response_create_checkpoint_with_is_sync_true():
     started_op = Operation(
         operation_id="invoke_immediate_2",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -884,6 +841,8 @@ def test_invoke_immediate_response_immediate_success():
     succeeded_op = Operation(
         operation_id="invoke_immediate_3",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(
             result=json.dumps("immediate_result")
@@ -920,6 +879,8 @@ def test_invoke_immediate_response_immediate_success_with_none_result():
     succeeded_op = Operation(
         operation_id="invoke_immediate_4",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(result=None),
     )
@@ -962,6 +923,8 @@ def test_invoke_immediate_response_immediate_failure(status: OperationStatus):
     failed_op = Operation(
         operation_id="invoke_immediate_5",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=status,
         chained_invoke_details=ChainedInvokeDetails(error=error),
     )
@@ -969,7 +932,7 @@ def test_invoke_immediate_response_immediate_failure(status: OperationStatus):
     mock_state.get_checkpoint_result.side_effect = [not_found, failed]
 
     # Verify error is raised without suspend
-    with pytest.raises(CallableRuntimeError):
+    with pytest.raises(InvokeError):
         invoke_handler(
             function_name="test_function",
             payload="test_input",
@@ -1002,6 +965,8 @@ def test_invoke_immediate_response_no_immediate_response():
     started_op = Operation(
         operation_id="invoke_immediate_6",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)
@@ -1041,6 +1006,8 @@ def test_invoke_immediate_response_already_completed():
     succeeded_op = Operation(
         operation_id="invoke_immediate_7",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(
             result=json.dumps("existing_result")
@@ -1067,79 +1034,6 @@ def test_invoke_immediate_response_already_completed():
     assert mock_state.get_checkpoint_result.call_count == 1
 
 
-def test_invoke_immediate_response_with_timeout_immediate_success():
-    """Test immediate success with timeout configuration."""
-    mock_state = Mock(spec=ExecutionState)
-    mock_state.durable_execution_arn = "test_arn"
-
-    # First call: not found, second call: succeeded
-    not_found = CheckpointedResult.create_not_found()
-    succeeded_op = Operation(
-        operation_id="invoke_immediate_8",
-        operation_type=OperationType.CHAINED_INVOKE,
-        status=OperationStatus.SUCCEEDED,
-        chained_invoke_details=ChainedInvokeDetails(
-            result=json.dumps("timeout_result")
-        ),
-    )
-    succeeded = CheckpointedResult.create_from_operation(succeeded_op)
-    mock_state.get_checkpoint_result.side_effect = [not_found, succeeded]
-
-    config = InvokeConfig[str, str](timeout=Duration.from_seconds(30))
-
-    result = invoke_handler(
-        function_name="test_function",
-        payload="test_input",
-        state=mock_state,
-        operation_identifier=OperationIdentifier(
-            "invoke_immediate_8", OperationSubType.CHAINED_INVOKE, None, "test_invoke"
-        ),
-        config=config,
-    )
-
-    # Verify result was returned without suspend
-    assert result == "timeout_result"
-    assert mock_state.get_checkpoint_result.call_count == 2
-
-
-def test_invoke_immediate_response_with_timeout_no_immediate_response():
-    """Test no immediate response with timeout configuration.
-
-    When no immediate response, operation should suspend with timeout.
-    """
-    mock_state = Mock(spec=ExecutionState)
-    mock_state.durable_execution_arn = "test_arn"
-
-    # First call: not found, second call: started
-    not_found = CheckpointedResult.create_not_found()
-    started_op = Operation(
-        operation_id="invoke_immediate_9",
-        operation_type=OperationType.CHAINED_INVOKE,
-        status=OperationStatus.STARTED,
-    )
-    started = CheckpointedResult.create_from_operation(started_op)
-    mock_state.get_checkpoint_result.side_effect = [not_found, started]
-
-    config = InvokeConfig[str, str](timeout=Duration.from_seconds(30))
-
-    # Verify operation suspends with timeout
-    with pytest.raises(TimedSuspendExecution):
-        invoke_handler(
-            function_name="test_function",
-            payload="test_input",
-            state=mock_state,
-            operation_identifier=OperationIdentifier(
-                "invoke_immediate_9",
-                OperationSubType.CHAINED_INVOKE,
-                None,
-                "test_invoke",
-            ),
-            config=config,
-        )
-
-    assert mock_state.get_checkpoint_result.call_count == 2
-
-
 def test_invoke_immediate_response_with_custom_serdes():
     """Test immediate success with custom serialization."""
     mock_state = Mock(spec=ExecutionState)
@@ -1150,6 +1044,8 @@ def test_invoke_immediate_response_with_custom_serdes():
     succeeded_op = Operation(
         operation_id="invoke_immediate_10",
         operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.SUCCEEDED,
         chained_invoke_details=ChainedInvokeDetails(
             result='{"key": "VALUE", "number": "84", "list": [1, 2, 3]}'
@@ -1193,7 +1089,9 @@ def test_invoke_suspends_when_second_check_returns_started():
         CheckpointedResult.create_from_operation(
             Operation(
                 operation_id="invoke-1",
-                operation_type=OperationType.STEP,
+                operation_type=OperationType.CHAINED_INVOKE,
+                sub_type=OperationSubType.CHAINED_INVOKE,
+                name="test_invoke",
                 status=OperationStatus.STARTED,
             )
         ),
@@ -1229,7 +1127,9 @@ def test_invoke_suspends_when_second_check_returns_started_duplicate():
     not_found = CheckpointedResult.create_not_found()
     started_op = Operation(
         operation_id="invoke-1",
-        operation_type=OperationType.STEP,
+        operation_type=OperationType.CHAINED_INVOKE,
+        sub_type=OperationSubType.CHAINED_INVOKE,
+        name="test_invoke",
         status=OperationStatus.STARTED,
     )
     started = CheckpointedResult.create_from_operation(started_op)

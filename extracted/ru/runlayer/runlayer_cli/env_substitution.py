@@ -6,12 +6,17 @@ Supports standard Docker Compose / shell-style variable syntax:
 - ${VAR:-default} - Use default if unset or empty
 - ${VAR-default} - Use default only if unset (not if empty)
 - $$VAR - Preserved as-is for backend processing
+
+References inside `#` comments are left alone: comments are located with the
+YAML scanner and passed through verbatim, so a literal `${VAR}` in a comment
+does not count as a required variable and the document is never reformatted.
 """
 
 import os
 from pathlib import Path
 from typing import Dict
 
+import yaml
 from dotenv import dotenv_values
 
 from runlayer_cli import regex_safe
@@ -65,6 +70,34 @@ def load_env_vars(
         env_vars.update({k: v for k, v in dotenv_vars.items() if v is not None})
 
     return env_vars
+
+
+def _append_hash_spans(spans: list[tuple[int, int]], text: str, offset: int) -> None:
+    """Record `#`-to-end-of-line spans in text that can hold only whitespace and comments."""
+    for line in text.splitlines(keepends=True):
+        hash_at = line.find("#")
+        if hash_at != -1:
+            spans.append((offset + hash_at, offset + len(line)))
+        offset += len(line)
+
+
+def _comment_spans(yaml_content: str) -> list[tuple[int, int]]:
+    """Absolute (start, end) of every `#` comment, in document order."""
+    spans: list[tuple[int, int]] = []
+    pos = 0
+    for token in yaml.scan(yaml_content):
+        start = token.start_mark.index
+        # Between tokens the scanner skips only whitespace and comments.
+        _append_hash_spans(spans, yaml_content[pos:start], pos)
+        if isinstance(token, yaml.ScalarToken) and token.style in ("|", ">"):
+            # A block scalar's header line (indicators + optional comment) is
+            # folded into the token, so its comment is not in any gap.
+            header = yaml_content[start : token.end_mark.index].splitlines(
+                keepends=True
+            )[:1]
+            _append_hash_spans(spans, "".join(header), start)
+        pos = max(pos, token.end_mark.index)
+    return spans
 
 
 def substitute_env_vars(yaml_content: str, env_vars: Dict[str, str]) -> str:
@@ -137,8 +170,26 @@ def substitute_env_vars(yaml_content: str, env_vars: Dict[str, str]) -> str:
                     f"Set it in your environment or use --env-file to load from a file."
                 )
 
-    # First, replace all ${VAR} patterns
-    result = regex_safe.sub(pattern, replace_var, yaml_content)
+    def substitute(text: str) -> str:
+        return regex_safe.sub(pattern, replace_var, text)
+
+    # Skip `#` comments. The scanner only skips whitespace and comments
+    # between tokens, so any `#` in an inter-token gap starts a comment;
+    # `#` inside tokens (quoted strings, URLs) is content. Everything but
+    # the comment spans is substituted as before, comments pass verbatim.
+    try:
+        comment_spans = _comment_spans(yaml_content)
+    except yaml.YAMLError:
+        return substitute(yaml_content)
+
+    parts = []
+    pos = 0
+    for start, end in comment_spans:
+        parts.append(substitute(yaml_content[pos:start]))
+        parts.append(yaml_content[start:end])
+        pos = end
+    parts.append(substitute(yaml_content[pos:]))
+    result = "".join(parts)
 
     # Note: We don't need to handle $$VAR separately because:
     # - $$VAR becomes $VAR in the string (single $)

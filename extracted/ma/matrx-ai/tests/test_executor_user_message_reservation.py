@@ -201,17 +201,16 @@ async def test_user_message_reservation_carries_real_content(monkeypatch):
     #    the executor after appending request.user_input.
     # ------------------------------------------------------------------ #
     user_text = "What is the 2,000 limit? Please look it up."
-    cfg = UnifiedConfig(
-        model="claude-haiku-4-5",
-        messages=MessageList(
-            _messages=[
-                UnifiedMessage(
-                    role="user",
-                    content=[TextContent(text=user_text)],
-                )
-            ]
-        ),
+    messages = MessageList(
+        _messages=[
+            UnifiedMessage(
+                role="user",
+                content=[TextContent(text="MACHINE TEMPLATE: {{context}}")],
+            )
+        ]
     )
+    messages.append_or_extend_user_text(user_text)
+    cfg = UnifiedConfig(model="claude-haiku-4-5", messages=messages)
     req = AIMatrixRequest(
         conversation_id=_StubAppContext.conversation_id,
         config=cfg,
@@ -283,6 +282,13 @@ async def test_user_message_reservation_carries_real_content(monkeypatch):
     assert user_text in text_blocks[0].get("text", ""), (
         f"user text not in reservation content: {text_blocks[0]}"
     )
+
+    # The full provider payload remains in content, while the separate
+    # user_content projection contains only what the human actually authored.
+    assert "MACHINE TEMPLATE" in text_blocks[0].get("text", "")
+    assert user_call.get("user_content") == [
+        {"type": "text", "text": user_text}
+    ]
 
     # Status MUST be 'active', not 'pending'. The 'pending' placeholder is
     # what the watchdog later flipped to 'abandoned' when the UPDATE never

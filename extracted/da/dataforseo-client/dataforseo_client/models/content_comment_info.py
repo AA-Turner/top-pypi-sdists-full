@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
-from dataforseo_client.models.content_rating_info import ContentRatingInfo
+from dataforseo_client.models.contentent_rating_info import ContententRatingInfo
 from dataforseo_client.models.section_content_item_info import SectionContentItemInfo
 
 
@@ -17,7 +17,7 @@ class ContentCommentInfo(BaseModel):
     """
     ContentCommentInfo
     """ # noqa: E501
-    rating: Optional[ContentRatingInfo] = Field(default=None, description=r"product’s rating. contains information about the rating a customer has given to the product")
+    rating: Optional[ContententRatingInfo] = Field(default=None, description=r"product’s rating. contains information about the rating a customer has given to the product")
     title: Optional[StrictStr] = Field(default=None, description=r"title of the customer’s comment")
     publish_date: Optional[StrictStr] = Field(default=None, description=r"date when the comment was published")
     author: Optional[StrictStr] = Field(default=None, description=r"author of the comment")
@@ -79,7 +79,7 @@ class ContentCommentInfo(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "rating": ContentRatingInfo.from_dict(obj["rating"]) if obj.get("rating") is not None else None,
+            "rating": ContententRatingInfo.from_dict(obj["rating"]) if obj.get("rating") is not None else None,
             "title": obj.get("title"),
             "publish_date": obj.get("publish_date"),
             "author": obj.get("author"),

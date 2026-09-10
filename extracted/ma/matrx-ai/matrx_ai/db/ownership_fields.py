@@ -59,6 +59,9 @@ def is_organization_system_actor(owner_id: Any, ctx: Any) -> bool:
         return False
     if ctx is None or getattr(ctx, "system_run", False) is not True:
         return False
+    ambient_actor = getattr(ctx, "user_id", None)
+    if ambient_actor is not None and (not isinstance(ambient_actor, str) or ambient_actor.strip()):
+        return False
     org = getattr(ctx, "organization_id", None)
     if not isinstance(org, str):
         return False

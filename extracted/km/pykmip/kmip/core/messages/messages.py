@@ -13,8 +13,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import six
-
 from kmip.core import enums
 from kmip.core.enums import Tags
 
@@ -150,12 +148,14 @@ class ResponseHeader(Struct):
                  protocol_version=None,
                  time_stamp=None,
                  batch_count=None,
-                 server_hashed_password=None):
+                 server_hashed_password=None,
+                 server_correlation_value=None):
         super(ResponseHeader, self).__init__(tag=Tags.RESPONSE_HEADER)
         self.protocol_version = protocol_version
         self.time_stamp = time_stamp
         self.batch_count = batch_count
         self.server_hashed_password = server_hashed_password
+        self.server_correlation_value = server_correlation_value
 
         self.validate()
 
@@ -169,7 +169,7 @@ class ResponseHeader(Struct):
     def server_hashed_password(self, value):
         if value is None:
             self._server_hashed_password = None
-        elif isinstance(value, six.binary_type):
+        elif isinstance(value, bytes):
             self._server_hashed_password = primitives.ByteString(
                 value=value,
                 tag=enums.Tags.SERVER_HASHED_PASSWORD
@@ -203,6 +203,10 @@ class ResponseHeader(Struct):
                 )
                 server_hashed_password.read(tstream, kmip_version=kmip_version)
                 self._server_hashed_password = server_hashed_password
+
+        if self.is_tag_next(enums.Tags.SERVER_CORRELATION_VALUE, tstream):
+            self.server_correlation_value = contents.ServerCorrelationValue()
+            self.server_correlation_value.read(tstream, kmip_version=kmip_version)
 
         self.batch_count = contents.BatchCount()
         self.batch_count.read(tstream, kmip_version=kmip_version)

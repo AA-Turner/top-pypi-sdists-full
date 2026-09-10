@@ -179,6 +179,25 @@ class TestRedirectAllowlist:
         """Invite emails already delivered carry the pre-/ui paths."""
         assert url in auth["additional_redirect_urls"]
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://havilandsoftware.com/ui/auth/callback",
+            "https://www.havilandsoftware.com/ui/auth/callback",
+        ],
+    )
+    def test_haviland_urls_are_allowlisted(self, auth, url):
+        """innoday-ui is becoming havilandsoftware.com, and sign-in has to follow.
+
+        Note what differs from inno.day below: **this apex is a real origin.**
+        WordPress.com's DNS offers ALIAS, so the bare domain answers Railway
+        directly rather than forwarding, which is why listing it is right here and
+        wrong there. `www` is listed too because it answers directly until
+        `CANONICAL_HOST` is set on the service, and Supabase matches the URL it
+        was handed rather than the one after a redirect.
+        """
+        assert url in auth["additional_redirect_urls"]
+
     def test_no_bare_apex_urls(self, auth):
         """The bare apex serves nothing: `https://inno.day/health` returns
         GoDaddy's 404 page, and no 301 to www is configured (#619). Supabase

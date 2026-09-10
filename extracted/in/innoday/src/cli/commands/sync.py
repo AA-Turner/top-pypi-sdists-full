@@ -20,6 +20,10 @@ from rich.console import Console
 from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
+from src.cli.commands.boards import (
+    DEFAULT_SYNC_WAIT_TIMEOUT,
+    wait_and_report_board_sync,
+)
 from src.cli.utils.formatters import (
     format_error,
     format_info,
@@ -102,6 +106,23 @@ class SyncCommands:
             dest="sync_status_only",
             help="Report whether a sync is running and how the last one went. "
             "Read-only: this starts nothing.",
+        )
+        parser.add_argument(
+            "--no-wait",
+            action="store_true",
+            dest="no_wait",
+            help="Return as soon as the board sync is queued instead of "
+            "waiting for it to finish. The later stages then run over "
+            "whatever is in the database now, as they used to.",
+        )
+        parser.add_argument(
+            "--wait-timeout",
+            dest="wait_timeout",
+            type=float,
+            metavar="SECONDS",
+            help="How long to wait for the board sync to finish "
+            f"(default: {int(DEFAULT_SYNC_WAIT_TIMEOUT)})",
+            default=DEFAULT_SYNC_WAIT_TIMEOUT,
         )
         parser.add_argument(
             "--scope",
@@ -354,14 +375,39 @@ class SyncCommands:
 
         exit_code = 0
 
+        # **The stages are ordered because they are not independent.** Stage 3
+        # reports over the tickets stage 1 imports, and stage 1's endpoint only
+        # *queues* that import -- so the cascade used to print a release table
+        # assembled while tickets were still arriving (#741). Waiting is what
+        # makes the order mean anything; `--no-wait` has nothing to wait for and
+        # so keeps the old straight-through run.
+        wait = not getattr(args, "no_wait", False)
+        wait_timeout = getattr(args, "wait_timeout", None)
+
         # --- 1. Board tickets ---
         if wanted(SyncScope.BOARD):
             console.print("[bold cyan]1. Board tickets[/bold cyan]")
             board_result = await SyncCommands._sync_board(
-                client, org_id, project_id, config, since=since
+                client,
+                org_id,
+                project_id,
+                config,
+                since=since,
+                wait=wait,
+                wait_timeout=wait_timeout,
             )
             if board_result == 1:
                 exit_code = 1
+                if wait:
+                    console.print(
+                        format_warning(
+                            "Stopping here: the board sync did not complete, so "
+                            "repositories and releases were not run. Anything "
+                            "they reported would be assembled over tickets that "
+                            "are stale or half-imported."
+                        )
+                    )
+                    return 1
 
         # --- 2. Repositories ---
         if wanted(SyncScope.REPOS):
@@ -383,9 +429,18 @@ class SyncCommands:
         org_id: str,
         project_id: str,
         config,
+        *,
         since: Optional[str] = None,
+        wait: bool = True,
+        wait_timeout: Optional[float] = None,
     ) -> int:
-        """Trigger a sync for the project's one board, if it has one."""
+        """Sync the project's one board, if it has one, and wait for it.
+
+        The POST only queues the work server-side (and correctly so -- a
+        153-second HTTP request is not an improvement), so this waits for the
+        run to reach a terminal state and reports what it did. `wait=False` is
+        `--no-wait`: queue it and return, which is all this used to do.
+        """
         response = await client.get(
             f"/organizations/{org_id}/boards", params={"project_id": project_id}
         )
@@ -417,16 +472,32 @@ class SyncCommands:
         )
         if response.status_code in (200, 201):
             data = response.json()
+            sync_id = data.get("sync_id")
+            if not wait:
+                console.print(
+                    format_success(
+                        f"Board sync queued for {board['board_name']} "
+                        f"(sync_id: {sync_id})"
+                    )
+                )
+                console.print(
+                    "  [dim]Check status with: "
+                    f"innoday board sync-status --board-id {board_id}[/dim]"
+                )
+                return 0
+
             console.print(
-                format_success(
-                    f"Board sync queued for {board['board_name']} (sync_id: {data.get('sync_id')})"
+                format_info(
+                    f"Board sync started for {board['board_name']} (sync_id: {sync_id})"
                 )
             )
-            console.print(
-                "  [dim]Check status with: "
-                f"innoday board sync-status --board-id {board_id}[/dim]"
+            return await wait_and_report_board_sync(
+                client,
+                org_id,
+                board_id,
+                sync_id=sync_id,
+                timeout=wait_timeout,
             )
-            return 0
         elif response.status_code == 429:
             # Print what the server said rather than a summary of it: the
             # detail names the blocking run, when it started, and `--force`.

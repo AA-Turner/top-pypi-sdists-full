@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from unittest import mock
 
@@ -5,22 +6,34 @@ import pytest
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.streamlit.streamlit_entity import (
     StreamlitEntity,
+    _describe_row_is_spcs_v2,
     _is_live_version_already_exists_error,
     _TagRef,
 )
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
+    WAREHOUSE_RUNTIME_NAME,
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES, SQL_COMPILATION_ERROR
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.connector.errors import ProgrammingError
 
 from tests.conftest import MockCursor
-from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
+from tests.streamlit.streamlit_test_class import (
+    RESTART_PARAMS,
+    RESTART_SQL,
+    STREAMLIT_NAME,
+    StreamlitTestClass,
+    restart_calls,
+    stage_diff_unchanged,
+    stage_diff_with_changes,
+)
 
 CONNECTOR = "snowflake.connector.connect"
 
@@ -51,6 +64,22 @@ class TestStreamlitEntity(StreamlitTestClass):
     @staticmethod
     def _bundle_output(project_root: Path) -> Path:
         return project_root / "output" / "bundle" / "streamlit" / "test_streamlit"
+
+    @staticmethod
+    def _runtime_entity(
+        workspace_context, runtime_name=WAREHOUSE_RUNTIME_NAME, compute_pool=None
+    ):
+        """Build an entity on a given runtime, defaulting to the warehouse runtime."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            runtime_name=runtime_name,
+            compute_pool=compute_pool,
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        return StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
     def test_nativeapp_children_interface(self, example_entity, snapshot):
         example_entity.bundle()
@@ -495,8 +524,165 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
-    def test_spcs_runtime_v2_requires_correct_runtime_name(self, workspace_context):
-        """Test that SPCS runtime v2 requires correct runtime name to be enabled"""
+    def test_compute_pool_alone_emits_both_runtime_fields(self, workspace_context):
+        """A compute_pool with no runtime_name reaches the DDL, with the runtime named.
+
+        The pool is only meaningful to the container runtime, so naming it explicitly
+        avoids emitting COMPUTE_POOL against whatever runtime the account defaults to.
+        """
+        entity = self._runtime_entity(
+            workspace_context, runtime_name=None, compute_pool="MYPOOL"
+        )
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
+        assert "COMPUTE_POOL = 'MYPOOL'" in sql
+
+    def test_container_runtime_without_pool_emits_runtime_name_alone(
+        self, workspace_context
+    ):
+        """The container runtime needs no compute_pool; Snowflake supplies a default.
+
+        Requiring one used to reject this config outright, so RUNTIME_NAME never
+        reached the DDL for an app that only named its runtime.
+        """
+        entity = self._runtime_entity(
+            workspace_context, runtime_name=SPCS_RUNTIME_V2_NAME
+        )
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
+        assert "COMPUTE_POOL" not in sql
+
+    def test_compute_pool_omitted_and_warned_for_warehouse_runtime(
+        self, workspace_context
+    ):
+        """Snowflake ignores COMPUTE_POOL on the warehouse runtime, so it is not sent.
+
+        The config is accepted rather than rejected, so that migrating an app from the
+        container runtime only needs runtime_name changed, but the pool doing nothing
+        is worth saying out loud.
+        """
+        entity = self._runtime_entity(
+            workspace_context,
+            runtime_name=WAREHOUSE_RUNTIME_NAME,
+            compute_pool="MYPOOL",
+        )
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert f"RUNTIME_NAME = '{WAREHOUSE_RUNTIME_NAME}'" in sql
+        assert "COMPUTE_POOL" not in sql
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._deploy_versioned"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_warns_that_compute_pool_is_ignored_for_warehouse_runtime(
+        self,
+        mock_bundle,
+        mock_deploy_versioned,
+        mock_object_exists,
+        workspace_context,
+        action_context,
+    ):
+        """The ignored pool is surfaced at deploy time, where there is a console."""
+        mock_object_exists.return_value = False
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+        entity = self._runtime_entity(
+            workspace_context,
+            runtime_name=WAREHOUSE_RUNTIME_NAME,
+            compute_pool="MYPOOL",
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=False, legacy=False)
+
+        warnings = [
+            str(call) for call in workspace_context.console.warning.call_args_list
+        ]
+        assert any("MYPOOL" in w and "is ignored because" in w for w in warnings)
+
+    def test_compute_pool_whitespace_is_trimmed(self, workspace_context):
+        """Stray whitespace around a compute_pool never reaches the DDL.
+
+        A pool name is an identifier, so padding is never meaningful. Untrimmed it
+        would be emitted verbatim, the same way a padded runtime_name used to be.
+        """
+        entity = self._runtime_entity(
+            workspace_context,
+            runtime_name=SPCS_RUNTIME_V2_NAME,
+            compute_pool="  MYPOOL  ",
+        )
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert "COMPUTE_POOL = 'MYPOOL'" in sql
+
+    def test_compute_pool_not_emitted_for_legacy_deployment(self, workspace_context):
+        """--legacy deploys carry neither runtime field, compute_pool included."""
+        entity = self._runtime_entity(
+            workspace_context, runtime_name=None, compute_pool="MYPOOL"
+        )
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=True)
+
+        assert "COMPUTE_POOL" not in sql
+        assert "RUNTIME_NAME" not in sql
+
+    @pytest.mark.parametrize("field", ["runtime_name", "compute_pool"])
+    def test_templated_runtime_fields_survive_the_pre_render_pass(self, field):
+        """A templated value is not a runtime name yet, so validation must not judge it.
+
+        The allowlist and the blank check live in field validators specifically so they
+        inherit UpdatableModel's template-skip wrap. A model validator runs outside any
+        field's validator chain and would reject `<% ... %>` before rendering, which
+        broke `snow streamlit deploy` for templated project files.
+        """
+        template = f"<% ctx.env.{field.upper()} %>"
+
+        with context({"skip_validation_on_templates": True}):
+            model = StreamlitEntityModel(
+                type="streamlit",
+                identifier="test_streamlit",
+                main_file="streamlit_app.py",
+                artifacts=["streamlit_app.py"],
+                **{field: template},
+            )
+
+        assert getattr(model, field) == template
+
+    def test_runtime_name_with_quote_is_rejected_before_sql_generation(self):
+        """A quote-bearing runtime_name never reaches the SQL escaping path.
+
+        The allowlist is the control that keeps RUNTIME_NAME out of the SNOW-3417292
+        escaping test above, so pin that it rejects rather than escapes.
+        """
+        with pytest.raises(ValueError, match="Unknown runtime_name"):
+            StreamlitEntityModel(
+                type="streamlit",
+                identifier="test_streamlit",
+                runtime_name=f"{WAREHOUSE_RUNTIME_NAME}'; DROP STREAMLIT x; --",
+                main_file="streamlit_app.py",
+                artifacts=["streamlit_app.py"],
+            )
+
+    def test_unknown_runtime_name_is_rejected_on_assignment(self):
+        """An unrecognized runtime_name is rejected when assigned, not just at construction.
+
+        UpdatableModel sets validate_assignment=True, so the validator re-runs on
+        assignment. The emission behaviour for a valid runtime is covered by
+        test_get_deploy_sql_with_spcs_runtime_v2 and its legacy counterpart.
+        """
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
@@ -505,26 +691,11 @@ class TestStreamlitEntity(StreamlitTestClass):
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
         )
-        model.set_entity_id("test_streamlit")
 
-        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-
-        # Test with versioned deployment (default, legacy=False) and correct runtime_name
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
-        assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
-        assert "COMPUTE_POOL = 'MYPOOL'" in sql
-
-        # Test with legacy=True, should not add SPCS fields
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=True)
-        assert "RUNTIME_NAME" not in sql
-        assert "COMPUTE_POOL" not in sql
-
-        # Test with wrong runtime_name
-        model.runtime_name = "SOME_OTHER_RUNTIME"
-        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
-        assert "RUNTIME_NAME" not in sql
-        assert "COMPUTE_POOL" not in sql
+        with pytest.raises(
+            ValueError, match="Unknown runtime_name 'SOME_OTHER_RUNTIME'"
+        ):
+            model.runtime_name = "SOME_OTHER_RUNTIME"
 
     def test_spcs_runtime_v2_requires_runtime_and_pool(self, workspace_context):
         """Test that SPCS runtime v2 SQL generation works with valid models"""
@@ -548,68 +719,288 @@ class TestStreamlitEntity(StreamlitTestClass):
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$WAREHOUSE_RUNTIME",
+            runtime_name=WAREHOUSE_RUNTIME_NAME,
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
         sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
-        # Warehouse runtime should not trigger SPCS runtime v2 mode
-        assert "RUNTIME_NAME" not in sql
+        # Warehouse runtime is requested explicitly, so it must reach the DDL. It
+        # takes no compute pool, so COMPUTE_POOL stays out.
+        assert f"RUNTIME_NAME = '{WAREHOUSE_RUNTIME_NAME}'" in sql
         assert "COMPUTE_POOL" not in sql
 
-    def test_spcs_runtime_validation(self, workspace_context):
-        """Test validation for SPCS runtime configuration"""
+    @pytest.mark.parametrize(
+        "runtime_name, compute_pool, expected_error",
+        [
+            pytest.param(
+                SPCS_RUNTIME_V2_NAME, None, None, id="container-runtime-without-pool"
+            ),
+            pytest.param(None, "MYPOOL", None, id="pool-without-runtime-is-inferred"),
+            pytest.param(
+                WAREHOUSE_RUNTIME_NAME, "MYPOOL", None, id="warehouse-runtime-with-pool"
+            ),
+            pytest.param(
+                "SYSTEM$SOMETHING_NEW",
+                None,
+                "Unknown runtime_name 'SYSTEM$SOMETHING_NEW'",
+                id="unknown-runtime",
+            ),
+            pytest.param(
+                "   ",
+                None,
+                "Unknown runtime_name '   '",
+                id="whitespace-only-runtime",
+            ),
+            pytest.param(
+                "   ",
+                "MYPOOL",
+                "Unknown runtime_name '   '",
+                id="whitespace-only-runtime-with-pool",
+            ),
+            pytest.param(
+                "",
+                None,
+                "Unknown runtime_name ''",
+                id="empty-runtime",
+            ),
+            pytest.param(
+                None, "   ", "compute_pool must not be empty", id="blank-pool"
+            ),
+            pytest.param(None, "", "compute_pool must not be empty", id="empty-pool"),
+            pytest.param(
+                SPCS_RUNTIME_V2_NAME,
+                "   ",
+                "compute_pool must not be empty",
+                id="blank-pool-with-container-runtime",
+            ),
+            pytest.param(WAREHOUSE_RUNTIME_NAME, None, None, id="warehouse-valid"),
+            pytest.param(SPCS_RUNTIME_V2_NAME, "MYPOOL", None, id="container-valid"),
+            pytest.param(None, None, None, id="runtime-absent"),
+        ],
+    )
+    def test_runtime_and_compute_pool_pairing(
+        self, runtime_name, compute_pool, expected_error
+    ):
+        """The validator is a table over (runtime_name x compute_pool); test it as one.
 
-        # Test: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11 requires compute_pool
-        escaped_runtime_name = SPCS_RUNTIME_V2_NAME.replace("$", r"\$")
-        with pytest.raises(
-            ValueError,
-            match=rf"compute_pool is required when using {escaped_runtime_name}",
-        ):
-            StreamlitEntityModel(
+        The whitespace-only rows matter: such a value is raw-truthy, so before it was
+        rejected it slipped past every rule here and reached the DDL.
+        """
+
+        def build():
+            return StreamlitEntityModel(
                 type="streamlit",
                 identifier="test_streamlit",
-                runtime_name=SPCS_RUNTIME_V2_NAME,
+                runtime_name=runtime_name,
+                compute_pool=compute_pool,
                 main_file="streamlit_app.py",
                 artifacts=["streamlit_app.py"],
             )
 
-        # Test: compute_pool without runtime_name is invalid
-        with pytest.raises(
-            ValueError, match="compute_pool is specified without runtime_name"
-        ):
-            StreamlitEntityModel(
-                type="streamlit",
-                identifier="test_streamlit",
-                compute_pool="MYPOOL",
-                main_file="streamlit_app.py",
-                artifacts=["streamlit_app.py"],
+        if expected_error:
+            with pytest.raises(ValueError, match=re.escape(expected_error)):
+                build()
+        else:
+            model = build()
+            # A compute pool with no runtime_name infers the container runtime.
+            expected_runtime = runtime_name or (
+                SPCS_RUNTIME_V2_NAME if compute_pool else None
             )
+            assert model.runtime_name == expected_runtime
+            assert model.compute_pool == compute_pool
 
-        # Test: warehouse runtime without compute_pool is valid
-        model = StreamlitEntityModel(
-            type="streamlit",
-            identifier="test_streamlit",
-            runtime_name="SYSTEM$WAREHOUSE_RUNTIME",
-            main_file="streamlit_app.py",
-            artifacts=["streamlit_app.py"],
+    @pytest.mark.parametrize(
+        "supplied",
+        [
+            WAREHOUSE_RUNTIME_NAME.lower(),
+            f"  {WAREHOUSE_RUNTIME_NAME}  ",
+            f"{WAREHOUSE_RUNTIME_NAME}\n",
+            # U+017F LATIN SMALL LETTER LONG S upper-cases to plain "S"
+            WAREHOUSE_RUNTIME_NAME.lower().replace("s", "\u017f", 1),
+            # A non-breaking space is the realistic version of this: it survives a
+            # copy-paste out of rendered docs and str.strip() treats it as whitespace.
+            f"{WAREHOUSE_RUNTIME_NAME}\xa0",
+        ],
+        ids=[
+            "lowercase",
+            "padded",
+            "trailing-newline",
+            "homoglyph",
+            "trailing-nbsp",
+        ],
+    )
+    def test_recognized_runtime_name_is_canonicalized(
+        self, workspace_context, supplied
+    ):
+        """A recognized runtime_name reaches the DDL as its canonical constant.
+
+        Matching tolerates casing and stray whitespace (a yaml block scalar keeps a
+        trailing newline), but the DDL must carry one exact spelling. Emitting the
+        value verbatim is what previously let padded and homoglyph spellings through.
+        """
+        entity = self._runtime_entity(workspace_context, supplied)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert f"RUNTIME_NAME = '{WAREHOUSE_RUNTIME_NAME}'" in sql
+        assert "COMPUTE_POOL" not in sql
+
+    def test_warehouse_runtime_not_emitted_for_legacy_deployment(
+        self, workspace_context
+    ):
+        """--legacy deploys emit no RUNTIME_NAME, warehouse runtime included."""
+        entity = self._runtime_entity(workspace_context)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=True)
+
+        assert "RUNTIME_NAME" not in sql
+
+    def test_warehouse_runtime_not_emitted_for_root_location_deployment(
+        self, workspace_context
+    ):
+        """ROOT_LOCATION deploys emit no RUNTIME_NAME, warehouse runtime included."""
+        entity = self._runtime_entity(workspace_context)
+
+        sql = entity.get_deploy_sql(from_stage_name="@stage/path", legacy=False)
+
+        assert "ROOT_LOCATION = '@stage/path'" in sql
+        assert "RUNTIME_NAME" not in sql
+
+    def test_get_alter_sql_sets_warehouse_runtime_name(self, workspace_context):
+        """Redeploying onto warehouse runtime alters an app that is on another runtime."""
+        entity = self._runtime_entity(workspace_context)
+
+        alter_sql = entity.get_alter_sql(
+            current={
+                "runtime_name": SPCS_RUNTIME_V2_NAME,
+                "compute_pool": "MYPOOL",
+                "query_warehouse": "test_warehouse",
+            }
         )
-        assert model.runtime_name == "SYSTEM$WAREHOUSE_RUNTIME"
-        assert model.compute_pool is None
 
-        # Test: container runtime with compute_pool is valid
-        model = StreamlitEntityModel(
-            type="streamlit",
-            identifier="test_streamlit",
+        assert alter_sql is not None
+        assert f"RUNTIME_NAME = '{WAREHOUSE_RUNTIME_NAME}'" in alter_sql
+        assert "COMPUTE_POOL" not in alter_sql
+
+    def test_get_alter_sql_omits_unchanged_warehouse_runtime_name(
+        self, workspace_context
+    ):
+        """An app already on warehouse runtime gets no redundant RUNTIME_NAME clause."""
+        entity = self._runtime_entity(workspace_context)
+
+        alter_sql = entity.get_alter_sql(
+            current={
+                "runtime_name": WAREHOUSE_RUNTIME_NAME,
+                "query_warehouse": "test_warehouse",
+            }
+        )
+
+        assert alter_sql is not None
+        assert "RUNTIME_NAME" not in alter_sql
+
+    def test_get_alter_sql_warns_when_moving_a_live_app_between_runtimes(
+        self, workspace_context
+    ):
+        """Moving a running app's runtime is announced when it happens.
+
+        A release note is not in front of the user at deploy time, so the warning names
+        both the runtime the app is on and the one it is moving to.
+        """
+        entity = self._runtime_entity(workspace_context)
+
+        entity.get_alter_sql(
+            current={
+                "runtime_name": SPCS_RUNTIME_V2_NAME,
+                "query_warehouse": "test_warehouse",
+            }
+        )
+
+        warnings = [
+            str(call) for call in workspace_context.console.warning.call_args_list
+        ]
+        assert any(
+            SPCS_RUNTIME_V2_NAME in w and WAREHOUSE_RUNTIME_NAME in w for w in warnings
+        )
+
+    def test_get_alter_sql_does_not_warn_when_runtime_is_unchanged(
+        self, workspace_context
+    ):
+        """No migration, no warning: an unchanged runtime emits no clause to announce."""
+        entity = self._runtime_entity(workspace_context)
+
+        entity.get_alter_sql(
+            current={
+                "runtime_name": WAREHOUSE_RUNTIME_NAME,
+                "query_warehouse": "test_warehouse",
+            }
+        )
+
+        warnings = [
+            str(call) for call in workspace_context.console.warning.call_args_list
+        ]
+        assert not any("from runtime" in w for w in warnings)
+
+    def test_get_alter_sql_adds_compute_pool_moving_onto_container_runtime(
+        self, workspace_context
+    ):
+        """Moving an app from the warehouse runtime onto the container runtime adds the pool."""
+        entity = self._runtime_entity(
+            workspace_context,
             runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
-            main_file="streamlit_app.py",
-            artifacts=["streamlit_app.py"],
         )
-        assert model.runtime_name == SPCS_RUNTIME_V2_NAME
-        assert model.compute_pool == "MYPOOL"
+
+        alter_sql = entity.get_alter_sql(
+            current={
+                "runtime_name": WAREHOUSE_RUNTIME_NAME,
+                "query_warehouse": "test_warehouse",
+            }
+        )
+
+        assert alter_sql is not None
+        assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in alter_sql
+        assert "COMPUTE_POOL = 'MYPOOL'" in alter_sql
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._deploy_legacy"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_warns_when_legacy_discards_warehouse_runtime(
+        self,
+        mock_bundle,
+        mock_deploy_legacy,
+        mock_object_exists,
+        workspace_context,
+        action_context,
+    ):
+        """--legacy drops RUNTIME_NAME, so say so instead of discarding it silently.
+
+        Driven through deploy() rather than get_deploy_sql, because the guard being
+        exercised lives in deploy() and the SQL-level tests bypass it entirely.
+        """
+        mock_object_exists.return_value = False
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+        entity = self._runtime_entity(workspace_context)
+
+        entity.action_deploy(action_context, _open=False, replace=False, legacy=True)
+
+        warnings = [
+            str(call) for call in workspace_context.console.warning.call_args_list
+        ]
+        assert any(
+            WAREHOUSE_RUNTIME_NAME in w and "is ignored for --legacy" in w
+            for w in warnings
+        )
 
     @mock.patch(
         "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
@@ -644,7 +1035,7 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         with pytest.raises(
             CliError,
-            match="runtime_name and compute_pool are not compatible with --legacy flag",
+            match="is not compatible with the --legacy flag",
         ):
             entity.action_deploy(
                 action_context, _open=False, replace=False, legacy=True
@@ -873,6 +1264,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
         mock_sync.assert_called_once()
         assert mock_sync.call_args.kwargs["force_overwrite"] is True
+        assert restart_calls(self.mock_execute_with_params) == []
 
     @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
     @mock.patch(
@@ -924,6 +1316,372 @@ class TestStreamlitEntity(StreamlitTestClass):
         ]
         assert add_live_calls == []
         mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
+        # Warehouse DESCRIBE has no SPCS runtime_name — do not CALL restart.
+        assert restart_calls(self.mock_execute_with_params) == []
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_content_only_replace_restarts_without_alter(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """SNOW-4014804: content-only --replace (no property ALTER) still restarts.
+
+        yml omits runtime_name; DESCRIBE says the live object is SPCS v2.
+        """
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_with_changes()
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        alter_set_calls = [
+            c
+            for c in self.mock_execute.call_args_list
+            if "ALTER STREAMLIT" in str(c) and "SET" in str(c)
+        ]
+        assert alter_set_calls == []
+        self.mock_execute_with_params.assert_any_call(RESTART_SQL, RESTART_PARAMS)
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_spcs_noop_diff_does_not_restart(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Unchanged artifacts must not bounce the SPCS service."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_unchanged()
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        assert restart_calls(self.mock_execute_with_params) == []
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_first_create_does_not_restart(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """A new object starts a new process; do not pay a restart cold start."""
+        mock_object_exists.return_value = False
+        mock_is_legacy.return_value = False
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+        mock_stage_manager_cls.return_value.stage_path_parts_from_str.return_value = (
+            mock.Mock()
+        )
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            query_warehouse="test_warehouse",
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=False, legacy=False)
+
+        assert restart_calls(self.mock_execute_with_params) == []
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_existing_restart_error_fails(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """A failed restart must fail the deploy: the process was not bounced."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_with_changes()
+        unknown_fn = "Unknown function SYSTEM$RESTART_STREAMLIT"
+
+        def _execute_with_params(sql, params=None, **kwargs):
+            if "SYSTEM$RESTART_STREAMLIT" in sql:
+                raise ProgrammingError(errno=SQL_COMPILATION_ERROR, msg=unknown_fn)
+            return mock.Mock()
+
+        self.mock_execute_with_params.side_effect = _execute_with_params
+
+        with pytest.raises(ProgrammingError) as exc_info:
+            entity.action_deploy(
+                action_context, _open=False, replace=True, legacy=False
+            )
+
+        assert exc_info.value.errno == SQL_COMPILATION_ERROR
+        mock_sync.assert_called_once()
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_existing_restart_privilege_error_fails(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Insufficient privilege means the process was not bounced; fail deploy."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_with_changes()
+
+        def _execute_with_params(sql, params=None, **kwargs):
+            if "SYSTEM$RESTART_STREAMLIT" in sql:
+                raise ProgrammingError(
+                    errno=INSUFFICIENT_PRIVILEGES, msg="Insufficient privileges"
+                )
+            return mock.Mock()
+
+        self.mock_execute_with_params.side_effect = _execute_with_params
+
+        with pytest.raises(ProgrammingError) as exc_info:
+            entity.action_deploy(
+                action_context, _open=False, replace=True, legacy=False
+            )
+
+        assert exc_info.value.errno == INSUFFICIENT_PRIVILEGES
+        mock_sync.assert_called_once()
+
+    def test_describe_row_is_spcs_v2(self):
+        assert _describe_row_is_spcs_v2({"runtime_name": SPCS_RUNTIME_V2_NAME}) is True
+        assert (
+            _describe_row_is_spcs_v2({"runtime_name": SPCS_RUNTIME_V2_NAME.lower()})
+            is True
+        )
+        assert (
+            _describe_row_is_spcs_v2(
+                {"runtime_name": "SYSTEM$ST_CONTAINER_RUNTIME_PY3_12"}
+            )
+            is True
+        )
+        assert (
+            _describe_row_is_spcs_v2({"runtime_name": "SYSTEM$WAREHOUSE_RUNTIME"})
+            is False
+        )
+        assert _describe_row_is_spcs_v2({}) is False
+        assert _describe_row_is_spcs_v2({"runtime_name": None}) is False
+
+    def test_get_restart_sql(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+        assert entity.get_restart_sql() == RESTART_SQL
+
+    def test_restart_passes_identifier_as_bind_parameter(self, workspace_context):
+        """A hostile identifier reaches the connector as a bind value, not as SQL text.
+
+        Replaces an earlier test that asserted the identifier was quote-escaped into
+        the statement. Binding is the stronger property: there is no escaping left to
+        get wrong, and it matches SYSTEM$GET_APPLICATION_SERVICE_LOGS in
+        apps/manager.py and SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN in log_streaming.
+        """
+        hostile = "app'; DROP TABLE users; --"
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with mock.patch.object(entity, "_get_identifier", return_value=hostile):
+            entity._restart_running_app()  # noqa: SLF001
+
+        self.mock_execute_with_params.assert_called_once_with(
+            "CALL SYSTEM$RESTART_STREAMLIT(?);", (hostile,)
+        )
+        # The payload must not appear anywhere in the statement text.
+        sent_sql = self.mock_execute_with_params.call_args[0][0]
+        assert "DROP TABLE" not in sent_sql
+
+    def test_restart_step_sanitizes_identifier_for_terminal(self, workspace_context):
+        """A quoted identifier carrying control characters must not reach the terminal.
+
+        `console.step` does not sanitize (only `styled_message` does), so escape
+        sequences in an identifier would otherwise be written out verbatim.
+        """
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with mock.patch.object(
+            entity, "_get_identifier", return_value="app\x1b[31mRED\x1b[0m"
+        ), mock.patch.object(entity, "_execute_query"):
+            entity._restart_running_app()  # noqa: SLF001
+
+        steps = [str(call) for call in workspace_context.console.step.call_args_list]
+        assert any("appRED" in s for s in steps)
+        assert not any("\x1b" in s for s in steps)
 
     def test_is_live_version_already_exists_error_matches_errno(self):
         errno_exc = ProgrammingError(errno=99106, msg="duplicate")
@@ -962,6 +1720,10 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert "--legacy" in message
         assert "live_version_location_uri" in message
 
+    # runtime_name is deliberately absent: it also flows into to_string_literal, but
+    # the allowlist rejects a quote-bearing value before any SQL is built, so there is
+    # no escaped output to assert on. See
+    # test_runtime_name_with_quote_is_rejected_before_sql_generation.
     @pytest.mark.parametrize(
         "field,payload",
         [

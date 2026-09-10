@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: socketsecurity
-Version: 2.7.2
+Version: 2.8.0
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -35,7 +35,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.11
 Requires-Dist: beautifulsoup4==4.15.0
 Requires-Dist: brotli==1.2.0; platform_python_implementation == 'CPython'
-Requires-Dist: brotlicffi==1.2.0.1; platform_python_implementation != 'CPython'
+Requires-Dist: brotlicffi==1.2.0.2; platform_python_implementation != 'CPython'
 Requires-Dist: gitpython==3.1.59
 Requires-Dist: markdown==3.10.3
 Requires-Dist: mdutils==1.8.1
@@ -43,13 +43,13 @@ Requires-Dist: packaging==26.3
 Requires-Dist: prettytable==3.18.0
 Requires-Dist: python-dotenv==1.2.3
 Requires-Dist: requests==2.34.2
-Requires-Dist: socketdev==3.5.0
+Requires-Dist: socketdev==3.6.0
 Provides-Extra: dev
 Requires-Dist: hatch==1.18.0; extra == 'dev'
 Requires-Dist: pre-commit==4.6.2; extra == 'dev'
-Requires-Dist: ruff==0.16.4; extra == 'dev'
+Requires-Dist: ruff==0.16.5; extra == 'dev'
 Requires-Dist: twine==7.0.0; extra == 'dev'
-Requires-Dist: uv==0.12.5; extra == 'dev'
+Requires-Dist: uv==0.12.8; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: pytest-asyncio==1.4.0; extra == 'test'
 Requires-Dist: pytest-cov==7.1.0; extra == 'test'
@@ -288,6 +288,10 @@ value — e.g. a Buildkite
 [`soft_fail`](https://buildkite.com/docs/pipelines/configure/step-types/command-step)
 code, or `0` to swallow infra errors. Exit `3` is a Socket convention, not an
 industry standard.
+
+This mapping applies to errors the CLI receives and handles. An external process
+supervisor (for example GNU `timeout`) can terminate the CLI before it handles an
+error, so the supervisor's exit status (commonly 124 or 137) takes precedence.
 
 ### How these options interact
 

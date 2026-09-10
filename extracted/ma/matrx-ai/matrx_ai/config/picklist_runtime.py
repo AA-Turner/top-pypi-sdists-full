@@ -85,8 +85,20 @@ _WIRE_SWAPS: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
 
 def set_wire_swaps(swaps: dict[str, str]) -> None:
     """Replace the current request's token→description map. Always called by the resolver
-    (even with an empty dict) so a previous run in the same task can never bleed through."""
+    (even with an empty dict) so a previous run in the same task can never bleed through.
+
+    Invalidating ``_MATERIALIZED_WIRE_SWAPS`` is part of that promise, not an
+    extra: it is a ContextVar too, and a request that sets new swaps but never
+    reaches ``build_wire_config`` (an early provider error, a validation raise)
+    would otherwise redact its snapshot against the PREVIOUS request's
+    materialized map — reversing the wrong values and leaving this request's
+    reference content sitting in ``cx_request_snapshot``. Setting it back to
+    ``None`` makes ``redact_wire_payload`` fall back to this request's own
+    canonical map, which is the fail-closed behaviour the docstring there
+    promises. (Found 2026-09-09: four snapshot-redaction tests were red or green
+    purely by collection order, for exactly this reason.)"""
     _WIRE_SWAPS.set(dict(swaps or {}))
+    _MATERIALIZED_WIRE_SWAPS.set(None)
 
 
 def get_wire_swaps() -> dict[str, str]:
@@ -95,6 +107,7 @@ def get_wire_swaps() -> dict[str, str]:
 
 def clear_wire_swaps() -> None:
     _WIRE_SWAPS.set({})
+    _MATERIALIZED_WIRE_SWAPS.set(None)
 
 
 # The map that ACTUALLY materialized into the last send's payload (post-budget):

@@ -1,10 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: trame
-Version: 3.13.2
+Version: 4.0.0
 Summary: Trame, a framework to build applications in plain Python
 Author: Kitware Inc.
 License: Apache License 2.0
-Keywords: Python,Interactive,Web,Application,Framework
+License-File: LICENSE
+Keywords: Application,Framework,Interactive,Python,Web
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: Apache Software License
@@ -14,22 +15,20 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: trame-server<4,>=3.12.2
-Requires-Dist: trame-client<4,>=3.12.2
-Requires-Dist: trame-common<2,>=1.2.3
-Requires-Dist: wslink>=2.5.6
 Requires-Dist: pyyaml
+Requires-Dist: trame-client<5,>=4
+Requires-Dist: trame-common<2,>=1.2.7
+Requires-Dist: trame-server<5,>=4
+Requires-Dist: wslink>=2.5.7
 Provides-Extra: app
-Requires-Dist: pywebview; extra == "app"
-Provides-Extra: jupyter
-Requires-Dist: jupyterlab; extra == "jupyter"
+Requires-Dist: pywebview; extra == 'app'
 Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Dynamic: license-file
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Provides-Extra: jupyter
+Requires-Dist: jupyterlab; extra == 'jupyter'
+Description-Content-Type: text/x-rst
 
 trame: simple, powerful, innovative
 ===========================================================
@@ -40,7 +39,7 @@ trame: simple, powerful, innovative
     :target: https://github.com/Kitware/trame/actions/workflows/test_and_release.yml
     :alt: Test and Release
 
-.. |badge_2| image:: https://img.shields.io/pypi/dm/trame
+.. |badge_2| image:: https://kitware.github.io/trame/downloads/trame.svg
     :alt: Download stats
 
 **trame** - a web framework that weaves together open source components into customized visual analytics easily.

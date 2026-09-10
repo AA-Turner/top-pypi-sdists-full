@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boxsdk
-Version: 10.14.0
+Version: 10.15.0
 Summary: Official Box Python SDK
 Home-page: https://github.com/box/box-python-sdk.git
 Author: Box
@@ -202,22 +202,20 @@ Migration guides which help you to migrate to supported major SDK versions can b
 
 We use a modified version of [Semantic Versioning](https://semver.org/) for all changes. See [version strategy](VERSIONS.md) for details which is effective from 30 July 2022.
 
-A current release is on the leading edge of our SDK development, and is intended for customers who are in active development and want the latest and greatest features.  
-Instead of stating a release date for a new feature, we set a fixed minor or patch release cadence of maximum 2-3 months (while we may release more often).
-At the same time, there is no schedule for major or breaking release. Instead, we will communicate one quarter in advance the upcoming breaking change to allow customers to plan for the upgrade.
+A current release is on the leading edge of our SDK development, and is intended for customers who are in active development and want the latest and greatest features.
 
 We always recommend that all users run the latest available minor release for whatever major version is in use.
 We highly recommend upgrading to the latest SDK major release at the earliest convenient time and before the EOL date.
 
 ## Version schedule
 
-| Version | Supported Environments | State     | First Release | EOL/Terminated         |
-| ------- | ---------------------- | --------- | ------------- | ---------------------- |
-| 10      | Python 3.8+            | Supported | 17 Sep 2025   | TBD                    |
-| 4       | Python 3.8+            | Supported | 23 Oct 2025   | 2027 or v5 is released |
-| 3       | Python 3.6+            | EOL       | 17 Jan 2022   | 23 Oct 2025            |
-| 2       |                        | EOL       | 01 Nov 2018   | 17 Jan 2022            |
-| 1       |                        | EOL       | 10 Feb 2015   | 01 Nov 2018            |
+| Version | Supported Environments | State     | First Release | EOL/Terminated |
+| ------- | ---------------------- | --------- | ------------- | -------------- |
+| 10      | Python 3.8+            | Supported | 17 Sep 2025   | TBD            |
+| 4       | Python 3.8+            | Supported | 23 Oct 2025   | TBD            |
+| 3       | Python 3.6+            | EOL       | 17 Jan 2022   | 23 Oct 2025    |
+| 2       |                        | EOL       | 01 Nov 2018   | 17 Jan 2022    |
+| 1       |                        | EOL       | 10 Feb 2015   | 01 Nov 2018    |
 
 # Contributing
 

@@ -36,11 +36,13 @@ mod date;
 mod datetime;
 pub(crate) mod decimal;
 mod definitions;
+mod deque;
 mod dict;
 mod ellipsis;
 mod enum_;
 mod float;
 pub(crate) mod fraction;
+mod frozendict;
 mod frozenset;
 mod function;
 mod generator;
@@ -597,10 +599,14 @@ fn build_validator_inner(
         tuple::TupleValidator,
         // list/arrays
         list::ListValidator,
+        // deques
+        deque::DequeValidator,
         // sets - unique lists
         set::SetValidator,
         // dicts/objects (recursive)
         dict::DictValidator,
+        // frozendicts
+        frozendict::FrozenDictValidator,
         // None/null
         none::NoneValidator,
         // functions - before, after, plain & wrap
@@ -764,12 +770,16 @@ pub enum CombinedValidator {
     Fraction(fraction::FractionValidator),
     // lists
     List(list::ListValidator),
+    // deques
+    Deque(deque::DequeValidator),
     // sets - unique lists
     Set(set::SetValidator),
     // tuples
     Tuple(tuple::TupleValidator),
     // dicts/objects (recursive)
     Dict(dict::DictValidator),
+    // frozendicts
+    FrozenDict(frozendict::FrozenDictValidator),
     // None/null
     None(none::NoneValidator),
     // functions

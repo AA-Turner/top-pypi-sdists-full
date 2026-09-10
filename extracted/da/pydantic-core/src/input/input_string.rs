@@ -177,6 +177,13 @@ impl<'py> Input<'py> for StringMapping<'py> {
         }
     }
 
+    fn strict_frozendict(&self) -> ValMatch<StringMappingDict<'py>> {
+        match self {
+            Self::String(_) => Err(ValError::new(ErrorTypeDefaults::FrozenDictType, self)),
+            Self::Mapping(d) => Ok(ValidationMatch::strict(StringMappingDict(d.clone()))),
+        }
+    }
+
     type List<'a>
         = Never
     where
@@ -184,6 +191,10 @@ impl<'py> Input<'py> for StringMapping<'py> {
 
     fn validate_list(&self, _strict: bool) -> ValMatch<Never> {
         Err(ValError::new(ErrorTypeDefaults::ListType, self))
+    }
+
+    fn validate_deque(&self, _strict: bool) -> ValMatch<(Never, Option<usize>)> {
+        Err(ValError::new(ErrorTypeDefaults::DequeType, self))
     }
 
     type Tuple<'a>

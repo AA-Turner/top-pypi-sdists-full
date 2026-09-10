@@ -8,11 +8,12 @@ import time
 import traceback as tb
 from collections.abc import Awaitable, Iterable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, get_args
 from uuid import uuid4
 
 from matrx_utils import detached_task, vcprint
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+from pydantic_core import ErrorType
 
 from ._db_log import db_log_event as _db_log
 from ._debug_log import is_verbose as _debug_verbose
@@ -84,10 +85,14 @@ async def _capture_tool_argument_validation_failed(
     *,
     ctx: ToolContext,
     tool_name: str,
+    validation_error: ValidationError,
 ) -> None:
     """Capture a rejected tool call without retaining model-supplied arguments."""
     from matrx_connect.streaming.error_capture import capture_error
 
+    allowed_codes = frozenset(get_args(ErrorType))
+    errors = validation_error.errors(include_url=False, include_context=False, include_input=False)
+    codes = sorted({e["type"] if e["type"] in allowed_codes else "custom_validation" for e in errors})
     exc = RuntimeError(f"Tool arguments failed declared validation: {tool_name}")
     await capture_error(
         exc,
@@ -97,7 +102,10 @@ async def _capture_tool_argument_validation_failed(
         conversation_id=ctx.conversation_id or None,
         route="tool_executor.argument_validation",
         error_type="ToolArgumentValidationError",
-        context={"tool_name": tool_name, "call_id": ctx.call_id},
+        context={"tool_name": tool_name, "call_id": ctx.call_id,
+                 "validation_error_count": validation_error.error_count(),
+                 "validation_error_codes": codes[:20],
+                 "validation_error_codes_truncated": len(codes) > 20},
     )
 
 
@@ -579,6 +587,7 @@ class ToolExecutor:
         tool_def: ToolDefinition,
         arguments: dict[str, Any],
         msg: str,
+        validation_error: ValidationError,
         dispatch_kind: str,
         started_at: float,
     ) -> tuple[dict[str, Any], ToolResult]:
@@ -589,6 +598,7 @@ class ToolExecutor:
         await _capture_tool_argument_validation_failed(
             ctx=ctx,
             tool_name=canonical_name,
+            validation_error=validation_error,
         )
         result = ToolResult(
             success=False,
@@ -1186,6 +1196,7 @@ class ToolExecutor:
                             tool_def=tool_def,
                             arguments=arguments,
                             msg=_msg,
+                            validation_error=_ve,
                             dispatch_kind=_dispatch_kind,
                             started_at=started_at,
                         )

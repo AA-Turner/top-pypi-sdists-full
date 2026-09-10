@@ -27,7 +27,6 @@ class ProviderLoader:
         "CopilotAccount",
         "CopilotApp",
         "CopilotSession",
-        "Custom",
         "DeepInfra",
         "DeepSeek",
         "EdgeTTS",
@@ -218,6 +217,7 @@ class ProviderLoader:
                 None, "default"
             )
             cls.loaded[name].__name__ = name
+            cls.loaded[name].url = "https://g4f.dev"
             cls.loaded[name].active_by_default = True
             return cls.loaded[name]
         elif name == "GLM":
@@ -322,6 +322,7 @@ class ProviderLoader:
                 None, "custom:srv_mt1wbaxgf9c946af0c58", 
             )
             cls.loaded[name].__name__ = name
+            cls.loaded[name].url = "https://relayrouter.org"
             cls.loaded[name].active_by_default = True
             return cls.loaded[name]
         elif name == "KiloCode":
@@ -330,6 +331,7 @@ class ProviderLoader:
                 None, "https://api.kilo.ai/api/gateway"
             )
             cls.loaded[name].__name__ = name
+            cls.loaded[name].url = "https://kilo.ai"
             cls.loaded[name].active_by_default = True
             cls.loaded[name].default_model = "kilo-auto/free"
             return cls.loaded[name]
@@ -339,6 +341,7 @@ class ProviderLoader:
                 None, "https://api.llm7.io/v1"
             )
             cls.loaded[name].__name__ = name
+            cls.loaded[name].url = "https://llm7.io"
             cls.loaded[name].active_by_default = True
             cls.loaded[name].default_model = "default"
             cls.loaded[name].models = ["default"]
@@ -358,6 +361,7 @@ class ProviderLoader:
                 None, "https://opencode.ai/zen/v1"
             )
             cls.loaded[name].__name__ = name
+            cls.loaded[name].url = "https://opencode.ai"
             cls.loaded[name].active_by_default = True
             cls.loaded[name].default_model = "big-pickle"
             return cls.loaded[name]
@@ -376,6 +380,7 @@ class ProviderLoader:
                 None, name.lower()
             )
             cls.loaded[name].__name__ = name
+            cls.loaded[name].url = "https://orcarouter.ai"
             cls.loaded[name].active_by_default = True
             cls.loaded[name].supports_native_tools = True
             return cls.loaded[name]
@@ -508,6 +513,7 @@ __all__ = [
     "CreateImagesProvider",
     "ProviderUtils",
     "G4FSpace",
+    "Custom",
     "__providers__",
     "__map__",
 ] + ProviderLoader.names

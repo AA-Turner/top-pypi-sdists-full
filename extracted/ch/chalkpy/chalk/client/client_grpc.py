@@ -1066,20 +1066,41 @@ def _get_local_file_info(filename: str, file_path: str) -> FileInfo:
 
 
 def _write_checkpoint_to_volume(artifact_path: str, file_paths: Mapping[str, str]) -> None:
-    """Mirror a checkpoint's files onto the locally mounted checkpoint volume, if configured.
+    """Commit checkpoint files to the checkpoint volume and update a ``latest`` pointer.
 
-    The volume is expected to be mounted at the directory named by CHALK_CHECKPOINT_DIR_ENV_VAR,
-    with files laid out under the same relative artifact path used for remote storage so that
-    `chalk.ml.last_checkpoint_path` can resolve them by joining the two.
+    The ``latest`` file lets ``last_checkpoint_path()`` resolve the most recent
+    checkpoint from the local FUSE mount without an RPC round-trip, matching the
+    symlink pattern used by Modal for fast resume on restart.
+
+    Falls back to plain filesystem writes for local development.
     """
     checkpoint_dir = os.getenv(CHALK_CHECKPOINT_DIR_ENV_VAR)
     if not checkpoint_dir:
         return
 
+    run_name = os.getenv("CHALK_TRAINING_RUN_NAME")
+    if run_name:
+        try:
+            from chalkcompute import Volume  # pyright: ignore[reportMissingImports]
+
+            volume_name = f"training-ckpt-{run_name}"
+            vol = Volume(volume_name, create_if_missing=False)
+            for filename, file_path in file_paths.items():
+                vol.put_file_from_path(f"{artifact_path}/{filename}", file_path)
+            vol.put_file("latest", artifact_path)
+            return
+        except ImportError:
+            pass
+
     local_checkpoint_dir = os.path.join(checkpoint_dir, artifact_path)
     os.makedirs(local_checkpoint_dir, exist_ok=True)
     for filename, file_path in file_paths.items():
         shutil.copy2(file_path, os.path.join(local_checkpoint_dir, filename))
+    latest_path = os.path.join(checkpoint_dir, "latest")
+    tmp = latest_path + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(artifact_path)
+    os.replace(tmp, latest_path)
 
 
 class ChalkGRPCClient:
@@ -3546,7 +3567,6 @@ class ChalkGRPCClient:
         ...     def handler(self, input: pa.RecordBatch) -> pa.RecordBatch:
         ...         preds = self.model.predict(input.to_pandas())
         ...         return pa.RecordBatch.from_arrays([pa.array(preds)], names=["prediction"])
-        ...
         >>> client = ChalkClient()
         >>> client.register_model_version(
         ...     name="rf",
@@ -4334,6 +4354,7 @@ class ChalkGRPCClient:
         model: Any,
         additional_files: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        path: Optional[str] = None,
     ) -> RegisterModelArtifactResponse:
         with ModelSerializer.from_model(model) as model_serializer:
             try:
@@ -4394,12 +4415,21 @@ class ChalkGRPCClient:
                     dir_allowlist=dir_allowlist,
                 )
 
-                artifact_path = f"env_{self._stub_refresher.environment_id}/artifacts/{resp.model_artifact_id}"
-                _write_checkpoint_to_volume(artifact_path, all_files_to_process)
+                run_name = os.getenv("CHALK_TRAINING_RUN_NAME", "")
+                volume_path = (
+                    path
+                    if path
+                    else (
+                        run_name
+                        if run_name
+                        else f"env_{self._stub_refresher.environment_id}/artifacts/{resp.model_artifact_id}"
+                    )
+                )
+                _write_checkpoint_to_volume(volume_path, all_files_to_process)
 
                 return RegisterModelArtifactResponse(
                     artifact_id=resp.model_artifact_id,
-                    path=artifact_path,
+                    path=volume_path,
                     spec=model_artifact,
                     metadata=metadata or {},
                     created_by="",

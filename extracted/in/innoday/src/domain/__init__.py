@@ -9,6 +9,7 @@ from .board_credential import BoardCredential
 from .cli_token import CLIToken
 from .container_execution import ContainerExecution, ContainerStatus
 from .device_authorization import DeviceAuthorization, DeviceAuthStatus
+from .hs_job_application import HSJobApplication
 from .license import LicenseAuditLog, LicenseTier, UsageTracking
 from .org_credential import OrgCredential
 from .organization import (
@@ -47,6 +48,7 @@ from .user import User, UserRole
 from .user_identity import IdentityPlatform, MatchSource, UserIdentity
 
 __all__ = [
+    "HSJobApplication",
     "Attribution",
     "BoardCredential",
     "BoardMetadata",

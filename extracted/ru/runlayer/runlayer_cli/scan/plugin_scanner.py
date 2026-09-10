@@ -18,6 +18,10 @@ from runlayer_cli import regex_safe
 from runlayer_cli.paths import strip_reported_path_prefix
 from runlayer_cli.scan import scan_state
 from runlayer_cli.scan.config_parser import normalize_transport
+from runlayer_cli.scan.config_redact import (
+    BENIGN_ENV_KEYS,
+    redact_config_mapping,
+)
 from runlayer_cli.scan.file_collector import CollectedFile, collect_files
 from runlayer_cli.skill_identifier import SkillFileInput, compute_skill_identifier
 
@@ -38,6 +42,14 @@ _MANIFEST_FILES_TO_HASH: tuple[str, ...] = (
     "mcp.json",
     ".mcp.json",
 )
+
+# MCP config files are never uploaded as raw content: on global installs the
+# Runlayer-written ``.mcp.json`` carries the API key in a header, and the
+# scanner otherwise submits file bodies verbatim. Server name/type/command/url
+# still travel structurally via ``_collect_mcp_server_refs``. Plugin manifests
+# and every other JSON/JSONC file are uploaded, but ``to_api_payload`` strips
+# their ``headers``/``env`` values on the way out (see ``_uploaded_content``).
+_MCP_CONFIG_FILENAMES: frozenset[str] = frozenset({"mcp.json", ".mcp.json"})
 
 SUPPORTED_EXTENSIONS = {
     ".md",
@@ -136,7 +148,9 @@ class DiscoveredPluginArtifact:
                 {"name": s.name, "type": s.type, "command": s.command, "url": s.url}
                 for s in self.mcp_servers
             ],
-            "files": [{"title": f.title, "content": f.content} for f in self.files],
+            "files": [
+                {"title": f.title, "content": _uploaded_content(f)} for f in self.files
+            ],
         }
 
 
@@ -156,10 +170,14 @@ def _read_json_safe(path: Path) -> dict[str, Any] | None:
     return raw if isinstance(raw, dict) else None
 
 
-# Cross-scanner retention limits. All plugin file collection (native Cursor,
-# Claude Code, Codex, OpenCode, Copilot, Gemini) funnels through
-# ``_collect_plugin_files``, so caps here bound total plugin content held in
-# memory for the whole scan regardless of how many scanners run.
+# Cross-scanner retention limits. Directory-walking plugin scanners (native
+# Cursor, Claude Code, Codex, OpenCode, Copilot, Gemini) funnel through
+# ``_collect_plugin_files``, so caps here bound the bulk of plugin content held
+# in memory for the whole scan regardless of how many scanners run. A few
+# scanners build a single ``PluginFile`` directly and are not counted; they are
+# still redacted, because redaction happens at ``to_api_payload`` rather than
+# here. Caps therefore measure pre-redaction sizes, which is conservative:
+# redaction only ever shrinks a body.
 # Retained size uses ``len(str)`` as a cheap code-point approximation.
 
 MAX_TOTAL_PLUGIN_FILE_BYTES = 64 * 1024 * 1024
@@ -223,6 +241,63 @@ def finalize_plugin_scan_state(state_path: Path | None = None) -> None:
         scan_state.save_content_offset(_CONTENT_ROTATION_CATEGORY, 0, state_path)
 
 
+def _redact_json_secrets(content: str) -> str:
+    """Redact ``headers`` and ``env`` mapping values in a JSON document.
+
+    Plugin manifests and hook/MCP configs carry credentials in exactly those
+    two mappings (Runlayer's own Claude Code manifest embeds the API key as a
+    header on global installs). Anything else is left alone, and a document
+    that does not parse or contains neither mapping is returned unchanged.
+    """
+    try:
+        parsed = json5.loads(content)
+    except Exception:
+        return content
+
+    changed = False
+
+    def _walk(value: Any) -> Any:
+        nonlocal changed
+        if isinstance(value, dict):
+            result: dict[Any, Any] = {}
+            for key, item in value.items():
+                if key == "headers" and isinstance(item, dict):
+                    redacted = redact_config_mapping(item)
+                elif key == "env" and isinstance(item, dict):
+                    redacted = redact_config_mapping(
+                        item, allowed_literal_keys=BENIGN_ENV_KEYS
+                    )
+                else:
+                    result[key] = _walk(item)
+                    continue
+                changed = changed or redacted != item
+                result[key] = redacted
+            return result
+        if isinstance(value, list):
+            return [_walk(item) for item in value]
+        return value
+
+    redacted_document = _walk(parsed)
+    if not changed:
+        return content
+    return json.dumps(redacted_document, indent=2) + "\n"
+
+
+def _uploaded_content(file: PluginFile) -> str:
+    """Return the body of *file* as it may leave the device.
+
+    The single choke point for plugin file bodies: every artifact reaches the
+    backend (and ``scan --dry-run``) through
+    :meth:`DiscoveredPluginArtifact.to_api_payload`, which calls this. Keeping
+    it here rather than in ``_collect_plugin_files`` means a scanner that
+    builds a ``PluginFile`` by hand — as the Claude Desktop connector scanner
+    does from a raw MCP block — cannot bypass redaction.
+    """
+    if file.title.lower().endswith((".json", ".jsonc")):
+        return _redact_json_secrets(file.content)
+    return file.content
+
+
 def _collect_plugin_files(
     plugin_dir: Path,
 ) -> tuple[list[PluginFile], list[str], bool]:
@@ -239,6 +314,7 @@ def _collect_plugin_files(
         checkpoint()
 
     files, symlinks, oversized = collect_files(plugin_dir, SUPPORTED_EXTENSIONS)
+    files = [f for f in files if Path(f.title).name not in _MCP_CONFIG_FILENAMES]
     if not files:
         return files, symlinks, oversized
 
@@ -695,6 +771,107 @@ def scan_cursor_native_plugins(
         )
 
     logger.info("Cursor native plugin scan complete", found=len(results))
+    return results
+
+
+_CURSOR_USER_LOCAL_RELATIVE = ".cursor/plugins/local"
+# Mirrors the markers the renamed-cache probe keys on, so this scanner and the
+# probe cover the same directories and dedup can pair them up.
+_CURSOR_LOCAL_MARKERS: tuple[str, ...] = (
+    CURSOR_PLUGIN_MANIFEST,
+    "plugin.json",
+    "mcp.json",
+    ".mcp.json",
+)
+
+
+def _cursor_user_local_base(home: Path | None) -> Path:
+    if home is not None:
+        return home / _CURSOR_USER_LOCAL_RELATIVE
+    if platform.system() == "Windows":
+        return Path(os.environ.get("USERPROFILE", "")) / _CURSOR_USER_LOCAL_RELATIVE
+    return Path.home() / _CURSOR_USER_LOCAL_RELATIVE
+
+
+def scan_cursor_user_local_plugins(
+    local_base: Path | None = None,
+    settings_override: dict[str, bool] | None = None,
+    home: Path | None = None,
+) -> list[DiscoveredPluginArtifact]:
+    """Detect Cursor user-local plugins under ``~/.cursor/plugins/local``.
+
+    Flat layout: ``local/<name>/`` is the install directory itself, with no
+    hash tier. This is where Cursor loads user-installed plugins from, and
+    where Runlayer materializes its own Cursor installs, so without this the
+    renamed-cache probe would be the only thing that saw them -- reporting
+    every one as an unrecognized copy.
+    """
+    if local_base is None:
+        local_base = _cursor_user_local_base(home)
+
+    if not local_base.is_dir():
+        return []
+
+    enabled_map = (
+        settings_override
+        if settings_override is not None
+        else _read_enabled_plugins(CURSOR_SETTINGS_RELATIVE, home=home)
+    )
+    results: list[DiscoveredPluginArtifact] = []
+
+    try:
+        for plugin_dir in sorted(local_base.iterdir()):
+            # Dot-prefixed entries are skipped by Cursor's loader too.
+            if plugin_dir.name.startswith(".") or not plugin_dir.is_dir():
+                continue
+            if not any((plugin_dir / m).is_file() for m in _CURSOR_LOCAL_MARKERS):
+                continue
+
+            manifest = _read_json_safe(plugin_dir / CURSOR_PLUGIN_MANIFEST)
+            if not manifest:
+                manifest = _read_json_safe(plugin_dir / "plugin.json")
+            m_name, m_version, m_desc, m_author = (None, None, None, None)
+            if manifest:
+                m_name, m_version, m_desc, m_author = _extract_manifest_metadata(
+                    manifest
+                )
+
+            components = _detect_components(plugin_dir, ".cursor-plugin")
+            mcp_servers = _collect_mcp_server_refs(plugin_dir)
+            p_files, p_symlinks, p_oversized = _collect_plugin_files(plugin_dir)
+
+            results.append(
+                DiscoveredPluginArtifact(
+                    name=m_name or plugin_dir.name,
+                    plugin_type="cursor_plugin",
+                    client="cursor",
+                    install_path=str(plugin_dir),
+                    identifier=compute_plugin_identifier(plugin_dir),
+                    version=m_version,
+                    description=m_desc,
+                    author=m_author,
+                    enabled=enabled_map.get(plugin_dir.name),
+                    scope="user",
+                    has_mcp_servers=components["has_mcp_servers"] or bool(mcp_servers),
+                    has_skills=components["has_skills"],
+                    has_rules=components["has_rules"],
+                    has_commands=components["has_commands"],
+                    has_hooks=components["has_hooks"],
+                    mcp_servers=mcp_servers,
+                    files=p_files,
+                    file_count=len(p_files),
+                    oversized=p_oversized,
+                    symlinks_found=p_symlinks,
+                )
+            )
+    except OSError as e:
+        logger.warning(
+            "Failed to scan Cursor user-local plugins",
+            path=str(local_base),
+            error=str(e),
+        )
+
+    logger.info("Cursor user-local plugin scan complete", found=len(results))
     return results
 
 

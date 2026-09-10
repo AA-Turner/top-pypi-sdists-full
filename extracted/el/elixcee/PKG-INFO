@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elixcee
-Version: 1.0.5
+Version: 1.0.6
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Classifier: License :: OSI Approved :: MIT License
@@ -13,8 +13,8 @@ Home-Page: https://github.com/kent-tokyo/elixcee
 License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Changelog, https://github.com/kent-tokyo/elixcee/blob/v1.0.5/CHANGELOG.md
-Project-URL: Documentation, https://github.com/kent-tokyo/elixcee/tree/v1.0.5/docs
+Project-URL: Changelog, https://github.com/kent-tokyo/elixcee/blob/v1.0.6/CHANGELOG.md
+Project-URL: Documentation, https://github.com/kent-tokyo/elixcee/tree/v1.0.6/docs
 Project-URL: Homepage, https://github.com/kent-tokyo/elixcee
 Project-URL: Issues, https://github.com/kent-tokyo/elixcee/issues
 Project-URL: Repository, https://github.com/kent-tokyo/elixcee
@@ -26,7 +26,7 @@ supported formulas, and run data-processing VBA without Microsoft Excel. The cor
 is Rust, with a Python API (PyO3), a standalone CLI, and an experimental
 `@elixcee/xlsx` JavaScript/WASM package.
 
-Version: **1.0.5**. See the [changelog](CHANGELOG.md) for versioned changes.
+Version: **1.0.6**. See the [changelog](CHANGELOG.md) for versioned changes.
 The experimental JS package remains private and is not published. [English](README.md) | [日本語](README_ja.md) | [中文](README_zh.md)
 
 elixcee is a workbook automation runtime, not a VBA-only execution tool. Use the
@@ -128,11 +128,26 @@ bounded undo/redo, formula evaluation, ranges, sorting, merges,
 hidden rows/columns, sheet management, styles, tables, data validation,
 AutoFilter, defined-name inspection, pandas export, and `.xlsx`/`.xlsm`/`.ods`
 workbook I/O. See [elixcee.pyi](elixcee.pyi) for signatures and behavior.
+Explicit zero-argument workbook/worksheet handlers can be invoked with
+`vm.run_event(...)`; `EnableEvents` is honored. `vm.run_worksheet_change(...)`
+can explicitly bind an A1 target range to `Worksheet_Change(Target As Range)`.
+`vm.run_with_events(...)` opts into `Workbook_Open` dispatch before the selected
+macro, and VBA cell/range writes in that mode automatically dispatch a unique
+`Worksheet_Change` handler with bounded event chaining. `Target.Value`,
+`Target.Address`, `Target.Row`, `Target.Column`, `Target.Rows.Count`,
+`Target.Columns.Count`, and `Target.Cells.Count` are available for the
+supported single-area target model. `Target.Parent.Name` identifies the bound
+worksheet. Ambiguous multiple handlers are rejected deterministically.
 `Vm.tables()` and `Vm.data_validations()` return typed structural metadata
 projections; they do not evaluate calculated-column or validation formulas.
 For loaded XLSX/XLSM sheets, `Vm.sheet_id(name)` and
 `Vm.sheet_name_for_id(sheet_id)` expose stable source identities independently
 of tab order and rename operations; new or ODS sheets have no inferred ID.
+Loaded workbooks also support bounded edits to selected existing Chart-series
+formulas, caches, marker attributes, solid RGB line and fill colors, smooth flags, negative-value display and
+series visibility flags, plus the first Chart
+title text run; Chart creation and general object editing remain outside the
+current contract.
 
 For large XLSX/XLSM files, `open_stream(path, sheet=None)` yields rows without
 materializing the whole workbook. Set `include_row_numbers=True` to receive
@@ -177,9 +192,15 @@ intentional no-op behavior is documented there and in the diagnostic contract.
 The Rust reader/writer preserves supported cell data, formulas, styles, merges,
 hidden rows/columns, and many unknown OOXML parts. Macro projects in `.xlsm`
 files are preserved during supported round trips. Features not modeled by the
-writer can still be lost or disconnected; tables, drawings, comments,
-hyperlinks, and other OOXML objects should be treated as compatibility gaps
-unless covered by tests for the version in use.
+writer can still be lost or disconnected. Existing Drawing/relationship chains
+are preserved on tested paths, and bounded APIs can update selected Chart-series
+formulas, caches, marker attributes, solid RGB line and fill colors, smooth flags, negative-value display and series visibility flags, Chart title text, two-cell
+Drawing anchors, and worksheet-backed Pivot source fields. Drawing shape metadata and selected solid fill/line style
+attributes (rotation, flips, preset geometry, RGB/ARGB fill and line color, line width, and
+preset dash) are also available through bounded APIs. Chart creation, general
+Drawing shape editing, Pivot cache recalculation, comments, hyperlinks, and
+other OOXML objects remain compatibility gaps unless covered by tests for the
+version in use.
 
 The project runs Rust tests, property tests, compatibility fixtures, and
 differential tests for the JavaScript package in CI. Compatibility with Excel's

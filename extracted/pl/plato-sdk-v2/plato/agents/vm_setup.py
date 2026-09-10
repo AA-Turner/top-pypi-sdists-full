@@ -474,7 +474,13 @@ async def _execute_agent_rpc(
             await diagnose_agent_vm(info)
             raise
 
-    logger.info("Agent job %s finished: state=%s rc=%s", agent_job_id, status.state, status.rc)
+    logger.info(
+        "Agent job %s finished: state=%s rc=%s term_signal=%s",
+        agent_job_id,
+        status.state,
+        status.rc,
+        status.term_signal,
+    )
 
     if status.state == "lost":
         # The daemon is reachable (it answered the wait) but the job's outcome
@@ -512,6 +518,25 @@ async def _execute_agent_rpc(
                     logger.error("Agent job %s %s tail:\n%s", agent_job_id, stream, tail.decode(errors="replace"))
             except Exception:  # noqa: BLE001 - diagnostics only
                 pass
+        if status.state == "signaled":
+            # A signal this caller never sent (cancellation raises above,
+            # before reaching here) — in practice the kernel OOM killer. Same
+            # dmesg probe as the lost path, so the kill is attributable from
+            # the session trace instead of inferred from VM sizing.
+            try:
+                report = await HealthStub(client).report()
+                logger.error(
+                    "Agent job %s killed by signal %s on %s: mem_available_kb=%s load_1m=%s dmesg err/crit tail:\n%s",
+                    agent_job_id,
+                    status.term_signal,
+                    hostname,
+                    report.mem_available_kb,
+                    report.load_1m,
+                    "\n".join(report.dmesg_errors_tail[-20:]) or "(empty)",
+                )
+            except Exception:  # noqa: BLE001 - diagnostics only
+                pass
+            raise RuntimeError(f"Agent killed by signal {status.term_signal}")
         raise RuntimeError(f"Agent failed with exit code {status.rc}")
 
     return last_execution_span_id

@@ -16,7 +16,6 @@
 import testtools
 from testtools import TestCase
 import binascii
-import six
 
 from kmip.core.factories.secrets import SecretFactory
 from kmip.core.factories.attributes import AttributeFactory
@@ -431,9 +430,9 @@ class TestRequestMessage(TestCase):
         msg = "Bad batch items type: expected {0}, received {1}"
         self.assertIsInstance(batch_items, list,
                               msg.format(list, type(batch_items)))
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         batch_item = batch_items[0]
         msg = "Bad batch item type: expected {0}, received {1}"
@@ -479,9 +478,9 @@ class TestRequestMessage(TestCase):
         self.assertIsInstance(attributes, list,
                               self.msg.format('attributes', 'type',
                                               list, type(attributes)))
-        self.assertEquals(3, len(attributes),
-                          self.msg.format('attributes', 'length',
-                                          3, len(attributes)))
+        self.assertEqual(3, len(attributes),
+                         self.msg.format('attributes', 'length',
+                                         3, len(attributes)))
 
         attribute_a = attributes[0]
         self.assertIsInstance(attribute_a, objects.Attribute,
@@ -494,10 +493,10 @@ class TestRequestMessage(TestCase):
                               self.msg.format('attribute name', 'type',
                                               objects.Attribute.AttributeName,
                                               type(attribute_name)))
-        self.assertEquals('Cryptographic Algorithm', attribute_name.value,
-                          self.msg.format('attribute name', 'value',
-                                          'Cryptographic Algorithm',
-                                          attribute_name.value))
+        self.assertEqual('Cryptographic Algorithm', attribute_name.value,
+                         self.msg.format('attribute name', 'value',
+                                         'Cryptographic Algorithm',
+                                         attribute_name.value))
 
         attribute_value = attribute_a.attribute_value
         exp_type = attr.CryptographicAlgorithm
@@ -505,11 +504,11 @@ class TestRequestMessage(TestCase):
         self.assertIsInstance(attribute_value, exp_type,
                               self.msg.format('attribute value', 'type',
                                               exp_type, rcv_type))
-        self.assertEquals(attribute_value.value,
-                          enums.CryptographicAlgorithm.AES,
-                          self.msg.format('cryptographic algorithm', 'value',
-                                          enums.CryptographicAlgorithm.AES,
-                                          attribute_value.value))
+        self.assertEqual(attribute_value.value,
+                         enums.CryptographicAlgorithm.AES,
+                         self.msg.format('cryptographic algorithm', 'value',
+                                         enums.CryptographicAlgorithm.AES,
+                                         attribute_value.value))
 
         attribute_b = attributes[1]
         self.assertIsInstance(attribute_b, objects.Attribute,
@@ -522,10 +521,10 @@ class TestRequestMessage(TestCase):
                               self.msg.format('attribute name', 'type',
                                               objects.Attribute.AttributeName,
                                               type(attribute_name)))
-        self.assertEquals('Cryptographic Length', attribute_name.value,
-                          self.msg.format('attribute name', 'value',
-                                          'Cryptographic Length',
-                                          attribute_name.value))
+        self.assertEqual('Cryptographic Length', attribute_name.value,
+                         self.msg.format('attribute name', 'value',
+                                         'Cryptographic Length',
+                                         attribute_name.value))
 
         attribute_value = attribute_b.attribute_value
         exp_type = attr.CryptographicLength
@@ -533,9 +532,9 @@ class TestRequestMessage(TestCase):
         self.assertIsInstance(attribute_value, exp_type,
                               self.msg.format('attribute value', 'type',
                                               exp_type, rcv_type))
-        self.assertEquals(attribute_value.value, 128,
-                          self.msg.format('cryptographic length', 'value',
-                                          128, attribute_value.value))
+        self.assertEqual(attribute_value.value, 128,
+                         self.msg.format('cryptographic length', 'value',
+                                         128, attribute_value.value))
 
         attribute_c = attributes[2]
         self.assertIsInstance(attribute_c, objects.Attribute,
@@ -548,10 +547,10 @@ class TestRequestMessage(TestCase):
                               self.msg.format('attribute name', 'type',
                                               objects.Attribute.AttributeName,
                                               type(attribute_name)))
-        self.assertEquals('Cryptographic Usage Mask', attribute_name.value,
-                          self.msg.format('attribute name', 'value',
-                                          'Cryptographic Usage Mask',
-                                          attribute_name.value))
+        self.assertEqual('Cryptographic Usage Mask', attribute_name.value,
+                         self.msg.format('attribute name', 'value',
+                                         'Cryptographic Usage Mask',
+                                         attribute_name.value))
 
         attribute_value = attribute_c.attribute_value
         exp_type = attr.CryptographicUsageMask
@@ -562,9 +561,9 @@ class TestRequestMessage(TestCase):
         flag_encrypt = CryptographicUsageMask.ENCRYPT
         flag_decrypt = CryptographicUsageMask.DECRYPT
         exp_value = flag_encrypt.value | flag_decrypt.value
-        self.assertEquals(attribute_value.value, exp_value,
-                          self.msg.format('cryptographic usage mask', 'value',
-                                          exp_value, attribute_value.value))
+        self.assertEqual(attribute_value.value, exp_value,
+                         self.msg.format('cryptographic usage mask', 'value',
+                                         exp_value, attribute_value.value))
 
     def test_create_request_write(self):
         prot_ver = contents.ProtocolVersion(1, 1)
@@ -662,9 +661,9 @@ class TestRequestMessage(TestCase):
         msg = "Bad batch items type: expected {0}, received {1}"
         self.assertIsInstance(batch_items, list,
                               msg.format(list, type(batch_items)))
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         batch_item = batch_items[0]
         msg = "Bad batch item type: expected {0}, received {1}"
@@ -780,9 +779,9 @@ class TestRequestMessage(TestCase):
         msg = "Bad batch items type: expected {0}, received {1}"
         self.assertIsInstance(batch_items, list,
                               msg.format(list, type(batch_items)))
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         batch_item = batch_items[0]
         msg = "Bad batch item type: expected {0}, received {1}"
@@ -899,9 +898,9 @@ class TestRequestMessage(TestCase):
         msg = "Bad batch items type: expected {0}, received {1}"
         self.assertIsInstance(batch_items, list,
                               msg.format(list, type(batch_items)))
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         for batch_item in batch_items:
             msg = "Bad batch item type: expected {0}, received {1}"
@@ -1113,9 +1112,9 @@ class TestRequestMessage(TestCase):
 
         batch_items = request_message.batch_items
         msg = "Bad batch items type: expected {0}, received {1}"
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         batch_item = batch_items[0]
         msg = "Bad batch item type: expected {0}, received {1}"
@@ -1164,10 +1163,9 @@ class TestRequestMessage(TestCase):
                               self.msg.format('attribute name', 'type',
                                               objects.Attribute.AttributeName,
                                               type(attribute_name)))
-        self.assertEquals('Object Type', attribute_name.value,
-                          self.msg.format('attribute name', 'value',
-                                          'Object Type',
-                                          attribute_name.value))
+        self.assertEqual('Object Type', attribute_name.value,
+                         self.msg.format('attribute name', 'value',
+                                         'Object Type', attribute_name.value))
 
         attribute_value = attribute_a.attribute_value
         exp_type = attr.Enumeration
@@ -1175,7 +1173,7 @@ class TestRequestMessage(TestCase):
         self.assertIsInstance(attribute_value, exp_type,
                               self.msg.format('attribute value', 'type',
                                               exp_type, rcv_type))
-        self.assertEquals(
+        self.assertEqual(
             attribute_value.value,
             enums.ObjectType.SYMMETRIC_KEY,
             self.msg.format(
@@ -1193,10 +1191,10 @@ class TestRequestMessage(TestCase):
                               self.msg.format('attribute name', 'type',
                                               objects.Attribute.AttributeName,
                                               type(attribute_name)))
-        self.assertEquals('Name', attribute_name.value,
-                          self.msg.format('attribute name', 'value',
-                                          'Name',
-                                          attribute_name.value))
+        self.assertEqual('Name', attribute_name.value,
+                         self.msg.format('attribute name', 'value',
+                                         'Name',
+                                         attribute_name.value))
         attribute_value = attribute_b.attribute_value
 
         exp_type = Name
@@ -1204,10 +1202,10 @@ class TestRequestMessage(TestCase):
         self.assertIsInstance(attribute_value, exp_type,
                               self.msg.format('attribute value', 'type',
                                               exp_type, rcv_type))
-        self.assertEquals('Key1', attribute_value.name_value.value,
-                          self.msg.format('name value', 'value',
-                                          'Key1',
-                                          attribute_value.name_value.value))
+        self.assertEqual('Key1', attribute_value.name_value.value,
+                         self.msg.format('name value', 'value',
+                                         'Key1',
+                                         attribute_value.name_value.value))
 
     def test_mac_request_read(self):
         self.stream = BytearrayStream(self.mac)
@@ -1260,9 +1258,9 @@ class TestRequestMessage(TestCase):
         msg = "Bad batch items type: expected {0}, received {1}"
         self.assertIsInstance(batch_items, list,
                               msg.format(list, type(batch_items)))
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         batch_item = batch_items[0]
         msg = "Bad batch item type: expected {0}, received {1}"
@@ -1310,10 +1308,10 @@ class TestRequestMessage(TestCase):
                               msg.format(enums.CryptographicAlgorithm,
                                          type(cryptographic_algorithm)))
         msg = "Bad cryptographic algorithm value: expected {0}, received {1}"
-        self.assertEquals(cryptographic_algorithm,
-                          enums.CryptographicAlgorithm.HMAC_SHA512,
-                          msg.format(cryptographic_algorithm,
-                                     enums.CryptographicAlgorithm.HMAC_SHA512))
+        self.assertEqual(cryptographic_algorithm,
+                         enums.CryptographicAlgorithm.HMAC_SHA512,
+                         msg.format(cryptographic_algorithm,
+                                    enums.CryptographicAlgorithm.HMAC_SHA512))
 
         data = request_payload.data
         msg = "Bad data type: expected {0}, received {1}"
@@ -1589,9 +1587,9 @@ class TestResponseMessage(TestCase):
 
             unique_identifier = response_payload.unique_identifier
             value = 'fb4b5b9c-6188-4c63-8142-fe9c328129fc'
-            self.assertIsInstance(unique_identifier, six.string_types,
+            self.assertIsInstance(unique_identifier, str,
                                   self.msg.format('unique identifier', 'type',
-                                                  six.string_types,
+                                                  str,
                                                   type(unique_identifier)))
             self.assertEqual(value, unique_identifier,
                              self.msg.format('unique identifier', 'value',
@@ -1922,9 +1920,9 @@ class TestResponseMessage(TestCase):
         msg = "Bad batch items type: expected {0}, received {1}"
         self.assertIsInstance(batch_items, list,
                               msg.format(list, type(batch_items)))
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         for batch_item in batch_items:
             msg = "Bad batch item type: expected {0}, received {1}"
@@ -2065,9 +2063,9 @@ class TestResponseMessage(TestCase):
         msg = "Bad batch items type: expected {0}, received {1}"
         self.assertIsInstance(batch_items, list,
                               msg.format(list, type(batch_items)))
-        self.assertEquals(1, len(batch_items),
-                          self.msg.format('batch items', 'length',
-                                          1, len(batch_items)))
+        self.assertEqual(1, len(batch_items),
+                         self.msg.format('batch items', 'length',
+                                         1, len(batch_items)))
 
         for batch_item in batch_items:
             msg = "Bad batch item type: expected {0}, received {1}"
@@ -2105,8 +2103,8 @@ class TestResponseMessage(TestCase):
 
             unique_identifier = response_payload.unique_identifier
             msg = "Bad unique identifier type: expected {0}, received {1}"
-            self.assertIsInstance(unique_identifier, six.string_types,
-                                  msg.format(six.string_types,
+            self.assertIsInstance(unique_identifier, str,
+                                  msg.format(str,
                                              type(unique_identifier)))
             msg = "Bad unique identifier value: expected {0}, received {1}"
             exp_value = '5c9b81ef-4ee5-42cd-ba2d-c002fdd0c7b3'

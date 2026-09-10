@@ -32,7 +32,7 @@ import torch
 
 import accelerate
 
-from ..state import AcceleratorState
+from ..state import AcceleratorState, GradientState
 from ..utils import (
     check_cuda_fp8_capability,
     compare_versions,
@@ -58,6 +58,7 @@ from ..utils import (
     is_neuron_available,
     is_npu_available,
     is_pandas_available,
+    is_peft_available,
     is_pippy_available,
     is_pytest_available,
     is_schedulefree_available,
@@ -257,6 +258,13 @@ def require_fp8(test_case):
 
 def require_fsdp2(test_case):
     return unittest.skipUnless(is_torch_version(">=", "2.5.0"), "test requires FSDP2 (torch >= 2.5.0)")(test_case)
+
+
+def require_peft(test_case):
+    """
+    Decorator marking a test that requires PEFT. These tests are skipped when PEFT isn't installed.
+    """
+    return unittest.skipUnless(is_peft_available(), "test requires PEFT")(test_case)
 
 
 def require_mlu(test_case):
@@ -675,6 +683,9 @@ class AccelerateTestCase(unittest.TestCase):
         super().tearDown()
         # Reset the state of the AcceleratorState singleton.
         AcceleratorState._reset_state(True)
+        # `GradientState` keeps weakrefs to dataloaders that were never exhausted, which leaks into
+        # later tests (e.g. making an `AcceleratedOptimizer` unpicklable).
+        GradientState._reset_state()
 
 
 class MockingTestCase(unittest.TestCase):

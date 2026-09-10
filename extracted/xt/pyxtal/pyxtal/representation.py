@@ -58,7 +58,7 @@ class representation_atom:
         struc.group, _number = Group(v[0], use_hall=True), v[0]
 
         # lattice
-        ltype = struc.group.lattice_type
+        ltype = struc.group.lattice_type #; print(ltype)
         if ltype == "triclinic":
             a, b, c, alpha, beta, gamma = v[1], v[2], v[3], v[4], v[5], v[6]
         elif ltype == "monoclinic":
@@ -67,7 +67,7 @@ class representation_atom:
             a, b, c, alpha, beta, gamma = v[1], v[2], v[3], 90, 90, 90
         elif ltype == "tetragonal":
             a, b, c, alpha, beta, gamma = v[1], v[1], v[2], 90, 90, 90
-        elif ltype == "hexagonal":
+        elif ltype in ["trigonal", "hexagonal"]:
             a, b, c, alpha, beta, gamma = v[1], v[1], v[2], 90, 90, 120
         else:
             a, b, c, alpha, beta, gamma = v[1], v[1], v[1], 90, 90, 90
@@ -272,13 +272,14 @@ class representation:
         rep0 = representation.from_pyxtal(xtal)
         self.x = rep0.x
 
-    def to_pyxtal(self, smiles=None, composition=None):
+    def to_pyxtal(self, smiles=None, composition=None, molecules=None):
         """
         Export the pyxtal structure
 
         Args:
             smiles: list of smiles
             composition: list of composition
+            molecules: optional list of pyxtal_molecule objects aligned with smiles
         """
         from pyxtal import pyxtal
 
@@ -309,7 +310,7 @@ class representation:
             a, b, c, alpha, beta, gamma = v[1], v[2], v[3], 90, 90, 90
         elif ltype == "tetragonal":
             a, b, c, alpha, beta, gamma = v[1], v[1], v[2], 90, 90, 90
-        elif ltype == "hexagonal":
+        elif ltype in ["trigonal", "hexagonal"]:
             a, b, c, alpha, beta, gamma = v[1], v[1], v[2], 90, 90, 120
         else:
             a, b, c, alpha, beta, gamma = v[1], v[1], v[1], 90, 90, 90
@@ -327,6 +328,7 @@ class representation:
         count = 1
         for i, comp in enumerate(composition):
             smile = smiles[i]
+            molecule = None if molecules is None else molecules[i]
             if smile.endswith(".smi"):
                 smile = smile[:-4]
             for _j in range(comp):
@@ -342,6 +344,7 @@ class representation:
                 dicts["lattice"] = struc.lattice.matrix
                 dicts["lattice_type"] = ltype
                 dicts["center"] = v[1:4]
+                dicts["molecule"] = molecule
                 if smile not in ["Cl-"]:
                     dicts["orientation"] = np.array(v[4:7])
                     dicts["rotor"] = v[7:-1]  # ; print('ro', dicts['rotor'])
@@ -474,7 +477,7 @@ class representation:
                     diffs.extend(diff_ori)
                     diffs.extend(diff_tor)
             return np.array(diffs)
-        
+
     def update_smiles(self, smiles):
         """
         Update the smiles of the representation

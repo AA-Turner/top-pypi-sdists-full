@@ -1,16 +1,16 @@
 Metadata-Version: 2.5
 Name: garak
-Version: 0.16.0
+Version: 0.17.0
 Summary: LLM vulnerability scanner
-Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna, Dave Baker, Jack Kelly, Amrit Prakash, Cássia Sampaio, Nakul Rajpal, Noah Oeksuez, Dhruv Malik, Patricia Pampanelli, Joseph Davis Chamdani, Rob Geada, Ashish RajAnand, Paulina Kalicka, Gal Moshkovitz, Jack Smith, Paul A. Parkanzky, Leif Hancox-Li, Fabrizio Rocco, Sai Chandra Pandraju, Harish Kolla, Snehal Vartak, Abhiraj Sinha, Harsh Motla, Otavio Padovani, Siddhant Mishra, dyrtyData, Leone Lage Perdigão, Lucas Wang, Ian Miller, Edward Kim, Raina O'Sullivan, Christ Bowel Bouchuen, Hayato Fujihara, precognitivem0nk, Jacob J. lee, Eliya Cohen, Nathan Maine, Boao Dong, zw5, Musaab Hasan, Stefano Amorelli, Chris Southerland Jr., Lane Poole, Aditya Singh, Pradyoth Prashanth, Oleksandr Sanin, Varun Jakkula, Kyle Zang, Minh Vu, Nishchay Mahor, Varun Nuthalapati, ron1po, Devam Shah, Alessandro Beltramo, Jonghyeok Kim, Neeraj Kumar Singh, Anas Khan, Utkarsh Bahuguna, Ephraiem Sarabamoun, Andrew Chen, Syed Osama Ali, Bereket Deneke, Phinehas Narh, Sandeep Rai, feiiiiii5, Matt Van Horn, Tim Ren, Anurag Jain, Manu Nicholas Jacob
+Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna, Dave Baker, Jack Kelly, Amrit Prakash, Cássia Sampaio, Nakul Rajpal, Noah Oeksuez, Dhruv Malik, Patricia Pampanelli, Joseph Davis Chamdani, Rob Geada, Ashish RajAnand, Paulina Kalicka, Gal Moshkovitz, Jack Smith, Paul A. Parkanzky, Leif Hancox-Li, Fabrizio Rocco, Sai Chandra Pandraju, Harish Kolla, Snehal Vartak, Abhiraj Sinha, Harsh Motla, Otavio Padovani, Siddhant Mishra, dyrtyData, Leone Lage Perdigão, Lucas Wang, Ian Miller, Edward Kim, Raina O'Sullivan, Christ Bowel Bouchuen, Hayato Fujihara, precognitivem0nk, Jacob J. lee, Eliya Cohen, Nathan Maine, Boao Dong, zw5, Musaab Hasan, Stefano Amorelli, Chris Southerland Jr., Lane Poole, Aditya Singh, Pradyoth Prashanth, Oleksandr Sanin, Varun Jakkula, Kyle Zang, Minh Vu, Nishchay Mahor, Varun Nuthalapati, ron1po, Devam Shah, Alessandro Beltramo, Jonghyeok Kim, Neeraj Kumar Singh, Anas Khan, Utkarsh Bahuguna, Ephraiem Sarabamoun, Andrew Chen, Syed Osama Ali, Bereket Deneke, Phinehas Narh, Sandeep Rai, feiiiiii5, Matt Van Horn, Tim Ren, Anurag Jain, Manu Nicholas Jacob, Sahil Panchal, TheRisenPhoenix, Imran Ahamed, nightcityblade, Swayam Shah, Koral Chapnik Verbun, Mohammed Aftab, Hitarth Jain, motodriver, Mohammed Alkindi, Vaggelis Giannopoulos, Yanran Xie, Barney Chambers, Sushant Lokhande, Sarvesha Kumar Kombaiah Seetha, Nathan Benincase
 Author-email: Leon Derczynski <lderczynski@nvidia.com>, Subho Majumdar <subho@vijil.ai>, Erick Galinkin <egalinkin@nvidia.com>, Jeffrey Martin <jemartin@nvidia.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-Expression: Apache-2.0
 Classifier: Development Status :: 3 - Alpha
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 License-File: LICENSE
 Requires-Dist: mikeshardmind-base2048>=1.0.2
@@ -19,12 +19,12 @@ Requires-Dist: datasets>=3.0.0,<4.0
 Requires-Dist: colorama>=0.4.3
 Requires-Dist: tqdm>=4.67.1
 Requires-Dist: cohere>=5.16.0
-Requires-Dist: anthropic>=0.40.0
+Requires-Dist: anthropic>=0.40.0,<1.0.0
 Requires-Dist: openai>=2.0,<3.0
 Requires-Dist: replicate>=0.8.3
 Requires-Dist: google-api-python-client>=2.0
 Requires-Dist: backoff>=2.1.1
-Requires-Dist: nltk==3.10.0
+Requires-Dist: nltk>=3.10.3
 Requires-Dist: accelerate>=0.23.0
 Requires-Dist: avidtools==0.1.2
 Requires-Dist: stdlibs>=2022.10.9
@@ -151,7 +151,7 @@ python -m pip install -U git+https://github.com/NVIDIA/garak.git@main
 `garak` has its own dependencies. You can to install `garak` in its own Conda environment:
 
 ```
-conda create --name garak "python>=3.10,<=3.12"
+conda create --name garak "python>=3.11,<=3.13"
 conda activate garak
 gh repo clone NVIDIA/garak
 cd garak
@@ -179,7 +179,7 @@ The general syntax is:
 
 To specify a generator, use the `--target_type` and, optionally, the `--target_name` options. Model type specifies a model family/interface; model name specifies the exact model to be used. The "Intro to generators" section below describes some of the generators supported. A straightforward generator family is Hugging Face models; to load one of these, set `--target_type` to `huggingface` and `--target_name` to the model's name on Hub (e.g. `"RWKV/rwkv-4-169m-pile"`). Some generators might need an API key to be set as an environment variable, and they'll let you know if they need that.
 
-`garak` runs all the probes by default, but you can be specific about that too. `--probes promptinject` will use only the [PromptInject](https://github.com/agencyenterprise/promptinject) framework's methods, for example. You can also specify one specific plugin instead of a plugin family by adding the plugin name after a `.`; for example, `--probes lmrc.SlurUsage` will use an implementation of checking for models generating slurs based on the [Language Model Risk Cards](https://arxiv.org/abs/2303.18190) framework.
+`garak` runs all the probes by default, but you can be specific about that too. `--spec probes.promptinject` will use only the [PromptInject](https://github.com/agencyenterprise/promptinject) framework's methods, for example. You can also specify one specific plugin instead of a plugin family by adding the plugin name after a `.`; for example, `--spec probes.lmrc.SlurUsage` will use an implementation of checking for models generating slurs based on the [Language Model Risk Cards](https://arxiv.org/abs/2303.18190) framework.
 
 For help and inspiration, find us on [Twitter](https://twitter.com/garak_llm) or [discord](https://discord.gg/uVch4puUCs)!
 
@@ -189,13 +189,13 @@ Probe a commercial model for encoding-based prompt injection (OSX/\*nix) (replac
  
 ```
 export OPENAI_API_KEY="sk-123XXXXXXXXXXXX"
-python3 -m garak --target_type openai --target_name gpt-5-nano --probes encoding
+python3 -m garak --target_type openai --target_name gpt-5-nano --spec probes.encoding
 ```
 
 See if the Hugging Face version of GPT2 is vulnerable to DAN 11.0
 
 ```
-python3 -m garak --target_type huggingface --target_name gpt2 --probes dan.Dan_11_0
+python3 -m garak --target_type huggingface --target_name gpt2 --spec probes.dan.Dan_11_0
 ```
 
 
@@ -302,7 +302,7 @@ Example usage:
 ```
 export BEDROCK_API_KEY="your-api-key"
 export BEDROCK_REGION="us-east-1"
-garak --target_type bedrock --target_name claude-3-sonnet --probes dan
+garak --target_type bedrock --target_name claude-3-sonnet --spec probes.dan
 ```
 
 ### Test

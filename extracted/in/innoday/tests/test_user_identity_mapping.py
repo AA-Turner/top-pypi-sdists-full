@@ -750,13 +750,13 @@ def test_resync_updates_assigned_to_on_an_existing_ticket(
         handle="A. Lice",
     )
 
-    was_created, ticket = service._create_or_update_ticket(
+    outcome, ticket = service._create_or_update_ticket(
         _external("PF-5", assignee="A. Lice"),
         linear_board,
         db_session,
         project_id=project.id,
     )
-    assert was_created is False
+    assert outcome in ("updated", "unchanged")
     assert ticket.assigned_to == alice.id
 
 

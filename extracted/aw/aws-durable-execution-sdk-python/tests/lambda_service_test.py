@@ -8,9 +8,11 @@ import pytest
 
 from aws_durable_execution_sdk_python.__about__ import __version__
 from aws_durable_execution_sdk_python.exceptions import (
-    CallableRuntimeError,
     CheckpointError,
+    DurableOperationError,
     GetExecutionStateError,
+    SerDesError,
+    StepError,
 )
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
 from aws_durable_execution_sdk_python.lambda_service import (
@@ -163,7 +165,8 @@ def test_error_object_from_exception_custom_error():
     custom_error = CustomError("Custom message")
     error = ErrorObject.from_exception(custom_error)
     assert error.message == "Custom message"
-    assert error.type == "CustomError"
+    expected_type: str = f"{CustomError.__module__}.{CustomError.__qualname__}"
+    assert error.type == expected_type
     assert error.data is None
     assert error.stack_trace is None
 
@@ -176,6 +179,31 @@ def test_error_object_from_exception_empty_message():
     assert error.type == "ValueError"
     assert error.data is None
     assert error.stack_trace is None
+
+
+def test_raise_as_operation_error_wraps_in_passed_class():
+    """A non-serdes error surfaces as the operation's own error type."""
+    error_object = ErrorObject.from_exception(ValueError("boom"))
+    with pytest.raises(StepError) as exc_info:
+        error_object.raise_as_operation_error(StepError)
+    assert exc_info.value.error_type == "ValueError"
+
+
+def test_raise_as_operation_error_surfaces_serdes_error_directly():
+    """A serdes failure surfaces as SerDesError regardless of the operation kind.
+
+    Both the first-run FAIL path and replay call this method, so this covers
+    both: a SerDesError is catchable as itself, not wrapped in the operation's
+    own error type.
+    """
+    error_object = ErrorObject.from_exception(SerDesError("serdes boom"))
+    with pytest.raises(SerDesError) as exc_info:
+        error_object.raise_as_operation_error(StepError)
+    assert not isinstance(exc_info.value, StepError)
+    assert (
+        exc_info.value.error_type
+        == f"{SerDesError.__module__}.{SerDesError.__qualname__}"
+    )
 
 
 def test_error_object_from_message_regular():
@@ -228,20 +256,56 @@ def test_error_object_to_dict_all_none():
     assert result == {}
 
 
-def test_error_object_to_callable_runtime_error():
-    """Test ErrorObject.to_callable_runtime_error method."""
+def test_error_object_to_durable_operation_error_reconstructs_subclass():
+    """ErrorObject.to_durable_operation_error rebuilds the typed subclass by name."""
+    error = ErrorObject(
+        message="Test error",
+        type="aws_durable_execution_sdk_python.exceptions.StepError",
+        data="test_data",
+        stack_trace=["line1"],
+    )
+    operation_error = error.to_durable_operation_error()
+    assert isinstance(operation_error, StepError)
+    assert operation_error.message == "Test error"
+    assert (
+        operation_error.error_type
+        == "aws_durable_execution_sdk_python.exceptions.StepError"
+    )
+    assert operation_error.data == "test_data"
+    assert operation_error.stack_trace == ["line1"]
+
+
+def test_error_object_to_durable_operation_error_unknown_type_falls_back():
+    """An unknown discriminator falls back to the base DurableOperationError."""
     error = ErrorObject(
         message="Test error",
         type="TestError",
         data="test_data",
         stack_trace=["line1"],
     )
-    runtime_error = error.to_callable_runtime_error()
-    assert isinstance(runtime_error, CallableRuntimeError)
-    assert runtime_error.message == "Test error"
-    assert runtime_error.error_type == "TestError"
-    assert runtime_error.data == "test_data"
-    assert runtime_error.stack_trace == ["line1"]
+    operation_error = error.to_durable_operation_error()
+    assert type(operation_error) is DurableOperationError
+    assert operation_error.error_type == "TestError"
+    assert operation_error.message == "Test error"
+
+
+def test_error_object_from_exception_preserves_operation_error_fields():
+    """from_exception keeps a DurableOperationError's typed discriminator/data."""
+    cause = ValueError("boom")
+    step_error = StepError(message="step failed", data="payload")
+    step_error.__cause__ = cause
+    error_object = ErrorObject.from_exception(step_error)
+    assert error_object.type == "aws_durable_execution_sdk_python.exceptions.StepError"
+    assert error_object.message == "step failed"
+    assert error_object.data == "payload"
+
+
+def test_error_object_from_exception_plain_exception():
+    """A non-operation exception still serializes its Python class name."""
+    error_object = ErrorObject.from_exception(ValueError("nope"))
+    assert error_object.type == "ValueError"
+    assert error_object.message == "nope"
+    assert error_object.data is None
 
 
 def test_step_details_from_dict():
@@ -266,7 +330,10 @@ def test_step_details_from_dict():
 
 def test_step_details_all_fields():
     """Test StepDetails.from_dict with all fields."""
-    error_data = {"ErrorMessage": "Step failed", "ErrorType": "StepError"}
+    error_data = {
+        "ErrorMessage": "Step failed",
+        "ErrorType": "aws_durable_execution_sdk_python.exceptions.StepError",
+    }
     data = {
         "Attempt": 3,
         "NextAttemptTimestamp": datetime.datetime(
@@ -282,7 +349,7 @@ def test_step_details_all_fields():
     )
     assert details.result == "step_success"
     assert details.error.message == "Step failed"
-    assert details.error.type == "StepError"
+    assert details.error.type == "aws_durable_execution_sdk_python.exceptions.StepError"
 
 
 def test_step_details_minimal():
@@ -326,7 +393,10 @@ def test_callback_details_from_dict():
 
 def test_callback_details_all_fields():
     """Test CallbackDetails.from_dict with all fields."""
-    error_data = {"ErrorMessage": "Callback failed", "ErrorType": "CallbackError"}
+    error_data = {
+        "ErrorMessage": "Callback failed",
+        "ErrorType": "aws_durable_execution_sdk_python.exceptions.CallbackError",
+    }
     data = {
         "CallbackId": "cb456",
         "Result": "callback_success",
@@ -336,7 +406,10 @@ def test_callback_details_all_fields():
     assert details.callback_id == "cb456"
     assert details.result == "callback_success"
     assert details.error.message == "Callback failed"
-    assert details.error.type == "CallbackError"
+    assert (
+        details.error.type
+        == "aws_durable_execution_sdk_python.exceptions.CallbackError"
+    )
 
 
 def test_callback_details_minimal():
@@ -362,7 +435,10 @@ def test_invoke_details_from_dict():
 
 def test_invoke_details_all_fields():
     """Test ChainedInvokeDetails.from_dict with all fields."""
-    error_data = {"ErrorMessage": "Invoke failed", "ErrorType": "InvokeError"}
+    error_data = {
+        "ErrorMessage": "Invoke failed",
+        "ErrorType": "aws_durable_execution_sdk_python.exceptions.InvokeError",
+    }
     data = {
         "Result": "invoke_success",
         "Error": error_data,
@@ -370,7 +446,9 @@ def test_invoke_details_all_fields():
     details = ChainedInvokeDetails.from_dict(data)
     assert details.result == "invoke_success"
     assert details.error.message == "Invoke failed"
-    assert details.error.type == "InvokeError"
+    assert (
+        details.error.type == "aws_durable_execution_sdk_python.exceptions.InvokeError"
+    )
 
 
 def test_invoke_details_minimal():
@@ -741,6 +819,19 @@ def test_operation_update_create_step_succeed():
     assert update.name == "test_step"
     assert update.payload == "step_payload"
     assert update.sub_type is OperationSubType.STEP
+
+
+def test_operation_update_to_dict_includes_empty_payload():
+    """Test OperationUpdate.to_dict includes an empty-string payload."""
+    update = OperationUpdate.create_step_succeed(
+        OperationIdentifier("step1", OperationSubType.STEP, None, "empty_result"),
+        payload="",
+    )
+
+    assert update.payload == ""
+    result = update.to_dict()
+    assert "Payload" in result
+    assert result["Payload"] == ""
 
 
 def test_operation_update_factory_methods():
@@ -1400,7 +1491,10 @@ def test_operation_to_dict_with_execution_details_none():
 def test_operation_to_dict_with_step_details_error():
     """Test Operation.to_dict with step_details having error."""
     error = ErrorObject(
-        message="Step failed", type="StepError", data=None, stack_trace=None
+        message="Step failed",
+        type="aws_durable_execution_sdk_python.exceptions.StepError",
+        data=None,
+        stack_trace=None,
     )
     step_details = StepDetails(
         attempt=1, next_attempt_timestamp=None, result=None, error=error
@@ -1416,13 +1510,19 @@ def test_operation_to_dict_with_step_details_error():
     result = operation.to_dict()
     step_dict = result["StepDetails"]
     assert step_dict["Error"]["ErrorMessage"] == "Step failed"
-    assert step_dict["Error"]["ErrorType"] == "StepError"
+    assert (
+        step_dict["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.StepError"
+    )
 
 
 def test_operation_to_dict_with_callback_details_error():
     """Test Operation.to_dict with callback_details having error."""
     error = ErrorObject(
-        message="Callback failed", type="CallbackError", data=None, stack_trace=None
+        message="Callback failed",
+        type="aws_durable_execution_sdk_python.exceptions.CallbackError",
+        data=None,
+        stack_trace=None,
     )
     callback_details = CallbackDetails(callback_id="cb123", result=None, error=error)
 
@@ -1436,13 +1536,19 @@ def test_operation_to_dict_with_callback_details_error():
     result = operation.to_dict()
     callback_dict = result["CallbackDetails"]
     assert callback_dict["Error"]["ErrorMessage"] == "Callback failed"
-    assert callback_dict["Error"]["ErrorType"] == "CallbackError"
+    assert (
+        callback_dict["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.CallbackError"
+    )
 
 
 def test_operation_to_dict_with_invoke_details_error():
     """Test Operation.to_dict with chained_invoke_details having error."""
     error = ErrorObject(
-        message="Invoke failed", type="InvokeError", data=None, stack_trace=None
+        message="Invoke failed",
+        type="aws_durable_execution_sdk_python.exceptions.InvokeError",
+        data=None,
+        stack_trace=None,
     )
     chained_invoke_details = ChainedInvokeDetails(result=None, error=error)
 
@@ -1456,7 +1562,10 @@ def test_operation_to_dict_with_invoke_details_error():
     result = operation.to_dict()
     invoke_dict = result["ChainedInvokeDetails"]
     assert invoke_dict["Error"]["ErrorMessage"] == "Invoke failed"
-    assert invoke_dict["Error"]["ErrorType"] == "InvokeError"
+    assert (
+        invoke_dict["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.InvokeError"
+    )
 
 
 def test_operation_from_dict():
@@ -1594,10 +1703,14 @@ def test_checkpoint_output_from_dict():
 
 
 def test_checkpoint_output_from_dict_empty():
-    """Test CheckpointOutput.from_dict with empty data."""
+    """Test CheckpointOutput.from_dict with empty data.
+
+    The service omits CheckpointToken on the terminal checkpoint; from_dict
+    surfaces that as None rather than an empty string.
+    """
     data = {}
     output = CheckpointOutput.from_dict(data)
-    assert not output.checkpoint_token
+    assert output.checkpoint_token is None
     assert len(output.new_execution_state.operations) == 0
     assert output.new_execution_state.next_marker is None
 
@@ -1776,6 +1889,37 @@ def test_lambda_client_checkpoint_with_explicit_none_client_token():
     )
     assert isinstance(result, CheckpointOutput)
     assert result.checkpoint_token == "new_token"  # noqa: S105
+
+
+@pytest.mark.parametrize("token", ["", None])
+def test_lambda_client_checkpoint_empty_token_raises(token):
+    """An empty/None checkpoint token raises a retryable CheckpointError, not a client error."""
+    mock_client = Mock()
+    lambda_client = LambdaClient(mock_client)
+    update = OperationUpdate(
+        operation_id="op1",
+        operation_type=OperationType.STEP,
+        action=OperationAction.START,
+    )
+
+    with pytest.raises(CheckpointError) as exc_info:
+        lambda_client.checkpoint("arn123", token, [update], None)
+
+    assert exc_info.value.is_retryable()
+    mock_client.checkpoint_durable_execution.assert_not_called()
+
+
+@pytest.mark.parametrize("token", ["", None])
+def test_lambda_client_get_execution_state_empty_token_raises(token):
+    """An empty/None checkpoint token raises a retryable GetExecutionStateError, not a client error."""
+    mock_client = Mock()
+    lambda_client = LambdaClient(mock_client)
+
+    with pytest.raises(GetExecutionStateError) as exc_info:
+        lambda_client.get_execution_state("arn123", token, "marker")
+
+    assert exc_info.value.is_retryable()
+    mock_client.get_durable_execution_state.assert_not_called()
 
 
 def test_lambda_client_checkpoint_with_empty_string_client_token():
@@ -2856,7 +3000,7 @@ def test_operation_to_dict_serializes_context_error_and_replay_children():
             result=None,
             error=ErrorObject(
                 message="boom",
-                type="ChildContextError",
+                type="aws_durable_execution_sdk_python.exceptions.ChildContextError",
                 data=None,
                 stack_trace=None,
             ),
@@ -2865,7 +3009,10 @@ def test_operation_to_dict_serializes_context_error_and_replay_children():
 
     context = op.to_dict()["ContextDetails"]
 
-    assert context["Error"]["ErrorType"] == "ChildContextError"
+    assert (
+        context["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.ChildContextError"
+    )
     assert context["Error"]["ErrorMessage"] == "boom"
     assert context["ReplayChildren"] is True
 

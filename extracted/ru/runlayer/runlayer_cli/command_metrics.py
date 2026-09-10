@@ -327,10 +327,12 @@ def _capture_resource_usage(
     """Return resource usage for this process, best-effort.
 
     Linux reports self-only logical disk reads, including cache hits; child
-    process reads are excluded. Windows reports logical reads, including cache
-    hits, for the process tree. macOS reports ``ru_inblock`` operations and
-    physical bytes read. Any field may be ``None`` when its platform syscall
-    is unavailable; the command still reports its wall time.
+    process reads are excluded. Windows ``disk_read_*`` combines logical read
+    and Other I/O counters as a scan-work proxy. Job accounting covers the
+    process tree; fallback covers this process. Cache-served I/O is included,
+    while mapped page-ins remain invisible. macOS reports ``ru_inblock``
+    operations and physical bytes read. Any field may be ``None`` when its
+    platform syscall is unavailable; the command still reports its wall time.
     """
     if sys.platform == "win32":
         return _capture_resource_usage_windows(job_handle)
@@ -565,7 +567,7 @@ def _close_windows_job_accounting(job_handle: int) -> None:
 def _capture_resource_usage_windows(
     job_handle: int | None = None,
 ) -> ResourceUsage:
-    """Capture logical reads, including cache hits, preferring process-tree data."""
+    """Capture Windows's logical-read-plus-Other scan-work proxy."""
     usage = _empty_resource_usage()
     if job_handle is not None:
         usage = _capture_windows_job_usage(job_handle)
@@ -609,10 +611,16 @@ def _capture_windows_job_usage(
                 accounting_and_io.BasicInfo.TotalUserTime
                 + accounting_and_io.BasicInfo.TotalKernelTime
             ) / 10_000.0
-            usage["disk_read_ops"] = float(accounting_and_io.IoInfo.ReadOperationCount)
-            usage["disk_read_mb"] = (
-                accounting_and_io.IoInfo.ReadTransferCount / _BYTES_PER_MB
+            # Other I/O is not all read activity, but folding it captures scan
+            # work such as directory enumeration that read counters miss.
+            usage["disk_read_ops"] = float(
+                accounting_and_io.IoInfo.ReadOperationCount
+                + accounting_and_io.IoInfo.OtherOperationCount
             )
+            usage["disk_read_mb"] = (
+                accounting_and_io.IoInfo.ReadTransferCount
+                + accounting_and_io.IoInfo.OtherTransferCount
+            ) / _BYTES_PER_MB
         else:
             logger.debug(
                 "cli_command_metrics_windows_query_job_accounting_failed",
@@ -741,8 +749,12 @@ def _capture_windows_process_usage() -> ResourceUsage:
             process_handle,
             ctypes.byref(io_counters),
         ):
-            usage["disk_read_ops"] = float(io_counters.ReadOperationCount)
-            usage["disk_read_mb"] = io_counters.ReadTransferCount / _BYTES_PER_MB
+            usage["disk_read_ops"] = float(
+                io_counters.ReadOperationCount + io_counters.OtherOperationCount
+            )
+            usage["disk_read_mb"] = (
+                io_counters.ReadTransferCount + io_counters.OtherTransferCount
+            ) / _BYTES_PER_MB
         else:
             logger.debug(
                 "cli_command_metrics_windows_get_process_io_counters_failed",

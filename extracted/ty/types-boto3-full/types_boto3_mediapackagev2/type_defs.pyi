@@ -38,6 +38,7 @@ from .literals import (
     HarvestJobStatusType,
     InputTypeType,
     MssManifestLayoutType,
+    MultiviewLayoutTypeType,
     OutputLockingModeType,
     OutputTimestampModeType,
     PresetSpeke20AudioType,
@@ -152,6 +153,9 @@ __all__ = (
     "ListOriginEndpointsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "MultiviewConfigurationOutputTypeDef",
+    "MultiviewConfigurationTypeDef",
+    "MultiviewConfigurationUnionTypeDef",
     "OriginEndpointListConfigurationTypeDef",
     "OutputHeaderConfigurationTypeDef",
     "PaginatorConfigTypeDef",
@@ -207,15 +211,9 @@ class ChannelGroupListConfigurationTypeDef(TypedDict):
     ModifiedAt: datetime
     Description: NotRequired[str]
 
-class ChannelListConfigurationTypeDef(TypedDict):
-    Arn: str
-    ChannelName: str
-    ChannelGroupName: str
-    CreatedAt: datetime
-    ModifiedAt: datetime
-    Description: NotRequired[str]
-    InputType: NotRequired[InputTypeType]
-    OutputLockingMode: NotRequired[OutputLockingModeType]
+class MultiviewConfigurationOutputTypeDef(TypedDict):
+    AvailableSources: list[str]
+    AvailableLayouts: list[MultiviewLayoutTypeType]
 
 class CreateChannelGroupRequestTypeDef(TypedDict):
     ChannelGroupName: str
@@ -428,6 +426,10 @@ class ListOriginEndpointsRequestTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
+class MultiviewConfigurationTypeDef(TypedDict):
+    AvailableSources: Sequence[str]
+    AvailableLayouts: Sequence[MultiviewLayoutTypeType]
+
 class PutChannelPolicyRequestTypeDef(TypedDict):
     ChannelGroupName: str
     ChannelName: str
@@ -468,6 +470,18 @@ class UpdateChannelGroupRequestTypeDef(TypedDict):
 CdnAuthConfigurationUnionTypeDef = Union[
     CdnAuthConfigurationTypeDef, CdnAuthConfigurationOutputTypeDef
 ]
+
+class ChannelListConfigurationTypeDef(TypedDict):
+    Arn: str
+    ChannelName: str
+    ChannelGroupName: str
+    CreatedAt: datetime
+    ModifiedAt: datetime
+    Description: NotRequired[str]
+    InputType: NotRequired[InputTypeType]
+    OutputLockingMode: NotRequired[OutputLockingModeType]
+    MultiviewConfiguration: NotRequired[MultiviewConfigurationOutputTypeDef]
+    AttachedMultiviewChannels: NotRequired[list[str]]
 
 class CreateChannelGroupResponseTypeDef(TypedDict):
     ChannelGroupName: str
@@ -513,11 +527,6 @@ class ListChannelGroupsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class ListChannelsResponseTypeDef(TypedDict):
-    Items: list[ChannelListConfigurationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -548,26 +557,9 @@ class UpdateChannelGroupResponseTypeDef(TypedDict):
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateChannelRequestTypeDef(TypedDict):
-    ChannelGroupName: str
-    ChannelName: str
-    ClientToken: NotRequired[str]
-    InputType: NotRequired[InputTypeType]
-    Description: NotRequired[str]
-    InputSwitchConfiguration: NotRequired[InputSwitchConfigurationTypeDef]
-    OutputHeaderConfiguration: NotRequired[OutputHeaderConfigurationTypeDef]
-    OutputLockingMode: NotRequired[OutputLockingModeType]
-    Tags: NotRequired[Mapping[str, str]]
-
-class UpdateChannelRequestTypeDef(TypedDict):
-    ChannelGroupName: str
-    ChannelName: str
-    ETag: NotRequired[str]
-    Description: NotRequired[str]
-    InputSwitchConfiguration: NotRequired[InputSwitchConfigurationTypeDef]
-    OutputHeaderConfiguration: NotRequired[OutputHeaderConfigurationTypeDef]
-
 class CreateChannelResponseTypeDef(TypedDict):
+    MultiviewConfiguration: MultiviewConfigurationOutputTypeDef
+    AttachedMultiviewChannels: list[str]
     Arn: str
     ChannelName: str
     ChannelGroupName: str
@@ -584,6 +576,8 @@ class CreateChannelResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetChannelResponseTypeDef(TypedDict):
+    MultiviewConfiguration: MultiviewConfigurationOutputTypeDef
+    AttachedMultiviewChannels: list[str]
     Arn: str
     ChannelName: str
     ChannelGroupName: str
@@ -601,6 +595,8 @@ class GetChannelResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateChannelResponseTypeDef(TypedDict):
+    MultiviewConfiguration: MultiviewConfigurationOutputTypeDef
+    AttachedMultiviewChannels: list[str]
     Arn: str
     ChannelName: str
     ChannelGroupName: str
@@ -749,12 +745,21 @@ class OriginEndpointListConfigurationTypeDef(TypedDict):
     UriSeparator: NotRequired[UriSeparatorType]
     StreamNameOutputMode: NotRequired[StreamNameOutputModeType]
 
+MultiviewConfigurationUnionTypeDef = Union[
+    MultiviewConfigurationTypeDef, MultiviewConfigurationOutputTypeDef
+]
+
 class PutOriginEndpointPolicyRequestTypeDef(TypedDict):
     ChannelGroupName: str
     ChannelName: str
     OriginEndpointName: str
     Policy: str
     CdnAuthConfiguration: NotRequired[CdnAuthConfigurationUnionTypeDef]
+
+class ListChannelsResponseTypeDef(TypedDict):
+    Items: list[ChannelListConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 DashAvailabilityStartTimeConfigurationUnionTypeDef = Union[
     DashAvailabilityStartTimeConfigurationTypeDef,
@@ -865,6 +870,27 @@ class ListOriginEndpointsResponseTypeDef(TypedDict):
     Items: list[OriginEndpointListConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class CreateChannelRequestTypeDef(TypedDict):
+    ChannelGroupName: str
+    ChannelName: str
+    ClientToken: NotRequired[str]
+    InputType: NotRequired[InputTypeType]
+    Description: NotRequired[str]
+    InputSwitchConfiguration: NotRequired[InputSwitchConfigurationTypeDef]
+    OutputHeaderConfiguration: NotRequired[OutputHeaderConfigurationTypeDef]
+    MultiviewConfiguration: NotRequired[MultiviewConfigurationUnionTypeDef]
+    OutputLockingMode: NotRequired[OutputLockingModeType]
+    Tags: NotRequired[Mapping[str, str]]
+
+class UpdateChannelRequestTypeDef(TypedDict):
+    ChannelGroupName: str
+    ChannelName: str
+    ETag: NotRequired[str]
+    Description: NotRequired[str]
+    InputSwitchConfiguration: NotRequired[InputSwitchConfigurationTypeDef]
+    OutputHeaderConfiguration: NotRequired[OutputHeaderConfigurationTypeDef]
+    MultiviewConfiguration: NotRequired[MultiviewConfigurationUnionTypeDef]
 
 class CreateHlsManifestConfigurationTypeDef(TypedDict):
     ManifestName: str

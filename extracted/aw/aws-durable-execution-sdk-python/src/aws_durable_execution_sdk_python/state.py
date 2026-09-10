@@ -8,18 +8,19 @@ import logging
 import queue
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum
 from threading import Lock
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, NoReturn
 
 from aws_durable_execution_sdk_python.exceptions import (
     BackgroundThreadError,
-    CallableRuntimeError,
+    CheckpointError,
     DurableExecutionsError,
+    DurableOperationError,
     GetExecutionStateError,
     OrphanedChildException,
-    SuspendExecution,
 )
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
 from aws_durable_execution_sdk_python.lambda_service import (
@@ -35,8 +36,9 @@ from aws_durable_execution_sdk_python.lambda_service import (
 )
 from aws_durable_execution_sdk_python.plugin import (
     PluginExecutor,
+    UserFunctionOutcome,
 )
-from aws_durable_execution_sdk_python.threading import CompletionEvent, OrderedLock
+from aws_durable_execution_sdk_python.threading import CompletionEvent
 
 
 if TYPE_CHECKING:
@@ -222,20 +224,29 @@ class CheckpointedResult:
             return False
         return op.context_details.replay_children if op.context_details else False
 
-    def raise_callable_error(self, msg: str | None = None) -> None:
+    def raise_operation_error(
+        self,
+        operation_error_cls: type[DurableOperationError],
+        msg: str | None = None,
+    ) -> NoReturn:
+        """Reconstruct and raise the typed operation error for a FAILED checkpoint.
+
+        The concrete error type is dictated by the operation being replayed and
+        supplied by the calling executor (e.g. ``StepError`` for a step). This
+        ensures async operations whose checkpoint carries a downstream error type
+        (invoke/callback) still surface as the correct per-operation error.
+        """
         if self.error is None:
-            err_msg = (
+            err_msg: str = (
                 msg
                 or "Unknown error. No ErrorObject exists on the Checkpoint Operation."
             )
-            raise CallableRuntimeError(
-                message=err_msg,
-                error_type=None,
-                data=None,
-                stack_trace=None,
-            )
+            raise operation_error_cls(message=err_msg)
 
-        raise self.error.to_callable_runtime_error()
+        # Reconstruct from the checkpointed ErrorObject. This is the same path the
+        # handlers use on the first-run failure, so first run and replay surface
+        # an identical error.
+        self.error.raise_as_operation_error(operation_error_cls)
 
     def get_next_attempt_timestamp(self) -> datetime.datetime | None:
         if self.operation and self.operation.step_details:
@@ -272,7 +283,6 @@ class ExecutionState:
         self._operations: dict[str, Operation] = dict(operations)
         self._service_client: DurableServiceClient = service_client
         self._plugin_executor: PluginExecutor = plugin_executor
-        self._ordered_checkpoint_lock: OrderedLock = OrderedLock()
         self._operations_lock: Lock = Lock()
 
         # Checkpoint batching configuration
@@ -285,15 +295,36 @@ class ExecutionState:
         self._overflow_queue: queue.Queue[QueuedOperation] = queue.Queue()
         self._checkpointing_stopped: threading.Event = threading.Event()
         self._checkpointing_failed: CompletionEvent = CompletionEvent()
+        # Set once the service confirms the execution has completed (a checkpoint
+        # response with no token). No further checkpoint can succeed afterward.
+        self._execution_completed: threading.Event = threading.Event()
+        # Serializes the execution-completed check with enqueueing so a checkpoint
+        # is never enqueued after _settle_after_execution_completed drains the queue.
+        self._completion_lock: Lock = Lock()
 
         # Concurrency management for parallel operations: parent_id -> {child_operation_ids}
         self._parent_to_children: dict[str, set[str]] = {}
 
         # Operations whose parent has completed
         self._parent_done: set[str] = set()
+        # Map/parallel contexts whose terminal checkpoint has started. Fatal
+        # branch errors race terminal parent checkpoints under
+        # _parent_done_lock so a detected replay mismatch cannot be lost.
+        self._terminal_contexts: set[str] = set()
+        self._branch_fatal_errors: dict[str, BaseException] = {}
 
-        # Protects parent_to_children and parent_done
+        # Protects parent_to_children and parent_done. When both state locks are
+        # required, acquire _completion_lock before _parent_done_lock.
         self._parent_done_lock: Lock = Lock()
+
+        # Branch thread pools created by concurrency coordinators. A pool
+        # abandoned on early completion can still have branches running user
+        # code; close() joins every registered pool so no SDK-created thread
+        # outlives the invocation (a thread still running at handler return
+        # is frozen with the execution environment and resumes mid-flight
+        # during the next warm invocation).
+        self._branch_pools: list[ThreadPoolExecutor] = []
+        self._branch_pools_lock: Lock = Lock()
 
         # Dedup set so each operation's replay plugin hook fires at most once.
         # Replay status itself is tracked per-context on DurableContext; the
@@ -460,6 +491,22 @@ class ExecutionState:
 
         self._plugin_executor.on_operation_replay(operation)
 
+    def emit_child_context_end_hook(
+        self,
+        operation_identifier: OperationIdentifier,
+        status: OperationStatus,
+        *,
+        error: ErrorObject | None = None,
+        is_replayed: bool = False,
+    ) -> None:
+        """Fire a terminal hook for a child context completed without a checkpoint."""
+        self._plugin_executor.on_child_context_end(
+            operation_identifier,
+            status,
+            error=error,
+            is_replayed=is_replayed,
+        )
+
     def is_operation_updated_since_last_invocation(self, operation_id: str) -> bool:
         """Return True if an operation changed while this execution was suspended."""
         return operation_id in self._updated_operation_ids
@@ -476,6 +523,43 @@ class ExecutionState:
             return
 
         self._plugin_executor.on_operation_update(operation)
+
+    def _reject_if_execution_completed(
+        self, operation_update: OperationUpdate | None
+    ) -> None:
+        """Raise OrphanedChildException when the execution has already completed.
+
+        Called before dispatching the START hook and again inside
+        _completion_lock: the first keeps an orphaned operation from emitting a
+        START with no matching completion, the second closes the race with a
+        concurrent completion.
+        """
+        if not self._execution_completed.is_set():
+            return
+        operation_id: str = (
+            operation_update.operation_id if operation_update is not None else ""
+        )
+        raise OrphanedChildException(
+            "Execution already completed; checkpoint will not be processed.",
+            operation_id=operation_id,
+        )
+
+    def _reject_if_parent_done(self, operation_update: OperationUpdate) -> None:
+        """Raise OrphanedChildException when the operation is orphaned.
+
+        Must be called while holding _parent_done_lock so the check can be
+        linearized with parent completion and, at the final call site, enqueue.
+        """
+        if operation_update.operation_id not in self._parent_done:
+            return
+        logger.debug(
+            "Rejecting checkpoint for operation %s - parent is done",
+            operation_update.operation_id,
+        )
+        raise OrphanedChildException(
+            "Parent context completed, child operation cannot checkpoint",
+            operation_id=operation_update.operation_id,
+        )
 
     def create_checkpoint(
         self,
@@ -525,8 +609,13 @@ class ExecutionState:
                     If False, returns immediately without blocking for performance.
 
         Raises:
-            Any exception from the background checkpoint processing will propagate
-            through the ThreadPoolExecutor to the main thread, terminating the Lambda.
+            OrphanedChildException: If the operation's parent context has already
+                completed, or the execution itself has already completed, so the
+                checkpoint cannot be processed.
+            BackgroundThreadError: If background checkpoint processing has failed;
+                the stored failure is re-raised to the caller. For a synchronous
+                checkpoint, a later background failure also surfaces here through
+                the completion event.
 
         Examples:
             # Synchronous checkpoint (default, safe)
@@ -562,37 +651,61 @@ class ExecutionState:
                     and operation_update.action
                     in {OperationAction.SUCCEED, OperationAction.FAIL}
                 ):
+                    if fatal_error := self._branch_fatal_errors.get(
+                        operation_update.operation_id
+                    ):
+                        raise fatal_error
+                    self._terminal_contexts.add(operation_update.operation_id)
                     self._mark_orphans(operation_update.operation_id)
 
                 # Check if this operation's parent is done
-                if operation_update.operation_id in self._parent_done:
-                    logger.debug(
-                        "Rejecting checkpoint for operation %s - parent is done",
-                        operation_update.operation_id,
-                    )
-                    error_msg = (
-                        "Parent context completed, child operation cannot checkpoint"
-                    )
-                    raise OrphanedChildException(
-                        error_msg,
-                        operation_id=operation_update.operation_id,
-                    )
+                self._reject_if_parent_done(operation_update)
 
         # Check if background checkpointing has failed
         if self._checkpointing_failed.is_set():
             # This will raise the stored BackgroundThreadError
             self._checkpointing_failed.wait()
 
+        # Reject a late checkpoint before dispatching the START hook, so an
+        # orphaned operation does not emit a START with no matching completion
+        # (mirrors the parent-done check above). The _completion_lock block below
+        # re-checks to close the race with a concurrent completion.
+        self._reject_if_execution_completed(operation_update)
+
         # Conditionally create completion event based on is_sync parameter
         completion_event: CompletionEvent | None = (
             CompletionEvent() if is_sync else None
         )
 
+        if operation_update is not None:
+            # Dispatch before queueing so START strictly precedes any user
+            # function attempt, regardless of checkpoint synchronization mode.
+            self._plugin_executor.on_operation_action(
+                operation_update,
+                previous_operation=self.operations.get(operation_update.operation_id),
+            )
+
         # Create wrapper object for queue
         queued_op = QueuedOperation(operation_update, completion_event)
 
-        # Enqueue the wrapper object (operation_update can be None for empty checkpoints)
-        self._checkpoint_queue.put(queued_op)
+        # Enqueue under the same lock the background loop holds while it stops and
+        # drains the queue - on completion via _settle_after_execution_completed, or
+        # on failure in the exception handler. Re-check both terminal conditions
+        # inside the lock so a checkpoint is never enqueued after a drain and left
+        # with a waiter that blocks forever. Acquire _parent_done_lock inside
+        # _completion_lock and hold both through queue insertion so parent completion
+        # cannot mark the operation orphaned between the final check and enqueue.
+        with self._completion_lock:
+            if self._checkpointing_failed.is_set():
+                # Raises the stored BackgroundThreadError.
+                self._checkpointing_failed.wait()
+            self._reject_if_execution_completed(operation_update)
+            if operation_update is None:
+                self._checkpoint_queue.put(queued_op)
+            else:
+                with self._parent_done_lock:
+                    self._reject_if_parent_done(operation_update)
+                    self._checkpoint_queue.put(queued_op)
 
         # Conditionally wait for completion based on is_sync parameter
         if is_sync:
@@ -686,22 +799,20 @@ class ExecutionState:
     def checkpoint_batches_forever(self) -> None:
         """Single background thread that batches operations and processes results.
 
-        Runs until shutdown is signaled. This method processes checkpoint operations
-        in batches, makes API calls to persist them, and updates the execution state
-        with the results.
+        Collects queued operations into batches, persists each batch with one API
+        call, refreshes execution state from the response, and wakes the batch's
+        waiters. The checkpoint token is held locally and advanced after each
+        successful batch.
 
-        The method maintains the checkpoint token locally and updates it after each
-        successful batch processing. It continues running until stop_checkpointing()
-        is called.
-
-        Note: When shutdown is signaled, only non-essential async checkpoints may remain
-        in the queue. All critical synchronous checkpoints (SUCCEED, FAIL, etc.) will
-        have already completed because the main thread blocks on them. Therefore, we
-        don't need to drain the queue - the Lambda timeout will handle cleanup.
-
-        Raises:
-            Any exception from the service client checkpoint call will propagate naturally,
-            terminating the background thread and signaling an error to the main thread.
+        The loop stops on any of three conditions: shutdown is signaled
+        (stop_checkpointing), the service reports the execution has completed (a
+        terminal batch whose response omits the token), or a batch fails. On
+        completion or failure the remaining queued operations are drained and their
+        waiters settled - with OrphanedChildException on completion, or the wrapped
+        BackgroundThreadError on failure - so no waiter blocks forever. On a plain
+        shutdown signal the queue is not drained: only non-essential asynchronous
+        checkpoints can remain, since the main thread blocks on every synchronous
+        one.
         """
         # Keep checkpoint token as local variable in the loop
         current_checkpoint_token: str = self._current_checkpoint_token
@@ -739,20 +850,39 @@ class ExecutionState:
 
                     logger.debug("Checkpoint batch processed successfully")
 
-                    # Update local token for next iteration
-                    current_checkpoint_token = output.checkpoint_token
+                    # The service omits the token only when there is no next
+                    # checkpoint, i.e. the execution has reached a terminal state
+                    # - completed, or failed (for example on a quota limit). A
+                    # batch that sent updates and gets no token back is therefore
+                    # terminal: stop and settle. An empty checkpoint always gets a
+                    # fresh token, so a missing token with no updates is malformed.
+                    execution_completed: bool = False
+                    if output.checkpoint_token:
+                        current_checkpoint_token = output.checkpoint_token
+                    elif updates:
+                        execution_completed = True
+                    else:
+                        raise CheckpointError(
+                            "Checkpoint response omitted the token for an empty "
+                            "checkpoint."
+                        )
 
                     previous_operations = self.operations
 
-                    # Fetch new operations from the API before unblocking sync waiters
+                    # Fetch new operations from the API before unblocking sync
+                    # waiters. On completion the token is consumed, so skip
+                    # pagination (which would reuse the spent token) and record
+                    # only the operations the terminal response carries inline.
+                    fetch_marker: str | None = (
+                        None
+                        if execution_completed
+                        else output.new_execution_state.next_marker
+                    )
                     updated_operations = self.fetch_paginated_operations(
                         output.new_execution_state.operations,
-                        output.checkpoint_token,
-                        output.new_execution_state.next_marker,
+                        current_checkpoint_token,
+                        fetch_marker,
                     )
-                    for update in updates:
-                        self._plugin_executor.on_operation_action(update)
-
                     self._plugin_executor.on_operation_update(
                         updated_operations,
                         self.operations,
@@ -763,6 +893,15 @@ class ExecutionState:
                     for queued_op in batch:
                         if queued_op.completion_event is not None:
                             queued_op.completion_event.set()
+
+                    if execution_completed:
+                        # The execution is complete; no further checkpoint can
+                        # succeed. Stop the loop and settle any still-queued
+                        # operations (e.g. from orphaned concurrent branches) so
+                        # their waiters do not block and no further checkpoint
+                        # request is issued with the consumed token.
+                        self._settle_after_execution_completed()
+                        break
                 except Exception as e:
                     # Checkpoint failed - wake all blocked threads so they can raise error
                     # Drain both queues and signal all completion events
@@ -771,37 +910,73 @@ class ExecutionState:
                         "Checkpoint creation failed", e
                     )
 
-                    # FIFO: although at this point order not really import any anymore
-                    # Signal completion events for the failed batch
+                    # Signal completion events for the failed batch (already dequeued,
+                    # so no producer can race these).
                     for queued_op in batch:
                         if queued_op.completion_event is not None:
                             queued_op.completion_event.set(bg_error)
 
-                    # overflow 1st: although at this point order not really import any anymore
-                    while not self._overflow_queue.empty():
-                        try:
-                            item = self._overflow_queue.get_nowait()
-                            if item.completion_event:
-                                item.completion_event.set(bg_error)
-                        except queue.Empty:
-                            break
+                    # Drain the queues and set the failure flag under the completion
+                    # lock so a concurrent create_checkpoint either observes the
+                    # failure and raises, or has its operation drained here - never
+                    # enqueued after the drain and left blocked.
+                    with self._completion_lock:
+                        while not self._overflow_queue.empty():
+                            try:
+                                item = self._overflow_queue.get_nowait()
+                                if item.completion_event:
+                                    item.completion_event.set(bg_error)
+                            except queue.Empty:
+                                break
 
-                    # finally Wake all blocked threads in main queue
-                    while not self._checkpoint_queue.empty():
-                        try:
-                            item = self._checkpoint_queue.get_nowait()
-                            if item.completion_event:
-                                item.completion_event.set(bg_error)
-                        except queue.Empty:
-                            break
+                        while not self._checkpoint_queue.empty():
+                            try:
+                                item = self._checkpoint_queue.get_nowait()
+                                if item.completion_event:
+                                    item.completion_event.set(bg_error)
+                            except queue.Empty:
+                                break
 
-                    # Set the failure event so future checkpoint attempts fail immediately
-                    self._checkpointing_failed.set(bg_error)
+                        # Future checkpoint attempts fail immediately.
+                        self._checkpointing_failed.set(bg_error)
 
                     # Exit the loop - error has been signaled to main thread via completion events
                     break
 
         logger.debug("Background checkpoint processing stopped")
+
+    def _settle_after_execution_completed(self) -> None:
+        """Stop checkpointing and settle queued operations after the execution ends.
+
+        Called when a checkpoint response omits the token on a terminal batch,
+        which the service does only when it completes the execution. Any operation
+        still queued belongs to work that can no longer be checkpointed (typically
+        an orphaned concurrent branch), so its waiter is settled with
+        OrphanedChildException rather than left blocking or sent with the consumed
+        token.
+        """
+        with self._completion_lock:
+            self._execution_completed.set()
+            self._checkpointing_stopped.set()
+
+            for pending_queue in (self._overflow_queue, self._checkpoint_queue):
+                while not pending_queue.empty():
+                    try:
+                        queued_op: QueuedOperation = pending_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                    if queued_op.completion_event is not None:
+                        operation_id: str = (
+                            queued_op.operation_update.operation_id
+                            if queued_op.operation_update is not None
+                            else ""
+                        )
+                        queued_op.completion_event.set(
+                            OrphanedChildException(
+                                "Execution already completed; checkpoint will not be processed.",
+                                operation_id=operation_id,
+                            )
+                        )
 
     def stop_checkpointing(self) -> None:
         """Signal background thread to stop checkpointing.
@@ -813,6 +988,34 @@ class ExecutionState:
         """
         logger.debug("Signaling background thread to stop checkpointing")
         self._checkpointing_stopped.set()
+
+    def register_branch_pool(self, pool: ThreadPoolExecutor) -> None:
+        """Register a branch thread pool for joining at invocation end.
+
+        Concurrency coordinators register their pool on creation. close()
+        joins every registered pool before stopping the checkpoint batcher,
+        so branches abandoned by early completion finish (or unwind on
+        OrphanedChildException at their next checkpoint attempt) before the
+        invocation returns.
+        """
+        with self._branch_pools_lock:
+            self._branch_pools.append(pool)
+
+    def record_branch_fatal_error(
+        self, parent_operation_id: str, error: BaseException
+    ) -> bool:
+        """Retain a fatal branch error until its parent context checkpoints.
+
+        Returns False when the parent terminal checkpoint already won the
+        race, making the reporting branch an orphan. Otherwise the first fatal
+        error is retained and raised before the parent can checkpoint a
+        terminal result.
+        """
+        with self._parent_done_lock:
+            if parent_operation_id in self._terminal_contexts:
+                return False
+            self._branch_fatal_errors.setdefault(parent_operation_id, error)
+            return True
 
     def _collect_checkpoint_batch(self) -> list[QueuedOperation]:
         """Collect multiple checkpoint operations into a batch for API efficiency.
@@ -966,6 +1169,27 @@ class ExecutionState:
         return len(serialized)
 
     def close(self):
+        """Release invocation-scoped resources.
+
+        Joins still-running branch threads BEFORE stopping the checkpoint
+        batcher: a branch blocked on an in-flight synchronous checkpoint
+        needs the batcher alive to receive its response (a rejection for an
+        orphaned branch) and unwind. Stopping the batcher first would
+        deadlock that branch until the Lambda timeout.
+
+        Drains registrations until no pools remain: a branch joined in one
+        batch can start a nested map or parallel operation, whose
+        coordinator registers a new pool mid-join. The lock is never held
+        across shutdown(wait=True), so those registrations do not block.
+        """
+        while True:
+            with self._branch_pools_lock:
+                pools: list[ThreadPoolExecutor] = list(self._branch_pools)
+                self._branch_pools.clear()
+            if not pools:
+                break
+            for pool in pools:
+                pool.shutdown(wait=True)
         self.stop_checkpointing()
 
     def wrap_user_function(
@@ -980,16 +1204,22 @@ class ExecutionState:
             start_info = self._plugin_executor.on_user_function_start(
                 operation_identifier, is_replay_children, attempt
             )
+            outcome = UserFunctionOutcome.INCOMPLETE
+            error = None
             try:
                 result = user_function(*args, **kwargs)
-                self._plugin_executor.on_user_function_end(start_info, None)
+            except Exception as exception:
+                outcome = UserFunctionOutcome.FAILED
+                error = ErrorObject.from_exception(exception)
+                raise
+            else:
+                outcome = UserFunctionOutcome.SUCCEEDED
                 return result
-            except SuspendExecution:
-                raise
-            except Exception as e:
+            finally:
+                # Runs on the thread that executed the user function, which is
+                # the only thread that can release state bound to it.
                 self._plugin_executor.on_user_function_end(
-                    start_info, ErrorObject.from_exception(e)
+                    start_info, error, outcome=outcome
                 )
-                raise
 
         return wrapper

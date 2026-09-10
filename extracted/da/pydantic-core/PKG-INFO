@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic_core
-Version: 2.48.0
+Version: 2.49.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -21,7 +21,7 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Typing :: Typed
-Requires-Dist: typing-extensions>=4.14.1
+Requires-Dist: typing-extensions>=4.16.0
 License-File: LICENSE
 Summary: Core functionality for Pydantic validation and serialization
 Home-Page: https://github.com/pydantic/pydantic
@@ -147,7 +147,7 @@ make all          # to run to run build-dev + format + lint + test
 
 ### Useful Resources
 
-* [`python/pydantic_core/_pydantic_core.pyi`](./python/pydantic_core/_pydantic_core.pyi) - Python API types
+* [`python/pydantic_core/_pydantic_core/`](./python/pydantic_core/_pydantic_core/) - Python API types (stubs)
 * [`python/pydantic_core/core_schema.py`](./python/pydantic_core/core_schema.py) - Core schema definitions
 * [`tests/`](./tests) - Comprehensive usage examples
 

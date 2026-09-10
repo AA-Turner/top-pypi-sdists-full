@@ -2,7 +2,7 @@
 
 [build-system]
 build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.2,<4"]
+requires = ["flit_core>=3.2,<5"]
 
 [project]
 authors = [{name = "gdsfactory community", email = "contact@gdsfactory.com"}]
@@ -52,7 +52,7 @@ license = {file = "LICENSE"}
 name = "gdsfactory"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
-version = "9.49.0"
+version = "9.50.0"
 
 [project.optional-dependencies]
 bench = ["asv>=0.6,<1"]
@@ -245,7 +245,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"docs/notebooks/*.ipynb" = ["F821", "E402", "F405", "F403", "D103"]
+"docs/notebooks/*.py" = ["F821", "E402", "F405", "F403", "D103"]
 "gdsfactory/components/*.py" = ["F403", "F405"]  # import *
 "gdsfactory/generic_tech/*.py" = ["F403", "F405"]  # import *
 "gdsfactory/samples/*.py" = ["N999"]  # module name
@@ -297,7 +297,7 @@ src = "pyproject.toml"
 src = "gdsfactory/config.py"
 
 [[tool.tbump.file]]
-src = "docs/notebooks/08_pdk.ipynb"
+src = "docs/notebooks/08_pdk.py"
 
 [[tool.tbump.file]]
 src = "gdsfactory/generic_tech/klayout/grain.xml"
@@ -310,7 +310,7 @@ message_template = "Bump to {new_version}"
 tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "9.49.0"
+current = "9.50.0"
 regex = '''
   (?P<major>\d+)
   \.

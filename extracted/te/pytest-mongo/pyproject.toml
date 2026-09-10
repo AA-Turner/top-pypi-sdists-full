@@ -1,109 +1,159 @@
+[build-system]
+build-backend = "uv_build"
+requires = ["uv-build>=0.11"]
+
 [project]
 name = "pytest-mongo"
-version = "4.0.0"
+version = "5.0.0"
 description = "MongoDB process and client fixtures plugin for Pytest."
 readme = "README.rst"
-keywords = ["tests", "pytest", "fixture", "mongodb", "mongo"]
-license = {file = "LICENSE"}
-authors = [
-    {name = "Grzegorz Śliwiński", email = "fizyk+pypi@fizyk.dev"}
+keywords = [
+    "fixture",
+    "mongo",
+    "mongodb",
+    "pytest",
+    "tests",
 ]
+license = "LGPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
+    "Framework :: Pytest",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
-    "Framework :: Pytest",
 ]
 dependencies = [
-    "pytest >= 8.4",
-    "port-for >= 0.7.3",
-    "mirakuru >= 2.6.0",
-    "pymongo >= 4.10.0",
+    "mirakuru>=2.6.0",
+    "port-for>=0.7.3",
+    "pymongo>=4.10.0",
+    "pytest>=8.4",
 ]
-requires-python = ">= 3.10"
+
+[[project.authors]]
+name = "Grzegorz Śliwiński"
+email = "fizyk+pypi@fizyk.dev"
 
 [project.urls]
-"Source" = "https://github.com/dbfixtures/pytest-mongo"
+Source = "https://github.com/dbfixtures/pytest-mongo"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-mongo/issues"
-"Changelog" = "https://github.com/dbfixtures/pytest-mongo/blob/v4.0.0/CHANGES.rst"
+Changelog = "https://github.com/dbfixtures/pytest-mongo/blob/v5.0.0/CHANGES.rst"
 
-[project.entry-points."pytest11"]
+[project.entry-points.pytest11]
 pytest_mongo = "pytest_mongo.plugin"
 
-[build-system]
-requires = ["setuptools >= 61.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
+[dependency-groups]
+dev = [
+    "coverage==7.16.0",
+    "mirakuru==3.0.2",
+    "mypy==2.3.1; implementation_name=='cpython'",
+    "port-for==1.0.0",
+    "psutil==7.2.2",
+    "pygments==2.21.0",
+    "pymongo==4.17.0",
+    "pytest==9.1.1",
+    "pytest-xdist==3.8.0",
+    "tbump==6.11.0",
+    "towncrier==25.8.0",
+]
 
-[tool.setuptools]
-zip-safe = true
-
-[tool.setuptools.packages.find]
-include = ["pytest_mongo*"]
-exclude = ["tests*"]
-namespaces = false
-
-[tool.pytest]
-strict_xfail=true
-addopts = ["--showlocals", "--verbose", "--cov"]
-testpaths = ["tests"]
+[tool.uv.build-backend]
+module-name = "pytest_mongo"
+module-root = ""
+source-include = ["CHANGES.rst"]
 
 [tool.ruff]
+target-version = "py311"
 line-length = 100
-target-version = 'py310'
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle
-    "F",   # pyflakes
-    "I",   # isort
-    "D",   # pydocstyle
+    "D",
+    "E",
+    "F",
+    "I",
+    "PYI",
+    "UP",
 ]
 
-[tool.towncrier]
-directory = "newsfragments"
-single_file=true
-filename="CHANGES.rst"
-issue_format="`#{issue} <https://github.com/dbfixtures/pytest-mongo/issues/{issue}>`__"
+[tool.pyproject-fmt]
+column_width = 120
+indent = 4
+keep_full_version = true
+generate_python_version_classifiers = false
+table_format = "long"
+sub_table_spacing = """
 
-[tool.towncrier.fragment.feature]
-name = "Features"
-showcontent = true
+"""
 
-[tool.towncrier.fragment.depr]
-name = "Deprecations"
-showcontent = true
+[tool.mypy]
+ignore_missing_imports = false
+follow_imports = "silent"
+python_version = "3.11"
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+warn_unreachable = true
+allow_untyped_globals = false
+allow_redefinition = false
+implicit_reexport = false
+strict_equality = true
+pretty = true
+no_implicit_optional = true
+show_error_codes = true
 
-[tool.towncrier.fragment.bugfix]
-name = "Bugfixes"
-showcontent = true
+[tool.pytest]
+addopts = [
+    "--showlocals",
+    "--verbose",
+]
+markers = ["xdist_group: group tests so they run on the same xdist worker (registered for serial runs where pytest-xdist is disabled)"]
+strict_xfail = true
+testpaths = ["tests"]
 
-[tool.towncrier.fragment.break]
-name = "Breaking changes"
-showcontent = true
+[[tool.tbump.before_commit]]
+name = "Build changelog"
+cmd = "uv run towncrier build --version {new_version} --yes"
 
-[tool.towncrier.fragment.misc]
-name = "Miscellaneus"
-showcontent = true
+[[tool.tbump.field]]
+name = "extra"
+default = ""
+
+[[tool.tbump.file]]
+src = "pytest_mongo/__init__.py"
+
+[[tool.tbump.file]]
+src = "pyproject.toml"
+search = 'version = "{current_version}"'
+
+[[tool.tbump.file]]
+src = "pyproject.toml"
+search = 'Changelog = "https://github.com/dbfixtures/pytest-mongo/blob/v{current_version}/CHANGES.rst"'
+
+[tool.tbump.git]
+message_template = "Release {new_version}"
+tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "4.0.0"
-
-# Example of a semver regexp.
-# Make sure this matches current_version before
-# using tbump
+current = "5.0.0"
 regex = '''
   (?P<major>\d+)
   \.
@@ -115,40 +165,38 @@ regex = '''
   )?
   '''
 
-[tool.tbump.git]
-message_template = "Release {new_version}"
-tag_template = "v{new_version}"
+[tool.towncrier]
+directory = "newsfragments"
+filename = "CHANGES.rst"
+issue_format = "`#{issue} <https://github.com/dbfixtures/pytest-mongo/issues/{issue}>`__"
+single_file = true
 
-[[tool.tbump.field]]
-# the name of the field
-name = "extra"
-# the default value to use, if there is no match
-default = ""
-# For each file to patch, add a [[file]] config
-# section containing the path of the file, relative to the
-# tbump.toml location.
+[[tool.towncrier.type]]
+directory = "break"
+name = "Breaking changes"
+showcontent = true
 
-[[tool.tbump.file]]
-src = "pytest_mongo/__init__.py"
+[[tool.towncrier.type]]
+directory = "depr"
+name = "Deprecations"
+showcontent = true
 
-[[tool.tbump.file]]
-src = "pyproject.toml"
-search = 'version = "{current_version}"'
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
 
-[[tool.tbump.file]]
-src = "pyproject.toml"
-search = '"Changelog" = "https://github.com/dbfixtures/pytest-mongo/blob/v{current_version}/CHANGES.rst"'
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bugfixes"
+showcontent = true
 
-# You can specify a list of commands to
-# run after the files have been patched
-# and before the git commit is made
+[[tool.towncrier.type]]
+directory = "docs"
+name = "Documentation"
+showcontent = true
 
-[[tool.tbump.before_commit]]
-name = "Build changelog"
-cmd = "pipenv run towncrier build --version {new_version} --yes"
-
-# Or run some commands after the git tag and the branch
-# have been pushed:
-#  [[tool.tbump.after_push]]
-#  name = "publish"
-#  cmd = "./publish.sh"
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Miscellaneus"
+showcontent = true

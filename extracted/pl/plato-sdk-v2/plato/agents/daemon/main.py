@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -60,6 +61,23 @@ def _daemonize() -> None:
     sys.stdin.close()
 
 
+def _mint_token_if_missing(token_path: Path) -> None:
+    """Boot-time mint: write a fresh random token unless one already exists.
+
+    O_EXCL, so a token delivered concurrently by a world bootstrap is adopted,
+    never clobbered — whichever writer wins, both sides read the same file.
+    """
+    token_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        fd = os.open(str(token_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return
+    try:
+        os.write(fd, secrets.token_urlsafe(32).encode())
+    finally:
+        os.close(fd)
+
+
 def _serve(args: argparse.Namespace) -> int:
     state_dir = Path(args.state_dir)
     pid_path = state_dir / "daemon.pid"
@@ -68,6 +86,8 @@ def _serve(args: argparse.Namespace) -> int:
         # Idempotent bootstrap: a live daemon already owns the port.
         return 0
 
+    if args.mint_token:
+        _mint_token_if_missing(Path(args.token_file))
     token = read_token_file(Path(args.token_file))
 
     if args.daemonize:
@@ -112,6 +132,11 @@ def main() -> None:
     serve.add_argument("--state-dir", default=STATE_DIR)
     serve.add_argument("--log-file", default=LOG_FILE)
     serve.add_argument("--daemonize", action="store_true")
+    serve.add_argument(
+        "--mint-token",
+        action="store_true",
+        help="Mint the token file if absent (boot-time start, before any world contact)",
+    )
     serve.set_defaults(func=_serve)
 
     status = sub.add_parser("status", help="Check if a daemon is running")

@@ -243,6 +243,7 @@ class SpeechToTextJobClient:
         with_timestamps: bool = False,
         language_code: typing.Optional[SpeechToTextLanguage] = None,
         num_speakers: typing.Optional[int] = None,
+        keyterms: typing.Optional[typing.Sequence[str]] = None,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SpeechToTextJob:
@@ -270,6 +271,10 @@ class SpeechToTextJobClient:
         num_speakers : typing.Optional[int], default=None
             The number of distinct speakers in the audio, if known.
 
+        keyterms : typing.Optional[typing.Sequence[str]], default=None
+            List of up to 50 domain-specific terms (names, places, brands, technical terms) to
+            bias recognition toward. Only supported with model="saaras:v4".
+
         callback : typing.Optional[BulkJobCallbackParams], default=OMIT
             Optional callback configuration to receive job completion events.
 
@@ -289,6 +294,7 @@ class SpeechToTextJobClient:
                 num_speakers=num_speakers,  # type: ignore[typeddict-item]
                 with_diarization=with_diarization,
                 with_timestamps=with_timestamps,
+                keyterms=keyterms,  # type: ignore[typeddict-item]
             ),
             callback=callback,
             request_options=request_options,
@@ -577,6 +583,7 @@ class AsyncSpeechToTextJobClient:
         with_timestamps: bool = False,
         language_code: typing.Optional[SpeechToTextLanguage] = None,
         num_speakers: typing.Optional[int] = None,
+        keyterms: typing.Optional[typing.Sequence[str]] = None,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> "AsyncSpeechToTextJob":
@@ -604,6 +611,10 @@ class AsyncSpeechToTextJobClient:
         num_speakers : typing.Optional[int] = None
             The number of distinct speakers in the audio, if known.
 
+        keyterms : typing.Optional[typing.Sequence[str]], default=None
+            List of up to 50 domain-specific terms (names, places, brands, technical terms) to
+            bias recognition toward. Only supported with model="saaras:v4".
+
         callback : typing.Optional[BulkJobCallbackParams], default=OMIT
             Optional callback configuration to receive job completion events.
 
@@ -623,6 +634,7 @@ class AsyncSpeechToTextJobClient:
                 with_diarization=with_diarization,
                 with_timestamps=with_timestamps,
                 num_speakers=num_speakers,  # type: ignore[typeddict-item]
+                keyterms=keyterms,  # type: ignore[typeddict-item]
             ),
             callback=callback,
             request_options=request_options,

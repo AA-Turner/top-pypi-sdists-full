@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import hashlib
 import json
 import socket
+import sys
 import tempfile
 import time
 import webbrowser
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
@@ -29,7 +32,10 @@ from mcp.shared.auth import (
 )
 from pydantic import AnyHttpUrl, ValidationError
 from runlayer_cli import oauth_guidance
-from runlayer_cli.oauth_callback import create_oauth_callback_server
+from runlayer_cli.oauth_callback import (
+    create_oauth_callback_server,
+    serve_oauth_callback_server,
+)
 from runlayer_cli.paths import get_runlayer_dir
 
 
@@ -78,19 +84,48 @@ def get_free_port() -> int:
         return port
 
 
-def _ensure_callback_port_available(port: int) -> None:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+def _callback_socket_error(port: int, stage: str, exc: OSError) -> RuntimeError:
+    error_name = errno.errorcode.get(exc.errno or 0, "UNKNOWN")
+    diagnostic = f"{stage}, {error_name}, errno={exc.errno}"
+    if exc.errno == errno.EADDRINUSE:
+        message = (
+            f"OAuth callback port {port} is already in use ({diagnostic}). Another "
+            "`runlayer run` OAuth flow may be running - finish it first, "
+            "or pass a different --oauth-callback-port (and allowlist "
+            "http://localhost:<port>/callback for that port in your IdP)."
+        )
+    else:
+        message = (
+            f"OAuth callback server could not start on port {port} ({diagnostic}). "
+            "Check that your app or terminal is allowed to open a local loopback "
+            "listener, then retry. If this persists, share this diagnostic with "
+            "your administrator."
+        )
+    return RuntimeError(message)
+
+
+@contextmanager
+def _callback_listener(port: int) -> Iterator[socket.socket]:
+    stage = "socket setup"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    except OSError as exc:
+        raise _callback_socket_error(port, stage, exc) from exc
+    with s:
         try:
+            if sys.platform == "win32":
+                # Winsock SO_REUSEADDR can share an occupied callback port.
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            else:
+                # POSIX reuse permits prompt rebinding after callback shutdown.
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            stage = "bind"
             s.bind(("127.0.0.1", port))
+            stage = "listen"
             s.listen(1)
-        except OSError as e:
-            raise RuntimeError(
-                f"OAuth callback port {port} is already in use. Another "
-                "`runlayer run` OAuth flow may be running - finish it first, "
-                "or pass a different --oauth-callback-port (and allowlist "
-                "http://localhost:<port>/callback for that port in your IdP)."
-            ) from e
+        except OSError as exc:
+            raise _callback_socket_error(port, stage, exc) from exc
+        yield s
 
 
 def get_browser_lockfile_path(server_url: str) -> Path:
@@ -687,11 +722,10 @@ class OAuth(OAuthClientProvider):
             )
 
     async def callback_handler(self) -> tuple[str, str | None]:
-        """Handle OAuth callback and return (auth_code, state)."""
-        # Create a future to capture the OAuth response
+        """Handle OAuth callback on an asyncio loop and return (auth_code, state)."""
+        # Uvicorn requires asyncio; its callback resolves this loop's future.
         response_future = asyncio.get_running_loop().create_future()
         oauth_guidance.mark_oauth_flow_started(self.redirect_port)
-        _ensure_callback_port_available(self.redirect_port)
 
         # Create server with the future
         server = create_oauth_callback_server(
@@ -700,38 +734,67 @@ class OAuth(OAuthClientProvider):
             response_future=response_future,
         )
 
-        # Run server until response is received with timeout logic
-        async with anyio.create_task_group() as tg:
-            tg.start_soon(server.serve)
-            logger.info(
-                f"OAuth callback server started at http://localhost:{self.redirect_port}"
-            )
-
-            TIMEOUT = 300.0  # 5 minute timeout
+        async def serve(listener: socket.socket) -> None:
             try:
-                with anyio.fail_after(TIMEOUT):
-                    auth_code, state = await response_future
-                    # The browser callback delivered an auth code — the flow
-                    # is no longer waiting on a human. (Deliberately NOT
-                    # cleared on timeout/cancellation: a flow that died
-                    # waiting is exactly what the pending-timeout guidance
-                    # describes; the staleness window self-heals the marker.)
-                    oauth_guidance.mark_oauth_flow_finished()
-                    return auth_code, state
-            except TimeoutError:
-                guidance = oauth_guidance.oauth_pending_timeout_message(
-                    self.redirect_port
+                try:
+                    await serve_oauth_callback_server(server, listener)
+                except TimeoutError:
+                    # Startup shield deadline, not a socket failure.
+                    raise
+                except OSError as exc:
+                    raise _callback_socket_error(
+                        self.redirect_port, "startup", exc
+                    ) from exc
+            except Exception as exc:
+                if not response_future.done():
+                    response_future.set_exception(exc)
+            else:
+                if not response_future.done():
+                    response_future.set_exception(
+                        RuntimeError(
+                            "OAuth callback server stopped before receiving a callback"
+                        )
+                    )
+
+        # Retain ownership through partial startup and cancellation. A separate
+        # bind probe leaves a race and cannot release Uvicorn's listener.
+        with _callback_listener(self.redirect_port) as listener:
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(serve, listener)
+                logger.info(
+                    "Starting OAuth callback server", callback_port=self.redirect_port
                 )
-                logger.error(
-                    "oauth_callback_timed_out",
-                    callback_port=self.redirect_port,
-                    timeout_seconds=TIMEOUT,
-                    guidance=guidance,
-                )
-                raise OAuthCallbackTimeoutError(
-                    f"OAuth callback timed out after {TIMEOUT} seconds. {guidance}"
-                )
-            finally:
-                server.should_exit = True
-                await anyio.sleep(0.1)  # Allow server to shutdown gracefully
-                tg.cancel_scope.cancel()
+
+                TIMEOUT = 300.0  # 5 minute timeout
+                try:
+                    with anyio.fail_after(TIMEOUT):
+                        # Read the result after joining the server, preserving
+                        # startup errors without a task-group ExceptionGroup.
+                        await asyncio.wait([response_future])
+                except TimeoutError:
+                    guidance = oauth_guidance.oauth_pending_timeout_message(
+                        self.redirect_port
+                    )
+                    logger.error(
+                        "oauth_callback_timed_out",
+                        callback_port=self.redirect_port,
+                        timeout_seconds=TIMEOUT,
+                        guidance=guidance,
+                    )
+                    if not response_future.done():
+                        response_future.set_exception(
+                            OAuthCallbackTimeoutError(
+                                f"OAuth callback timed out after {TIMEOUT} seconds. {guidance}"
+                            )
+                        )
+                finally:
+                    if not response_future.done():
+                        response_future.cancel()
+                    server.should_exit = True
+                    tg.cancel_scope.cancel()
+
+        auth_code, state = response_future.result()
+        # Clear only after a callback succeeds. Timeout/cancellation keeps the
+        # pending-flow guidance until its staleness window expires.
+        oauth_guidance.mark_oauth_flow_finished()
+        return auth_code, state

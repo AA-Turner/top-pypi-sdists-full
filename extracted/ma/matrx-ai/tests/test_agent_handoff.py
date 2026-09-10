@@ -499,4 +499,6 @@ async def test_run_agent_marks_contained_incomplete_handoff_for_rewind(output, s
     )
 
     assert result.output == output
+    assert result.success is False
+    assert result.error_kind == "execution"
     assert emitter.events == ["completion:failed"]

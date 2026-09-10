@@ -66,6 +66,7 @@ from .literals import (
     EmailHeaderTypeType,
     EndpointTypeType,
     EntityTypeType,
+    EvaluationFormAIVersionStatusType,
     EvaluationFormItemEnablementActionType,
     EvaluationFormItemEnablementOperatorType,
     EvaluationFormItemSourceValuesComparatorType,
@@ -661,6 +662,8 @@ __all__ = (
     "EvaluationAutomationRuleCategoryTypeDef",
     "EvaluationContactLensAnswerAnalysisDetailsTypeDef",
     "EvaluationContactParticipantTypeDef",
+    "EvaluationFormAIVersionLifecycleTypeDef",
+    "EvaluationFormAIVersionSummaryTypeDef",
     "EvaluationFormAutoEvaluationConfigurationTypeDef",
     "EvaluationFormContentTypeDef",
     "EvaluationFormItemEnablementConditionOperandOutputTypeDef",
@@ -681,6 +684,7 @@ __all__ = (
     "EvaluationFormItemTypeDef",
     "EvaluationFormItemUnionTypeDef",
     "EvaluationFormLanguageConfigurationTypeDef",
+    "EvaluationFormMetricConfigurationTypeDef",
     "EvaluationFormMultiSelectQuestionAutomationOptionOutputTypeDef",
     "EvaluationFormMultiSelectQuestionAutomationOptionTypeDef",
     "EvaluationFormMultiSelectQuestionAutomationOptionUnionTypeDef",
@@ -938,6 +942,8 @@ __all__ = (
     "ListEntitySecurityProfilesRequestPaginateTypeDef",
     "ListEntitySecurityProfilesRequestTypeDef",
     "ListEntitySecurityProfilesResponseTypeDef",
+    "ListEvaluationFormAIVersionsRequestTypeDef",
+    "ListEvaluationFormAIVersionsResponseTypeDef",
     "ListEvaluationFormVersionsRequestPaginateTypeDef",
     "ListEvaluationFormVersionsRequestTypeDef",
     "ListEvaluationFormVersionsResponseTypeDef",
@@ -3132,6 +3138,11 @@ class EvaluationContactParticipantTypeDef(TypedDict):
     ContactParticipantRole: NotRequired[ContactParticipantRoleType]
     ContactParticipantId: NotRequired[str]
 
+class EvaluationFormAIVersionLifecycleTypeDef(TypedDict):
+    Status: EvaluationFormAIVersionStatusType
+    StartOfLifeTime: datetime
+    EndOfLifeTime: NotRequired[datetime]
+
 EvaluationFormItemEnablementSourceTypeDef = TypedDict(
     "EvaluationFormItemEnablementSourceTypeDef",
     {
@@ -3146,6 +3157,10 @@ EvaluationFormItemEnablementSourceValueTypeDef = TypedDict(
         "RefId": NotRequired[str],
     },
 )
+
+class EvaluationFormMetricConfigurationTypeDef(TypedDict):
+    MetricType: Literal["BUSINESS_OUTCOME"]
+    MetricName: str
 
 class MultiSelectQuestionRuleCategoryAutomationOutputTypeDef(TypedDict):
     Category: str
@@ -3190,6 +3205,7 @@ class EvaluationFormSearchSummaryTypeDef(TypedDict):
     EvaluationFormLanguage: NotRequired[EvaluationFormLanguageCodeType]
     ContactInteractionType: NotRequired[ContactInteractionTypeType]
     Tags: NotRequired[dict[str, str]]
+    AIVersion: NotRequired[str]
 
 class SingleSelectQuestionRuleCategoryAutomationTypeDef(TypedDict):
     Category: str
@@ -3610,6 +3626,12 @@ class ListEntitySecurityProfilesRequestTypeDef(TypedDict):
     EntityArn: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListEvaluationFormAIVersionsRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactInteractionType: ContactInteractionTypeType
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class ListEvaluationFormVersionsRequestTypeDef(TypedDict):
     InstanceId: str
@@ -6324,6 +6346,10 @@ EvaluationAnswerDataUnionTypeDef = Union[
     EvaluationAnswerDataTypeDef, EvaluationAnswerDataOutputTypeDef
 ]
 
+class EvaluationFormAIVersionSummaryTypeDef(TypedDict):
+    AIVersionName: str
+    AIVersionLifecycle: EvaluationFormAIVersionLifecycleTypeDef
+
 class EvaluationFormItemEnablementExpressionOutputTypeDef(TypedDict):
     Source: EvaluationFormItemEnablementSourceTypeDef
     Values: list[EvaluationFormItemEnablementSourceValueTypeDef]
@@ -7844,6 +7870,11 @@ class InstanceStorageConfigTypeDef(TypedDict):
 
 class EvaluationAnswerInputTypeDef(TypedDict):
     Value: NotRequired[EvaluationAnswerDataUnionTypeDef]
+
+class ListEvaluationFormAIVersionsResponseTypeDef(TypedDict):
+    AIVersionSummaries: list[EvaluationFormAIVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class EvaluationFormItemEnablementConditionOperandOutputTypeDef(TypedDict):
     Expression: NotRequired[EvaluationFormItemEnablementExpressionOutputTypeDef]
@@ -9570,6 +9601,7 @@ class EvaluationFormQuestionOutputTypeDef(TypedDict):
     Enablement: NotRequired[EvaluationFormItemEnablementConfigurationOutputTypeDef]
     Weight: NotRequired[float]
     ScoringConfiguration: NotRequired[EvaluationFormQuestionScoringConfigurationOutputTypeDef]
+    MetricConfiguration: NotRequired[EvaluationFormMetricConfigurationTypeDef]
 
 EvaluationFormSingleSelectQuestionPropertiesUnionTypeDef = Union[
     EvaluationFormSingleSelectQuestionPropertiesTypeDef,
@@ -9846,6 +9878,7 @@ class EvaluationFormContentTypeDef(TypedDict):
     TargetConfiguration: NotRequired[EvaluationFormTargetConfigurationTypeDef]
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
     ReviewConfiguration: NotRequired[EvaluationReviewConfigurationOutputTypeDef]
+    AIVersion: NotRequired[str]
 
 class EvaluationFormTypeDef(TypedDict):
     EvaluationFormId: str
@@ -9868,6 +9901,7 @@ class EvaluationFormTypeDef(TypedDict):
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
     LatestValidationStatus: NotRequired[EvaluationFormValidationStatusType]
     LastValidationTime: NotRequired[datetime]
+    AIVersion: NotRequired[str]
 
 class EvaluationTypeDef(TypedDict):
     EvaluationId: str
@@ -9995,6 +10029,7 @@ class EvaluationFormQuestionTypeDef(TypedDict):
     Enablement: NotRequired[EvaluationFormItemEnablementConfigurationUnionTypeDef]
     Weight: NotRequired[float]
     ScoringConfiguration: NotRequired[EvaluationFormQuestionScoringConfigurationUnionTypeDef]
+    MetricConfiguration: NotRequired[EvaluationFormMetricConfigurationTypeDef]
 
 class BatchPutContactRequestTypeDef(TypedDict):
     InstanceId: str
@@ -10024,6 +10059,7 @@ class CreateEvaluationFormRequestTypeDef(TypedDict):
     ReviewConfiguration: NotRequired[EvaluationReviewConfigurationUnionTypeDef]
     TargetConfiguration: NotRequired[EvaluationFormTargetConfigurationTypeDef]
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
+    AIVersion: NotRequired[str]
 
 class UpdateEvaluationFormRequestTypeDef(TypedDict):
     InstanceId: str
@@ -10040,3 +10076,4 @@ class UpdateEvaluationFormRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     TargetConfiguration: NotRequired[EvaluationFormTargetConfigurationTypeDef]
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
+    AIVersion: NotRequired[str]

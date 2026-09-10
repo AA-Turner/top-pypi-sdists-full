@@ -185,8 +185,59 @@ async def test_degraded_overlay_no_longer_blocks_its_former_stop_region():
     controller = _active_controller()
     point = (900, 20)
     assert controller.blocks_point(point)
+    assert controller.blocking_surface(point) == "stop"
     await controller._degrade("host_exited")
     assert not controller.blocks_point(point)
+
+
+async def _feed_host_events(controller: MacOSPresentationController, *events: dict) -> None:
+    stream = asyncio.StreamReader()
+    for event in events:
+        stream.feed_data(json.dumps(event).encode() + b"\n")
+    stream.feed_eof()
+    controller._process = SimpleNamespace(stdout=stream, stderr=None, returncode=None)
+    controller._stopping = True  # an EOF while stopping is not a host failure
+    await controller._read_host()
+
+
+async def test_activity_grip_events_block_model_input_only_while_the_window_is_shown():
+    """The grip is the one part of the activity window that takes the mouse, so the host
+    reports its frame while shown and null once hidden; the body never blocks."""
+    controller = _active_controller()
+    grip = {"x": 10, "y": 30, "width": 260, "height": 14}
+    await _feed_host_events(controller, {"event": "activityGrip", "region": grip})
+    assert controller.blocking_surface((100, 40)) == "activity"
+    assert controller.blocks_point((100, 40))
+    # Just below the grip is the click-through body: the click reaches the desktop.
+    assert controller.blocking_surface((100, 60)) is None
+    # The Stop item still wins its own region.
+    assert controller.blocking_surface((900, 20)) == "stop"
+
+    await _feed_host_events(controller, {"event": "activityGrip", "region": None})
+    assert controller.blocking_surface((100, 40)) is None
+
+
+async def test_activity_grip_region_is_validated_like_the_stop_region():
+    controller = _active_controller()
+    for bad in (
+        {"x": -5, "y": 30, "width": 260, "height": 14},
+        {"x": 900, "y": 30, "width": 200, "height": 14},
+        "grip",
+    ):
+        await _feed_host_events(controller, {"event": "activityGrip", "region": bad})
+        assert controller._activity_grip_region is None
+
+
+async def test_activity_grip_stops_blocking_once_the_overlay_degrades():
+    controller = _active_controller()
+    await _feed_host_events(
+        controller, {"event": "activityGrip", "region": {"x": 10, "y": 30, "width": 260, "height": 14}}
+    )
+    assert controller.blocking_surface((100, 40)) == "activity"
+    controller._process = None
+    controller._stopping = False
+    await controller._degrade("host_exited")
+    assert controller.blocking_surface((100, 40)) is None
 
 
 async def test_malformed_host_reply_and_lost_acknowledgement_are_classified(monkeypatch):
@@ -311,10 +362,10 @@ async def test_foreground_shell_command_is_shown_in_the_rail_and_the_capsule(mon
     assert rail[-1]["commands"][0]["command"] == "ls -la ~/Documents"
     assert rail[-1]["commands"][0]["run_in_background"] is False
     assert rail[-1]["overflow"] == 0
-    assert any(
-        operation.get("op") == "showThought" and "Run command · $ ls -la ~/Documents" in operation["markdown"]
-        for operation in operations
-    )
+    # The panel beside the cursor carries the command text; the capsule only names the step.
+    thoughts = [operation["markdown"] for operation in operations if operation.get("op") == "showThought"]
+    assert any(thought.startswith("Run command") for thought in thoughts)
+    assert not any("ls -la" in thought for thought in thoughts)
 
     await controller.present(_shell("shell-1", "ls -la ~/Documents", "completed", exit_code=0))
     finished = _rail_renders(commands)[-1]["commands"][0]

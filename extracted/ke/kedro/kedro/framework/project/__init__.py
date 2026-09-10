@@ -7,6 +7,7 @@ import importlib.resources
 import logging.config
 import operator
 import os
+import threading
 import traceback
 import warnings
 from collections import UserDict
@@ -138,7 +139,7 @@ class _ProjectSettings(LazySettings):
     )
     _SESSION_STORE_ARGS = Validator("SESSION_STORE_ARGS", default={})
     _DISABLE_HOOKS_FOR_PLUGINS = Validator("DISABLE_HOOKS_FOR_PLUGINS", default=tuple())
-    _RUNNER_MODULES_WHITELIST = Validator("RUNNER_MODULES_WHITELIST", default=tuple())
+    _RUNNER_MODULE_ALLOWLIST = Validator("RUNNER_MODULE_ALLOWLIST", default=tuple())
     _CONFIG_LOADER_CLASS = _HasSharedParentClassValidator(
         "CONFIG_LOADER_CLASS",
         default=_get_default_class("kedro.config.OmegaConfigLoader"),
@@ -150,6 +151,8 @@ class _ProjectSettings(LazySettings):
         "DATA_CATALOG_CLASS",
         default=_get_default_class("kedro.io.DataCatalog"),
     )
+    # Boolean for now; "warn"/"strict" modes are planned as a follow-up.
+    _DATASET_VALIDATION = Validator("DATASET_VALIDATION", default=True)
 
     def __init__(self, *args: Any, **kwargs: Any):
         kwargs.update(
@@ -161,10 +164,11 @@ class _ProjectSettings(LazySettings):
                 self._SESSION_STORE_CLASS,
                 self._SESSION_STORE_ARGS,
                 self._DISABLE_HOOKS_FOR_PLUGINS,
-                self._RUNNER_MODULES_WHITELIST,
+                self._RUNNER_MODULE_ALLOWLIST,
                 self._CONFIG_LOADER_CLASS,
                 self._CONFIG_LOADER_ARGS,
                 self._DATA_CATALOG_CLASS,
+                self._DATASET_VALIDATION,
             ]
         )
         super().__init__(*args, **kwargs)
@@ -176,8 +180,9 @@ def _load_data_wrapper(func: Any) -> Any:
     """
 
     def inner(self: Any, *args: Any, **kwargs: Any) -> Any:
-        self._load_data()
-        return func(self._content, *args, **kwargs)
+        with self._lock:
+            content = self._load_data()
+            return func(content, *args, **kwargs)
 
     return inner
 
@@ -197,6 +202,17 @@ class _ProjectPipelines(MutableMapping):
     3. To ensure Kedro CLI remains functional when pipelines are broken. During development, broken
        pipelines are common, but they shouldn't prevent other parts of Kedro CLI from functioning
        properly (e.g. `kedro -h`).
+
+    Note:
+        Accessing `pipelines` from module-level code that runs during an import (e.g. a
+        helper module imported by `pipeline_registry.py` that reads `pipelines[...]` at
+        import time) is not supported and can deadlock. `_load_data()` holds the instance
+        lock across `importlib.import_module` and the user-supplied `register_pipelines()`
+        call, so if another thread is meanwhile importing that same module and blocked on
+        Python's per-module import lock waiting to acquire our instance lock, the two
+        threads wait on each other forever. The lock here only protects against per-call
+        state races (double loading, torn reads); it does not make import-time access to
+        `pipelines` safe.
     """
 
     def __init__(self) -> None:
@@ -204,6 +220,11 @@ class _ProjectPipelines(MutableMapping):
         self._is_data_loaded = False
         self._content: dict[str, Pipeline] = {}
         self._requested_pipelines: list[str] | None = None
+        # RLock because `inner` (in _load_data_wrapper) takes the lock and then calls
+        # _load_data(), which takes it again on the same thread — this happens on every
+        # load. It also lets configure()/set_requested() be re-entered from the same
+        # thread, e.g. if a user's register_pipelines() calls back into either of them.
+        self._lock = threading.RLock()
 
     @staticmethod
     def _get_pipelines_registry_callable(pipelines_module: str) -> Any:
@@ -211,21 +232,22 @@ class _ProjectPipelines(MutableMapping):
         register_pipelines = getattr(module_obj, "register_pipelines")
         return register_pipelines
 
-    def _load_data(self) -> None:
-        """Lazily read pipelines defined in the pipelines registry module."""
+    def _load_data(self) -> dict[str, Pipeline]:
+        """Lazily read pipelines defined in the pipelines registry module.
 
-        # If the pipelines dictionary has not been configured with a pipelines module
-        # or if data has been loaded
-        if self._pipelines_module is None or self._is_data_loaded:
-            return
-
-        register_pipelines = self._get_pipelines_registry_callable(
-            self._pipelines_module
-        )
-        project_pipelines = register_pipelines()
-
-        self._content = project_pipelines
-        self._is_data_loaded = True
+        Returns:
+            The loaded pipelines dictionary, or the current (possibly empty)
+            ``_content`` unchanged if not configured or already loaded.
+        """
+        with self._lock:
+            if self._pipelines_module is None or self._is_data_loaded:
+                return self._content
+            register_pipelines = self._get_pipelines_registry_callable(
+                self._pipelines_module
+            )
+            self._content = register_pipelines()
+            self._is_data_loaded = True
+            return self._content
 
     def set_requested(self, pipeline_names: list[str] | None) -> None:
         """Store which pipelines should be loaded on the next dict access.
@@ -237,32 +259,37 @@ class _ProjectPipelines(MutableMapping):
             pipeline_names: Names of the pipelines to load selectively, or
                 ``None`` to load all registered pipelines.
         """
-        if set(self._requested_pipelines or []) != set(pipeline_names or []):
-            self._is_data_loaded = False
-            self._content = {}
-        self._requested_pipelines = (
-            list(pipeline_names) if pipeline_names is not None else None
-        )
+        with self._lock:
+            if set(self._requested_pipelines or []) != set(pipeline_names or []):
+                self._is_data_loaded = False
+                self._content = {}
+            self._requested_pipelines = (
+                list(pipeline_names) if pipeline_names is not None else None
+            )
 
     def configure(self, pipelines_module: str | None = None) -> None:
         """Configure the pipelines_module to load the pipelines dictionary.
         Reset the data loading state so that after every ``configure`` call,
         data are reloaded.
         """
-        self._pipelines_module = pipelines_module
-        self._is_data_loaded = False
-        self._content = {}
-        self._requested_pipelines = None
+        with self._lock:
+            self._pipelines_module = pipelines_module
+            self._is_data_loaded = False
+            self._content = {}
+            self._requested_pipelines = None
 
     # Dict-like interface
     __getitem__ = _load_data_wrapper(operator.getitem)
     __setitem__ = _load_data_wrapper(operator.setitem)
     __delitem__ = _load_data_wrapper(operator.delitem)
-    __iter__ = _load_data_wrapper(iter)
     __len__ = _load_data_wrapper(len)
-    keys = _load_data_wrapper(operator.methodcaller("keys"))
-    values = _load_data_wrapper(operator.methodcaller("values"))
-    items = _load_data_wrapper(operator.methodcaller("items"))
+    # These return snapshots (not live views over `content`) so that iterating/reading
+    # them after the lock is released is safe even if a concurrent configure()/
+    # set_requested() mutates `self._content` in place in the meantime.
+    __iter__ = _load_data_wrapper(lambda content: iter(dict(content)))
+    keys = _load_data_wrapper(lambda content: dict(content).keys())
+    values = _load_data_wrapper(lambda content: dict(content).values())
+    items = _load_data_wrapper(lambda content: dict(content).items())
 
     # Presentation methods
     __repr__ = _load_data_wrapper(repr)
@@ -301,13 +328,16 @@ class _ProjectLogging(UserDict):
         self.configure(yaml.safe_load(logging_config))
         logger.info(msg)
 
-    def _validate_logging_class(self, class_path: str) -> None:
-        """Validate that a class referenced in logging configuration is a legitimate
-        logging class (i.e. a subclass of logging.Handler, logging.Formatter, or
-        logging.Filter).
+    def _resolve_logging_class(self, class_path: str) -> type[Any] | None:
+        """Resolve and validate that a class referenced in logging configuration is
+        a legitimate logging class (i.e. a subclass of logging.Handler,
+        logging.Formatter, or logging.Filter).
 
         Args:
             class_path: Dotted import path to the class, e.g. ``logging.StreamHandler``.
+
+        Returns:
+            Resolved class, or ``None`` for bare names resolved internally by logging.
 
         Raises:
             ValueError: If the class cannot be imported or is not a logging base class.
@@ -316,7 +346,7 @@ class _ProjectLogging(UserDict):
         module_path, _, class_name = class_path.rpartition(".")
         if not module_path:
             # Bare name (e.g. "StreamHandler") resolved internally by logging machinery.
-            return
+            return None
 
         try:
             module = importlib.import_module(module_path)
@@ -339,7 +369,19 @@ class _ProjectLogging(UserDict):
                 f"Got {type(cls).__name__!r}."
             )
 
-    def _validate_logging_config(self, config: Any) -> Any:
+        return cls
+
+    def _validate_logging_class(self, class_path: str) -> type[Any] | None:
+        """Validate that a class referenced in logging configuration is a legitimate
+        logging class (i.e. a subclass of logging.Handler, logging.Formatter, or
+        logging.Filter)."""
+        return self._resolve_logging_class(class_path)
+
+    def _validate_logging_config(
+        self,
+        config: Any,
+        resolved_logging_classes: dict[str, type[Any] | None] | None = None,
+    ) -> Any:
         """Recursively check the logging configuration and raise an error if dangerous
         '()' factory keys are encountered or if any 'class' value is not a legitimate
         logging class."""
@@ -349,23 +391,91 @@ class _ProjectLogging(UserDict):
                     "The '()' key is not allowed in logging configuration as it poses a security risk."
                 )
             if "class" in config:
-                self._validate_logging_class(config["class"])
+                class_path = config["class"]
+                resolved_class = self._validate_logging_class(class_path)
+                if resolved_logging_classes is not None:
+                    resolved_logging_classes[class_path] = resolved_class
             validated = {}
             for k, v in config.items():
-                validated[k] = self._validate_logging_config(v)
+                validated[k] = self._validate_logging_config(
+                    v, resolved_logging_classes
+                )
             return validated
         elif isinstance(config, list):
-            return [self._validate_logging_config(item) for item in config]
+            return [
+                self._validate_logging_config(item, resolved_logging_classes)
+                for item in config
+            ]
         else:
             return config
+
+    def _prepare_logging_config(
+        self,
+        logging_config: dict[str, Any],
+        resolved_logging_classes: dict[str, type[Any] | None] | None = None,
+    ) -> dict[str, Any]:
+        """Prepare a validated logging configuration for ``dictConfig``.
+
+        ``logging.config.dictConfig`` only instantiates custom filters through the
+        ``()`` factory key, which Kedro rejects in user configuration for security
+        reasons. For validated top-level filter definitions, convert ``class`` to an
+        internal callable so custom ``logging.Filter`` subclasses are instantiated
+        without allowing user-provided factories.
+        """
+        prepared_config = logging_config.copy()
+
+        if "filters" not in logging_config:
+            return prepared_config
+
+        filters = logging_config["filters"]
+
+        if not isinstance(filters, dict):
+            return prepared_config
+
+        prepared_filters = filters.copy()
+        prepared_config["filters"] = prepared_filters
+
+        for filter_name, filter_config in prepared_filters.items():
+            if not isinstance(filter_config, dict) or "class" not in filter_config:
+                continue
+
+            class_path = filter_config["class"]
+            filter_class = (
+                resolved_logging_classes[class_path]
+                if resolved_logging_classes is not None
+                and class_path in resolved_logging_classes
+                else self._resolve_logging_class(class_path)
+            )
+
+            if filter_class is None:
+                continue
+
+            if not issubclass(filter_class, logging.Filter):
+                raise ValueError(
+                    f"Invalid logging filter class '{class_path}' for filter "
+                    f"'{filter_name}'. Must be a subclass of logging.Filter."
+                )
+
+            prepared_filter_config = {
+                key: value for key, value in filter_config.items() if key != "class"
+            }
+            prepared_filter_config["()"] = filter_class
+            prepared_filters[filter_name] = prepared_filter_config
+
+        return prepared_config
 
     def configure(self, logging_config: dict[str, Any]) -> None:
         """Configure project logging using ``logging_config`` (e.g. from project
         logging.yml). We store this in the UserDict data so that it can be reconfigured
         in _bootstrap_subprocess.
         """
-        validated_config = self._validate_logging_config(logging_config)
-        logging.config.dictConfig(validated_config)
+        resolved_logging_classes: dict[str, type[Any] | None] = {}
+        validated_config = self._validate_logging_config(
+            logging_config, resolved_logging_classes
+        )
+        logging.config.dictConfig(
+            self._prepare_logging_config(validated_config, resolved_logging_classes)
+        )
         self.data = validated_config
 
     def set_project_logging(

@@ -881,10 +881,15 @@ class Connection:
         )
 
         # call the refresh!
-        result = self.msal_client.acquire_token_silent_with_error(
-            scopes=scopes,
-            account=self.msal_client.get_accounts(username=self.username)[0],
-        )
+        if self.auth_flow_type == "credentials":
+            # in this case we don't have an account to work with...
+            result = self.msal_client.acquire_token_for_client(scopes=scopes)
+        else:
+            # call the refresh!
+            result = self.msal_client.acquire_token_silent_with_error(
+                scopes=scopes,
+                account=self.msal_client.get_accounts(username=self.username)[0],
+            )
         if result is None:
             raise RuntimeError("There is no refresh token to refresh")
         elif "error" in result:

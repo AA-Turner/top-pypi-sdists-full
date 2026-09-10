@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, TypeVar
 
-from aws_durable_execution_sdk_python.exceptions import ExecutionError
+from aws_durable_execution_sdk_python.exceptions import ExecutionError, InvokeError
 from aws_durable_execution_sdk_python.lambda_service import (
     ChainedInvokeOptions,
     OperationUpdate,
@@ -81,12 +81,10 @@ class InvokeOperationExecutor(OperationExecutor[R]):
             CheckResult indicating the next action to take
 
         Raises:
-            CallableRuntimeError: For FAILED, TIMED_OUT, or STOPPED operations
+            InvokeError: For FAILED, TIMED_OUT, or STOPPED operations
             SuspendExecution: For STARTED operations waiting for completion
         """
-        checkpointed_result: CheckpointedResult = self.state.get_checkpoint_result(
-            self.operation_identifier.operation_id
-        )
+        checkpointed_result = self._get_checkpoint_result()
 
         # Terminal success - deserialize and return
         if checkpointed_result.is_succeeded():
@@ -107,7 +105,7 @@ class InvokeOperationExecutor(OperationExecutor[R]):
             or checkpointed_result.is_timed_out()
             or checkpointed_result.is_stopped()
         ):
-            checkpointed_result.raise_callable_error()
+            checkpointed_result.raise_operation_error(InvokeError)
 
         # Still running - ready to suspend
         if checkpointed_result.is_started():
@@ -166,7 +164,7 @@ class InvokeOperationExecutor(OperationExecutor[R]):
             ExecutionError: If suspend doesn't raise (should never happen)
         """
         msg: str = f"Invoke {self.operation_identifier.operation_id} started, suspending for completion"
-        suspend_with_optional_resume_delay(msg, self.config.timeout_seconds)
+        suspend_with_optional_resume_delay(msg)
         # This line should never be reached since suspend_with_optional_resume_delay always raises
         error_msg: str = "suspend_with_optional_resume_delay should have raised an exception, but did not."
         raise ExecutionError(error_msg) from None

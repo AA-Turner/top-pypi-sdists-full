@@ -54,6 +54,8 @@ pub struct ModelMetadata {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TrainingConfigMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_split_candidates: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend: Option<cartoboost_accelerator::BackendSelection>,
     pub n_estimators: usize,
     pub learning_rate: f64,

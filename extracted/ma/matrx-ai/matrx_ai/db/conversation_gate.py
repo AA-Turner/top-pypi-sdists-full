@@ -478,6 +478,26 @@ def _resolve_initial_conversation_title(
     return _format_initial_title("Conversation", ctx)
 
 
+async def _capture_parent_lineage_failure(parent_id: str, child_id: str, exc: Exception | None = None) -> None:
+    from matrx_connect import try_get_app_context
+    from matrx_connect.streaming.error_capture import capture_error
+
+    ctx = try_get_app_context()
+    await capture_error(
+        exc or RuntimeError("Parent conversation does not exist at the child persistence boundary"),
+        kind="conversation_parent_lineage_unavailable",
+        route="matrx_ai.db.conversation_gate",
+        request_id=getattr(ctx, "request_id", None),
+        user_id=getattr(ctx, "user_id", None),
+        conversation_id=child_id,
+        context={
+            "parent_conversation_id": parent_id,
+            "child_conversation_id": child_id,
+            "reason": "lookup_failed" if exc is not None else "parent_missing",
+        },
+    )
+
+
 async def resolve_parent_conversation_lineage(
     parent_conversation_id: str | None,
     child_conversation_id: str,
@@ -516,6 +536,7 @@ async def resolve_parent_conversation_lineage(
         # A read failure here must NOT block the child write. Fail toward
         # NULL (drop the lineage) — losing provenance is recoverable; losing
         # the conversation is not.
+        await _capture_parent_lineage_failure(parent_conversation_id, child_conversation_id, exc)
         vcprint(
             f"[ConversationGate] parent-lineage existence check raised "
             f"({type(exc).__name__}: {exc}); dropping parent_conversation_id "
@@ -526,6 +547,7 @@ async def resolve_parent_conversation_lineage(
         return None
     if rows:
         return parent_conversation_id
+    await _capture_parent_lineage_failure(parent_conversation_id, child_conversation_id)
     vcprint(
         "\n"
         "================================================================\n"
@@ -1467,14 +1489,26 @@ async def update_conversation_status(
         return
     if not _is_valid_uuid(conversation_id):
         return
-    if _get_coordinator() is not None:
+    if _get_active_lane_coordinator() is not None:
         _queue_conversation_update(conversation_id, status=status)
         return
     try:
-        await _cxm().conversation.update_conversation(
-            conversation_id,
-            status=status,
+        from matrx_orm import (
+            COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+            Session,
+            allow_direct_coordinator_write,
         )
+
+        with allow_direct_coordinator_write(
+            _cxm().conversation.model,
+            reason="out-of-lane conversation status update — no active Coordinator",
+            acknowledgement=COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+        ):
+            async with Session():
+                await _cxm().conversation.update_conversation(
+                    conversation_id,
+                    status=status,
+                )
     except Exception as exc:
         vcprint(
             f"[ConversationGate] Failed to update status to {status!r}: {exc}",
@@ -1745,7 +1779,7 @@ async def _create_user_request(
     # persist_completed_request. Cancellation can no longer land the INSERT
     # but skip the UPDATE because BOTH live in the same end-of-stream
     # transaction.
-    if _get_coordinator() is not None:
+    if _get_active_lane_coordinator() is not None:
         qk = dict(create_kwargs)
         qk.pop("id", None)
         _queue_user_request_create(id=request_id, **qk)
@@ -1908,7 +1942,7 @@ async def update_user_request_status(
     if error is not None:
         update_kwargs["error"] = error
 
-    if _get_coordinator() is not None:
+    if _get_active_lane_coordinator() is not None:
         _queue_user_request_update(request_id, **update_kwargs)
         return
 

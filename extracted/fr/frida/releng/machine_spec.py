@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import platform
 import re
 import subprocess
-from typing import List, Optional
+from typing import FrozenSet, List, Optional
 
 if platform.system() == "Windows":
     import ctypes
@@ -142,6 +142,24 @@ class MachineSpec:
         return "-".join(parts)
 
     @property
+    def config_tags(self) -> FrozenSet[str]:
+        if self.config is None:
+            return frozenset()
+        return frozenset(self.config.split("_"))
+
+    @property
+    def config_is_softfloat(self) -> bool:
+        return "softfloat" in self.config_tags
+
+    @property
+    def config_is_pic(self) -> bool:
+        return "pic" in self.config_tags
+
+    @property
+    def config_is_msabi(self) -> bool:
+        return "msabi" in self.config_tags
+
+    @property
     def config_is_optimized(self) -> bool:
         if self.toolchain_is_msvc:
             return self.config in {"md", "mt"}
@@ -173,7 +191,13 @@ class MachineSpec:
         return self.os in {"macos", "ios", "watchos", "tvos", "xros"}
 
     @property
+    def is_freestanding(self) -> bool:
+        return self.os == "none" or self.config == "kernel"
+
+    @property
     def system(self) -> str:
+        if self.config == "kernel":
+            return "none"
         return "darwin" if self.is_apple else self.os
 
     @property
@@ -407,3 +431,4 @@ PROCESSOR_ARCHITECTURE_ARM64 = 12
 
 IMAGE_FILE_MACHINE_AMD64 = 0x8664
 IMAGE_FILE_MACHINE_ARM64 = 0xAA64
+

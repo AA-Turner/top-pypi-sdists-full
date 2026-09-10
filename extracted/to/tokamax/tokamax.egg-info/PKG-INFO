@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokamax
-Version: 0.0.13
+Version: 0.0.14
 Summary: A Pallas Custom Kernel Library.
 Author-email: Ani Udipi <udipi@google.com>, Chris Jones <cjfj@google.com>, Christos Perivolaropoulos <cperivol@google.com>, Giorgio Arena <giorgioa@google.com>, Gleb Pobudzey <pobudzey@google.com>, Robert Dyro <rdyro@google.com>, Sebastian Bodenstein <sbodenstein@google.com>, Selim Seferbekov <selimsef@google.com>, Stanley Tzeng <stzeng@google.com>, Niyati Chaudhary <niyatic@google.com>
 License: 
@@ -242,7 +242,8 @@ Dynamic: license-file
 
 # Tokamax
 
-[![CI](https://github.com/openxla/tokamax/actions/workflows/ci-build.yml/badge.svg)](https://github.com/openxla/tokamax/actions/workflows/ci-build.yml)
+[![nightly](https://img.shields.io/github/actions/workflow/status/openxla/tokamax/ci-nightly.yml?label=nightly&logo=githubactions&logoColor=white)](https://github.com/openxla/tokamax/actions/workflows/ci-nightly.yml)
+[![pre-submit](https://img.shields.io/github/actions/workflow/status/openxla/tokamax/ci-build.yml?event=pull_request&label=pre-submit&logo=githubactions&logoColor=white)](https://github.com/openxla/tokamax/actions/workflows/ci-build.yml?query=event%3Apull_request)
 [![PyPI version](https://img.shields.io/pypi/v/tokamax)](https://pypi.org/project/tokamax/)
 ![Static Badge](https://img.shields.io/badge/Under_Development-red)
 
@@ -398,6 +399,25 @@ of standard StableHLO. Tokamax makes two serialization guarantees:
 2.  Tokamax gives the same
     [compatibility guarantees as JAX](https://docs.jax.dev/en/latest/export/export.html#compatibility-guarantees-for-custom-calls):
     6 month backward compatibility.
+
+#### Cross-Compilation and CPU Export
+
+Tokamax kernels can be exported or cross-compiled on a CPU host:
+
+*   Explicit implementation selection (e.g. `implementation="mosaic_tpu_v2"`)
+    automatically bypasses host device validation.
+*   Alternatively, enable cross-compilation globally using
+    `tokamax.config.cross_compile(True)`:
+
+```python
+with tokamax.config.cross_compile(True):
+  f_exported = export.export(
+      f, disabled_checks=tokamax.DISABLE_JAX_EXPORT_CHECKS
+  )(
+      jax.ShapeDtypeStruct(x.shape, x.dtype),
+      ...,
+  )
+```
 
 ### Benchmarking
 

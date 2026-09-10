@@ -55,7 +55,8 @@ def sync_detailed(
     this key: a PEM public key (RS/ES family, HS* refused) or a JWKS URL, at most one. Both empty clears
     the workspace key; off cloud, verification then falls back to the instance issuer
     (`JWT_EXT_JWKS_URL`) if one is set, else no guest JWT is accepted (`guest_access_enabled` is the
-    on/off switch). Workspace-admin gated. The key is validated before it is stored.
+    on/off switch). Workspace-admin gated. The key is validated before it is stored. Setting a key is
+    refused with a 400 where guests are unavailable (the shared cloud); clearing one always works.
 
     Args:
         workspace (str):
@@ -93,7 +94,8 @@ async def asyncio_detailed(
     this key: a PEM public key (RS/ES family, HS* refused) or a JWKS URL, at most one. Both empty clears
     the workspace key; off cloud, verification then falls back to the instance issuer
     (`JWT_EXT_JWKS_URL`) if one is set, else no guest JWT is accepted (`guest_access_enabled` is the
-    on/off switch). Workspace-admin gated. The key is validated before it is stored.
+    on/off switch). Workspace-admin gated. The key is validated before it is stored. Setting a key is
+    refused with a 400 where guests are unavailable (the shared cloud); clearing one always works.
 
     Args:
         workspace (str):

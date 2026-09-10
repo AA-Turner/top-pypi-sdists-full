@@ -89,7 +89,7 @@ class ReportingCommand(SearchCommand):
     def prepare(self):
         if self.phase == "map":
             if self._has_custom_method("map"):
-                phase_method = getattr(self.__class__, "map")
+                phase_method = self.__class__.map
                 self._configuration = phase_method.ConfigurationSettings(self)
             else:
                 self._configuration = self.ConfigurationSettings(self)
@@ -216,14 +216,13 @@ class ReportingCommand(SearchCommand):
             doc="""
             Specifies the maximum number of events that can be passed to the command for each invocation.
 
-            This limit cannot exceed the value of `maxresultrows` in limits.conf_. Under SCP 1 you must specify this
-            value in commands.conf_.
+            This limit cannot exceed the value of `maxresultrows` in `limits.conf
+            <http://docs.splunk.com/Documentation/Splunk/latest/admin/Limitsconf>`_. Under SCP 1 you must specify this
+            value in `commands.conf <http://docs.splunk.com/Documentation/Splunk/latest/Admin/Commandsconf>`_.
 
             Default: The value of `maxresultrows`.
 
             Supported by: SCP 2
-
-            .. _limits.conf: http://docs.splunk.com/Documentation/Splunk/latest/admin/Limitsconf
 
             """
         )

@@ -66,6 +66,7 @@ fn default_standalone_backend() -> String {
 impl StandaloneBoosterConfig {
     fn to_booster_config(&self) -> BoosterConfig {
         BoosterConfig {
+            max_split_candidates: None,
             n_estimators: self.n_estimators,
             learning_rate: self.learning_rate,
             max_depth: self.max_depth,

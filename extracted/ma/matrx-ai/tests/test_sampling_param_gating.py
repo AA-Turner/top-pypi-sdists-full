@@ -96,23 +96,27 @@ def test_anthropic_no_thinking_keeps_temperature():
     cfg = _config(temperature=0.25)
     req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
     assert "thinking" not in req
-    assert req["temperature"] == 0.25
+    # ai_076: the catalog declares wire_container="extra_body" — the anthropic
+    # 1.x SDK no longer takes the sampling kwargs, the API still does.
+    assert "temperature" not in req
+    assert req["extra_body"]["temperature"] == 0.25
 
 
 def test_anthropic_thinking_drops_incompatible_sampling_params():
     cfg = _config(temperature=0.25, top_k=40, top_p=0.5, reasoning_effort="high")
     req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
     assert "thinking" in req, "high reasoning_effort should enable a thinking block"
-    assert "temperature" not in req
-    assert "top_k" not in req
-    assert "top_p" not in req
+    assert "extra_body" not in req, "every sampling knob dropped — no empty container on the wire"
+    for key in ("temperature", "top_k", "top_p"):
+        assert key not in req
 
 
 def test_anthropic_thinking_keeps_temperature_1():
     cfg = _config(temperature=1, reasoning_effort="high")
     req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
     assert "thinking" in req
-    assert req["temperature"] == 1
+    assert req["extra_body"]["temperature"] == 1
+    assert "temperature" not in req
 
 
 def test_anthropic_thinking_keeps_in_range_top_p():
@@ -120,4 +124,5 @@ def test_anthropic_thinking_keeps_in_range_top_p():
     cfg = _config(top_p=0.97, reasoning_effort="high")
     req = AnthropicTranslator().to_anthropic(cfg, _anthropic_profile())
     assert "thinking" in req
-    assert req["top_p"] == 0.97
+    assert req["extra_body"]["top_p"] == 0.97
+    assert "top_p" not in req

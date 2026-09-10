@@ -5,17 +5,19 @@ from __future__ import annotations
 import csv
 import io
 import sys
+import threading
 import warnings
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
 from argus_redact.exceptions import SecurityWarning
-from argus_redact.glue.redact import _build_type_map, _detect
+from argus_redact.glue.redact import _build_type_map, _detect, _validate_mode
 from argus_redact.pure.lang_detect import detect_languages
 from argus_redact.pure.replacer import (
     make_structured_session,
     replace_into_session,
+    warn_alias_collisions,
     warn_coverage_restored,
     warn_mask_collisions,
 )
@@ -35,6 +37,11 @@ __all__ = [
 # caller's own stack; it is far deeper than any real LLM/CSV payload nests. The
 # SAME limit is enforced symmetrically on both the redact and restore walks.
 _MAX_STRUCTURED_DEPTH = 128
+
+# Guards the read-raise-parse-restore sequence in ``_parse_csv_rows`` below
+# (see its docstring for why); non-reentrant on purpose — nothing in the
+# guarded section may re-enter ``_parse_csv_rows``.
+_CSV_LIMIT_LOCK = threading.Lock()
 
 
 def _cell_has_pii(text: str, *, mode: str, lang: str | list[str]) -> bool:
@@ -128,21 +135,59 @@ def _parse_paths(paths: list[str | list[str]]) -> list[list[str]]:
     taken verbatim with no ``.``/``[*]`` parsing — the escape hatch for a key
     that literally contains a dot or bracket (``[["a.b"]]`` targets the single
     top-level key ``"a.b"``, which no dot-notation string could reach).
+
+    Raises:
+        TypeError: if an entry is neither ``str`` nor ``list`` (e.g. a tuple),
+            or a list entry's segments are not all ``str`` (e.g. ``["user", 1]``)
+            — either would otherwise crash later with a raw, less legible
+            ``AttributeError`` when the segment is compared or ``.isdigit()``-checked.
+        ValueError: if a selector resolves to zero path segments (``""``, ``"."``,
+            or ``[]``), or a list-entry segment is the empty string (``[""]``) —
+            such a selector can never match any leaf, so it is almost certainly a
+            typo that would otherwise silently redact nothing. The dot-notation
+            string form already drops empty segments from ``"[*]".split(".")``
+            noise (see below); a list entry takes segments VERBATIM, so an
+            empty-string segment there must be rejected explicitly for the two
+            forms to agree — otherwise ``paths=[[""]]`` would silently pass
+            where the equivalent ``paths=[""]`` correctly raises.
     """
     parsed = []
     for path in paths:
+        if not isinstance(path, (str, list)):
+            raise TypeError(
+                f"paths entries must be a str or a list of str segments, "
+                f"got {type(path).__name__}: {path!r}"
+            )
         if isinstance(path, list):
-            parsed.append(list(path))
-            continue
-        segments = []
-        for part in path.replace("[*]", ".*").split("."):
-            # A leading (or doubled) "[*]" turns into an empty segment once split
-            # on ".": "[*].phone" -> ".*.phone" -> ['', '*', 'phone']. A top-level
-            # list leaf's walk-path never carries that empty prefix, so the path
-            # would never match and the leaf silently goes unredacted. Drop empty
-            # segments so "[*].phone" behaves the same as "*.phone".
-            if part:
-                segments.append(part)
+            bad_segs = [seg for seg in path if not isinstance(seg, str)]
+            if bad_segs:
+                raise TypeError(
+                    f"paths list-entry segments must all be str, got "
+                    f"{type(bad_segs[0]).__name__} in {path!r}"
+                )
+            if any(seg == "" for seg in path):
+                raise ValueError(
+                    f"paths list-entry {path!r} contains an empty-string segment; "
+                    f"pass a non-empty selector, or paths=None to redact the "
+                    f"whole document"
+                )
+            segments = list(path)
+        else:
+            segments = []
+            for part in path.replace("[*]", ".*").split("."):
+                # A leading (or doubled) "[*]" turns into an empty segment once
+                # split on ".": "[*].phone" -> ".*.phone" -> ['', '*', 'phone']. A
+                # top-level list leaf's walk-path never carries that empty prefix,
+                # so the path would never match and the leaf silently goes
+                # unredacted. Drop empty segments so "[*].phone" behaves the same
+                # as "*.phone".
+                if part:
+                    segments.append(part)
+        if not segments:
+            raise ValueError(
+                f"paths selector {path!r} resolves to zero path segments; pass a "
+                f"non-empty selector, or paths=None to redact the whole document"
+            )
         parsed.append(segments)
     return parsed
 
@@ -262,12 +307,22 @@ def redact_json(
 
     Raises:
         ValueError: if the document nests deeper than ``_MAX_STRUCTURED_DEPTH``,
-            or if ``on_unscannable`` is not ``"warn"``/``"raise"``.
+            if ``mode`` is not a recognized detection mode, if ``on_unscannable``
+            is not ``"warn"``/``"raise"``, if ``paths`` is an empty (but not
+            ``None``) list, or if a ``paths`` selector resolves to zero path
+            segments (``""``, ``"."``, or ``[]``).
         TypeError: if ``on_unscannable="raise"`` and the document contains a leaf
-            whose type cannot be scanned for PII.
+            whose type cannot be scanned for PII, if ``paths`` is a bare ``str``,
+            or if a ``paths`` entry (or one of its list-entry segments) is not a
+            ``str``.
     """
+    _validate_mode(mode)
     if isinstance(paths, str):
         raise TypeError("paths must be a list of path strings, not a str")
+    if paths is not None and not paths:
+        raise ValueError(
+            "paths must be a non-empty list of selectors, or None for the whole document"
+        )
     if on_unscannable not in ("warn", "raise"):
         raise ValueError(
             f"redact_json: on_unscannable must be 'warn' or 'raise', got {on_unscannable!r}"
@@ -535,6 +590,12 @@ def restore_json(
     # documents, but merges the key + compiles the pattern ONCE for the whole
     # document instead of on every leaf.
     session = make_structured_restorer(key, aliases=aliases)
+    # An alias claimed by two originals means the restored value for that
+    # alias may be the WRONG IDENTITY — the same condition batch `restore`
+    # warns about, single-sourced through `warn_alias_collisions`. The
+    # collisions are resolved once when the session merges the key, so this
+    # fires right after construction, mirroring `StreamingRestorer.__init__`.
+    warn_alias_collisions(list(session.alias_collisions))
 
     def _walk(obj: Any, depth: int = 0) -> Any:
         if depth > _MAX_STRUCTURED_DEPTH:
@@ -582,22 +643,33 @@ def _parse_csv_rows(csv_text: str) -> list[list[str]]:
     stay symmetric (same dialect) and a comma inside a restored value can't
     reshape the columns.
 
-    ``csv.field_size_limit`` (default 128 KiB) is raised to ``sys.maxsize`` for
+    ``csv.field_size_limit`` (default 128 KiB) is raised to ``2**31 - 1`` for
     the parse and restored afterwards: a single cell over that limit otherwise
     raises an uncaught ``_csv.Error`` (naming the byte count — PII-adjacent).
     Bumping it here fixes BOTH faces at once and with the IDENTICAL limit, since
-    ``redact_csv`` and ``restore_csv`` share this one parser. The limit is a
-    process-global, so the previous value is restored in ``finally`` and a
-    concurrent parse can never observe it unbounded past this call."""
-    old_limit = csv.field_size_limit()
-    try:
-        # 2**31-1, not sys.maxsize: a C long is 32-bit on Windows (LLP64), so
-        # csv.field_size_limit(sys.maxsize) raises OverflowError there. 2 GB per
-        # field is still far past any real cell, and safe on every platform.
-        csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
-        return list(csv.reader(io.StringIO(csv_text)))
-    finally:
-        csv.field_size_limit(old_limit)
+    ``redact_csv`` and ``restore_csv`` share this one parser. The cap is
+    ``2**31 - 1``, not ``sys.maxsize``: a C ``long`` is 32-bit on Windows
+    (LLP64), so ``csv.field_size_limit(sys.maxsize)`` raises ``OverflowError``
+    there. 2 GB per field is still far past any real cell, and safe on every
+    platform.
+
+    The limit is a process-global, not thread-local, so the read of the old
+    value, the raise, the parse, and the restore all happen inside
+    ``_CSV_LIMIT_LOCK``. Without that lock two concurrent calls interleave on
+    the same global: thread B can read the limit while thread A has it
+    raised, then restore A's raised value instead of the true original, so
+    the effective limit only ever grows. The lock is what makes this
+    concurrency-safe, not the ``finally``. Scope: this serializes argus's own
+    parses against each other; a third-party caller mutating
+    ``csv.field_size_limit`` from elsewhere in the same process, outside this
+    lock, is out of scope."""
+    with _CSV_LIMIT_LOCK:
+        old_limit = csv.field_size_limit()
+        try:
+            csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
+            return list(csv.reader(io.StringIO(csv_text)))
+        finally:
+            csv.field_size_limit(old_limit)
 
 
 def _serialize_csv_rows(rows: list[list[str]]) -> str:
@@ -636,7 +708,14 @@ def redact_csv(
     Returns:
         ``(redacted_csv, key)``; with ``with_aliases`` an ``aliases`` element is
         appended → ``(redacted_csv, key, aliases)``.
+
+    Raises:
+        ValueError: if ``mode`` is not a recognized detection mode. Checked
+            FIRST — even before the empty-input fast path — so an invalid mode
+            is never silently accepted just because the input happened to be
+            empty.
     """
+    _validate_mode(mode)
     rows = _parse_csv_rows(csv_text)
 
     if not rows:
@@ -729,6 +808,9 @@ def restore_csv(
     # the key + compiles the pattern ONCE for the whole document instead of on
     # every cell.
     session = make_structured_restorer(key, aliases=aliases)
+    # Same alias-collision warning as restore_json — see its call site for the
+    # full rationale.
+    warn_alias_collisions(list(session.alias_collisions))
     output_rows: list[list[str]] = []
     for row in _parse_csv_rows(csv_text):
         output_rows.append([session.restore_cell(cell) for cell in row])

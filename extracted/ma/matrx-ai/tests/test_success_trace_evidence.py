@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import ast
-import inspect
 import textwrap
+
+from matrx_utils.source_guard import stable_source
 
 from matrx_ai.tools.executor import ToolExecutor
 
 
 def test_successful_db_trace_always_retains_result_preview() -> None:
-    tree = ast.parse(textwrap.dedent(inspect.getsource(ToolExecutor.execute)))
+    tree = ast.parse(textwrap.dedent(stable_source(ToolExecutor.execute)))
     ok_trace_calls = [
         node
         for node in ast.walk(tree)
@@ -22,8 +23,6 @@ def test_successful_db_trace_always_retains_result_preview() -> None:
 
     assert len(ok_trace_calls) == 1
     preview = next(
-        keyword.value
-        for keyword in ok_trace_calls[0].keywords
-        if keyword.arg == "result_preview"
+        keyword.value for keyword in ok_trace_calls[0].keywords if keyword.arg == "result_preview"
     )
     assert ast.unparse(preview) == "result.output"

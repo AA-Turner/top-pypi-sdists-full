@@ -17,6 +17,7 @@ if typing.TYPE_CHECKING:
     from .images.client import AsyncImagesClient, ImagesClient
     from .jobs.client import AsyncJobsClient, JobsClient
     from .models.client import AsyncModelsClient, ModelsClient
+    from .notifications.client import AsyncNotificationsClient, NotificationsClient
     from .tools.client import AsyncToolsClient, ToolsClient
 
 
@@ -113,6 +114,7 @@ class BaseLabric:
         self._jobs: typing.Optional[JobsClient] = None
         self._tools: typing.Optional[ToolsClient] = None
         self._images: typing.Optional[ImagesClient] = None
+        self._notifications: typing.Optional[NotificationsClient] = None
         self._models: typing.Optional[ModelsClient] = None
 
     @property
@@ -154,6 +156,14 @@ class BaseLabric:
 
             self._images = ImagesClient(client_wrapper=self._client_wrapper)
         return self._images
+
+    @property
+    def notifications(self):
+        if self._notifications is None:
+            from .notifications.client import NotificationsClient  # noqa: E402
+
+            self._notifications = NotificationsClient(client_wrapper=self._client_wrapper)
+        return self._notifications
 
     @property
     def models(self):
@@ -278,6 +288,7 @@ class AsyncBaseLabric:
         self._jobs: typing.Optional[AsyncJobsClient] = None
         self._tools: typing.Optional[AsyncToolsClient] = None
         self._images: typing.Optional[AsyncImagesClient] = None
+        self._notifications: typing.Optional[AsyncNotificationsClient] = None
         self._models: typing.Optional[AsyncModelsClient] = None
 
     @property
@@ -319,6 +330,14 @@ class AsyncBaseLabric:
 
             self._images = AsyncImagesClient(client_wrapper=self._client_wrapper)
         return self._images
+
+    @property
+    def notifications(self):
+        if self._notifications is None:
+            from .notifications.client import AsyncNotificationsClient  # noqa: E402
+
+            self._notifications = AsyncNotificationsClient(client_wrapper=self._client_wrapper)
+        return self._notifications
 
     @property
     def models(self):

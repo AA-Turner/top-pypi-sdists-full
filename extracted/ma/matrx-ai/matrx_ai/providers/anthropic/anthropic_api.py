@@ -20,6 +20,7 @@ from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
 )
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import AnthropicTranslator
@@ -367,7 +368,11 @@ class AnthropicChat:
         accumulated_usage = None
         for continuation in range(_MAX_HOSTED_TOOL_CONTINUATIONS + 1):
             chat_timing_mark("provider_sdk_call", "anthropic messages.create")
-            response = await self.client.messages.create(**config_data_copy)
+            response = await self.client.messages.create(
+                **route_undeclared_params(
+                    self.client.messages.create, config_data_copy, provider="anthropic"
+                )
+            )
             chat_timing_mark("provider_sdk_complete", "anthropic messages.create complete")
             vcprint(response, "Anthropic Response", color="green", verbose=self.debug)
 
@@ -423,7 +428,9 @@ class AnthropicChat:
             # stream consumption still run on this loop.
             stream_manager = await asyncio.to_thread(
                 self.client.messages.stream,
-                **attempt_config,
+                **route_undeclared_params(
+                    self.client.messages.stream, attempt_config, provider="anthropic"
+                ),
             )
             async with stream_manager as stream:
                 try:

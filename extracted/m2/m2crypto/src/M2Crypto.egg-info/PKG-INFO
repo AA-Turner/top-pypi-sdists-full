@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: M2Crypto
-Version: 0.49.0
+Version: 0.50.0
 Summary: A Python crypto and SSL toolkit
 Author: Ng Pheng Siong
 Author-email: ngps@sandbox.rulemaker.net
@@ -8,10 +8,10 @@ Maintainer: Matej Cepl
 Maintainer-email: mcepl@cepl.eu
 License: BSD-2-Clause
 Project-URL: home_page, https://sr.ht/~mcepl/m2crypto/
-Project-URL: source, https://codeberg.org/mcepl/m2crypto/
+Project-URL: source, https://codefloe.com/mcepl/m2crypto/
 Project-URL: documentation, https://m2crypto.readthedocs.io/en/latest/
 Project-URL: report, https://lists.sr.ht/~mcepl/m2crypto
-Project-URL: changelog, https://codeberg.org/mcepl/m2crypto/src/branch/master/CHANGES
+Project-URL: changelog, https://codefloe.com/mcepl/m2crypto/src/branch/master/CHANGES
 Keywords: cryptography,openssl
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -41,7 +41,7 @@ Dynamic: license-file
   <https://todo.sr.ht/~mcepl/m2crypto> (R/O, please\
   report issues via the email list).\
 **maintainer**: "Matěj Cepl"\
-**web-Site**: <https://codeberg.org/mcepl/m2crypto/>
+**web-Site**: <https://codefloe.com/mcepl/m2crypto/>
 
 # M2Crypto
 

@@ -10,7 +10,11 @@ from runlayer_cli import regex_safe
 from runlayer_cli.api import PluginDetail
 from runlayer_cli.config import Config
 from runlayer_cli.main import app
-from runlayer_cli.plugins.installer import PluginInstallResult, PluginLockEntry
+from runlayer_cli.plugins.installer import (
+    PluginInstallResult,
+    PluginLockEntry,
+    PluginUpdateResult,
+)
 from runlayer_cli.plugins.models import DiscoveredPlugin
 from runlayer_cli.plugins.sync_engine import PluginSyncResult
 from runlayer_cli.skills.sync_engine import SyncResult
@@ -913,6 +917,134 @@ def test_add_global_mentions_global_list_hint(tmp_path: Path):
     assert "global scope" in result.output
     assert "cursor" in result.output
     assert "runlayer plugins list --global" not in result.output
+
+
+def test_plugins_find_skips_cursor_for_project_scope(tmp_path: Path) -> None:
+    install_mock = AsyncMock(
+        return_value=PluginInstallResult(installed=["review-suite"])
+    )
+    selected_plugin = PluginDetail(
+        id="plugin-1",
+        name="review-suite",
+        namespace="Org/Repo",
+        description="Review plugin",
+    )
+    with (
+        patch(
+            "runlayer_cli.commands.plugins.setup_logging",
+            return_value=tmp_path / "log.txt",
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.resolve_credentials",
+            return_value={"host": "https://example.com", "secret": "rl_test"},
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.resolve_plugin_dirs",
+            return_value=_resolve_dirs(tmp_path),
+        ) as resolve_dirs_mock,
+        patch("runlayer_cli.commands.plugins.RunlayerClient") as client_class,
+        patch(
+            "runlayer_cli.commands.plugins.install_plugins",
+            new=install_mock,
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.prompt_items",
+            return_value=[selected_plugin],
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.prompt_clients",
+            return_value=["codex", "cursor"],
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.prompt_scope",
+            return_value="project",
+        ),
+        patch("runlayer_cli.commands.plugins.confirm_install"),
+        patch("runlayer_cli.commands.plugins.console.status"),
+    ):
+        client_class.return_value.list_plugins_detailed.return_value = [selected_plugin]
+        result = runner.invoke(app, ["plugins", "find"])
+
+    assert result.exit_code == 0
+    assert (
+        "Skipping cursor: Cursor only discovers user-local plugins under "
+        "~/.cursor/plugins/local. Re-run and choose global scope."
+    ) in _strip_ansi(result.output)
+    assert [c.args[0] for c in resolve_dirs_mock.call_args_list] == ["codex"]
+    assert install_mock.await_count == 1
+    assert install_mock.await_args_list[0].kwargs["client_name"] == "codex"
+
+
+@pytest.mark.parametrize("global_install", [False, True])
+def test_update_cursor_project_scope_is_refused(tmp_path: Path, global_install: bool):
+    update_mock = AsyncMock(return_value=PluginUpdateResult(up_to_date=["a"]))
+    args = ["plugins", "update", "--client", "cursor"]
+    if global_install:
+        args.append("--global")
+    with (
+        patch(
+            "runlayer_cli.commands.plugins.setup_logging",
+            return_value=tmp_path / "log.txt",
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.resolve_credentials",
+            return_value={"host": "https://example.com", "secret": "rl_test"},
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.resolve_plugin_dirs",
+            return_value=_resolve_dirs(tmp_path),
+        ),
+        patch("runlayer_cli.commands.plugins.RunlayerClient"),
+        patch(
+            "runlayer_cli.commands.plugins.update_plugins",
+            new=update_mock,
+        ),
+    ):
+        result = runner.invoke(app, args)
+
+    if global_install:
+        assert result.exit_code == 0
+        update_mock.assert_awaited_once()
+    else:
+        assert result.exit_code == 1
+        update_mock.assert_not_awaited()
+        assert "would never appear in Cursor" in _strip_ansi(result.output)
+
+
+@pytest.mark.parametrize("global_install", [False, True])
+def test_add_cursor_project_scope_is_refused(tmp_path: Path, global_install: bool):
+    install_mock = AsyncMock(return_value=PluginInstallResult(installed=["a"]))
+    args = ["plugins", "add", PLUGIN_ID, "--client", "cursor"]
+    if global_install:
+        args.append("--global")
+    with (
+        patch(
+            "runlayer_cli.commands.plugins.setup_logging",
+            return_value=tmp_path / "log.txt",
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.resolve_credentials",
+            return_value={"host": "https://example.com", "secret": "rl_test"},
+        ),
+        patch(
+            "runlayer_cli.commands.plugins.resolve_plugin_dirs",
+            return_value=_resolve_dirs(tmp_path),
+        ),
+        patch("runlayer_cli.commands.plugins.RunlayerClient"),
+        patch(
+            "runlayer_cli.commands.plugins.install_plugins",
+            new=install_mock,
+        ),
+    ):
+        result = runner.invoke(app, args)
+
+    if global_install:
+        assert result.exit_code == 0
+        install_mock.assert_awaited_once()
+    else:
+        assert result.exit_code == 1
+        install_mock.assert_not_awaited()
+        assert "would never appear in Cursor" in _strip_ansi(result.output)
 
 
 @pytest.mark.parametrize(

@@ -21,11 +21,7 @@ def test_no_external_matrx_imports_in_vfs_source() -> None:
         capture_output=True,
         text=True,
     )
-    offending = [
-        line
-        for line in result.stdout.splitlines()
-        if "matrx_ai.tools.vfs" not in line
-    ]
+    offending = [line for line in result.stdout.splitlines() if "matrx_ai.tools.vfs" not in line]
     assert not offending, (
         "Found matrx_ai imports inside vfs/ that aren't from vfs itself:\n"
         + "\n".join(offending)
@@ -52,9 +48,7 @@ def test_ast_level_cleanliness() -> None:
                         "matrx_ai.tools.vfs"
                     ):
                         bad.append(f"{py.relative_to(VFS_ROOT)}: import {alias.name}")
-    assert not bad, (
-        "AST scan found matrx_ai imports leaking out of vfs:\n" + "\n".join(bad)
-    )
+    assert not bad, "AST scan found matrx_ai imports leaking out of vfs:\n" + "\n".join(bad)
 
 
 def test_external_dependency_set_is_minimal() -> None:
@@ -98,23 +92,6 @@ def _is_stdlib(module: str) -> bool:
     return module in sys.stdlib_module_names
 
 
-def _reload_all_commands() -> None:
-    import importlib
-    import sys
-
-    from matrx_ai.tools.vfs.commands.registry import is_registered
-
-    if is_registered("cat"):
-        return
-    for mod_name in list(sys.modules):
-        if mod_name.startswith("matrx_ai.tools.vfs.commands.") and mod_name not in (
-            "matrx_ai.tools.vfs.commands.base",
-            "matrx_ai.tools.vfs.commands.registry",
-            "matrx_ai.tools.vfs.commands.runner",
-        ):
-            importlib.reload(sys.modules[mod_name])
-
-
 @pytest.mark.asyncio
 async def test_minimal_embedded_usage() -> None:
     from matrx_ai.tools.vfs import (
@@ -128,7 +105,6 @@ async def test_minimal_embedded_usage() -> None:
     )
 
     load_all()
-    _reload_all_commands()
 
     backend = MemoryBackend()
     workspace_id = "embedded-test"

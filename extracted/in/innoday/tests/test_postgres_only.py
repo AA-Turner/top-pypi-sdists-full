@@ -125,7 +125,7 @@ class TestAbortedTransactionSemantics:
         assert isinstance(ticket, Ticket)
 
         # The batch path nests this savepoint inside _persist_ticket's own.
-        was_created, batched = service._persist_ticket(
+        outcome, batched = service._persist_ticket(
             {
                 "id": "PG-2",
                 "summary": "Also survives, one savepoint deeper",
@@ -136,7 +136,7 @@ class TestAbortedTransactionSemantics:
             pg_session,
             proj.id,
         )
-        assert was_created is True
+        assert outcome == "created"
         assert batched.assigned_to is None
         assert (
             pg_session.execute(

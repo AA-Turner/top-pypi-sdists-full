@@ -86,6 +86,9 @@ __all__ = (
     "AudienceMediaUnionTypeDef",
     "AvailMatchingCriteriaTypeDef",
     "AvailSuppressionTypeDef",
+    "AwsServiceRequestConfigurationOutputTypeDef",
+    "AwsServiceRequestConfigurationTypeDef",
+    "AwsServiceRequestConfigurationUnionTypeDef",
     "BumperTypeDef",
     "CdnConfigurationTypeDef",
     "ChannelTypeDef",
@@ -365,6 +368,36 @@ class AvailSuppressionTypeDef(TypedDict):
     Mode: NotRequired[ModeType]
     Value: NotRequired[str]
     FillPolicy: NotRequired[FillPolicyType]
+
+
+AwsServiceRequestConfigurationOutputTypeDef = TypedDict(
+    "AwsServiceRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "TargetService": str,
+        "TargetRegion": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+    },
+)
+AwsServiceRequestConfigurationTypeDef = TypedDict(
+    "AwsServiceRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "TargetService": str,
+        "TargetRegion": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+    },
+)
 
 
 class BumperTypeDef(TypedDict):
@@ -800,6 +833,11 @@ class RecurringConsumptionTypeDef(TypedDict):
     AvailMatchingCriteria: NotRequired[Sequence[AvailMatchingCriteriaTypeDef]]
 
 
+AwsServiceRequestConfigurationUnionTypeDef = Union[
+    AwsServiceRequestConfigurationTypeDef, AwsServiceRequestConfigurationOutputTypeDef
+]
+
+
 class ConcurrentExecutorConfigurationOutputTypeDef(TypedDict):
     Runtime: Literal["JSONATA"]
     Output: dict[str, str]
@@ -1217,6 +1255,7 @@ class FunctionTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: NotRequired[str]
     HttpRequestConfiguration: NotRequired[HttpRequestConfigurationOutputTypeDef]
+    AwsServiceRequestConfiguration: NotRequired[AwsServiceRequestConfigurationOutputTypeDef]
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationOutputTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
@@ -1230,6 +1269,7 @@ class GetFunctionResponseTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: str
     HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    AwsServiceRequestConfiguration: AwsServiceRequestConfigurationOutputTypeDef
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
@@ -1244,6 +1284,7 @@ class PutFunctionResponseTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: str
     HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    AwsServiceRequestConfiguration: AwsServiceRequestConfigurationOutputTypeDef
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
@@ -1410,6 +1451,7 @@ class PutFunctionRequestTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: NotRequired[str]
     HttpRequestConfiguration: NotRequired[HttpRequestConfigurationUnionTypeDef]
+    AwsServiceRequestConfiguration: NotRequired[AwsServiceRequestConfigurationUnionTypeDef]
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationUnionTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationUnionTypeDef]

@@ -24,6 +24,7 @@ from matrx_ai.providers.outbound_capture import (
     stamp_call_meta,
 )
 from matrx_ai.providers.reasoning import emit_complete_reasoning_block
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import XAITranslator
@@ -106,7 +107,9 @@ class XAIChat:
             )
             vcprint(debug_summary, "xAI API Config Data", color="blue", verbose=debug)
 
-            chat = self.client.chat.create(**create_kwargs)
+            chat = self.client.chat.create(
+                **route_undeclared_params(self.client.chat.create, create_kwargs, provider="xai")
+            )
 
             if unified_config.stream:
                 return await self._execute_streaming(chat, emitter, unified_config.model)

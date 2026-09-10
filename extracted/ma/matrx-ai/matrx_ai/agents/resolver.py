@@ -49,33 +49,6 @@ async def _load_unified_config(conversation_id: str) -> UnifiedConfig:
     return await cxm.get_conversation_unified_config(conversation_id)
 
 
-def _pin_system_date(config: Any, conv_row: Any) -> None:
-    """Freeze the system-prompt date to the conversation's ``created_at``.
-
-    The "Current date" decoration is pinned ONCE per conversation to an
-    immutable, already-persisted anchor so the cacheable system prefix never
-    changes — not between loop rounds, not across midnight, not across a DB
-    reload. Best-effort: if anything is missing we leave ``date_anchor`` unset
-    and SystemInstruction falls back to a single memoized ``now()``.
-    """
-    si = getattr(config, "system_instruction", None)
-    if si is None or getattr(si, "date_anchor", None):
-        return
-    created = getattr(conv_row, "created_at", None)
-    if created is None:
-        return
-    if isinstance(created, str):
-        # Persisted ISO timestamp — the date is the leading 10 chars.
-        anchor = created[:10]
-    else:
-        try:
-            anchor = created.strftime("%Y-%m-%d")
-        except Exception:
-            return
-    if len(anchor) == 10:
-        si.date_anchor = anchor
-
-
 # ---------------------------------------------------------------------------
 # Conversation resolver
 # ---------------------------------------------------------------------------
@@ -145,63 +118,48 @@ class ConversationResolver:
         if user_input:
             config.append_or_extend_user_input(user_input)
 
-        # In-memory context-trim pass — collapses old, large tool-result
-        # blocks to a compact preview so the model isn't re-reading
-        # stale 30KB JSON every turn. DB stays untouched; the trim is
-        # purely a transformation on the in-memory UnifiedConfig that's
-        # about to be handed to the executor. See context_trim.py for
-        # the tier rules and safety guards (image/audio/video skipped).
-        #
-        # The TrimReport is stashed on AppContext.metadata so persistence
-        # can copy it onto cx_request.trim_summary (Phase 1d). The metadata
-        # is per-request and cleared by the streaming infrastructure.
+        # THE SEND BOUNDARY. Every prompt-shaping mutation between here and the
+        # provider call goes through ``prepare_for_send`` — the system-date pin
+        # (so the cacheable system prefix never wobbles) and the cache-gated
+        # in-memory context trim (old, large tool-result blocks collapsed to a
+        # compact preview so the model isn't re-reading stale 30KB JSON every
+        # turn). The DB stays untouched; the trim is purely a transformation on
+        # the in-memory UnifiedConfig about to be handed to the executor.
+        # Never call trim_messages_context (or any other shaping step) directly
+        # — see config/send_boundary.py for the law and the guard that enforces it.
         try:
-            from matrx_ai.config.context_trim import trim_messages_context
-            from matrx_ai.context.app_context import try_get_app_context
+            from matrx_ai.config.send_boundary import STAGE_RESOLVE, prepare_for_send
 
-            messages_iter = (
-                list(config.messages) if not isinstance(config.messages, list) else config.messages
-            )
-
-            # Phase 2: load the conversation's cache_state so the trim can
-            # protect a live prompt-cache prefix. Best-effort — if the read
-            # fails or the row doesn't exist (new conversation), pass None
-            # and the trim falls back to its unconditional behaviour.
+            # Load the conversation row for BOTH the date pin and the Phase-2
+            # cache_state the trim gate reads. ALWAYS load it: the old path
+            # raised when a client-host conversation store was configured, which
+            # skipped the pin entirely — resume then re-memoized datetime.now()
+            # and busted the prompt cache across midnight / TZ boundaries.
+            conv_row = None
             cache_state_dict: dict[str, Any] | None = None
             try:
                 from matrx_ai.client_host import get_conversation_store
                 from matrx_ai.db import cxm
 
-                # ALWAYS load the conversation row so we can pin the system-
-                # prompt date to created_at. The old path raised when a
-                # client-host conversation store was configured, which skipped
-                # the pin entirely — resume then re-memoized datetime.now()
-                # and busted the prompt cache across midnight / TZ boundaries.
                 conv_row = await cxm.conversation.load_conversation_by_id(conversation_id)
-                if conv_row is not None:
-                    _pin_system_date(config, conv_row)
+                if conv_row is not None and get_conversation_store() is None:
                     # cx_ cache_state is only meaningful on the host DB path.
-                    if get_conversation_store() is None:
-                        cache_state_dict = getattr(conv_row, "cache_state", None) or None
+                    cache_state_dict = getattr(conv_row, "cache_state", None) or None
             except Exception:
+                conv_row = None
                 cache_state_dict = None
 
-            report = trim_messages_context(messages_iter, cache_state=cache_state_dict)
-            ctx = try_get_app_context()
-            if ctx is not None:
-                ctx.metadata["last_trim_report"] = report.to_dict()
-            if report.blocks_rewritten:
-                vcprint(
-                    f"[ConversationResolver] context-trim rewrote "
-                    f"{report.blocks_rewritten} tool-result block(s) "
-                    f"(freed {report.freed_chars} chars) for {conversation_id}",
-                    color="yellow",
-                )
-        except Exception as trim_exc:
-            # Trim is purely an optimisation — never let a trim bug
-            # break the actual agent run.
+            await prepare_for_send(
+                config,
+                stage=STAGE_RESOLVE,
+                conversation_id=conversation_id,
+                conversation_row=conv_row,
+                cache_state=cache_state_dict,
+            )
+        except Exception as prep_exc:
+            # Prompt shaping is an optimisation — never let it break the run.
             vcprint(
-                f"[ConversationResolver] context-trim failed (ignored): {trim_exc}",
+                f"[ConversationResolver] send-boundary prep failed (ignored): {prep_exc}",
                 color="red",
             )
 

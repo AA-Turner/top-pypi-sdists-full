@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2013-2026 by associates authors (see git log).
 
 # This file is part of pytest-mongo.
@@ -30,6 +29,14 @@ _help_port_search_count = "Number of times, pytest-mongo will search for free po
 _help_tz_aware = (
     "Have mongo client timezone aware (ini: mongo_tz_aware; "
     "use --mongo-tz-aware/--no-mongo-tz-aware to override)"
+)
+_help_username = "MongoDB username for authentication"
+_help_password = "MongoDB password for authentication"
+_help_auth_source = "MongoDB authentication database (authSource)"
+_help_uri = "Full MongoDB URI (takes precedence over host/port/credentials when set)"
+_help_tls = (
+    "Enable TLS/SSL for MongoDB connection (ini: mongo_tls; "
+    "use --mongo-tls/--no-mongo-tls to override)"
 )
 
 
@@ -94,6 +101,33 @@ def pytest_addoption(parser: Parser) -> None:
         action="store_false",
         dest="mongo_tz_aware",
         help=_help_tz_aware,
+    )
+
+    parser.addini(name="mongo_username", help=_help_username, default="")
+    parser.addini(name="mongo_password", help=_help_password, default="")
+    parser.addini(name="mongo_auth_source", help=_help_auth_source, default="")
+    parser.addini(name="mongo_uri", help=_help_uri, default="")
+    parser.addini(name="mongo_tls", help=_help_tls, type="bool", default=False)
+
+    parser.addoption("--mongo-username", action="store", dest="mongo_username", help=_help_username)
+    parser.addoption("--mongo-password", action="store", dest="mongo_password", help=_help_password)
+    parser.addoption(
+        "--mongo-auth-source", action="store", dest="mongo_auth_source", help=_help_auth_source
+    )
+    parser.addoption("--mongo-uri", action="store", dest="mongo_uri", help=_help_uri)
+    parser.addoption(
+        "--mongo-tls",
+        action="store_true",
+        default=None,
+        dest="mongo_tls",
+        help=_help_tls,
+    )
+    parser.addoption(
+        "--no-mongo-tls",
+        action="store_false",
+        default=None,
+        dest="mongo_tls",
+        help=_help_tls,
     )
 
 

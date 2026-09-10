@@ -56,6 +56,25 @@ MAX_OFFSET = 4          # months before planting (1..4); 4 loses grain-fill
 OOS_TOLERANCE = 1.0     # sd beyond the training range still called in-support
 N_PERM = 300            # year-block permutations behind the skill test
 PERM_ALPHA = 0.05       # one-sided; NOT corrected for the 17-combination sweep
+# Anderson et al. 2024 define skill as ROC > 0.6, following the prior
+# global crop-forecast literature. Used when no permutation test is run.
+SKILL_ROC_THRESHOLD = 0.6
+# What actually limits a per-region AUC is RECORD LENGTH, not the number of
+# low-tercile events. Measured on pure noise, the AUC sampling sd falls
+# smoothly with events — 0.304 (1), 0.220 (2), 0.185 (3), 0.166 (4), 0.152
+# (5), 0.139 (7), 0.133 (9) — with no cliff anywhere, so a low-event cut is
+# an arbitrary proxy. Regions flagged by one turn out to have an ordinary
+# low-year share (median 0.300, right at the tercile rate) and merely a
+# short record (median 12 years vs 19). So gate on years, reusing MIN_YEARS,
+# and keep a low-event guard only for the genuinely degenerate cases: 0
+# events makes AUC undefined and 1 gives sd 0.30 with a 40% false-positive
+# rate against a 0.6 bar.
+MIN_LOW_YEARS = 2
+# Above this backtested trend-extrapolation error a t/ha number is dominated
+# by not knowing the baseline rather than by the climate signal (median
+# across Africa is ~50% error against a ~27% climate signal), so the yield
+# level is written to the CSV but withheld from the maps.
+TREND_EXTRAP_MAX_PCT = 20.0
 EVAL_SPAN = (1995, 2016)   # real-S2S hindcast era
 
 # HarvestStat country -> EWCM country spelling, where they differ.
@@ -399,6 +418,7 @@ def edge_table(anoms):
     minutes).
     """
     tab = {}
+    degenerate = 0
     a = anoms.dropna(subset=["anom"])
     for fnid, g in a.groupby("fnid"):
         v = g.set_index("year")["anom"]
@@ -407,7 +427,20 @@ def edge_table(anoms):
             if len(tr) < 9:
                 continue
             e = _fold_bins(tr)
+            # _fold_bins uses pd.qcut(duplicates="drop"), which SILENTLY
+            # collapses bins when anomalies tie: 1 inner edge gives two
+            # classes, 0 gives one, and with constant yields every year is
+            # then labelled "low". Nothing raises — the labels just stop
+            # being terciles. Skip those folds and count them rather than
+            # scoring against a boundary that does not mean what it says.
+            if len(e) < 2:
+                degenerate += 1
+                continue
             tab[(fnid, int(y))] = (e, int(_to_class(val, e) == 0))
+    if degenerate:
+        logger.warning(
+            f"tercile edges collapsed on {degenerate} folds (tied anomalies); "
+            f"those unit-years are unlabelled and excluded from scoring")
     return tab
 
 
@@ -440,29 +473,294 @@ def score_combo(lo, anoms, edges=None):
             "auc": round(float(roc_auc_score(rec.event, rec.score)), 3),
             "low_recall": round(float((low.pred_c == 0).mean()), 3),
             "far": round(float((nl.pred_c == 0).mean()), 3)})
+    # The pooled AUC alone hides which question the model can answer; carry
+    # the national and spatial split alongside it everywhere, and the
+    # regression metrics too — rRMSE without R2 is half the picture.
+    out.update({k: v for k, v in decomposed_auc(lo, anoms, edges).items()
+                if k != "auc"})
+    out.update(decomposed_r2(lo))
+    out["n_years"] = int(lo["year"].nunique())
     return out
 
 
-def permutation_auc(train, feats, eval_years, anoms, edges, obs_auc,
+def decomposed_auc(lo, anoms, edges):
+    """Split the pooled region-year AUC into the two abilities it conflates.
+
+    A pooled AUC over region-years looks like it rests on hundreds of
+    samples, but when the model calls a year wrong it gets EVERY region in
+    that country wrong at once — so the effective sample size is YEARS, not
+    unit-years, and the pooled number is very nearly the between-year one
+    (Zambia maize: 1,345 region-years, 19 years, pooled 0.546 vs
+    between-year 0.512).
+
+    ``auc_national``  one value per year, event = bottom tercile of the
+                      national series. This is Anderson et al.'s task.
+    ``auc_spatial``   within each year separately, can the model rank WHICH
+                      regions land in their own bottom tercile? Averaged
+                      over years, weighted by regions.
+
+    The two answer different questions and can point opposite ways: South
+    Africa maize is anti-skilled nationally (0.330) and the best in Africa
+    spatially (0.667).
+    """
+    from sklearn.metrics import roc_auc_score
+
+    out = {}
+    lo = lo.dropna(subset=["ahat"])
+    if lo.empty:
+        return out
+
+    ev, sc = [], []
+    for fnid, y, ah in zip(lo["fnid"].to_numpy(), lo["year"].to_numpy(),
+                           lo["ahat"].to_numpy()):
+        t = edges.get((fnid, int(y)))
+        if t is None or not np.isfinite(ah):
+            continue
+        ev.append(t[1])
+        sc.append(-ah)
+    if len(set(ev)) == 2:
+        out["auc"] = round(float(roc_auc_score(ev, sc)), 3)
+
+    nat = lo.groupby("year").agg(ahat=("ahat", "mean"), obs=("obs", "mean"),
+                                 trend=("trend", "mean"))
+    nat["anom"] = nat["obs"] / nat["trend"] - 1
+    nev, nsc = [], []
+    for y in nat.index:
+        tr = nat["anom"].drop(index=y)
+        if len(tr) < 9:
+            continue
+        e = _fold_bins(tr)
+        nev.append(int(_to_class(nat.loc[y, "anom"], e) == 0))
+        nsc.append(-nat.loc[y, "ahat"])
+    if len(set(nev)) == 2:
+        out["auc_national"] = round(float(roc_auc_score(nev, nsc)), 3)
+
+    aucs, wts = [], []
+    for y, gy in lo.groupby("year"):
+        e2, s2 = [], []
+        for fnid, ah in zip(gy["fnid"].to_numpy(), gy["ahat"].to_numpy()):
+            t = edges.get((fnid, int(y)))
+            if t is None or not np.isfinite(ah):
+                continue
+            e2.append(t[1])
+            s2.append(-ah)
+        if len(set(e2)) == 2 and len(e2) >= MIN_UNITS:
+            aucs.append(roc_auc_score(e2, s2))
+            wts.append(len(e2))
+    if aucs:
+        out["auc_spatial"] = round(float(np.average(aucs, weights=wts)), 3)
+        out["n_spatial_years"] = int(len(aucs))
+    return out
+
+
+def per_region_skill(lo, anoms, edges):
+    """AUC and R2 for EACH region over its own years.
+
+    The national and spatial metrics never score a region on its own
+    timeline: national averages the regions away, spatial compares regions
+    WITHIN a year. A choropleth needs the per-region verdict, because every
+    polygon makes its own claim.
+
+    Noisy by construction — ~22 years with ~7 low-tercile events gives an
+    AUC sampling sd near 0.14, and a pure-noise region clears ROC 0.6 about
+    23% of the time — so ``region_n_years`` and ``region_n_low`` travel with
+    the score. Regions too short to judge are marked ``insufficient``
+    rather than called ``no_skill``, which would claim more than the record
+    supports.
+    """
+    from sklearn.metrics import roc_auc_score
+
+    out = {}
+    d = lo.dropna(subset=["ahat"])
+    for fnid, g in d.groupby("fnid"):
+        ev, sc = [], []
+        for y, ah in zip(g["year"].to_numpy(), g["ahat"].to_numpy()):
+            t = edges.get((fnid, int(y)))
+            if t is None or not np.isfinite(ah):
+                continue
+            ev.append(t[1])
+            sc.append(-ah)
+        rec = {"region_n_years": len(ev), "region_n_low": int(sum(ev))}
+        if len(set(ev)) == 2:
+            rec["region_auc"] = round(float(roc_auc_score(ev, sc)), 3)
+        obs_a = g["obs"] / g["trend"] - 1
+        sst = float(((obs_a - obs_a.mean()) ** 2).sum())
+        if sst > 0:
+            rec["region_r2"] = round(
+                1 - float(((obs_a - g["ahat"]) ** 2).sum()) / sst, 3)
+        if (rec["region_n_years"] < MIN_YEARS
+                or rec["region_n_low"] < MIN_LOW_YEARS
+                or rec.get("region_auc") is None):
+            rec["region_skill"] = "insufficient"
+        elif rec["region_auc"] > SKILL_ROC_THRESHOLD:
+            rec["region_skill"] = "skill"
+        else:
+            rec["region_skill"] = "no_skill"
+        out[fnid] = rec
+    return out
+
+
+def _r2(y, yhat):
+    y, yhat = np.asarray(y, dtype=float), np.asarray(yhat, dtype=float)
+    m = np.isfinite(y) & np.isfinite(yhat)
+    y, yhat = y[m], yhat[m]
+    if len(y) < 3:
+        return None
+    sst = float(((y - y.mean()) ** 2).sum())
+    if sst <= 0:
+        return None
+    return 1.0 - float(((y - yhat) ** 2).sum()) / sst
+
+
+def decomposed_r2(lo):
+    """Regression skill on the anomaly scale, split the same three ways.
+
+    The trend baseline predicts anom = 0 and observed anomalies average ~0,
+    so **R2 > 0 is very nearly "beats trend"** and this agrees with
+    ``beats_trend`` by construction.
+
+    ``r2``           all unit-years, around the pooled mean
+    ``r2_national``  year means only — can the model call the year's SIZE
+    ``r2_within``    both series demeaned BY YEAR (the fixed-effects R2) —
+                     can it call the spread across regions inside a year
+
+    Discrimination and magnitude come apart: Somalia maize Deyr ranks years
+    well (national AUC 0.776, p=0.007) but has national R2 ~ 0. It can say
+    which years are bad, not how bad.
+
+    The national split is NOISIER at small unit counts, but not biased. A
+    purely spatial predictor scores a national R2 of ~0 on average at every
+    unit count; what changes is the spread, because the year-mean of a
+    spatial predictor is a sample mean. Measured over 10 seeds, the largest
+    national R2 a spatial-only predictor reached was +0.33 at 5 units,
+    +0.20 at 9, +0.07 at 45 and +0.04 at 200. So read a national score on
+    few units (South Africa, 9 provinces) with wider error bars than one on
+    many (Zambia, 71) — the permutation null already absorbs this, since it
+    is computed per combination on that combination's own units.
+    """
+    d = lo.dropna(subset=["ahat"]).copy()
+    if d.empty:
+        return {}
+    d["anom_obs"] = d["obs"] / d["trend"] - 1
+    out = {}
+    v = _r2(d["anom_obs"], d["ahat"])
+    if v is not None:
+        out["r2"] = round(v, 3)
+
+    nat = d.groupby("year").agg(obs=("obs", "mean"), trend=("trend", "mean"),
+                                ahat=("ahat", "mean"))
+    v = _r2(nat["obs"] / nat["trend"] - 1, nat["ahat"])
+    if v is not None:
+        out["r2_national"] = round(v, 3)
+
+    a = d["anom_obs"] - d.groupby("year")["anom_obs"].transform("mean")
+    p = d["ahat"] - d.groupby("year")["ahat"].transform("mean")
+    v = _r2(a, p)
+    if v is not None:
+        out["r2_within"] = round(v, 3)
+    return out
+
+
+def trend_extrapolation(obs, harvest_year, min_record=12):
+    """How wrong is the trend level a t/ha forecast would rest on?
+
+    The tercile product needs no absolute level — its edges come from the
+    anomaly distribution. A yield number in t/ha does, and the HarvestStat
+    records end anywhere from 2010 (Madagascar) to 2024, i.e. a 3 to 17 year
+    extrapolation to 2027. Backtest it at the horizon actually required:
+    hold out the last k years, fit the per-unit linear trend on the rest,
+    and score the k-th year out.
+
+    Across the 17 African combinations the median error is ~50% while the
+    median climate signal the model applies is ~27%, so **the trend
+    extrapolation dominates the error budget in 14 of 17** — which is why
+    the pipeline publishes anomalies and terciles rather than t/ha.
+    """
+    k = int(harvest_year) - int(obs["year"].max())
+    errs, rel = [], []
+    for _, u in obs.groupby("fnid"):
+        u = u.sort_values("year")
+        if len(u) < min_record:
+            continue
+        yr = u["year"].to_numpy(dtype=float)
+        v = u["obs"].to_numpy(dtype=float)
+        kk = int(min(max(k, 1), len(u) // 2))
+        if len(yr) - kk < 8:
+            continue
+        b, a = np.polyfit(yr[:-kk], v[:-kk], 1)
+        pred = b * yr[-1] + a
+        errs.append(abs(v[-1] - pred))
+        if v[-1] > 0:
+            rel.append(abs(v[-1] - pred) / v[-1])
+    if not errs:
+        return {"extrap_years": k, "extrap_units": 0}
+    return {"extrap_years": k, "extrap_units": len(errs),
+            "trend_extrap_err_tha": round(float(np.median(errs)), 3),
+            "trend_extrap_err_pct": (round(100 * float(np.median(rel)), 1)
+                                     if rel else None)}
+
+
+def trend_level(obs, year, min_record=8):
+    """{fnid: trend yield at ``year``}, from the unit's full linear record.
+
+    This is the baseline a t/ha number rests on. It uses ALL of the unit's
+    observations (unlike :func:`causal_trend_fnid`, which must hold out the
+    scored year) because the forecast season has no observation to hold out.
+    Extrapolation error is not measured here — :func:`trend_extrapolation`
+    does that for the combination, and it is what decides whether the level
+    is fit to publish.
+    """
+    out = {}
+    for fnid, u in obs.groupby("fnid"):
+        u = u.sort_values("year")
+        if len(u) < min_record:
+            continue
+        b, a = np.polyfit(u["year"].to_numpy(dtype=float),
+                          u["obs"].to_numpy(dtype=float), 1)
+        lvl = float(b * int(year) + a)
+        if lvl > 0:
+            out[fnid] = lvl
+    return out
+
+
+def permutation_auc(train, feats, eval_years, anoms, edges, obs,
                     n_perm=N_PERM, seed=20260908):
-    """Year-block permutation null for the classification AUC.
+    """Year-block permutation nulls for all three skill metrics.
 
     AUC 0.5 is the WRONG benchmark for this estimator. Leave-one-year-out
     with an intercept biases predictions upward in exactly the years the
     fold removed, so a model with no information scores BELOW 0.5: across
-    the 17 African combinations the null averages 0.445, not 0.500. Judging
-    skill against 0.5 therefore mislabels combinations in both directions.
+    the 17 African combinations the pooled null averages 0.445.
+
+    Measured nulls confirm where that bias lives: **spatial 0.500**
+    (0.494-0.506 across all 17), **national 0.417**, pooled in between at
+    0.449. Within a single year there is no removed-year mean to shift, so
+    the bias is entirely a between-year effect — which is also why the
+    spatial metric can be read against 0.5 and the other two cannot.
 
     The permutation keeps year blocks intact — one year->year map applied to
     every unit at once — so the spatial covariance within a season and the
     serial structure of the target survive; only the correspondence between
     predictor year and yield year is destroyed.
+
+    ``obs`` may be a float (the pooled AUC) or the dict from
+    :func:`decomposed_auc`, in which case every metric present is tested.
     """
+    if obs is None:
+        return {}
+    if not isinstance(obs, dict):
+        obs = {"auc": obs}
+    keys = [k for k in ("auc", "auc_national", "auc_spatial",
+                        "r2", "r2_national", "r2_within")
+            if k in obs and obs[k] is not None]
+    if not keys:
+        return {}
+
     rng = np.random.default_rng(seed)
     fcols = [c for c in set(feats) | {"DRYHEAT"} if c in train.columns]
     feat = train.set_index(["fnid", "year"])[fcols]
     years = sorted(train.year.unique())
-    null = []
+    null = {k: [] for k in keys}
     for _ in range(int(n_perm)):
         perm = dict(zip(years, rng.permutation(years)))
         t = train.copy()
@@ -474,17 +772,36 @@ def permutation_auc(train, feats, eval_years, anoms, edges, obs_auc,
         t = t.dropna(subset=fcols)
         if len(t) < 40:
             continue
-        s = score_combo(loyo(t, feats, eval_years), anoms, edges)
-        if s.get("auc") is not None:
-            null.append(s["auc"])
-    if not null or obs_auc is None:
-        return {}
-    null = np.array(null)
-    return {"null_auc": round(float(null.mean()), 3),
-            "null_auc_sd": round(float(null.std()), 3),
-            "null_auc_p95": round(float(np.percentile(null, 95)), 3),
-            "perm_p": round(float((null >= obs_auc).mean()), 3),
-            "n_perm": int(len(null))}
+        # One permutation pass scores BOTH metric families — running the
+        # classification and regression nulls separately would double the
+        # cost for identical permutations.
+        lo_p = loyo(t, feats, eval_years)
+        s = {**decomposed_auc(lo_p, anoms, edges), **decomposed_r2(lo_p)}
+        for k in keys:
+            if s.get(k) is not None:
+                null[k].append(s[k])
+
+    # The pooled metric keeps its historical column names so existing
+    # readers of null_auc / perm_p do not have to change.
+    names = {"auc": ("null_auc", "perm_p"),
+             "auc_national": ("null_auc_national", "perm_national_p"),
+             "auc_spatial": ("null_auc_spatial", "perm_spatial_p"),
+             "r2": ("null_r2", "perm_r2_p"),
+             "r2_national": ("null_r2_national", "perm_r2_national_p"),
+             "r2_within": ("null_r2_within", "perm_r2_within_p")}
+    out = {}
+    for k in keys:
+        arr = np.array(null[k])
+        if not len(arr):
+            continue
+        null_col, p_col = names[k]
+        out[null_col] = round(float(arr.mean()), 3)
+        out[p_col] = round(float((arr >= obs[k]).mean()), 3)
+        if k == "auc":
+            out["null_auc_sd"] = round(float(arr.std()), 3)
+            out["null_auc_p95"] = round(float(np.percentile(arr, 95)), 3)
+            out["n_perm"] = int(len(arr))
+    return out
 
 
 def class_probabilities(ahat, hist_anoms, residuals):
@@ -675,16 +992,24 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             continue
         # Re-apply the history gate AFTER the join. MIN_YEARS was checked on
         # the raw HarvestStat record; the S2S join can cut it hard and the
-        # row-count gate above does not notice, because units multiply. Kenya
-        # Short passed on 189 rows spanning only 8 years — too few even to
-        # form a leave-one-out national tercile, and the effective sample
-        # size of a pooled AUC is years, not unit-years.
+        # row-count gate above does not notice, because units multiply.
+        #
+        # Gate on the SCORABLE years — the joined years that fall inside the
+        # evaluation span and therefore produce LOYO folds — not on the size
+        # of the training frame. Those differ: Kenya Short has enough
+        # training years but only 8 inside 1995-2016, so its skill cannot be
+        # measured (its national AUC is literally undefined, needing >=9
+        # years to form a leave-one-out tercile) even though it trains fine.
+        # Gating on train.year.nunique() let it through.
         n_train_years = int(train.year.nunique())
+        scorable = sorted(set(train.year) & set(eval_years))
         rec["n_train_years"] = n_train_years
-        if n_train_years < MIN_YEARS:
+        rec["n_scorable_years"] = len(scorable)
+        if min(n_train_years, len(scorable)) < MIN_YEARS:
             rec.update(status="too_short",
-                       reason=f"only {n_train_years} years survive the S2S "
-                              f"join (need {MIN_YEARS}); "
+                       reason=f"{len(scorable)} scorable years and "
+                              f"{n_train_years} training years survive the "
+                              f"S2S join (need {MIN_YEARS} of each); "
                               f"{len(train)} unit-years over "
                               f"{train.fnid.nunique()} units")
             combos.append(rec)
@@ -695,6 +1020,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         fxc["ahat"] = predict_ols(res, fxc, fl)
 
         lo_f = loyo(train, fl, [y for y in eval_years if y in set(train.year)])
+        reg_skill = per_region_skill(lo_f, anoms, edges)
         resid = ((lo_f["obs"] / lo_f["trend"] - 1) - lo_f["ahat"]).dropna(
         ).to_numpy() if not lo_f.empty else np.array([])
         # Report the skill of the init the forecast was ACTUALLY issued from,
@@ -710,10 +1036,27 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             sk.update(permutation_auc(
                 train_by_offset.get(off_used, train), fl,
                 [y for y in eval_years if y in set(train.year)], anoms, edges,
-                sk["auc"], n_perm=n_perm))
-        has_skill = bool(sk.get("perm_p") is not None
-                         and sk["perm_p"] < PERM_ALPHA)
+                sk, n_perm=n_perm))
+        # Permutation test when it was run; otherwise Anderson's ROC bar.
+        def _gate(p_key, auc_key):
+            if sk.get(p_key) is not None:
+                return bool(sk[p_key] < PERM_ALPHA)
+            a = sk.get(auc_key)
+            return bool(a is not None and a > SKILL_ROC_THRESHOLD)
+
+        has_skill = _gate("perm_p", "auc")
+        # The two abilities are reported separately because they can point
+        # opposite ways: South Africa maize is anti-skilled nationally and
+        # the best in Africa spatially.
+        has_national_skill = _gate("perm_national_p", "auc_national")
+        has_spatial_skill = _gate("perm_spatial_p", "auc_spatial")
         in_support = bool(oos["oos_max_sigma"].max() <= OOS_TOLERANCE)
+        # A t/ha forecast needs a trend level for the pending season, and
+        # these records end anywhere from 2010 to 2024. Measure the
+        # extrapolation the level would rest on so the anomaly-only output
+        # is a stated choice rather than an omission.
+        tex = trend_extrapolation(g[["fnid", "year", "obs"]], hy)
+        lvl = trend_level(g[["fnid", "year", "obs"]], hy)
         for _, r in fxc.iterrows():
             hist = anoms[anoms.fnid == r.fnid]["anom"]
             pr = class_probabilities(float(r["ahat"]), hist, resid)
@@ -733,6 +1076,36 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                 # skill is AUC vs this combination's own permutation null
                 "null_auc": sk.get("null_auc"), "perm_p": sk.get("perm_p"),
                 "has_skill": has_skill,
+                # THIS region judged on its own timeline — what the map
+                # hatches on, since every polygon makes its own claim
+                **reg_skill.get(r.fnid, {"region_skill": "insufficient"}),
+                # ... split into the two questions it conflates
+                "auc_national": sk.get("auc_national"),
+                "null_auc_national": sk.get("null_auc_national"),
+                "perm_national_p": sk.get("perm_national_p"),
+                "has_national_skill": has_national_skill,
+                "auc_spatial": sk.get("auc_spatial"),
+                "null_auc_spatial": sk.get("null_auc_spatial"),
+                "perm_spatial_p": sk.get("perm_spatial_p"),
+                "has_spatial_skill": has_spatial_skill,
+                "n_years": sk.get("n_years"),
+                # regression skill: R2 > 0 on the anomaly scale is very
+                # nearly "beats trend", and each has its own null
+                "r2": sk.get("r2"), "null_r2": sk.get("null_r2"),
+                "perm_r2_p": sk.get("perm_r2_p"),
+                "r2_national": sk.get("r2_national"),
+                "perm_r2_national_p": sk.get("perm_r2_national_p"),
+                "r2_within": sk.get("r2_within"),
+                "perm_r2_within_p": sk.get("perm_r2_within_p"),
+                # the yield level and what it rests on. trend_extrap_err_pct
+                # is the gate: above TREND_EXTRAP_MAX_PCT the t/ha number is
+                # dominated by not knowing the baseline, not by the climate
+                # signal, and must not be mapped.
+                "trend_tha": (round(lvl[r.fnid], 3)
+                              if r.fnid in lvl else None),
+                "yhat_tha": (round(lvl[r.fnid] * (1 + float(r["ahat"])), 3)
+                             if r.fnid in lvl else None),
+                **{k: v for k, v in tex.items()},
                 # how far outside the training range this unit's predictors
                 # sat BEFORE clipping — a clipped prediction is a boundary
                 # value, not a forecast, and must be readable as such
@@ -745,6 +1118,8 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         rec.update(status="forecast", offset_used=off_used,
                    best_offset=best["offset"], best_auc=skb.get("auc"),
                    has_skill=has_skill, in_support=in_support,
+                   has_national_skill=has_national_skill,
+                   has_spatial_skill=has_spatial_skill, **tex,
                    clip_frac=round(float((oos["n_clipped"] > 0).mean()), 3),
                    oos_max_sigma=round(float(oos["oos_max_sigma"].max()), 2),
                    oos_feature=oos.loc[oos["oos_max_sigma"].idxmax(),
@@ -757,10 +1132,18 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             f"{100 * rec['clip_frac']:.0f}% of units clipped")
         logger.info(
             f"{country} {crop} {season_name}: forecast {len(fxc)} units "
-            f"(issued at offset {off_used}, AUC {sk.get('auc')} vs null "
-            f"{sk.get('null_auc')}, p={sk.get('perm_p')}"
+            f"over {sk.get('n_years')} yrs (issued at offset {off_used}; "
+            f"pooled AUC {sk.get('auc')} vs null {sk.get('null_auc')} "
+            f"p={sk.get('perm_p')}"
             f"{'' if has_skill else ' — NO SKILL at this lead'}; "
-            f"best offset {best['offset']} AUC {skb.get('auc')}{oos_note})")
+            f"national {sk.get('auc_national')} vs {sk.get('null_auc_national')} "
+            f"p={sk.get('perm_national_p')}; "
+            f"spatial {sk.get('auc_spatial')} vs {sk.get('null_auc_spatial')} "
+            f"p={sk.get('perm_spatial_p')}; "
+            f"R2 {sk.get('r2')} nat {sk.get('r2_national')} "
+            f"within {sk.get('r2_within')}; "
+            f"trend extrapolated {tex.get('extrap_years')} yr "
+            f"(+/-{tex.get('trend_extrap_err_pct')}%){oos_note})")
 
     cdf = pd.DataFrame(combos)
     cdf.to_csv(out / "combinations.csv", index=False)

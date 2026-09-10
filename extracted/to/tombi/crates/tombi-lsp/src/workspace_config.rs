@@ -47,6 +47,15 @@ impl WorkspaceConfig {
             &self.config,
         ) == MatchResult::Matched
     }
+
+    #[inline]
+    fn is_ignored(&self, text_document_path: &std::path::Path) -> bool {
+        self.config
+            .files
+            .as_ref()
+            .is_none_or(|files| files.respect_ignore_files.value())
+            && tombi_glob::is_path_ignored(&self.workspace_folder_path, text_document_path)
+    }
 }
 
 pub async fn get_workspace_configs(backend: &Backend) -> Option<Vec<WorkspaceConfig>> {
@@ -99,4 +108,72 @@ pub fn is_workspace_target(
     workspace_configs
         .iter()
         .any(|workspace_config| workspace_config.is_workspace_target(&text_document_path, home_dir))
+}
+
+pub fn is_workspace_ignored(
+    text_document_uri: &tombi_uri::Uri,
+    workspace_configs: &[WorkspaceConfig],
+) -> bool {
+    let Ok(text_document_path) = tombi_uri::Uri::to_file_path(text_document_uri) else {
+        return false;
+    };
+
+    let mut matched_workspace = false;
+    for workspace_config in workspace_configs {
+        if !text_document_path.starts_with(&workspace_config.workspace_folder_path) {
+            continue;
+        }
+
+        matched_workspace = true;
+        if !workspace_config.is_ignored(&text_document_path) {
+            return false;
+        }
+    }
+
+    matched_workspace
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+    use tombi_config::FilesOptions;
+
+    use super::*;
+
+    macro_rules! test_workspace_ignore {
+        ($name:ident, $respect_ignore_files:literal, $expected:literal) => {
+            #[test]
+            fn $name() {
+                let tempdir = tempdir().unwrap();
+                let root = tempdir.path();
+                fs::create_dir(root.join(".git")).unwrap();
+                fs::write(root.join(".gitignore"), "**/.terraform/*\n").unwrap();
+                let path = root.join("module/.terraform/modules/child.toml");
+                fs::create_dir_all(path.parent().unwrap()).unwrap();
+                fs::write(&path, "invalid TOML\n").unwrap();
+
+                let mut config = Config::default();
+                config.files = Some(FilesOptions {
+                    respect_ignore_files: $respect_ignore_files.into(),
+                    ..Default::default()
+                });
+                let workspace_config = WorkspaceConfig {
+                    workspace_folder_path: root.to_path_buf(),
+                    config,
+                    config_path: Some(root.join("tombi.toml")),
+                };
+                let uri = tombi_uri::Uri::from_file_path(&path).unwrap();
+
+                assert_eq!(
+                    is_workspace_ignored(&uri, std::slice::from_ref(&workspace_config)),
+                    $expected
+                );
+            }
+        };
+    }
+
+    test_workspace_ignore!(workspace_ignore_respects_gitignore, true, true);
+    test_workspace_ignore!(workspace_ignore_disabled, false, false);
 }

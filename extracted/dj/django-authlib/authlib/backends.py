@@ -1,7 +1,7 @@
 from functools import cache
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.backends import BaseBackend, ModelBackend
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied
 from django.db.models import ObjectDoesNotExist
@@ -27,12 +27,34 @@ def _all_perms():
     return [f"{app_label}.{codename}" for app_label, codename in queryset]
 
 
-class PermissionsBackend(ModelBackend):
+class RolePermissionsBackend(BaseBackend):
+    """Answers permission checks from the user's role, and nothing else.
+
+    Despite living in ``AUTHENTICATION_BACKENDS`` this backend authenticates
+    nobody; it has to be accompanied by one which does.
+    """
+
+    def get_user(self, user_id):
+        # Authenticating nobody doesn't get us out of implementing this:
+        # Django's test client picks the first backend which *has* a
+        # get_user() for force_login(), and ``BaseBackend`` returns None
+        # there -- which would log those sessions straight back out.
+        try:
+            return get_user_model()._default_manager.get(pk=user_id, is_active=True)
+        except ObjectDoesNotExist:
+            return None
+
     def get_user_permissions(self, user, obj=None):
+        # ModelBackend can use an optimized variant of this -- we cannot since
+        # we don't know what the permission checking callbacks do.
+        if obj is not None:
+            # Permissions may depend on the object, so never cache those --
+            # caching on the user instance would leak results across
+            # unrelated objects (and even across obj=None lookups).
+            return {perm for perm in _all_perms() if self._has_perm(user, perm, obj)}
+
         attribute = "_user_permissions_cache"
         if not hasattr(user, attribute):
-            # ModelBackend can use an optimized variant of this -- we cannot since
-            # we don't know what the permission checking callbacks do.
             perms = {perm for perm in _all_perms() if self._has_perm(user, perm, obj)}
             setattr(user, attribute, perms)
         return getattr(user, attribute)

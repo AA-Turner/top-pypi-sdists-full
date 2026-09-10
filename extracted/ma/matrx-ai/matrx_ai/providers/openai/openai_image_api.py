@@ -32,6 +32,7 @@ from matrx_ai.providers.base_media import (
 )
 from matrx_ai.providers.keys import keyed_provider_client
 from matrx_ai.providers.outbound_capture import make_capture_http_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 from .translator import OpenAITranslator
 
@@ -144,8 +145,12 @@ class OpenAIImageGeneration(BaseMediaGeneration):
 
     async def _call_provider(self, kwargs: dict[str, Any]) -> Any:
         if self._is_edit_kwargs(kwargs):
-            return await self.client.images.edit(**kwargs)
-        return await self.client.images.generate(**kwargs)
+            return await self.client.images.edit(
+                **route_undeclared_params(self.client.images.edit, kwargs, provider="openai")
+            )
+        return await self.client.images.generate(
+            **route_undeclared_params(self.client.images.generate, kwargs, provider="openai")
+        )
 
     @staticmethod
     def _is_edit_kwargs(kwargs: dict[str, Any]) -> bool:
@@ -388,9 +393,13 @@ class OpenAIImageGeneration(BaseMediaGeneration):
         final_event: Any = None
         try:
             if self._is_edit_kwargs(kwargs):
-                stream = await self.client.images.edit(**kwargs)
+                stream = await self.client.images.edit(
+                    **route_undeclared_params(self.client.images.edit, kwargs, provider="openai")
+                )
             else:
-                stream = await self.client.images.generate(**kwargs)
+                stream = await self.client.images.generate(
+                    **route_undeclared_params(self.client.images.generate, kwargs, provider="openai")
+                )
 
             # The stream response is an async iterator of typed events.
             async for event in stream:

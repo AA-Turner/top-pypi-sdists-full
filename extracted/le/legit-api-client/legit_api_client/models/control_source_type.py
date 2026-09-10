@@ -68,6 +68,7 @@ class ControlSourceType(str, Enum):
     FORTIFYSCCINTEGRATION = 'FortifySccIntegration'
     BRIGHTSECURITYINTEGRATION = 'BrightSecurityIntegration'
     CYTRIXINTEGRATION = 'CytrixIntegration'
+    INVICTIPLATFORMINTEGRATION = 'InvictiPlatformIntegration'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

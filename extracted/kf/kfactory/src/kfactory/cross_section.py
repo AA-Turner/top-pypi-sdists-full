@@ -11,19 +11,23 @@ from typing import (
     NotRequired,
     Self,
     TypedDict,
+    cast,
     overload,
 )
 
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
+from . import kdb
+from .conf import logger
 from .enclosure import DLayerEnclosure, LayerEnclosure, LayerEnclosureSpec
-from .exceptions import CrossSectionNamingConflictError
+from .exceptions import CrossSectionNamingConflictError, LockedError
 from .typings import dbu  # noqa: TC001
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from . import kdb
+    from .instance import ProtoInstance
+    from .kcell import AnyTKCell, DKCell, KCell, VKCell
     from .layout import KCLayout
 
 __all__ = [
@@ -140,20 +144,53 @@ class SymmetricalCrossSection(BaseModel, frozen=True, arbitrary_types_allowed=Tr
         """Whether this cross section is symmetric."""
         return True
 
+    def get_sections(self) -> tuple[CrossSectionLayer, ...]:
+        """Absolute signed dbu strips of the realised profile, main strip first.
+
+        The main strip is `width` centered on the center line; the enclosure's
+        edge-relative bands are resolved against that width, so a 3 µm band sits
+        at ±3.25 µm for a 500 nm core and at ±3.55 µm for an 1100 nm one.
+
+        The main strip is always first and is never merged into the others, even
+        when the enclosure carries a band on the main layer. The remaining
+        strips are normalized per layer (touching or overlapping ones are
+        merged) and sorted, matching `AsymmetricalCrossSection.sections`.
+        """
+        half = self.width // 2
+        return (
+            CrossSectionLayer(
+                layer=self.main_layer, section_min=-half, section_max=half
+            ),
+            *_enclosure_strips(self.width, self.enclosure),
+        )
+
     def to_dtype(self, kcl: KCLayout) -> DSymmetricalCrossSection:
         """Convert to a um based CrossSection."""
         return DSymmetricalCrossSection(
             width=kcl.to_um(self.width),
             enclosure=self.enclosure.to_dtype(kcl),
             name=self.name,
+            radius=kcl.to_um(self.radius),
+            radius_min=kcl.to_um(self.radius_min),
         )
 
     def get_xmax(self) -> int:
-        return self.width // 2 + max(
-            s.d_max
-            for sections in self.enclosure.layer_sections.values()
-            for s in sections.sections
+        """Outer edge of the profile in dbu.
+
+        The core always reaches `width // 2`, so the enclosure can only push the
+        extent outwards: a cross section with no bands at all is just its core,
+        and a band that shrinks inwards (negative `d_max`) does not pull the
+        extent inside the core it sits on.
+        """
+        outermost = max(
+            (
+                s.d_max
+                for sections in self.enclosure.layer_sections.values()
+                for s in sections.sections
+            ),
+            default=0,
         )
+        return self.width // 2 + max(outermost, 0)
 
     def get_xmin(self) -> int:
         # Symmetric by construction: the full extent is mirrored about the center line.
@@ -188,6 +225,8 @@ class DSymmetricalCrossSection(BaseModel):
     width: float
     enclosure: DLayerEnclosure
     name: str | None = None
+    radius: float | None = None
+    radius_min: float | None = None
 
     @model_validator(mode="after")
     def _validate_width(self) -> Self:
@@ -205,6 +244,8 @@ class DSymmetricalCrossSection(BaseModel):
             width=kcl.to_dbu(self.width),
             enclosure=kcl.get_enclosure(self.enclosure.to_itype(kcl)),
             name=self.name,
+            radius=kcl.to_dbu(self.radius),
+            radius_min=kcl.to_dbu(self.radius_min),
         )
 
 
@@ -294,6 +335,20 @@ class DCrossSectionLayer(BaseModel, arbitrary_types_allowed=True):
             section_min=kcl.to_dbu(self.section_min),
             section_max=kcl.to_dbu(self.section_max),
         )
+
+
+def _to_dsections(
+    kcl: KCLayout, sections: Sequence[CrossSectionLayer]
+) -> tuple[DCrossSectionLayer, ...]:
+    """Convert dbu strips to their um counterparts."""
+    return tuple(
+        DCrossSectionLayer(
+            layer=s.layer,
+            section_min=kcl.to_um(s.section_min),
+            section_max=kcl.to_um(s.section_max),
+        )
+        for s in sections
+    )
 
 
 def _layer_sort_key(layer: kdb.LayerInfo) -> tuple[str, int, int]:
@@ -389,6 +444,42 @@ def _normalize_sections(
     return tuple(merged)
 
 
+def _enclosure_strips(
+    width: dbu, enclosure: LayerEnclosure
+) -> tuple[CrossSectionLayer, ...]:
+    """Resolve edge-relative enclosure bands to absolute signed dbu strips.
+
+    An enclosure band is stored relative to the *edge* of the main layer, so it
+    has to be resolved against the current core `width`: a section with only
+    `d_max` covers the core plus `d_max` on either side and becomes the single
+    strip `[-(width / 2 + d_max), width / 2 + d_max]`, while a section with
+    `d_min` is a ring around the core and becomes the two strips
+    `[width / 2 + d_min, width / 2 + d_max]` and its mirror image.
+
+    Bands that resolve to an empty strip (a shrink of at least half the core,
+    i.e. `width / 2 + d_max <= 0`) are dropped, and the result is normalized per
+    layer, so a ring whose inner radius reaches past the center line comes back
+    as one strip rather than two overlapping ones.
+    """
+    half = width // 2
+    strips: list[CrossSectionLayer] = []
+    for layer, layer_section in enclosure.layer_sections.items():
+        for section in layer_section.sections:
+            if section.d_min is None:
+                bands = ((-(half + section.d_max), half + section.d_max),)
+            else:
+                bands = (
+                    (-(half + section.d_max), -(half + section.d_min)),
+                    (half + section.d_min, half + section.d_max),
+                )
+            strips.extend(
+                CrossSectionLayer(layer=layer, section_min=lo, section_max=hi)
+                for lo, hi in bands
+                if lo < hi
+            )
+    return _normalize_sections(strips)
+
+
 class AsymmetricalCrossSection(BaseModel, frozen=True, arbitrary_types_allowed=True):
     """Cross section composed of independent layer strips at signed bounds.
 
@@ -479,16 +570,30 @@ class AsymmetricalCrossSection(BaseModel, frozen=True, arbitrary_types_allowed=T
                 for s in self.sections
             ),
             name=self.name,
-            radius=kcl.to_um(self.radius) if self.radius is not None else None,
-            radius_min=kcl.to_um(self.radius_min)
-            if self.radius_min is not None
-            else None,
+            radius=kcl.to_um(self.radius),
+            radius_min=kcl.to_um(self.radius_min),
             bbox_sections={k: kcl.to_um(v) for k, v in self.bbox_sections.items()},
         )
 
     def is_symmetric(self) -> bool:
         """Whether this cross section is symmetric."""
         return False
+
+    def get_sections(self) -> tuple[CrossSectionLayer, ...]:
+        """Absolute signed dbu strips of the realised profile, main strip first.
+
+        The counterpart of `SymmetricalCrossSection.get_sections`: here the
+        strips are already absolute, so this is the main strip followed by the
+        normalized `sections`.
+        """
+        return (
+            CrossSectionLayer(
+                layer=self.layer,
+                section_min=self.section_min,
+                section_max=self.section_max,
+            ),
+            *self.sections,
+        )
 
     def _all_strips(self) -> tuple[tuple[int, int], ...]:
         """Return (section_min, section_max) for main + every aux section."""
@@ -611,10 +716,8 @@ class DAsymmetricalCrossSection(BaseModel, arbitrary_types_allowed=True):
             section_max=kcl.to_dbu(self.section_max),
             sections=tuple(s.to_itype(kcl) for s in self.sections),
             name=self.name or "",
-            radius=kcl.to_dbu(self.radius) if self.radius is not None else None,
-            radius_min=kcl.to_dbu(self.radius_min)
-            if self.radius_min is not None
-            else None,
+            radius=kcl.to_dbu(self.radius),
+            radius_min=kcl.to_dbu(self.radius_min),
             bbox_sections={k: kcl.to_dbu(v) for k, v in self.bbox_sections.items()},
         )
 
@@ -626,6 +729,91 @@ type AnyCrossSectionInput = (
     | TCrossSection[Any]
     | TAsymmetricCrossSection[Any]
 )
+
+
+def _add_bbox(
+    c: AnyTKCell,
+    bbox: kdb.Box,
+    sections: Mapping[int, int],
+    *,
+    top: int | None = None,
+    bottom: int | None = None,
+    right: int | None = None,
+    left: int | None = None,
+) -> None:
+    """Insert integer bbox layers with optional per-edge padding overrides."""
+    if c.locked:
+        raise LockedError(c)
+    if bbox.empty():
+        return
+    for layer, offset in sections.items():
+        c.shapes(layer).insert(
+            kdb.Box(
+                bbox.left - (offset if left is None else left),
+                bbox.bottom - (offset if bottom is None else bottom),
+                bbox.right + (offset if right is None else right),
+                bbox.top + (offset if top is None else top),
+            )
+        )
+
+
+def _add_bbox_virtual(
+    c: VKCell,
+    bbox: kdb.DBox,
+    sections: Mapping[int, float],
+    *,
+    top: float | None = None,
+    bottom: float | None = None,
+    right: float | None = None,
+    left: float | None = None,
+) -> None:
+    """Insert virtual bbox layers with optional per-edge padding overrides."""
+    if c.locked:
+        raise LockedError(c)
+    if bbox.empty():
+        return
+    for layer, offset in sections.items():
+        c.shapes(layer).insert(
+            kdb.DBox(
+                bbox.left - (offset if left is None else left),
+                bbox.bottom - (offset if bottom is None else bottom),
+                bbox.right + (offset if right is None else right),
+                bbox.top + (offset if top is None else top),
+            )
+        )
+
+
+def _bbox_reference(
+    c: KCell | DKCell | VKCell,
+    ref: kdb.LayerInfo | int | kdb.Box | kdb.DBox | ProtoInstance[Any] | None,
+) -> kdb.Box | kdb.DBox:
+    """Resolve reference bounds in the reference's own units."""
+    from .instance import ProtoInstance
+    from .kcell import VKCell
+
+    if isinstance(ref, kdb.LayerInfo):
+        ref = c.kcl.layer(ref)
+    if isinstance(ref, int | None):
+        return c.bbox(ref)
+    if isinstance(ref, kdb.Box | kdb.DBox):
+        bbox = ref
+    elif isinstance(ref, ProtoInstance):
+        if ref.kcl is not c.kcl:
+            raise ValueError(
+                "The bbox instance and target must share the same KCLayout"
+            )
+        bbox = cast("kdb.Box | kdb.DBox", ref.bbox())
+    else:
+        raise TypeError(
+            "ref must be a layer index, LayerInfo, Box, DBox, instance, or None"
+        )
+    if not isinstance(c, VKCell) and c.vinsts:
+        logger.warning(
+            "Adding bbox layers to cell {!r} with virtual instances may be "
+            "inaccurate until insert_vinsts() has been called.",
+            c.name,
+        )
+    return bbox
 
 
 class TAsymmetricCrossSection[T: (int, float)](ABC):
@@ -678,6 +866,13 @@ class TAsymmetricCrossSection[T: (int, float)](ABC):
         self,
     ) -> tuple[CrossSectionLayer, ...] | tuple[DCrossSectionLayer, ...]: ...
 
+    @abstractmethod
+    def get_sections(
+        self,
+    ) -> tuple[CrossSectionLayer, ...] | tuple[DCrossSectionLayer, ...]:
+        """Absolute strips of the realised profile, main strip first."""
+        ...
+
     @property
     @abstractmethod
     def radius(self) -> T | None: ...
@@ -689,6 +884,47 @@ class TAsymmetricCrossSection[T: (int, float)](ABC):
     @property
     @abstractmethod
     def bbox_sections(self) -> dict[kdb.LayerInfo, T]: ...
+
+    @abstractmethod
+    def add_bbox(
+        self,
+        c: KCell | DKCell | VKCell,
+        ref: kdb.LayerInfo
+        | int
+        | kdb.Box
+        | kdb.DBox
+        | ProtoInstance[Any]
+        | None = None,
+        *,
+        top: T | None = None,
+        bottom: T | None = None,
+        right: T | None = None,
+        left: T | None = None,
+    ) -> None:
+        """Draw bbox_sections around a cell, layer, box, or instance.
+
+        Args:
+            c: Target KCell, DKCell, or VKCell (including subclasses), sharing this
+                cross section's KCLayout. Instance references must share it too.
+            ref: Reference layer/index in c, explicit Box/DBox, or instance.
+                None uses the whole cell. A Box is in c's dbu; a DBox is in
+                micrometers. Instances use their transformed bounds in their
+                parent coordinates, which must match c's coordinate system.
+            top: Override top padding for every bbox layer.
+            bottom: Override bottom padding for every bbox layer.
+            right: Override right padding for every bbox layer.
+            left: Override left padding for every bbox layer.
+
+        Padding uses this cross section's units (dbu or micrometers).
+        None uses each layer's stored padding; zero suppresses padding on that
+        edge. All layers share the original reference bounds. Empty references
+        draw nothing. The cross section and reference box are not modified.
+        Real-cell geometry is computed in integer DBU after converting inputs;
+        virtual-cell geometry remains in micrometers without grid snapping.
+        Warns if a real target has pending virtual instances; call insert_vinsts()
+        before adding bbox layers to avoid inaccurate geometry.
+        """
+        ...
 
     @abstractmethod
     def get_xmin_xmax(self) -> tuple[T, T]: ...
@@ -712,6 +948,83 @@ class TAsymmetricCrossSection[T: (int, float)](ABC):
 
 class AsymmetricCrossSection(TAsymmetricCrossSection[int]):
     """dbu-flavored wrapper around an `AsymmetricalCrossSection`."""
+
+    def add_bbox(
+        self,
+        c: KCell | DKCell | VKCell,
+        ref: kdb.LayerInfo
+        | int
+        | kdb.Box
+        | kdb.DBox
+        | ProtoInstance[Any]
+        | None = None,
+        *,
+        top: int | None = None,
+        bottom: int | None = None,
+        right: int | None = None,
+        left: int | None = None,
+    ) -> None:
+        """Draw bbox_sections using padding in integer dbu.
+
+        Args:
+            c: Target KCell, DKCell, or VKCell, including subclasses. Must share
+                this cross section's KCLayout, as must any instance reference.
+            ref: None for the whole target, a layer/index in c, an explicit
+                Box (dbu) or DBox (micrometers), or an instance's transformed
+                bounds in c's coordinate system. Cell references are not accepted.
+            top: Top padding override for every bbox layer.
+            bottom: Bottom padding override for every bbox layer.
+            right: Right padding override for every bbox layer.
+            left: Left padding override for every bbox layer.
+
+        None padding uses each layer's stored offset; zero suppresses padding.
+        Real targets use integer geometry; VKCell targets use micrometers.
+        All layers use the same original bounds. Empty references draw nothing;
+        neither the cross section nor the reference box is modified.
+
+        Warning:
+            Logs a warning when a non-VKCell target has pending virtual instances,
+            even with an explicit reference. Call insert_vinsts() first to avoid
+            inaccurate geometry. This method does not materialize instances.
+
+        Raises:
+            LockedError: The target cell is locked.
+            TypeError: The target or reference type is unsupported.
+            ValueError: The target or instance reference uses another KCLayout.
+        """
+        from .kcell import DKCell, KCell, VKCell
+
+        if not isinstance(c, KCell | DKCell | VKCell):
+            raise TypeError("The bbox target must be a KCell, DKCell, or VKCell")
+        if c.kcl is not self.kcl:
+            raise ValueError(
+                "The cross section and target must share the same KCLayout"
+            )
+        if c.locked:
+            raise LockedError(c)
+        if isinstance(c, VKCell):
+            self.to_dtype().add_bbox(
+                c,
+                ref,
+                top=self.kcl.to_um(top),
+                bottom=self.kcl.to_um(bottom),
+                right=self.kcl.to_um(right),
+                left=self.kcl.to_um(left),
+            )
+            return
+        bbox = _bbox_reference(c, ref)
+        _add_bbox(
+            c,
+            bbox if isinstance(bbox, kdb.Box) else self.kcl.to_dbu(bbox),
+            {
+                self.kcl.layer(layer): offset
+                for layer, offset in self.bbox_sections.items()
+            },
+            top=top,
+            bottom=bottom,
+            right=right,
+            left=left,
+        )
 
     @overload
     def __init__(self, kcl: KCLayout, *, base: AsymmetricalCrossSection) -> None: ...
@@ -780,6 +1093,10 @@ class AsymmetricCrossSection(TAsymmetricCrossSection[int]):
     def sections(self) -> tuple[CrossSectionLayer, ...]:
         return self._base.sections
 
+    def get_sections(self) -> tuple[CrossSectionLayer, ...]:
+        """Absolute signed dbu strips of the realised profile, main strip first."""
+        return self._base.get_sections()
+
     @property
     def radius(self) -> int | None:
         return self._base.radius
@@ -798,6 +1115,83 @@ class AsymmetricCrossSection(TAsymmetricCrossSection[int]):
 
 class DAsymmetricCrossSection(TAsymmetricCrossSection[float]):
     """um-flavored wrapper around an `AsymmetricalCrossSection`."""
+
+    def add_bbox(
+        self,
+        c: KCell | DKCell | VKCell,
+        ref: kdb.LayerInfo
+        | int
+        | kdb.Box
+        | kdb.DBox
+        | ProtoInstance[Any]
+        | None = None,
+        *,
+        top: float | None = None,
+        bottom: float | None = None,
+        right: float | None = None,
+        left: float | None = None,
+    ) -> None:
+        """Draw bbox_sections using padding in micrometers.
+
+        Args:
+            c: Target KCell, DKCell, or VKCell, including subclasses. Must share
+                this cross section's KCLayout, as must any instance reference.
+            ref: None for the whole target, a layer/index in c, an explicit
+                Box (dbu) or DBox (micrometers), or an instance's transformed
+                bounds in c's coordinate system. Cell references are not accepted.
+            top: Top padding override for every bbox layer.
+            bottom: Bottom padding override for every bbox layer.
+            right: Right padding override for every bbox layer.
+            left: Left padding override for every bbox layer.
+
+        None padding uses each layer's stored offset; zero suppresses padding.
+        Real targets use integer geometry; VKCell targets use micrometers.
+        All layers use the same original bounds. Empty references draw nothing;
+        neither the cross section nor the reference box is modified.
+
+        Warning:
+            Logs a warning when a non-VKCell target has pending virtual instances,
+            even with an explicit reference. Call insert_vinsts() first to avoid
+            inaccurate geometry. This method does not materialize instances.
+
+        Raises:
+            LockedError: The target cell is locked.
+            TypeError: The target or reference type is unsupported.
+            ValueError: The target or instance reference uses another KCLayout.
+        """
+        from .kcell import DKCell, KCell, VKCell
+
+        if not isinstance(c, KCell | DKCell | VKCell):
+            raise TypeError("The bbox target must be a KCell, DKCell, or VKCell")
+        if c.kcl is not self.kcl:
+            raise ValueError(
+                "The cross section and target must share the same KCLayout"
+            )
+        if c.locked:
+            raise LockedError(c)
+        if isinstance(c, KCell | DKCell):
+            self.to_itype().add_bbox(
+                c,
+                ref,
+                top=self.kcl.to_dbu(top),
+                bottom=self.kcl.to_dbu(bottom),
+                right=self.kcl.to_dbu(right),
+                left=self.kcl.to_dbu(left),
+            )
+            return
+        bbox = _bbox_reference(c, ref)
+        _add_bbox_virtual(
+            c,
+            bbox if isinstance(bbox, kdb.DBox) else self.kcl.to_um(bbox),
+            {
+                self.kcl.layer(layer): offset
+                for layer, offset in self.bbox_sections.items()
+            },
+            top=top,
+            bottom=bottom,
+            right=right,
+            left=left,
+        )
 
     @overload
     def __init__(self, kcl: KCLayout, *, base: AsymmetricalCrossSection) -> None: ...
@@ -864,24 +1258,19 @@ class DAsymmetricCrossSection(TAsymmetricCrossSection[float]):
 
     @property
     def sections(self) -> tuple[DCrossSectionLayer, ...]:
-        return tuple(
-            DCrossSectionLayer(
-                layer=s.layer,
-                section_min=self.kcl.to_um(s.section_min),
-                section_max=self.kcl.to_um(s.section_max),
-            )
-            for s in self._base.sections
-        )
+        return _to_dsections(self.kcl, self._base.sections)
+
+    def get_sections(self) -> tuple[DCrossSectionLayer, ...]:
+        """Absolute signed um strips of the realised profile, main strip first."""
+        return _to_dsections(self.kcl, self._base.get_sections())
 
     @property
     def radius(self) -> float | None:
-        r = self._base.radius
-        return self.kcl.to_um(r) if r is not None else None
+        return self.kcl.to_um(self._base.radius)
 
     @property
     def radius_min(self) -> float | None:
-        r = self._base.radius_min
-        return self.kcl.to_um(r) if r is not None else None
+        return self.kcl.to_um(self._base.radius_min)
 
     @property
     def bbox_sections(self) -> dict[kdb.LayerInfo, float]:
@@ -960,6 +1349,13 @@ class TCrossSection[T: (int, float)](ABC):
     @abstractmethod
     def sections(self) -> dict[kdb.LayerInfo, list[tuple[T | None, T]]]: ...
 
+    @abstractmethod
+    def get_sections(
+        self,
+    ) -> tuple[CrossSectionLayer, ...] | tuple[DCrossSectionLayer, ...]:
+        """Absolute strips of the realised profile, main strip first."""
+        ...
+
     @property
     @abstractmethod
     def radius(self) -> T | None: ...
@@ -973,6 +1369,47 @@ class TCrossSection[T: (int, float)](ABC):
     def bbox_sections(
         self,
     ) -> dict[kdb.LayerInfo, T]: ...
+
+    @abstractmethod
+    def add_bbox(
+        self,
+        c: KCell | DKCell | VKCell,
+        ref: kdb.LayerInfo
+        | int
+        | kdb.Box
+        | kdb.DBox
+        | ProtoInstance[Any]
+        | None = None,
+        *,
+        top: T | None = None,
+        bottom: T | None = None,
+        right: T | None = None,
+        left: T | None = None,
+    ) -> None:
+        """Draw bbox_sections around a cell, layer, box, or instance.
+
+        Args:
+            c: Target KCell, DKCell, or VKCell (including subclasses), sharing this
+                cross section's KCLayout. Instance references must share it too.
+            ref: Reference layer/index in c, explicit Box/DBox, or instance.
+                None uses the whole cell. A Box is in c's dbu; a DBox is in
+                micrometers. Instances use their transformed bounds in their
+                parent coordinates, which must match c's coordinate system.
+            top: Override top padding for every bbox layer.
+            bottom: Override bottom padding for every bbox layer.
+            right: Override right padding for every bbox layer.
+            left: Override left padding for every bbox layer.
+
+        Padding uses this cross section's units (dbu or micrometers).
+        None uses each layer's stored padding; zero suppresses padding on that
+        edge. All layers share the original reference bounds. Empty references
+        draw nothing. The cross section and reference box are not modified.
+        Real-cell geometry is computed in integer DBU after converting inputs;
+        virtual-cell geometry remains in micrometers without grid snapping.
+        Warns if a real target has pending virtual instances; call insert_vinsts()
+        before adding bbox layers to avoid inaccurate geometry.
+        """
+        ...
 
     @abstractmethod
     def get_xmin_xmax(self) -> tuple[T, T]: ...
@@ -1000,6 +1437,83 @@ class TCrossSection[T: (int, float)](ABC):
 
 
 class CrossSection(TCrossSection[int]):
+    def add_bbox(
+        self,
+        c: KCell | DKCell | VKCell,
+        ref: kdb.LayerInfo
+        | int
+        | kdb.Box
+        | kdb.DBox
+        | ProtoInstance[Any]
+        | None = None,
+        *,
+        top: int | None = None,
+        bottom: int | None = None,
+        right: int | None = None,
+        left: int | None = None,
+    ) -> None:
+        """Draw bbox_sections using padding in integer dbu.
+
+        Args:
+            c: Target KCell, DKCell, or VKCell, including subclasses. Must share
+                this cross section's KCLayout, as must any instance reference.
+            ref: None for the whole target, a layer/index in c, an explicit
+                Box (dbu) or DBox (micrometers), or an instance's transformed
+                bounds in c's coordinate system. Cell references are not accepted.
+            top: Top padding override for every bbox layer.
+            bottom: Bottom padding override for every bbox layer.
+            right: Right padding override for every bbox layer.
+            left: Left padding override for every bbox layer.
+
+        None padding uses each layer's stored offset; zero suppresses padding.
+        Real targets use integer geometry; VKCell targets use micrometers.
+        All layers use the same original bounds. Empty references draw nothing;
+        neither the cross section nor the reference box is modified.
+
+        Warning:
+            Logs a warning when a non-VKCell target has pending virtual instances,
+            even with an explicit reference. Call insert_vinsts() first to avoid
+            inaccurate geometry. This method does not materialize instances.
+
+        Raises:
+            LockedError: The target cell is locked.
+            TypeError: The target or reference type is unsupported.
+            ValueError: The target or instance reference uses another KCLayout.
+        """
+        from .kcell import DKCell, KCell, VKCell
+
+        if not isinstance(c, KCell | DKCell | VKCell):
+            raise TypeError("The bbox target must be a KCell, DKCell, or VKCell")
+        if c.kcl is not self.kcl:
+            raise ValueError(
+                "The cross section and target must share the same KCLayout"
+            )
+        if c.locked:
+            raise LockedError(c)
+        if isinstance(c, VKCell):
+            self.to_dtype().add_bbox(
+                c,
+                ref,
+                top=self.kcl.to_um(top),
+                bottom=self.kcl.to_um(bottom),
+                right=self.kcl.to_um(right),
+                left=self.kcl.to_um(left),
+            )
+            return
+        bbox = _bbox_reference(c, ref)
+        _add_bbox(
+            c,
+            bbox if isinstance(bbox, kdb.Box) else self.kcl.to_dbu(bbox),
+            {
+                self.kcl.layer(layer): offset
+                for layer, offset in self.bbox_sections.items()
+            },
+            top=top,
+            bottom=bottom,
+            right=right,
+            left=left,
+        )
+
     @overload
     def __init__(self, kcl: KCLayout, *, base: SymmetricalCrossSection) -> None: ...
 
@@ -1074,6 +1588,14 @@ class CrossSection(TCrossSection[int]):
             for layer, sections in items
         }
 
+    def get_sections(self) -> tuple[CrossSectionLayer, ...]:
+        """Absolute signed dbu strips of the realised profile, main strip first.
+
+        Unlike `sections`, which returns the enclosure's edge-relative bands,
+        this resolves them against the core width and includes the main strip.
+        """
+        return self._base.get_sections()
+
     @property
     def bbox_sections(self) -> dict[kdb.LayerInfo, int]:
         return self._base.bbox_sections.copy()
@@ -1102,6 +1624,83 @@ class CrossSection(TCrossSection[int]):
 
 
 class DCrossSection(TCrossSection[float]):
+    def add_bbox(
+        self,
+        c: KCell | DKCell | VKCell,
+        ref: kdb.LayerInfo
+        | int
+        | kdb.Box
+        | kdb.DBox
+        | ProtoInstance[Any]
+        | None = None,
+        *,
+        top: float | None = None,
+        bottom: float | None = None,
+        right: float | None = None,
+        left: float | None = None,
+    ) -> None:
+        """Draw bbox_sections using padding in micrometers.
+
+        Args:
+            c: Target KCell, DKCell, or VKCell, including subclasses. Must share
+                this cross section's KCLayout, as must any instance reference.
+            ref: None for the whole target, a layer/index in c, an explicit
+                Box (dbu) or DBox (micrometers), or an instance's transformed
+                bounds in c's coordinate system. Cell references are not accepted.
+            top: Top padding override for every bbox layer.
+            bottom: Bottom padding override for every bbox layer.
+            right: Right padding override for every bbox layer.
+            left: Left padding override for every bbox layer.
+
+        None padding uses each layer's stored offset; zero suppresses padding.
+        Real targets use integer geometry; VKCell targets use micrometers.
+        All layers use the same original bounds. Empty references draw nothing;
+        neither the cross section nor the reference box is modified.
+
+        Warning:
+            Logs a warning when a non-VKCell target has pending virtual instances,
+            even with an explicit reference. Call insert_vinsts() first to avoid
+            inaccurate geometry. This method does not materialize instances.
+
+        Raises:
+            LockedError: The target cell is locked.
+            TypeError: The target or reference type is unsupported.
+            ValueError: The target or instance reference uses another KCLayout.
+        """
+        from .kcell import DKCell, KCell, VKCell
+
+        if not isinstance(c, KCell | DKCell | VKCell):
+            raise TypeError("The bbox target must be a KCell, DKCell, or VKCell")
+        if c.kcl is not self.kcl:
+            raise ValueError(
+                "The cross section and target must share the same KCLayout"
+            )
+        if c.locked:
+            raise LockedError(c)
+        if isinstance(c, KCell | DKCell):
+            self.to_itype().add_bbox(
+                c,
+                ref,
+                top=self.kcl.to_dbu(top),
+                bottom=self.kcl.to_dbu(bottom),
+                right=self.kcl.to_dbu(right),
+                left=self.kcl.to_dbu(left),
+            )
+            return
+        bbox = _bbox_reference(c, ref)
+        _add_bbox_virtual(
+            c,
+            bbox if isinstance(bbox, kdb.DBox) else self.kcl.to_um(bbox),
+            {
+                self.kcl.layer(layer): offset
+                for layer, offset in self.bbox_sections.items()
+            },
+            top=top,
+            bottom=bottom,
+            right=right,
+            left=left,
+        )
+
     @overload
     def __init__(self, kcl: KCLayout, *, base: SymmetricalCrossSection) -> None: ...
 
@@ -1167,8 +1766,8 @@ class DCrossSection(TCrossSection[float]):
                         ],
                     ),
                     name=name,
-                    radius=kcl.to_dbu(radius) if radius else None,
-                    radius_min=kcl.to_dbu(radius_min) if radius_min else None,
+                    radius=kcl.to_dbu(radius),
+                    radius_min=kcl.to_dbu(radius_min),
                 )
             )
         self.kcl = kcl
@@ -1180,15 +1779,21 @@ class DCrossSection(TCrossSection[float]):
         return {
             layer: [
                 (
-                    self.kcl.to_um(section.d_min)
-                    if section.d_min is not None
-                    else None,
+                    self.kcl.to_um(section.d_min),
                     self.kcl.to_um(section.d_max),
                 )
                 for section in sections.sections
             ]
             for layer, sections in items
         }
+
+    def get_sections(self) -> tuple[DCrossSectionLayer, ...]:
+        """Absolute signed um strips of the realised profile, main strip first.
+
+        Unlike `sections`, which returns the enclosure's edge-relative bands,
+        this resolves them against the core width and includes the main strip.
+        """
+        return _to_dsections(self.kcl, self._base.get_sections())
 
     @property
     def bbox_sections(self) -> dict[kdb.LayerInfo, float]:

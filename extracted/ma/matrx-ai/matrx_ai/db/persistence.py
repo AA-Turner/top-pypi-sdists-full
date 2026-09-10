@@ -864,6 +864,8 @@ async def persist_completed_request(
                     **_meta_kwargs,
                     **_promoted,
                 }
+                if role_val == "user" and "user_content" in msg:
+                    _msg_fields["user_content"] = msg["user_content"]
                 from uuid import uuid4 as _uuid4
 
                 try:

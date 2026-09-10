@@ -134,6 +134,7 @@ class ScmType(str, Enum):
     GOOGLEARTIFACTREGISTRY = 'GoogleArtifactRegistry'
     ASANA = 'Asana'
     CYTRIX = 'Cytrix'
+    INVICTIPLATFORM = 'InvictiPlatform'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

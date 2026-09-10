@@ -18,7 +18,32 @@ match_thresh:
   default: 0.9  # from the default parameters
   range: [0.7, 0.9]
 
+asso_func:
+  type: choice
+  default: iou
+  options: [iou, giou, diou, ciou, hmiou, centroid]
+
 frame_rate:
   type: choice
   default: 30  # from the default parameters
   options: [25, 30]  # static choice for Ray Search
+
+# Timing and reference-prior units stay fixed across all tuning trials.
+variable_dt:
+  default: false
+kf_time_unit:
+  default: null
+kf_reference_dt_s:
+  default: 0.03333333333333333
+
+# Fixed runtime covariance defaults; --calibrate-kf supplies fitted values.
+kf_process_position_scale:
+  default: 1.0
+kf_process_velocity_scale:
+  default: 1.0
+kf_measurement_noise_scale:
+  default: 1.0
+kf_initial_position_scale:
+  default: 1.0
+kf_initial_velocity_scale:
+  default: 1.0

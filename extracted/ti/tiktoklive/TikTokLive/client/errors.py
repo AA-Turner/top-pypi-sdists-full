@@ -69,11 +69,16 @@ class WebsocketURLMissingError(TikTokLiveError):
     """
 
 
-class WebcastBlocked200Error(TikTokLiveError):
+class WebcastBlockedError(TikTokLiveError):
     """
-    Thrown when the webcast is blocked by TikTok with a 200 status code (detected)
+    Thrown when the webcast is blocked by TikTok with a 200 or 400 status code (detected)
 
     """
+
+
+# Backwards-compatible alias: ``WebcastBlocked200Error`` was the public name
+# before the 400 case was folded into the same error.
+WebcastBlocked200Error = WebcastBlockedError
 
 
 class SignAPIError(TikTokLiveError):

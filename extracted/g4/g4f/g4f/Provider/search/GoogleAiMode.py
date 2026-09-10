@@ -5,6 +5,7 @@ import urllib.parse
 
 from ...typing import AsyncResult, Messages
 from ...requests.cdp import CDPSession
+from ...providers.response import SearchResults
 from ... import debug
 from ..helper import get_last_user_message
 from .GoogleSearch import GoogleSearch
@@ -13,6 +14,7 @@ from .GoogleSearch import GoogleSearch
 class GoogleAiMode(GoogleSearch):
     label = "Google AI Mode"
     url = "https://google.com"
+    screenshot_url = f"{url}/search?q=Hello&ai-mode=true"
     working = True
     active_by_default = True
     supports_native_tools = True
@@ -44,7 +46,7 @@ class GoogleAiMode(GoogleSearch):
             await session.wait_for_network_idle(idle_time=1, timeout=10.0)
             search_results = await cls._read_search_results(session)
             if search_results:
-                yield search_results
+                yield SearchResults(search_results)
                 yield "\n\n---\n\n"
         except Exception as e:
             debug.log(f"Google Search: Error reading search results: {e}")

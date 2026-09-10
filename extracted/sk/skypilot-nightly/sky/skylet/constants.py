@@ -619,6 +619,7 @@ OVERRIDEABLE_CONFIG_KEYS_IN_TASK: List[Tuple[str, ...]] = [
     ('vast', 'datacenter_only'),
     ('vast', 'create_instance_kwargs'),
     ('slurm', 'sbatch_options'),
+    ('slurm', 'quota'),
     ('slurm', 'cpu_partition'),
     ('active_workspace',),
 ]
@@ -648,6 +649,7 @@ SKIPPED_CLIENT_OVERRIDE_KEYS: List[Tuple[str, ...]] = [
     # Slurm submit identity and cluster settings are managed server-side.
     ('slurm', 'cluster_configs'),
     ('slurm', 'submit_as_user'),
+    ('slurm', 'username_map'),
 ]
 
 # Constants for Azure blob storage

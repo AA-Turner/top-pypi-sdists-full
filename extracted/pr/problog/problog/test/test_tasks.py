@@ -1,9 +1,14 @@
+import json
 import os
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from problog.kbest import KBestEvaluator
 from problog.logic import Constant, Term, Not
 from problog.tasks import map, explain, time1, bayesnet, mpe, ground, probability
+from problog.tasks import exit_code, run_task
 
 dirname = os.path.dirname(__file__)
 test_folder = Path(dirname, "./../../test/")
@@ -87,6 +92,59 @@ class TestTasks(unittest.TestCase):
         # Test result
         results = result["results"]
         self.assertAlmostEqual(0.8, results[Term("someHeads")], delta=1e6)
+
+    def test_explain_accepts_bounds_from_kbest(self):
+        """KBestEvaluator answers with a (lower, upper) pair rather than a
+        float whenever its search converges on bounds instead of reaching an
+        exact value. The domain check compared that pair against 0.0 and 1.0
+        and died with a TypeError, so whether 'problog explain' worked came
+        down to how the k-best search happened to terminate."""
+        file_name = test_folder / "tasks" / "some_heads.pl"
+        with patch.object(KBestEvaluator, "evaluate", return_value=(0.75, 0.85)):
+            result = explain.main([str(file_name)])
+
+        self.assertTrue(result["SUCCESS"])
+        self.assertEqual((0.75, 0.85), result["results"][Term("someHeads")])
+
+    def test_explain_rejects_bounds_outside_the_domain(self):
+        """A bound above one still has to be caught: the check is there to
+        report a knowledge compiler that returned the wrong formula."""
+        file_name = test_folder / "tasks" / "some_heads.pl"
+        with patch.object(KBestEvaluator, "evaluate", return_value=(0.75, 1.5)):
+            result = explain.main([str(file_name)])
+
+        self.assertFalse(result["SUCCESS"])
+
+    def _explain_web_json(self, file_name):
+        """Run the explain task with --web and parse what it wrote."""
+        handle, path = tempfile.mkstemp(suffix=".json")
+        os.close(handle)
+        try:
+            explain.main([str(file_name), "--web", "-o", path])
+            with open(path) as out:
+                return json.load(out)
+        finally:
+            os.unlink(path)
+
+    def test_explain_web_output_is_json(self):
+        """--web serialised a dictionary keyed by Term, which json refuses
+        with "keys must be str", so it never produced any output at all."""
+        payload = self._explain_web_json(test_folder / "tasks" / "some_heads.pl")
+
+        self.assertTrue(payload["SUCCESS"])
+        self.assertAlmostEqual(0.8, payload["results"]["someHeads"], places=6)
+        self.assertEqual([["someHeads", 0.8]], payload["probabilities"])
+
+    def test_explain_web_output_with_bounds(self):
+        """A pair reaches the web output as a two element list; rounding it
+        as if it were a float raised a TypeError."""
+        file_name = test_folder / "tasks" / "some_heads.pl"
+        with patch.object(KBestEvaluator, "evaluate", return_value=(0.75, 0.85)):
+            payload = self._explain_web_json(file_name)
+
+        self.assertTrue(payload["SUCCESS"])
+        self.assertEqual([0.75, 0.85], payload["results"]["someHeads"])
+        self.assertEqual([["someHeads", [0.75, 0.85]]], payload["probabilities"])
 
     def check_probability(self, expected, result):
         self.assertTrue(result[0])
@@ -332,3 +390,198 @@ class TestTasks(unittest.TestCase):
             "\n\nFactor (c15 | edge(1,3), path(3,6)) = 0, 1\n(False, False): [1.0, 0.0]"
             "\n(False, True): [1.0, 0.0]\n(True, False): [1.0, 0.0]\n(True, True): [0.0, 1.0]\n",
         )
+
+
+class TestExitCode(unittest.TestCase):
+    """The CLI must report success as 0 and failure as non-zero (issue #82)."""
+
+    def test_exit_code_translation(self):
+        # (success, result) pairs, as returned by most tasks
+        self.assertEqual(0, exit_code((True, "anything")))
+        self.assertEqual(1, exit_code((False, Exception("boom"))))
+        # dictionaries with a SUCCESS key, as returned by explain
+        self.assertEqual(0, exit_code({"SUCCESS": True}))
+        self.assertEqual(1, exit_code({"SUCCESS": False}))
+        # tasks that already return an exit code
+        self.assertEqual(0, exit_code(0))
+        self.assertEqual(1, exit_code(1))
+        # tasks that return nothing at all
+        self.assertEqual(0, exit_code(None))
+
+    def test_tasks_succeed_with_zero(self):
+        file_name = test_folder / "tasks" / "some_heads.pl"
+        for task in ("prob", "mpe", "sample", "ground", "explain", "bn"):
+            argv = [] if task == "prob" else [task]
+            argv.append(str(file_name))
+            self.assertEqual(
+                0, run_task(argv), "task %s should report success" % task
+            )
+
+    def test_tasks_fail_with_nonzero(self):
+        file_name = test_folder / "tasks" / "does_not_exist.pl"
+        for task in ("prob", "mpe", "sample", "ground", "explain", "map", "bn"):
+            argv = [] if task == "prob" else [task]
+            argv.append(str(file_name))
+            self.assertNotEqual(
+                0, run_task(argv), "task %s should report failure" % task
+            )
+
+    def test_failure_is_not_masked_by_a_later_file(self):
+        # With several input files the exit code must reflect any failure,
+        # not just the outcome of the last file.
+        good = str(test_folder / "tasks" / "some_heads.pl")
+        bad = str(test_folder / "tasks" / "does_not_exist.pl")
+        self.assertNotEqual(0, run_task([bad, good]))
+        self.assertNotEqual(0, run_task([good, bad]))
+        self.assertEqual(0, run_task([good, good]))
+
+
+class TestMaxSatInput(unittest.TestCase):
+    """The MIP (scip) input must be produced without error (issue #130)."""
+
+    def _cnf(self):
+        from problog.formula import LogicDAG
+        from problog.cnf_formula import CNF
+        from problog.program import PrologString
+
+        model = PrologString("0.3::a.\n0.5::b.\nc :- a, b.\nquery(c).\n")
+        dag = LogicDAG.createFrom(
+            model, avoid_name_clash=True, label_all=True, labels=[("output", 1)]
+        )
+        return CNF.createFrom(dag, force_atoms=True)
+
+    def test_to_lp_accepts_invert_weights(self):
+        from problog.maxsat import SCIPSolver
+
+        cnf = self._cnf()
+        # constructed directly: this checks the input it builds, not whether
+        # scip happens to be installed here
+        solver = SCIPSolver()
+        # Used to raise TypeError: to_lp() got an unexpected keyword argument.
+        self.assertTrue(solver.prepare_input(cnf, invert_weights=False))
+        self.assertTrue(solver.prepare_input(cnf, invert_weights=True))
+
+    def test_invert_weights_negates_the_objective(self):
+        cnf = self._cnf()
+
+        def objective(lp):
+            return [l for l in lp.split("\n") if l.strip().startswith("obj:")][0]
+
+        normal = cnf.to_lp()
+        inverted = cnf.to_lp(invert_weights=True)
+        self.assertNotEqual(objective(normal), objective(inverted))
+        # Only the objective changes; the constraints describe the same problem.
+        self.assertEqual(
+            normal.split("subject to")[1], inverted.split("subject to")[1]
+        )
+
+
+class TestSolverAvailability(unittest.TestCase):
+    """Only solvers that can actually run should be offered (issue #130)."""
+
+    def test_missing_command_is_reported(self):
+        from problog.maxsat import MaxSATSolver
+
+        solver = MaxSATSolver(["problog-no-such-solver-binary"])
+        self.assertFalse(solver.is_available())
+        self.assertIn("problog-no-such-solver-binary", solver.unavailable_reason())
+
+    def test_available_solvers_are_known_and_usable(self):
+        from problog.maxsat import (
+            get_available_solvers,
+            get_known_solvers,
+            _create_solver,
+        )
+
+        available = get_available_solvers()
+        self.assertTrue(set(available) <= set(get_known_solvers()))
+        for name in available:
+            self.assertTrue(_create_solver(name).is_available())
+
+    def test_unavailable_solver_explains_itself(self):
+        from problog.errors import InstallError
+        from problog.maxsat import (
+            get_available_solvers,
+            get_known_solvers,
+            get_solver,
+        )
+
+        available = get_available_solvers()
+        for name in get_known_solvers():
+            if name in available:
+                self.assertIsNotNone(get_solver(name))
+            else:
+                # Used to fail later with a bare 'Unable to access jarfile' or
+                # FileNotFoundError from deep inside the solver call.
+                with self.assertRaises(InstallError) as ctx:
+                    get_solver(name)
+                self.assertIn(name, str(ctx.exception))
+
+    def test_sat4j_reports_the_missing_jar(self):
+        import os
+        import shutil
+        from problog.maxsat import Sat4jSolver
+
+        solver = Sat4jSolver()
+        if shutil.which("java") is None:
+            # A missing java is reported first, and is the more useful message.
+            self.assertIn("java", solver.unavailable_reason())
+        elif not os.path.exists(solver.jar):
+            self.assertIn(solver.jar, solver.unavailable_reason())
+
+
+class TestGroundAuxNames(unittest.TestCase):
+    """Auxiliary atoms introduced for negation must be named uniquely (issue #125)."""
+
+    # Example 4 from the tutorial. Its ground program looked cyclic, because
+    # two different auxiliary atoms were both printed as 'aux_0':
+    #   c1(1) :- \+aux_0.   aux_0 :- or_c1_c2(1).   or_c1_c2(1) :- c1(1).
+    MODEL = """
+0.5::c1(0).
+0.5::c2(0).
+0.5::c1(T) :- T > 0, TT is T-1, \\+ or_c1_c2(TT).
+0.5::c2(T) :- T > 0, TT is T-1, \\+ or_c1_c2(TT).
+or_c1_c2(T) :- c1(T).
+or_c1_c2(T) :- c2(T).
+return(T,1,1) :- or_c1_c2(T), c1(T), c2(T).
+return(T,1,0) :- or_c1_c2(T), c1(T), \\+ c2(T).
+return(T,0,1) :- or_c1_c2(T), \\+ c1(T), c2(T).
+return(T,0,0) :- or_c1_c2(T), \\+c1(T), \\+c2(T).
+query(return(T,_,_)) :- between(0,2,T).
+"""
+
+    def _to_prolog(self, avoid_name_clash):
+        # The arguments the 'ground' task uses; --compact turns off
+        # avoid_name_clash.
+        from problog.formula import LogicDAG
+        from problog.parser import DefaultPrologParser
+        from problog.program import ExtendedPrologFactory, PrologString
+
+        return LogicDAG.createFrom(
+            PrologString(self.MODEL),
+            label_all=True,
+            keep_order=True,
+            avoid_name_clash=avoid_name_clash,
+        ).to_prolog()
+
+    def test_no_negative_auxiliary_names(self):
+        # Node keys are signed, and one was used directly as the name, which
+        # produced atoms called 'aux_-1', 'aux_-17' and 'aux_-36'.
+        self.assertNotRegex(self._to_prolog(True), r"aux_-\d")
+
+    def test_ground_program_matches_compact_form(self):
+        # The default output differed from --compact only by auxiliary atoms
+        # that aliased an already named atom, and it was those that collided.
+        self.assertEqual(self._to_prolog(False), self._to_prolog(True))
+
+    def test_probabilities_are_unchanged(self):
+        from problog import get_evaluatable
+        from problog.logic import Constant, Term
+        from problog.program import PrologString
+
+        result = get_evaluatable().create_from(PrologString(self.MODEL)).evaluate()
+        result = {str(k): v for k, v in result.items()}
+        self.assertAlmostEqual(0.25, result["return(0,0,1)"], delta=1e-8)
+        self.assertAlmostEqual(0.25, result["return(0,1,0)"], delta=1e-8)
+        self.assertAlmostEqual(0.25, result["return(0,1,1)"], delta=1e-8)
+        self.assertAlmostEqual(0.0, result["return(0,0,0)"], delta=1e-8)

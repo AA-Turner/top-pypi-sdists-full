@@ -31,6 +31,7 @@ from matrx_ai.providers.reasoning import (
     emit_complete_reasoning_block,
     openai_compatible_reasoning_text,
 )
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import GroqTranslator
@@ -271,7 +272,9 @@ class GroqChat:
         vcprint("[Groq] Starting API call (non-streaming)...", color="cyan")
 
         # Native async API call
-        response = await self.client.chat.completions.create(**config_data)
+        response = await self.client.chat.completions.create(
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="groq")
+        )
 
         vcprint("[Groq] API call completed, processing response...", color="cyan")
         vcprint(response, "Groq Response", color="green", verbose=self.debug)
@@ -320,7 +323,9 @@ class GroqChat:
         vcprint("[Groq] Starting API call (streaming)...", color="cyan")
 
         # Native async streaming
-        stream = await self.client.chat.completions.create(**config_data)
+        stream = await self.client.chat.completions.create(
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="groq")
+        )
 
         vcprint(
             "[Groq] Stream connection established, processing chunks...", color="cyan"

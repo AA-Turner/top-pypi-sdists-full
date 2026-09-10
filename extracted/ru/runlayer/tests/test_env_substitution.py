@@ -292,3 +292,93 @@ def test_substitute_env_vars_empty_yaml():
     result = substitute_env_vars(yaml_content, env_vars)
 
     assert result == ""
+
+
+def test_substitute_env_vars_skips_comments():
+    """${VAR} inside a # comment must not be treated as a required variable."""
+    yaml_content = """# Set ${DATABASE_URL} in your .env
+name: my-service
+env:
+  API_KEY: ${API_KEY}  # or ${API_KEY:-fallback} for ${OTHER_UNSET}
+  # LOG_LEVEL: ${LOG_LEVEL}
+  MODE: ${MODE:-dev}
+  FLAG: ${FLAG-off}
+webhook: $$PLACEHOLDER/hook
+"""
+    env_vars = {"API_KEY": "secret"}
+
+    result = substitute_env_vars(yaml_content, env_vars)
+
+    # Comments preserved verbatim
+    assert "# Set ${DATABASE_URL} in your .env" in result
+    assert "# or ${API_KEY:-fallback} for ${OTHER_UNSET}" in result
+    assert "  # LOG_LEVEL: ${LOG_LEVEL}" in result
+    # Values still substituted
+    assert "API_KEY: secret " in result
+    assert "MODE: dev" in result
+    assert "FLAG: off" in result
+    assert "$$PLACEHOLDER/hook" in result
+
+
+def test_substitute_env_vars_hash_inside_values_is_not_a_comment():
+    """# inside quoted strings and URLs is content, not a comment."""
+    yaml_content = """url: http://${HOST}/#frag
+quoted: "#not-a-comment ${NAME}"
+single: '# ${NAME}'
+plain: a#b ${NAME}
+"""
+    env_vars = {"HOST": "example.com", "NAME": "bob"}
+
+    result = substitute_env_vars(yaml_content, env_vars)
+
+    assert "url: http://example.com/#frag" in result
+    assert 'quoted: "#not-a-comment bob"' in result
+    assert "single: '# bob'" in result
+    assert "plain: a#b bob" in result
+
+
+def test_substitute_env_vars_missing_required_in_value_still_errors():
+    """Comment skipping must not swallow a genuinely missing variable."""
+    yaml_content = "# ${REQUIRED_VAR} is required\napi_key: ${REQUIRED_VAR}\n"
+
+    with pytest.raises(ValueError) as exc_info:
+        substitute_env_vars(yaml_content, {})
+    assert "Required environment variable 'REQUIRED_VAR' is not set" in str(
+        exc_info.value
+    )
+
+
+def test_substitute_env_vars_flow_context_and_comment():
+    """Flow collections split ${VAR} into several tokens; it must still substitute."""
+    yaml_content = "ports: [${PORT}, 80]  # ${UNSET}\nenv: {A: ${PORT}}\n"
+
+    result = substitute_env_vars(yaml_content, {"PORT": "8080"})
+
+    assert result == "ports: [8080, 80]  # ${UNSET}\nenv: {A: 8080}\n"
+
+
+def test_substitute_env_vars_block_scalar_header_comment():
+    """A comment on a `|`/`>` header line is a comment; `#` lines in the body are content."""
+    yaml_content = "script: | # ${UNSET}\n  echo ${A}\n  # ${A} is content here\nfolded: > # ${UNSET}\n  ${A}\n"
+
+    result = substitute_env_vars(yaml_content, {"A": "x"})
+
+    assert (
+        result
+        == "script: | # ${UNSET}\n  echo x\n  # x is content here\nfolded: > # ${UNSET}\n  x\n"
+    )
+
+
+def test_substitute_env_vars_default_containing_hash():
+    """`#` in a default is fine unless YAML itself reads it as a comment.
+
+    Unquoted ` #` ends the plain scalar, so `${COLOR:- #ff0000}` is `${COLOR:-`
+    plus a comment to YAML; it is left literal. Quote it or drop the space.
+    """
+    yaml_content = (
+        'a: ${COLOR:-#ff0000}\nb: "${COLOR:- #ff0000}"\nc: ${COLOR:- #ff0000}\n'
+    )
+
+    result = substitute_env_vars(yaml_content, {})
+
+    assert result == 'a: #ff0000\nb: " #ff0000"\nc: ${COLOR:- #ff0000}\n'

@@ -80,7 +80,7 @@ async def _build_frame_chain(page, frame_captures, target_frame_id: str):
             return None
         cdp = await resolve_session_for_frame(page, parent_frame_id)
         try:
-            enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": owner})
+            enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": owner}, page=page)
         finally:
             # A detach failure (e.g. the session's frame went away after a
             # navigation) must not mask a good enrich result — swallow it,
@@ -138,7 +138,9 @@ async def run_locator_heal(
         # collide across frames).
         cdp = await resolve_session_for_frame(page, entry.get("frame_id", ""))
         try:
-            enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": entry["backend_dom_node_id"]})
+            enriched = await enrich_element_locator(
+                cdp, {"backend_dom_node_id": entry["backend_dom_node_id"]}, page=page,
+            )
         finally:
             # A detach failure (e.g. the session's frame went away after a
             # navigation) must not mask a good enrich result — swallow it,

@@ -368,16 +368,15 @@ def dispatch_model(
         ):
             force_hooks = True
 
-    # We attach hooks if the device_map has at least 2 different devices or if
-    # force_hooks is set to `True`. Otherwise, the model in already loaded
+    # We attach hooks if there are least 2 different devices, one of the device is disk,
+    # or if force_hooks is set to `True`. Otherwise, the model in already loaded
     # in the unique device and the user can decide where to dispatch the model.
     # If the model is quantized, we always force-dispatch the model
-    if (len(set(device_map.values())) > 1) or force_hooks:
+    devices = set(device_map.values())
+    if len(devices) > 1 or "disk" in devices or force_hooks:
         if main_device is None:
-            if set(device_map.values()) == {"cpu"} or set(device_map.values()) == {"cpu", "disk"}:
-                main_device = "cpu"
-            else:
-                main_device = [d for d in device_map.values() if d not in ["cpu", "disk"]][0]
+            non_offloaded_devices = devices - {"cpu", "disk"}
+            main_device = list(non_offloaded_devices)[0] if non_offloaded_devices else "cpu"
 
         if main_device != "cpu":
             cpu_modules = [name for name, device in device_map.items() if device == "cpu"]
@@ -421,13 +420,16 @@ def dispatch_model(
         tied_params_map = {}
         for group in tied_params:
             for param_name in group:
-                # data_ptr() is enough here, as `find_tied_parameters` finds tied params simply by comparing `param1 is param2`, so we don't need
-                # to care about views of tensors through storage_offset.
-                data_ptr = recursive_getattr(model, param_name).data_ptr()
-                tied_params_map[data_ptr] = {}
+                offloaded_param = recursive_getattr(model, param_name)
 
                 # Note: To handle the disk offloading case, we can not simply use weights_map[param_name].data_ptr() as the reference pointer,
                 # as we have no guarantee that safetensors' `file.get_tensor()` will always give the same pointer.
+                # Therefore, we must skip and induce a runtime cost in the rare case that two tied disk-offloaded params are onloaded simultaneously
+                if offloaded_param.device.type != "meta":
+                    # data_ptr() is enough here, as `find_tied_parameters` finds tied params simply by comparing `param1 is param2`, so we don't need
+                    # to care about views of tensors through storage_offset.
+                    data_ptr = offloaded_param.data_ptr()
+                    tied_params_map[data_ptr] = {}
 
         attach_align_device_hook_on_blocks(
             model,
@@ -496,7 +498,7 @@ def dispatch_model(
                 "Please make sure to update your driver to the latest version which resolves this."
             )
     else:
-        device = list(device_map.values())[0]
+        device = list(devices)[0]
         # `torch.Tensor.to(<int num>)` is not supported by `torch_npu` (see this [issue](https://github.com/Ascend/pytorch/issues/16)).
         if is_npu_available() and isinstance(device, int):
             device = f"npu:{device}"
@@ -508,12 +510,8 @@ def dispatch_model(
             device = f"musa:{device}"
         elif is_neuron_available() and isinstance(device, int):
             device = f"neuron:{device}"
-        if device != "disk":
-            model.to(device)
         else:
-            raise ValueError(
-                "You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead."
-            )
+            model.to(device)
     # Convert OrderedDict back to dict for easier usage
     model.hf_device_map = dict(device_map)
     return model
@@ -759,6 +757,33 @@ def _attach_layerwise_casting_hooks(
         )
 
 
+def _refuse_recurrent_layers_under_sequence_parallelism(model: nn.Module):
+    """Refuse models whose layers carry a recurrent state across the sequence, under Ulysses.
+
+    Ulysses gathers the full sequence before attention, so ordinary attention layers are unaffected by the
+    sharding. Linear-attention layers are not: they carry a recurrent state along the sequence and are
+    computed inside the model's own layer code rather than through the attention interface Ulysses wraps,
+    so each rank restarts that state from zero and never exchanges it. The forward output of the first
+    shard is still correct, which makes the resulting gradients wrong in a way a loss curve does not show.
+
+    Args:
+        model (`nn.Module`):
+            The model about to be prepared for sequence parallelism.
+    """
+    config = getattr(model, "config", None)
+    config = config.get_text_config() if hasattr(config, "get_text_config") else config
+    layer_types = getattr(config, "layer_types", None) or []
+    recurrent = sorted({layer_type for layer_type in layer_types if "linear_attention" in layer_type})
+    if recurrent:
+        raise ValueError(
+            f"Sequence parallelism does not support attention layers of type {recurrent} (model "
+            f"{model.__class__.__name__}). Those layers carry a recurrent state along the sequence and "
+            "bypass the attention interface, so sharding the sequence restarts the state on every rank "
+            "and produces wrong gradients without failing. Use a full-attention model, or disable "
+            "sequence parallelism."
+        )
+
+
 def _attach_context_parallel_hooks(
     model: nn.Module,
 ):
@@ -766,15 +791,39 @@ def _attach_context_parallel_hooks(
     Monkeypatch huggingface's `transformers` model to fix attention mask issues when using context parallelism.
 
     This function attaches forward_pre_hooks to each self_attn module of the model, where each hook checks the
-    args/kwargs, if they contain an attention mask, if it does, it will remove this mask, check if it is a causal mask,
-    if yes, will add a kwarg `is_causal=True`, otherwise will raise an error. This is because context parallelism does
-    not support attention masks. This function modifies the model in place.
+    args/kwargs, if they contain an attention mask, if it does, it will remove this mask and add a kwarg
+    `is_causal=True`. This is because context parallelism does not support attention masks. Models whose layers use a
+    mask stricter than full causal (sliding-window or chunked attention) are rejected up front, since dropping their
+    mask would silently train them with full causal attention. This function modifies the model in place.
 
     Args:
         model (`nn.Module`):
             The model to attach the hooks to.
 
     """
+
+    # The hook below discards the attention mask and forces `is_causal=True`. That is only
+    # equivalent to the model's own masking for plain causal attention. Models whose layers use
+    # a *stricter* mask (sliding-window or chunked attention) would otherwise be trained with
+    # full causal attention silently, so refuse them up front. Without this hook torch raises a
+    # shape error for such models, so nothing that works today starts failing here.
+    config = getattr(model, "config", None)
+    config = config.get_text_config() if hasattr(config, "get_text_config") else config
+    layer_types = getattr(config, "layer_types", None)
+    if layer_types is not None:
+        non_full = {layer_type for layer_type in layer_types if layer_type != "full_attention"}
+    else:
+        # Models that predate `layer_types` (Mistral, for one) apply a sliding window to every layer
+        # whenever `sliding_window` is set.
+        non_full = {"sliding_attention"} if getattr(config, "sliding_window", None) else set()
+    if non_full:
+        raise ValueError(
+            f"Context parallelism does not support attention layers of type {sorted(non_full)} "
+            f"(model {model.__class__.__name__}). Context parallelism can only express full causal "
+            "attention: the per-layer mask has to be dropped, so those layers would silently be "
+            "trained with full causal attention instead. Use a full-attention model, or disable "
+            "context parallelism."
+        )
 
     def _self_attn_pre_forward_hook(_module, module_args, module_kwargs):
         if "attention_mask" in module_kwargs:

@@ -233,7 +233,7 @@ class Session:
 
     def subscribe(
         self,
-        events: list[Any] | None = None,
+        events: list[str] | None = None,
         contexts: list[Any] | None = None,
         user_contexts: list[Any] | None = None,
     ):
@@ -251,7 +251,7 @@ class Session:
         result = self._conn.execute(cmd)
         return result
 
-    def unsubscribe(self, events: list[Any] | None = None, subscriptions: list[Any] | None = None):
+    def unsubscribe(self, events: list[str] | None = None, subscriptions: list[Any] | None = None):
         """Execute session.unsubscribe"""
         params = {
             "events": events,

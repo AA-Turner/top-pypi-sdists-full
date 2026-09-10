@@ -111,7 +111,7 @@ async def test_summary_with_agent_still_runs_agent() -> None:
         patch(
             "matrx_ai.tools.implementations.ctx._run_summary_agent",
             new_callable=AsyncMock,
-            return_value="AI SUMMARY",
+            return_value=("AI SUMMARY", None),
         ) as run_agent,
     ):
         result = await ctx_get({"key": "big_doc", "mode": "summary"}, _ctx())
@@ -121,3 +121,39 @@ async def test_summary_with_agent_still_runs_agent() -> None:
     assert result.output.summary == "AI SUMMARY"
     assert result.output.summary_kind == "agent"
     run_agent.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_summary_agent_failure_is_a_failed_tool_call() -> None:
+    """Guard for the 2026-09-08 class of defect: a failed summary-agent call
+    must return ``ToolResult(success=False, ...)`` — never a success whose
+    ``summary`` text is an embedded "[Summary failed: ...]" apology. Fails on
+    the pre-fix code (which returned ``success=True`` with the failure string
+    stuffed into ``output["summary"]``) and passes on the fix."""
+    obj = SimpleNamespace(
+        key="big_doc",
+        type=SimpleNamespace(value="text"),
+        label="Big",
+        summary_agent_id="agent-summary-1",
+        descriptor=None,
+        source=None,
+        is_lazy_source=lambda: False,
+        content_as_str=lambda: "long content here",
+    )
+    with (
+        patch("matrx_ai.context.app_context.get_app_context", return_value=MagicMock()),
+        patch("matrx_ai._ext.get_ext", return_value=lambda _app: _manifest(obj)),
+        patch("matrx_ai._ext.has_ext", return_value=False),
+        patch(
+            "matrx_ai.tools.implementations.ctx._run_summary_agent",
+            new_callable=AsyncMock,
+            return_value=(None, "Summary agent failed: boom"),
+        ),
+    ):
+        result = await ctx_get({"key": "big_doc", "mode": "summary"}, _ctx())
+
+    assert result.success is False
+    assert result.error is not None
+    assert "failed" in result.error.message.lower()
+    # The old antipattern: a failure string surviving inside a "successful" output.
+    assert result.output is None or "summary" not in getattr(result.output, "__dict__", {})

@@ -8,7 +8,6 @@ import numpy as np
 from numpy.polynomial.legendre import legval
 from scipy.interpolate import RectBivariateSpline
 from scipy.linalg import pinv
-from scipy.spatial.distance import pdist, squareform
 
 from .._fiff.meas_info import _simplify_info, create_info
 from .._fiff.pick import pick_channels, pick_info, pick_types
@@ -257,6 +256,8 @@ def _interpolate_bads_meeg(
 
 @verbose
 def _interpolate_bads_nirs(inst, exclude=(), verbose=None):
+    from scipy.spatial.distance import pdist, squareform
+
     from ..preprocessing.nirs import _validate_nirs_info
 
     if len(pick_types(inst.info, fnirs=True, exclude=())) == 0:
@@ -278,15 +279,19 @@ def _interpolate_bads_nirs(inst, exclude=(), verbose=None):
     dist = pdist(locs3d)
     dist = squareform(dist)
 
-    for bad in picks_bad:
-        dists_to_bad = dist[bad]
+    for bad_raw_idx in picks_bad:
+        # `bad_raw_idx` is the index of the bad channel in `inst`
+        # `bad_dist_idx` is the index of the bad channel in `dist`
+        bad_dist_idx = np.where(picks_nirs == bad_raw_idx)[0][0]
+        dists_to_bad = dist[bad_dist_idx].copy()
         # Ignore distances to self
         dists_to_bad[dists_to_bad == 0] = np.inf
         # Ignore distances to other bad channels
         dists_to_bad[bads_mask] = np.inf
         # Find closest remaining channels for same frequency
-        closest_idx = np.argmin(dists_to_bad) + (bad % 2)
-        inst._data[bad] = inst._data[closest_idx]
+        closest_dist_idx = np.argmin(dists_to_bad) + (bad_dist_idx % 2)
+        closest_raw_idx = picks_nirs[closest_dist_idx]
+        inst._data[bad_raw_idx] = inst._data[closest_raw_idx]
 
     # TODO: this seems like a bug because it does not respect reset_bads
     inst.info["bads"] = [ch for ch in inst.info["bads"] if ch in exclude]
@@ -298,6 +303,8 @@ def _find_seeg_electrode_shaft(pos, tol_shaft=0.002, tol_spacing=1):
     # 1) find nearest neighbor to define the electrode shaft line
     # 2) find all contacts on the same line
     # 3) remove contacts with large distances
+
+    from scipy.spatial.distance import pdist, squareform
 
     dist = squareform(pdist(pos))
     np.fill_diagonal(dist, np.inf)
@@ -445,7 +452,9 @@ def _interpolate_to_eeg(inst, sensors, origin, method, reg):
     if method == "spline":
         origin_val = _check_origin(origin, inst.info)
         pos_from = inst.info._get_channel_positions(picks_good_eeg) - origin_val
-        pos_to = np.stack(list(ch_pos.values()), axis=0)
+        # Use info_to (rather than ch_pos directly) so that the target positions
+        # are in the head frame, and center both sets on the fitted origin
+        pos_to = info_to._get_channel_positions() - origin_val
 
         def _check_pos_sphere(pos):
             d = np.linalg.norm(pos, axis=-1)

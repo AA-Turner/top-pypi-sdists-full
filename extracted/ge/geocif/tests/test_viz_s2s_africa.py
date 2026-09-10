@@ -39,10 +39,22 @@ def _fixture(tmp, has_skill=(True, False), in_support=False):
                 "P_mid": 0.3, "P_high": 0.5 - 0.1 * j, "P_below_trend": 0.4,
                 "skill_auc": 0.66 if skill else 0.31, "null_auc": 0.45,
                 "perm_p": 0.01 if skill else 0.87, "has_skill": skill,
+                "auc_national": 0.84 if skill else 0.33,
+                "null_auc_national": 0.42,
+                "perm_national_p": 0.01 if skill else 0.65,
+                "auc_spatial": 0.58 if skill else 0.67,
+                "null_auc_spatial": 0.50,
+                "perm_spatial_p": 0.12 if skill else 0.007,
+                "n_years": 14 if skill else 22,
                 "beats_trend": False, "skill_rrmse": 40.0,
                 "skill_rrmse_trend": 39.0, "in_support": in_support,
                 "n_clipped": 2, "oos_max_sigma": 8.4 - i,
-                "oos_feature": "z_TMEAN"})
+                "oos_feature": "z_TMEAN",
+                # Malawi's baseline is defensible (14.1%), Kenya's is not
+                "trend_tha": 1.5 + 0.1 * j,
+                "yhat_tha": (1.5 + 0.1 * j) * (1 + 0.1 * j - 0.2),
+                "extrap_years": 7 if skill else 17,
+                "trend_extrap_err_pct": 14.1 if skill else 55.5})
         for off in (1, 2, 3, 4):
             skills.append({"country": country, "crop": crop,
                            "season_name": season, "offset": off,
@@ -118,6 +130,30 @@ class TestChartOutputLayout(unittest.TestCase):
             charts(out)
             self.assertEqual(list(Path(out).rglob("*.pdf")), [])
 
+    def test_decomposition_chart_is_drawn_when_the_split_is_present(self):
+        """The pooled AUC hides which question the model can answer, so the
+        national/spatial split has to reach the figures, not just the CSVs."""
+        from geocif.viz.s2s_africa import charts
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = _fixture(tmp)
+            base = charts(out)
+            self.assertTrue((base / "plots" / "skill_decomposition.png"
+                             ).exists())
+            d = pd.read_csv(base / "csvs" / "skill_decomposition.csv")
+            for c in ("auc_national", "auc_spatial", "perm_national_p",
+                      "perm_spatial_p"):
+                self.assertIn(c, d.columns, c)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = _fixture(tmp)
+            fc = pd.read_csv(out / "forecasts.csv").drop(
+                columns=["auc_national", "auc_spatial"])
+            fc.to_csv(out / "forecasts.csv", index=False)
+            base = charts(out)
+            self.assertFalse((base / "plots" / "skill_decomposition.png"
+                              ).exists())
+
     def test_out_of_support_chart_appears_only_when_measured(self):
         from geocif.viz.s2s_africa import charts
 
@@ -133,6 +169,59 @@ class TestChartOutputLayout(unittest.TestCase):
             fc.to_csv(out / "forecasts.csv", index=False)
             base = charts(out)
             self.assertFalse((base / "plots" / "out_of_support.png").exists())
+
+
+class TestRegressionMapGating(unittest.TestCase):
+    """The t/ha map must withhold units whose trend baseline is
+    extrapolated too far, and skip itself entirely when nothing qualifies —
+    a coloured map implies a defensible number everywhere it is drawn.
+
+    These test the gating logic without PyGMT, which is a binary stack.
+    """
+
+    def test_threshold_admits_short_extrapolations_only(self):
+        from geocif.experiments.s2s_africa import TREND_EXTRAP_MAX_PCT
+
+        # measured backtest errors from the Africa-wide run
+        self.assertLessEqual(10.1, TREND_EXTRAP_MAX_PCT)   # South Africa maize
+        self.assertLessEqual(14.1, TREND_EXTRAP_MAX_PCT)   # Malawi maize
+        self.assertGreater(28.8, TREND_EXTRAP_MAX_PCT)     # Mozambique maize
+        self.assertGreater(55.5, TREND_EXTRAP_MAX_PCT)     # Madagascar maize
+
+    def test_gate_partitions_the_units(self):
+        from geocif.experiments.s2s_africa import TREND_EXTRAP_MAX_PCT
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = _fixture(tmp)
+            fc = pd.read_csv(Path(out) / "forecasts.csv")
+            ok = fc["trend_extrap_err_pct"] <= TREND_EXTRAP_MAX_PCT
+            # the fixture's skilful combination qualifies, the other does not
+            self.assertTrue(ok.any())
+            self.assertFalse(ok.all())
+            self.assertEqual(set(fc.loc[ok, "country"]), {"Malawi"})
+
+    def test_nothing_qualifying_means_no_map(self):
+        """When every combination is beyond the threshold the map is
+        skipped, not drawn empty."""
+        from geocif.experiments.s2s_africa import TREND_EXTRAP_MAX_PCT
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = _fixture(tmp)
+            fc = pd.read_csv(Path(out) / "forecasts.csv")
+            fc["trend_extrap_err_pct"] = 60.0
+            ok = fc["trend_extrap_err_pct"] <= TREND_EXTRAP_MAX_PCT
+            self.assertFalse(ok.any())
+
+    def test_anomaly_map_needs_no_yield_level(self):
+        """The % vs trend product is publishable wherever the
+        classification map is, because it never touches an absolute level."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out = _fixture(tmp)
+            fc = pd.read_csv(Path(out) / "forecasts.csv")
+            self.assertIn("ahat", fc.columns)
+            # dropping the level columns must not affect ahat coverage
+            fc2 = fc.drop(columns=["trend_tha", "yhat_tha"])
+            self.assertEqual(fc2["ahat"].notna().sum(), len(fc2))
 
 
 class TestReadme(unittest.TestCase):

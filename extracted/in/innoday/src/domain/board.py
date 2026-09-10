@@ -190,6 +190,12 @@ class BoardSyncHistory(SQLModel, table=True):
     tickets_created: int = Field(default=0)
     tickets_updated: int = Field(default=0)
     tickets_skipped: int = Field(default=0)
+    #: Considered and deliberately not written -- either the board said the
+    #: ticket had not moved since the window, or every field the board owns
+    #: already matched. Recorded because without it the numbers do not add up:
+    #: a full sync of a quiet board finds 258 and writes none, and a report
+    #: showing only found/created/updated/skipped leaves 258 unaccounted for.
+    tickets_unchanged: int = Field(default=0)
 
     # Error handling
     error_message: Optional[str] = Field(default=None)

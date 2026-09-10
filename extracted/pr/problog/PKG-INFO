@@ -1,14 +1,12 @@
 Metadata-Version: 2.4
 Name: problog
-Version: 2.2.10
+Version: 2.3.0
 Summary: ProbLog2: Probabilistic Logic Programming toolbox
-Home-page: https://dtai.cs.kuleuven.be/problog
-Author: ProbLog team
-Author-email: anton.dries@cs.kuleuven.be
-License: Apache Software License
-Keywords: prolog probabilistic logic
+Author-email: ProbLog team <anton.dries@cs.kuleuven.be>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://dtai.cs.kuleuven.be/problog
+Keywords: prolog,probabilistic,logic
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -18,21 +16,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Prolog
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: setuptools
+License-File: LICENSE
+License-File: NOTICE
 Provides-Extra: sdd
 Requires-Dist: pysdd>=0.2.6; extra == "sdd"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
+Dynamic: license-file
 
 
 # ProbLog

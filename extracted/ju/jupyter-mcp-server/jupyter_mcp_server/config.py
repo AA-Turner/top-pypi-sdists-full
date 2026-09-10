@@ -152,6 +152,23 @@ class JupyterMCPConfig(BaseModel):
     max_execution_timeout: int = Field(
         default=3600, gt=0, description="Maximum allowed timeout in seconds for code execution."
     )
+    execute_via_http: bool = Field(
+        # Read from the environment by default so a deployment can turn it on
+        # with JUPYTER_MCP_EXECUTE_VIA_HTTP without threading a flag through
+        # every set_config caller; an explicit set_config(execute_via_http=...)
+        # still wins. Evaluated per-construction, so the env is read when the
+        # worker builds its config, not at import time.
+        default_factory=lambda: _get_env_bool("JUPYTER_MCP_EXECUTE_VIA_HTTP", False),
+        description=(
+            "In MCP_SERVER mode, run cell execution through the runtime's own "
+            "HTTP /api/kernels/{id}/execute route instead of driving the kernel "
+            "from this worker. The runtime then writes the outputs into the "
+            "collaborative document server-side, so a run's outputs survive the "
+            "loss of this worker. Only the default 'jupyter-server' variant has "
+            "that route; other sandbox variants ignore the flag and keep the "
+            "WebSocket path. Off by default; set JUPYTER_MCP_EXECUTE_VIA_HTTP."
+        ),
+    )
 
     model_config = ConfigDict(validate_assignment=True, arbitrary_types_allowed=True)
 
@@ -177,9 +194,14 @@ class JupyterMCPConfig(BaseModel):
         everyone. Reading it here rather than at each call site means a tool
         cannot forget to ask.
         """
-        caller = _caller_token()
-        if caller:
-            return caller
+        return _caller_token() or self.configured_document_token()
+
+    def configured_document_token(self) -> str | None:
+        """Document server token as configured, without the caller's.
+
+        What the server was started with, for the places that must remember a
+        token rather than resolve one per request.
+        """
         return self.code_sandbox_token if not self.document_url else self.document_token
 
     def resolved_code_sandbox_token(self) -> str | None:

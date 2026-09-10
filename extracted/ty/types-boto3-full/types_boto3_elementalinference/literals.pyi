@@ -37,6 +37,7 @@ __all__ = (
     "ResourceServiceName",
     "SearchFixturesPaginatorName",
     "ServiceName",
+    "SummaryGenerationModeType",
     "TranscriptionLanguageType",
     "WaiterName",
 )
@@ -54,6 +55,7 @@ ListFeedsPaginatorName = Literal["list_feeds"]
 OutputStatusType = Literal["DISABLED", "ENABLED"]
 ProfanityFilterModeType = Literal["CENSOR", "DISABLED", "DROP"]
 SearchFixturesPaginatorName = Literal["search_fixtures"]
+SummaryGenerationModeType = Literal["DISABLED", "ENABLED"]
 TranscriptionLanguageType = Literal[
     "deu", "eng", "eng-au", "eng-gb", "eng-us", "fra", "ita", "por", "spa"
 ]

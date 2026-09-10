@@ -1,9 +1,11 @@
 """Public API endpoints for health checks and system status."""
 
+import base64
+import binascii
 import os
 import sys
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -12,6 +14,16 @@ from sqlalchemy import func, text
 from sqlmodel import Session, select
 
 from src.database import get_session
+from src.domain.hs_job_application import (
+    ALLOWED_RESUME_TYPES,
+    MAX_RESUME_BYTES,
+    MESSAGE_MAX_CHARS,
+    MESSAGE_MIN_CHARS,
+    VALID_DEGREES,
+    VALID_EXPERIENCE,
+    VALID_JOB_ROLES,
+    HSJobApplication,
+)
 from src.domain.project import Project
 from src.domain.release import Release, ReleaseStatus
 from src.domain.ticket import Ticket, TicketStatus
@@ -350,3 +362,175 @@ async def health_check_head(
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     except Exception:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+# --- Job applications from havilandsoftware.com -----------------------------
+#
+# The public site holds the bot protection -- a signed form token with a minimum
+# fill time, and a honeypot field -- because that belongs where the form is
+# rendered. This endpoint is still reachable by anything that can make an HTTP
+# request, so it keeps a limit of its own. In-process and per-address, like the
+# site's: it resets on deploy and means nothing across replicas, which is
+# honest about what it is for. It stops a script, not a botnet.
+
+_APPLICATIONS_PER_ADDRESS = 3
+_APPLICATIONS_WINDOW = timedelta(hours=1)
+_application_hits: Dict[str, List[datetime]] = {}
+
+
+def _client_address(request: Request) -> str:
+    """The applicant's address, as the proxy in front of us reports it."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    return request.headers.get("x-real-ip") or (
+        request.client.host if request.client else "unknown"
+    )
+
+
+def _too_many_from(address: str) -> bool:
+    now = datetime.now(timezone.utc)
+    recent = [
+        at
+        for at in _application_hits.get(address, [])
+        if now - at < _APPLICATIONS_WINDOW
+    ]
+    _application_hits[address] = recent
+    if len(recent) >= _APPLICATIONS_PER_ADDRESS:
+        return True
+    recent.append(now)
+    return False
+
+
+class ApplicationSubmission(BaseModel):
+    """One application, as the site collects it."""
+
+    name: str
+    email: str
+    job_role: str
+    highest_degree: str
+    years_experience: str
+    about_message: str
+    technologies: List[str] = []
+    proficiency_order: List[str] = []
+    github_url: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    verification: Dict[str, Any] = {}
+    #: Base64, because the request arrives as JSON through the UI's single API
+    #: client rather than as multipart. Decoded and size-checked here.
+    resume_filename: Optional[str] = None
+    resume_content_type: Optional[str] = None
+    resume_base64: Optional[str] = None
+
+
+class ApplicationAccepted(BaseResponse):
+    """What the applicant's browser gets back."""
+
+    status: str
+    id: str
+
+
+@router.post(
+    "/applications",
+    response_model=ApplicationAccepted,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_application(
+    submission: ApplicationSubmission,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> ApplicationAccepted:
+    """Accept a job application from Haviland Software's public site.
+
+    Every message here is written to be shown to the applicant as it is: they
+    are the one who has to act on it, and "invalid request" tells them nothing
+    they can fix.
+
+    A second application from an address already on file is refused with 409
+    rather than replacing the first. Overwriting is how the previous shared
+    table lost people's submissions, and refusing is the failure that at least
+    says so out loud.
+    """
+    if _too_many_from(_client_address(request)):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="That is a few applications in quick succession. Try again later.",
+        )
+
+    email = submission.email.strip().lower()
+    name = submission.name.strip()
+    message = submission.about_message.strip()
+
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="That email address looks wrong.")
+    if not name:
+        raise HTTPException(status_code=400, detail="Please tell us your name.")
+    if submission.job_role not in VALID_JOB_ROLES:
+        raise HTTPException(status_code=400, detail="Please choose one of the roles.")
+    if submission.highest_degree not in VALID_DEGREES:
+        raise HTTPException(
+            status_code=400, detail="Please choose your highest degree."
+        )
+    if submission.years_experience not in VALID_EXPERIENCE:
+        raise HTTPException(
+            status_code=400, detail="Please say where you are in your career."
+        )
+    if not MESSAGE_MIN_CHARS <= len(message) <= MESSAGE_MAX_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Your message needs to be between {MESSAGE_MIN_CHARS} and "
+                f"{MESSAGE_MAX_CHARS} characters."
+            ),
+        )
+
+    resume: Optional[bytes] = None
+    if submission.resume_base64:
+        try:
+            resume = base64.b64decode(submission.resume_base64, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail="That resume could not be read. Please attach it again.",
+            )
+        if len(resume) > MAX_RESUME_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail="That resume is over 5MB. Please attach a smaller one.",
+            )
+        if submission.resume_content_type not in ALLOWED_RESUME_TYPES:
+            raise HTTPException(
+                status_code=400, detail="Please attach a PDF or a Word document."
+            )
+
+    existing = db.exec(
+        select(HSJobApplication).where(HSJobApplication.email == email)
+    ).first()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="We already have an application from that address.",
+        )
+
+    application = HSJobApplication(
+        email=email,
+        name=name,
+        job_role=submission.job_role,
+        highest_degree=submission.highest_degree,
+        years_experience=submission.years_experience,
+        about_message=message,
+        technologies=submission.technologies,
+        proficiency_order=submission.proficiency_order,
+        github_url=(submission.github_url or "").strip() or None,
+        linkedin_url=(submission.linkedin_url or "").strip() or None,
+        verification=submission.verification,
+        resume_filename=submission.resume_filename,
+        resume_content_type=submission.resume_content_type if resume else None,
+        resume_bytes=resume,
+    )
+    db.add(application)
+    db.commit()
+
+    return ApplicationAccepted(status="received", id=application.id)

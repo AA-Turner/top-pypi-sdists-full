@@ -55,7 +55,8 @@ def sync_detailed(
 
      The custom-path counterpart of `getGuestEntry`. Unauthenticated; 404 unless the app's execution mode
     is `guest` AND its workspace has `guest_access_enabled` AND the instance has not set
-    `guest_access_disabled`. Returns the workspace too, since a custom URL may not carry it.
+    `guest_access_disabled`, and never on a deployment where guests are unavailable (the shared cloud).
+    Returns the workspace too, since a custom URL may not carry it.
 
     Args:
         custom_path (str):
@@ -88,7 +89,8 @@ def sync(
 
      The custom-path counterpart of `getGuestEntry`. Unauthenticated; 404 unless the app's execution mode
     is `guest` AND its workspace has `guest_access_enabled` AND the instance has not set
-    `guest_access_disabled`. Returns the workspace too, since a custom URL may not carry it.
+    `guest_access_disabled`, and never on a deployment where guests are unavailable (the shared cloud).
+    Returns the workspace too, since a custom URL may not carry it.
 
     Args:
         custom_path (str):
@@ -116,7 +118,8 @@ async def asyncio_detailed(
 
      The custom-path counterpart of `getGuestEntry`. Unauthenticated; 404 unless the app's execution mode
     is `guest` AND its workspace has `guest_access_enabled` AND the instance has not set
-    `guest_access_disabled`. Returns the workspace too, since a custom URL may not carry it.
+    `guest_access_disabled`, and never on a deployment where guests are unavailable (the shared cloud).
+    Returns the workspace too, since a custom URL may not carry it.
 
     Args:
         custom_path (str):
@@ -147,7 +150,8 @@ async def asyncio(
 
      The custom-path counterpart of `getGuestEntry`. Unauthenticated; 404 unless the app's execution mode
     is `guest` AND its workspace has `guest_access_enabled` AND the instance has not set
-    `guest_access_disabled`. Returns the workspace too, since a custom URL may not carry it.
+    `guest_access_disabled`, and never on a deployment where guests are unavailable (the shared cloud).
+    Returns the workspace too, since a custom URL may not carry it.
 
     Args:
         custom_path (str):

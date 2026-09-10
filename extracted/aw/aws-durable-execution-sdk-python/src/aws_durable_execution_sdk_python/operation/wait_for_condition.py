@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, TypeVar
 
 from aws_durable_execution_sdk_python.exceptions import (
     ExecutionError,
+    InvocationError,
+    WaitForConditionError,
 )
 from aws_durable_execution_sdk_python.lambda_service import (
     ErrorObject,
@@ -74,6 +76,26 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
         self.operation_identifier = operation_identifier
         self.context_logger = context_logger
 
+    def _serialize(self, value: T) -> str:
+        """Serialize a value with this operation's serdes and identifiers."""
+        return serialize(
+            serdes=self.config.serdes,
+            value=value,
+            operation_id=self.operation_identifier.operation_id,
+            durable_execution_arn=self.state.durable_execution_arn,
+        )
+
+    def _deserialize(self, data: str | None) -> T:
+        """Deserialize a payload with this operation's serdes; None maps to None."""
+        if data is None:
+            return None  # type: ignore[return-value]
+        return deserialize(
+            serdes=self.config.serdes,
+            data=data,
+            operation_id=self.operation_identifier.operation_id,
+            durable_execution_arn=self.state.durable_execution_arn,
+        )
+
     def check_result_status(self) -> CheckResult[T]:
         """Check operation status and create START checkpoint if needed.
 
@@ -84,12 +106,10 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
             CheckResult indicating the next action to take
 
         Raises:
-            CallableRuntimeError: For FAILED operations
+            WaitForConditionError: For FAILED operations
             SuspendExecution: For PENDING operations waiting for retry
         """
-        checkpointed_result = self.state.get_checkpoint_result(
-            self.operation_identifier.operation_id
-        )
+        checkpointed_result = self._get_checkpoint_result()
 
         # Check if already completed
         if checkpointed_result.is_succeeded():
@@ -98,19 +118,12 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
                 self.operation_identifier.operation_id,
                 self.operation_identifier.name,
             )
-            if checkpointed_result.result is None:
-                return CheckResult.create_completed(None)  # type: ignore
-            result = deserialize(
-                serdes=self.config.serdes,
-                data=checkpointed_result.result,
-                operation_id=self.operation_identifier.operation_id,
-                durable_execution_arn=self.state.durable_execution_arn,
-            )
+            result = self._deserialize(checkpointed_result.result)
             return CheckResult.create_completed(result)
 
         # Terminal failure
         if checkpointed_result.is_failed():
-            checkpointed_result.raise_callable_error()
+            checkpointed_result.raise_operation_error(WaitForConditionError)
 
         # Pending retry
         if checkpointed_result.is_pending():
@@ -150,33 +163,29 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
             Suspends if condition not met
             Raises error if check function fails
         """
-        # Determine current state from checkpoint
-        if checkpointed_result.is_started_or_ready() and checkpointed_result.result:
-            try:
-                current_state = deserialize(
-                    serdes=self.config.serdes,
-                    data=checkpointed_result.result,
-                    operation_id=self.operation_identifier.operation_id,
-                    durable_execution_arn=self.state.durable_execution_arn,
-                )
-            except Exception:
-                # Default to initial state if there's an error getting checkpointed state
-                logger.exception(
-                    "⚠️ wait_for_condition failed to deserialize state for id: %s, name: %s. Using initial state.",
-                    self.operation_identifier.operation_id,
-                    self.operation_identifier.name,
-                )
-                current_state = self.config.initial_state
-        else:
-            current_state = self.config.initial_state
-
-        # Get attempt number - current attempt is checkpointed attempts + 1
-        # The checkpoint stores completed attempts, so the current attempt being executed is one more
-        attempt: int = 1
-        if checkpointed_result.operation and checkpointed_result.operation.step_details:
-            attempt = checkpointed_result.operation.step_details.attempt + 1
-
         try:
+            # Determine the state passed to the check function.
+            if checkpointed_result.is_started_or_ready() and checkpointed_result.result:
+                # Resuming: restore the state checkpointed by the previous poll.
+                current_state = self._deserialize(checkpointed_result.result)
+            else:
+                # First poll (or a retry with no stored state): round-trip
+                # initial_state through the serdes so the check sees the same
+                # shape it gets on later polls, which come from the checkpoint.
+                current_state = self._deserialize(
+                    self._serialize(self.config.initial_state)
+                )
+
+            # Get attempt number - current attempt is checkpointed attempts + 1.
+            # The checkpoint stores completed attempts, so the current attempt
+            # being executed is one more.
+            attempt: int = 1
+            if (
+                checkpointed_result.operation
+                and checkpointed_result.operation.step_details
+            ):
+                attempt = checkpointed_result.operation.step_details.attempt + 1
+
             # Execute the check function with the injected logger
             check_context = WaitForConditionCheckContext(
                 logger=self.context_logger.with_log_info(
@@ -185,7 +194,8 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
                         op_id=self.operation_identifier,
                         attempt=attempt,
                     )
-                )
+                ),
+                attempt=attempt,
             )
 
             wrapped_user_func = self.state.wrap_user_function(
@@ -196,16 +206,16 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
             )
             new_state = wrapped_user_func(current_state, check_context)
 
+            serialized_state = self._serialize(new_state)
+
+            # Round-trip before the wait strategy so it evaluates the
+            # reconstructable state, matching replay. None round-trips as None;
+            # a permanent failure fails before any checkpoint.
+            round_tripped_state: T = self._deserialize(serialized_state)
+
             # Check if condition is met with the wait strategy
             decision: WaitForConditionDecision = self.config.wait_strategy(
-                new_state, attempt
-            )
-
-            serialized_state = serialize(
-                serdes=self.config.serdes,
-                value=new_state,
-                operation_id=self.operation_identifier.operation_id,
-                durable_execution_arn=self.state.durable_execution_arn,
+                round_tripped_state, attempt
             )
 
             logger.debug(
@@ -216,7 +226,10 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
             )
 
             if not decision.should_continue:
-                # Condition is met - complete successfully
+                # Condition met - return a fresh round-trip of the checkpointed
+                # state so a mutating strategy cannot change the returned value;
+                # it equals what replay reconstructs from the checkpoint.
+                return_value: T = self._deserialize(serialized_state)
                 success_operation = OperationUpdate.create_wait_for_condition_succeed(
                     identifier=self.operation_identifier,
                     payload=serialized_state,
@@ -231,7 +244,7 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
                     self.operation_identifier.operation_id,
                     self.operation_identifier.name,
                 )
-                return new_state
+                return return_value
 
             # Condition not met - schedule retry
             # We enforce a minimum delay second of 1, to match model behaviour.
@@ -239,7 +252,7 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
             if delay_seconds is not None and delay_seconds < 1:
                 logger.warning(
                     (
-                        "WaitDecision delay_seconds step for id: %s, name: %s,"
+                        "wait_for_condition delay_seconds for id: %s, name: %s,"
                         "is %d < 1. Setting to minimum of 1 seconds."
                     ),
                     self.operation_identifier.operation_id,
@@ -265,23 +278,30 @@ class WaitForConditionOperationExecutor(OperationExecutor[T]):
             )
 
         except Exception as e:
-            # Mark as failed - waitForCondition doesn't have its own retry logic for errors
-            # If the check function throws, it's considered a failure
+            # Retryable InvocationError: re-raise with no FAIL checkpoint so the
+            # backend retry re-runs. Non-retryable falls through to FAIL + wrap.
+            if isinstance(e, InvocationError) and e.is_retryable():
+                logger.warning(
+                    "wait_for_condition invocation error for id: %s, name: %s; re-raising for retry",
+                    self.operation_identifier.operation_id,
+                    self.operation_identifier.name,
+                )
+                raise
+
+            # Any other error is terminal: persist FAIL, then surface as
+            # WaitForConditionError (original type kept on error_type/__cause__).
             logger.exception(
                 "❌ wait_for_condition failed for id: %s, name: %s",
                 self.operation_identifier.operation_id,
                 self.operation_identifier.name,
             )
-
+            error_object = ErrorObject.from_exception(e)
             fail_operation = OperationUpdate.create_wait_for_condition_fail(
                 identifier=self.operation_identifier,
-                error=ErrorObject.from_exception(e),
+                error=error_object,
             )
-            # Checkpoint FAIL operation with blocking (is_sync=True, default).
-            # Must ensure the failure state is persisted before raising the exception.
-            # This guarantees the error is durable and the condition won't be re-evaluated on replay.
             self.state.create_checkpoint(operation_update=fail_operation)
-            raise
+            error_object.raise_as_operation_error(WaitForConditionError)
 
         msg: str = (
             "wait_for_condition should never reach this point"  # pragma: no cover

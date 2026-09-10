@@ -4414,6 +4414,8 @@ class Volume(ServiceResource):
     sse_type: SSETypeType
     operator: OperatorResponseTypeDef
     volume_initialization_rate: int
+    volume_arn: str
+    owner_id: str
     volume_id: str
     size: int
     snapshot_id: str

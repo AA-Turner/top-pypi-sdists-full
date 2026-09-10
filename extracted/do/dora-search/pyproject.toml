@@ -1,3 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dora_search"
+description = "Easy grid searches for ML."
+authors = [
+    {name = "Alexandre Défossez", email = "alex@gradium.ai"}
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10.0"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "omegaconf",
+    "retrying",
+    "submitit",
+    "treetable",
+    "torch",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/kyutai-labs/dora"
+
+[project.scripts]
+dora = "dora.__main__:main"
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "flake8",
+    "hiplot",
+    "hydra-core",
+    "hydra_colorlog",
+    "mypy",
+    "pdoc3",
+    "pytest",
+]
+
+[tool.hatch.version]
+path = "dora/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dora"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "dora",
+    "examples",
+    "CHANGELOG.md",
+    "LICENSE",
+    "Makefile",
+    "README.md",
+    "requirements.txt",
+    "setup.cfg",
+]
+exclude = [
+    "examples/outputs",
+    "examples/outputs_complex",
+    "examples/outputs_pl",
+    "examples/data",
+]
+
 [tool.pytest.ini_options]
 testpaths = [
     "dora",

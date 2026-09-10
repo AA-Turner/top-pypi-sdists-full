@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import sentry_protos.snuba.v1.formula_pb2
 import sys
 import typing
 
@@ -171,7 +172,7 @@ global___AttributeKey = AttributeKey
 class AttributeKeyExpression(google.protobuf.message.Message):
     """this allow us to select single key such as span.attr1
     and also combine multiple keys such as (span.attr1 * span.attr2)
-    Grammar: f = k | f op f (formula is either a key or formula operation formula)
+    Grammar: f = k | f op f | f = c (formula is either a key, a formula operation formula, or a constant)
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -219,6 +220,7 @@ class AttributeKeyExpression(google.protobuf.message.Message):
 
     KEY_FIELD_NUMBER: builtins.int
     FORMULA_FIELD_NUMBER: builtins.int
+    LITERAL_FIELD_NUMBER: builtins.int
     @property
     def key(self) -> global___AttributeKey:
         """f = k (single key)"""
@@ -227,15 +229,20 @@ class AttributeKeyExpression(google.protobuf.message.Message):
     def formula(self) -> global___AttributeKeyExpression.Formula:
         """f = f op f (binary operation between two formulas)"""
 
+    @property
+    def literal(self) -> sentry_protos.snuba.v1.formula_pb2.Literal:
+        """f = c (numeric constant)"""
+
     def __init__(
         self,
         *,
         key: global___AttributeKey | None = ...,
         formula: global___AttributeKeyExpression.Formula | None = ...,
+        literal: sentry_protos.snuba.v1.formula_pb2.Literal | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["expression", b"expression", "formula", b"formula", "key", b"key"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["expression", b"expression", "formula", b"formula", "key", b"key"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["expression", b"expression"]) -> typing.Literal["key", "formula"] | None: ...
+    def HasField(self, field_name: typing.Literal["expression", b"expression", "formula", b"formula", "key", b"key", "literal", b"literal"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["expression", b"expression", "formula", b"formula", "key", b"key", "literal", b"literal"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["expression", b"expression"]) -> typing.Literal["key", "formula", "literal"] | None: ...
 
 global___AttributeKeyExpression = AttributeKeyExpression
 

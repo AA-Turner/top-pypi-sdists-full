@@ -34,7 +34,7 @@ def _cells(table):
 class TestOneTableForEveryDependency:
     def test_the_database_and_github_are_rows_beside_the_boards(self):
         names = _cells(health_table(HEALTHY))[0]
-        assert names == ["Database", "GitHub", "PixelFuel (PF)"]
+        assert names == ["innoday", "havilandsoftware", "PixelFuel (PF)"]
 
     def test_they_are_ordered_by_how_the_project_fails(self):
         """Without the database nothing else means anything; without GitHub no
@@ -42,8 +42,8 @@ class TestOneTableForEveryDependency:
         the first ❌ should hit the most fundamental one first."""
         names = _cells(health_table(HEALTHY))[0]
         assert (
-            names.index("Database")
-            < names.index("GitHub")
+            names.index("innoday")
+            < names.index("havilandsoftware")
             < names.index("PixelFuel (PF)")
         )
 
@@ -63,7 +63,7 @@ class TestOneTableForEveryDependency:
         """It used to return before building one, so the two dependencies that
         always exist were reported only as prose."""
         names = _cells(health_table({**HEALTHY, "boards": []}))[0]
-        assert names == ["Database", "GitHub"]
+        assert names == ["innoday", "havilandsoftware"]
 
 
 class TestReachabilityIsThreeValued:
@@ -104,7 +104,7 @@ class TestGitHubSaysWhyWhenItMatters:
         assert "no credential" in _cells(table)[1][1]
 
     def test_the_happy_path_names_the_organisation(self):
-        assert "havilandsoftware" in _cells(health_table(HEALTHY))[1][1]
+        assert "havilandsoftware" in _cells(health_table(HEALTHY))[0][1]
 
 
 class TestSyncAge:
@@ -178,3 +178,47 @@ class TestTheNumbersWereAlreadyMeasured:
         than "not measured"."""
         cell = _cells(health_table({**HEALTHY, "database_latency_ms": 3}))[4][0]
         assert "never" not in cell and "ago" not in cell
+
+
+class TestIdentityThenType:
+    """Column one says *which*, column two says *what kind* — on every row.
+
+    The GitHub row had them the other way round: `GitHub | BrightPowerSoftware`
+    sat above `Bright Power (BPAI) | linear`, so the column naming the board
+    named a category for GitHub, and the type column held an account name. Two
+    rows of a three-row table disagreeing about what a column means costs more
+    than either row gains.
+    """
+
+    def test_every_row_types_itself_second(self):
+        kinds = _cells(health_table({**HEALTHY, "database_dialect": "postgresql"}))[1]
+        assert "postgresql" in kinds[0]
+        assert kinds[1:] == ["github", "linear"]
+
+    def test_the_database_types_itself_from_the_live_connection(self):
+        """Not a hardcoded "postgres": the fixtures run SQLite, and a health
+        table asserting the engine it exists to check would be stating the one
+        thing it cannot assume."""
+        kinds = _cells(health_table({**HEALTHY, "database_dialect": "sqlite"}))[1]
+        assert "sqlite" in kinds[0]
+
+    def test_an_unknown_dialect_falls_back_without_lying(self):
+        assert "database" in _cells(health_table(HEALTHY))[1][0]
+
+    def test_a_github_failure_keeps_the_type_and_adds_the_reason(self):
+        """The reason used to replace the type. It now joins it, so the column
+        still answers "what kind of thing is this" on the row where something
+        has gone wrong."""
+        cell = _cells(
+            health_table(
+                {
+                    **HEALTHY,
+                    "github": {
+                        "reachable": False,
+                        "detail": "401 bad credentials",
+                        "github_org": "havilandsoftware",
+                    },
+                }
+            )
+        )[1][1]
+        assert "github" in cell and "401 bad credentials" in cell

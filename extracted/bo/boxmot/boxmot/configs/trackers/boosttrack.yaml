@@ -18,6 +18,11 @@ iou_threshold:
   default: 0.3
   range: [0.1, 0.9]
 
+asso_func:
+  type: choice
+  default: iou
+  options: [iou, giou, diou, ciou, hmiou, centroid]
+
 use_cmc:
   type: choice
   default: True
@@ -88,12 +93,31 @@ use_vt:
   default: True # True for BoostTrack++
   options: [False, True]
 
-with_reid:
+use_embeddings:
   type: choice
   default: True # True for BoostTrack+ and BoostTrack++
   options: [False, True]
 
+# Fixed KF mode; select it before calibration.
 adaptive_kf:
-  type: choice
   default: False
-  options: [False, True]
+
+# Timing and reference-prior units stay fixed across all tuning trials.
+variable_dt:
+  default: false
+kf_time_unit:
+  default: null
+kf_reference_dt_s:
+  default: 0.03333333333333333
+
+# Fixed runtime covariance defaults; --calibrate-kf supplies fitted values.
+kf_process_position_scale:
+  default: 1.0
+kf_process_velocity_scale:
+  default: 1.0
+kf_measurement_noise_scale:
+  default: 1.0
+kf_initial_position_scale:
+  default: 1.0
+kf_initial_velocity_scale:
+  default: 1.0

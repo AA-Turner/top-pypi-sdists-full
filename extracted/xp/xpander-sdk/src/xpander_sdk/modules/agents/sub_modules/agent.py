@@ -18,6 +18,10 @@ from xpander_sdk.consts.api_routes import APIRoute
 from xpander_sdk.core.xpander_api_client import APIClient
 from xpander_sdk.exceptions.module_exception import ModuleException
 from xpander_sdk.models.configuration import Configuration
+from xpander_sdk.models.frameworks import (
+    normalize_harness_cli,
+    normalize_permission_mode,
+)
 from xpander_sdk.models.frameworks import AgnoSettings, Framework
 from xpander_sdk.models.notifications import NotificationSettings
 from xpander_sdk.models.orchestrations import OrchestrationNode
@@ -63,7 +67,11 @@ from xpander_sdk.modules.tools_repository.models.tool_invocation_result import (
 from xpander_sdk.modules.tools_repository.sub_modules.tool import Tool
 from xpander_sdk.modules.tools_repository.tools_repository_module import ToolsRepository
 from xpander_sdk.modules.tools_repository.utils.schemas import build_model_from_schema
-from xpander_sdk.utils.cache import agent_payload_cache, backend_config_cache, scope_token
+from xpander_sdk.utils.cache import (
+    agent_payload_cache,
+    backend_config_cache,
+    scope_token,
+)
 from xpander_sdk.utils.event_loop import run_sync
 from xpander_sdk.utils.tools import get_openai_agents_sdk_tools
 
@@ -529,8 +537,10 @@ class Agent(XPanderSharedModel):
         llm_model_provider: Optional[str] = None,
         llm_model_name: Optional[str] = None,
         llm_reasoning_effort: Optional[LLMReasoningEffort] = None,
+        harness_cli: Optional[str] = None,
         tool_call_limit: Optional[int] = None,
         attachments: Optional[List[AttachmentRef]] = None,
+        permission_mode: Optional[str] = None,
     ) -> Task:
         """
         Asynchronously create a new task and link it to this agent.
@@ -566,6 +576,14 @@ class Agent(XPanderSharedModel):
             llm_reasoning_effort (Optional[LLMReasoningEffort]): Override the agent's
                 reasoning effort for this task only. Defaults to the agent's settings
                 when not set.
+            harness_cli (Optional[str]): Harness agents only: the CLI this
+                conversation runs on (``"claude-code"`` / ``"codex"``). Read on the
+                conversation's first task; later tasks inherit it. Ignored for other
+                frameworks.
+            permission_mode (Optional[str]): Harness agents only: ``"full"`` runs every
+                CLI action, ``"gated"`` holds shell and edit calls for a person. Unset
+                inherits the conversation's mode, else the agent's default. Ignored for
+                other frameworks.
             tool_call_limit (Optional[int]): Cap tool calls for this task only. Defaults
                 to the agent's settings when not set.
 
@@ -614,6 +632,8 @@ class Agent(XPanderSharedModel):
                     "llm_model_provider": llm_model_provider,
                     "llm_model_name": llm_model_name,
                     "llm_reasoning_effort": llm_reasoning_effort,
+                    "harness_cli": normalize_harness_cli(harness_cli),
+                    "permission_mode": normalize_permission_mode(permission_mode),
                     "tool_call_limit": tool_call_limit,
                 },
             )

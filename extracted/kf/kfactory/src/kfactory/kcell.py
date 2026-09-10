@@ -106,7 +106,6 @@ from .typings import (
     KC_co,
     MarkerConfig,
     MetaData,
-    TBaseCell_co,
 )
 from .utilities import (
     get_build_path,
@@ -320,7 +319,7 @@ class BaseKCell(BaseModel, ABC, arbitrary_types_allowed=True):
     def name(self, value: str) -> None: ...
 
 
-class ProtoKCell[T: (int, float), TB: BaseKCell[Any]](GeometricObject[T], ABC):
+class ProtoKCell[T: (int, float), TB: BaseKCell](GeometricObject[T], ABC):
     _base: TB
 
     @property
@@ -406,7 +405,7 @@ class ProtoKCell[T: (int, float), TB: BaseKCell[Any]](GeometricObject[T], ABC):
         return self._base.vinsts
 
     @property
-    def base(self) -> TBaseCell_co:
+    def base(self) -> TB:
         return self._base
 
     @property
@@ -2077,14 +2076,44 @@ class ProtoTKCell[T: (int, float)](ProtoKCell[T, TKCell], ABC):
                     self.add_port(port=port, keep_mirror=True)
 
     def ibbox(self, layer: int | None = None) -> kdb.Box:
+        """Bounds in dbu, including approximate bounds of pending virtual instances.
+
+        With pending vinsts, warn that bounds may be inaccurate until
+        insert_vinsts() materializes their geometry.
+        """
         if layer is None:
-            return self._base.kdb_cell.bbox()
-        return self._base.kdb_cell.bbox(layer)
+            box = self._base.kdb_cell.bbox()
+        else:
+            box = self._base.kdb_cell.bbox(layer)
+        if self.vinsts:
+            logger.warning(
+                "Bounding box of cell {!r} includes virtual instances and may be "
+                "inaccurate until insert_vinsts() has been called.",
+                self.name,
+            )
+            for vinst in self.vinsts:
+                box += vinst.ibbox(layer)
+        return box
 
     def dbbox(self, layer: int | None = None) -> kdb.DBox:
+        """Bounds in micrometers, including pending virtual instances.
+
+        With pending vinsts, warn that bounds may be inaccurate until
+        insert_vinsts() materializes their geometry.
+        """
         if layer is None:
-            return self._base.kdb_cell.dbbox()
-        return self._base.kdb_cell.dbbox(layer)
+            box = self._base.kdb_cell.dbbox()
+        else:
+            box = self._base.kdb_cell.dbbox(layer)
+        if self.vinsts:
+            logger.warning(
+                "Bounding box of cell {!r} includes virtual instances and may be "
+                "inaccurate until insert_vinsts() has been called.",
+                self.name,
+            )
+            for vinst in self.vinsts:
+                box += vinst.dbbox(layer)
+        return box
 
     def l2n_ports(
         self,
@@ -2725,9 +2754,7 @@ class DKCell(ProtoTKCell[float], UMGeometricObject, DCreatePort):
         **cross_section_kwargs: Any,
     ) -> DCrossSection | DAsymmetricCrossSection:
         if callable(cross_section):
-            return self.kcl.get_dcross_section(
-                cross_section(**cross_section_kwargs)  # ty:ignore[call-top-callable]
-            )
+            return self.kcl.get_dcross_section(cross_section(**cross_section_kwargs))
         if isinstance(cross_section, dict) and "settings" in cross_section:
             return DCrossSection(
                 kcl=self.kcl,
@@ -3196,9 +3223,7 @@ class KCell(ProtoTKCell[int], DBUGeometricObject, ICreatePort):
         **cross_section_kwargs: Any,
     ) -> CrossSection | AsymmetricCrossSection:
         if callable(cross_section):
-            return self.kcl.get_icross_section(
-                cross_section(**cross_section_kwargs)  # ty:ignore[call-top-callable]
-            )
+            return self.kcl.get_icross_section(cross_section(**cross_section_kwargs))
         if isinstance(cross_section, dict) and "settings" in cross_section:
             return CrossSection(
                 kcl=self.kcl,
@@ -3306,7 +3331,7 @@ class VKCell(ProtoKCell[float, TVCell], UMGeometricObject, DCreatePort):
             box += self.shapes(layer__).bbox()
 
         for vinst in self.insts:
-            box += vinst.dbbox()
+            box += vinst.dbbox(layer)
 
         return box
 
@@ -3324,9 +3349,7 @@ class VKCell(ProtoKCell[float, TVCell], UMGeometricObject, DCreatePort):
         **cross_section_kwargs: Any,
     ) -> DCrossSection | DAsymmetricCrossSection:
         if callable(cross_section):
-            return self.kcl.get_dcross_section(
-                cross_section(**cross_section_kwargs)  # ty:ignore[call-top-callable]
-            )
+            return self.kcl.get_dcross_section(cross_section(**cross_section_kwargs))
         if isinstance(cross_section, dict) and "settings" in cross_section:
             return DCrossSection(
                 kcl=self.kcl,
@@ -3908,7 +3931,15 @@ class ProtoCells(Mapping[int, KC_co], ABC):
             del self._kcl.tkcells[cell_index]
 
     @abstractmethod
-    def _generate_dict(self) -> dict[int, KC_co]: ...
+    def _generate_dict(self) -> Mapping[int, KC_co]:
+        """Snapshot of the layout's cells, wrapped in this class' cell flavour.
+
+        Annotated as a `Mapping` rather than a `dict`: `dict` is invariant in
+        its value type, so returning one would force `KC_co` to be invariant and
+        break the covariance `ProtoCells` is declared with. Implementations
+        still return a plain `dict`.
+        """
+        ...
 
     def __iter__(self) -> Iterator[int]:
         return iter(self._kcl.tkcells)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdf-inspector
-Version: 1.18.0
+Version: 1.19.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3

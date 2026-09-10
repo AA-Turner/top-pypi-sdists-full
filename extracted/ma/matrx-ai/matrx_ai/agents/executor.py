@@ -422,6 +422,7 @@ async def run_agent(
     # once below (success path) or in the except branch (crash path).
     _spine_settle = None
     _child_conversation_id: str | None = None
+    _contained_incomplete_reason: str | None = None
     try:
         async with child_agent_context(
             label, emit_lifecycle=emit_lifecycle, conversation_id=conversation_id
@@ -570,7 +571,8 @@ async def run_agent(
                 if incomplete:
                     from matrx_connect.context.app_context import mark_child_agent_failed
 
-                    mark_child_agent_failed(f"status={child_status or 'empty_response'}")
+                    _contained_incomplete_reason = child_status or "empty_response"
+                    mark_child_agent_failed(f"status={_contained_incomplete_reason}")
     except asyncio.CancelledError:
         # A cancelled run (fan-out sibling cancellation via gather(), parent task
         # teardown, shutdown) must still settle its spine execution — the except
@@ -619,7 +621,10 @@ async def run_agent(
         # from there so the model is always surfaced on the result.
         model_id = getattr(agent.config, "model", None)
 
-    execution_failed = execute_result.metadata.get("status") == "failed"
+    execution_failed = (
+        execute_result.metadata.get("status") == "failed"
+        or _contained_incomplete_reason is not None
+    )
     execution_error: str | None = None
     if execution_failed:
         raw_error = execute_result.metadata.get("error")
@@ -629,6 +634,14 @@ async def run_agent(
             )
         elif raw_error is not None:
             execution_error = str(raw_error)
+        elif _contained_incomplete_reason == "truncated":
+            execution_error = "agent response was truncated before completion"
+        elif _contained_incomplete_reason == "paused":
+            execution_error = "agent paused before producing a complete response"
+        elif (_contained_incomplete_reason or "").startswith("suspended"):
+            execution_error = "agent suspended before producing a complete response"
+        elif _contained_incomplete_reason == "empty_response":
+            execution_error = "agent returned an empty response"
         else:
             execution_error = "agent execution failed"
 

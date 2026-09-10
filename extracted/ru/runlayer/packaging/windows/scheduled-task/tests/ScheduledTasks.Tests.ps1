@@ -588,12 +588,18 @@ Describe "guard exit codes survive ErrorActionPreference = Stop" {
             $exe = (Get-Process -Id $PID).Path
             $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("rl-guard-{0}.ps1" -f [guid]::NewGuid())
             Set-Content -LiteralPath $tmp -Value $ScriptBody -Encoding UTF8
+            $previousErrorActionPreference = $ErrorActionPreference
             try {
+                # Windows PowerShell 5.1 promotes native stderr to an ErrorRecord.
+                # Keep that child diagnostic from terminating the parent harness.
+                $ErrorActionPreference = "Continue"
                 & $exe -NoProfile -NonInteractive -File $tmp *> $null
-                return $LASTEXITCODE
+                $exitCode = $LASTEXITCODE
             } finally {
+                $ErrorActionPreference = $previousErrorActionPreference
                 Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
             }
+            return $exitCode
         }
 
         function Get-DeadCodeExitGuards {

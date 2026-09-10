@@ -68,6 +68,7 @@ from runlayer_cli.scan.plugin_scanner import (
     scan_claude_desktop_connectors,
     scan_codex_plugin_artifacts,
     scan_cursor_native_plugins,
+    scan_cursor_user_local_plugins,
     scan_opencode_plugin_artifacts,
 )
 from runlayer_cli.scan.project_scanner import (
@@ -528,12 +529,14 @@ def _scan_plugin_artifact_phase(
     logger.info("Scanning for plugin artifacts")
     artifacts: list[DiscoveredPluginArtifact] = []
     artifacts.extend(scan_cursor_native_plugins())
+    artifacts.extend(scan_cursor_user_local_plugins())
     artifacts.extend(scan_claude_code_plugin_artifacts())
     artifacts.extend(scan_claude_desktop_connectors())
     artifacts.extend(scan_codex_plugin_artifacts())
     artifacts.extend(scan_opencode_plugin_artifacts())
     for home in extra_home_roots:
         artifacts.extend(scan_cursor_native_plugins(home=home))
+        artifacts.extend(scan_cursor_user_local_plugins(home=home))
         artifacts.extend(scan_claude_code_plugin_artifacts(home=home))
         artifacts.extend(scan_claude_desktop_connectors(home=home))
         artifacts.extend(scan_codex_plugin_artifacts(home=home))

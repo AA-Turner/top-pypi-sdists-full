@@ -192,6 +192,8 @@ class Website:
             try:
                 provider = ProviderLoader.from_name(name)
                 url = getattr(provider, "url", None)
+                screenshot_url = getattr(provider, "screenshot_url", None)
+                login_url = getattr(provider, "login_url", None)
                 # Skip model list fetching here — it's slow for 108+ providers.
                 # Models are loaded lazily in _provider_detail() for a single provider.
                 models = getattr(provider, "models", None)
@@ -211,6 +213,8 @@ class Website:
                 providers.append({
                     "name": name,
                     "url": url,
+                    "screenshot_url": screenshot_url,
+                    "login_url": login_url,
                     "models": models if isinstance(models, list) else list(models) if models else [],
                     "needs_auth": needs_auth,
                     "working": working,
@@ -249,6 +253,8 @@ class Website:
             <div class="providers-list">
             """
             for p in providers:
+                if not p["working"]:
+                    continue  # Skip non-working providers
                 models_html = ""
                 if p["models"]:
                     models_list = ", ".join(p["models"][:5]) if isinstance(p["models"], list) else ""
@@ -299,8 +305,9 @@ class Website:
             return self._providers()
 
         p = providers[idx]
-        prev_p = providers[idx - 1] if idx > 0 else providers[-1]
-        next_p = providers[idx + 1] if idx < len(providers) - 1 else providers[0]
+        working_providers = [p for p in providers if p["working"]]
+        prev_p = working_providers[idx - 1] if idx > 0 and idx < len(working_providers) - 1 else working_providers[-1]
+        next_p = working_providers[idx + 1] if idx < len(working_providers) - 1 else working_providers[0]
 
         # Lazily load models for this single provider only
         from g4f.Provider import ProviderLoader
@@ -361,15 +368,9 @@ class Website:
         """
 
         # Screenshot / logo section
-        screenshot_url = f"{(p.get('url', (p.get('base_url', p.get('baseUrl', '')))) or  "").replace('https://', '').replace('http://', '').replace('api.', '').replace('www.', '').replace('console.', '').replace('api.', '').replace('router.', '').split('/')[0]}"
-        mapping_urls = {
-            "airforce": "api.airforce",
-            "openai": "openrouter.ai",
-        }
-        screenshot_url = mapping_urls.get(screenshot_url, screenshot_url or "g4f.dev")
-        if p.get("name", "") == "OperaAria" or p.get("name", "") == "CopilotApp":
-            screenshot_url = p["url"].replace("https://", "")
-        create_url = f"/screenshot?url={quote_plus('https://' + screenshot_url)}"
+        screenshot_url = p.get("screenshot_url") or p.get("url") or ""
+        create_url = f"/screenshot?url={quote_plus(str(screenshot_url))}"
+        screenshot_url = screenshot_url.replace("https://", "").replace("http://", "").replace("www.", "")
         logo_url = "https://g4f.space/logo/" + p.get("name", "").replace(
             'MetaAIAccount', 'Facebook AI').replace(
             'MetaAI', 'Facebook AI').replace(
@@ -420,6 +421,7 @@ class Website:
                 }}
             }};
             img.onmouseleave = img.onmouseenter;
+            img.ontouchstart = img.onmouseenter;
             img.onerror = () => {{
                 input.placeholder = 'Ask {escape(p.get("label", p["name"]))}';
                 if (img.src.includes(createSrc)) {{
@@ -448,12 +450,8 @@ class Website:
                     queryUrl.pathname = "/results";
                     queryUrl.searchParams.set('search_query', event.target.value);
                     newUrl = "/screenshot?url=" + encodeURIComponent(queryUrl.toString());
-                }} else if (['GoogleSearch', 'GoogleAiMode'].includes('{p["name"]}')) {{
-                    const createUrl = new URL('{create_url}', location.origin);
-                    const queryUrl = new URL(createUrl.searchParams.get('url'));
-                    queryUrl.pathname = "/search";
-                    const appendUrl = queryUrl.toString() + (queryUrl.toString().includes('?') ? '&q=' : '?q=') + event.target.value;
-                    newUrl = "/screenshot?url=" + encodeURIComponent(appendUrl);
+                }} else if ('{create_url}'.includes('q=Hello')) {{
+                    newUrl = "{create_url}".replace("q=Hello", "q=" + encodeURIComponent(event.target.value));
                 }} else {{
                     newUrl = createSrc + encodeURIComponent('?q=' + event.target.value);
                 }}

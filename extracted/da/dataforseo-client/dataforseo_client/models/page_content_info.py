@@ -10,7 +10,7 @@ from typing_extensions import Self
 
 from dataforseo_client.models.page_section_content_info import PageSectionContentInfo
 from dataforseo_client.models.topic_info import TopicInfo
-from dataforseo_client.models.content_rating_info import ContentRatingInfo
+from dataforseo_client.models.contentent_rating_info import ContententRatingInfo
 from dataforseo_client.models.content_offer_info import ContentOfferInfo
 from dataforseo_client.models.content_comment_info import ContentCommentInfo
 from dataforseo_client.models.contacts import Contacts
@@ -25,7 +25,7 @@ class PageContentInfo(BaseModel):
     footer: Optional[PageSectionContentInfo] = Field(default=None, description=r"*content of the footer of the table*")
     main_topic: Optional[List[Optional[TopicInfo]]] = Field(default=None, description=r"*main topic on the page*.             you can find more information about topic priority calculation in this [help center article](https://dataforseo.com/help-center/difference-between-primary-and-secondary-content#topics)")
     secondary_topic: Optional[List[Optional[TopicInfo]]] = Field(default=None, description=r"*secondary topic on the page*.             you can find more information about topic priority calculation in this [help center article](https://dataforseo.com/help-center/difference-between-primary-and-secondary-content#topics)")
-    ratings: Optional[List[Optional[ContentRatingInfo]]] = Field(default=None, description=r"*contains objects with rating information for the products displayed on the page*")
+    ratings: Optional[List[Optional[ContententRatingInfo]]] = Field(default=None, description=r"*contains objects with rating information for the products displayed on the page*")
     offers: Optional[List[Optional[ContentOfferInfo]]] = Field(default=None, description=r"*array of products displayed on the page*.             contains objects with information on products displayed on the page")
     comments: Optional[List[Optional[ContentCommentInfo]]] = Field(default=None, description=r"*array of comments displayed on the page*.             contains objects with information on comments related to displayed products")
     contacts: Optional[Contacts] = Field(default=None, description=r"*contact information*.             contains contact information displayed on the page")
@@ -113,7 +113,7 @@ class PageContentInfo(BaseModel):
             "footer": PageSectionContentInfo.from_dict(obj["footer"]) if obj.get("footer") is not None else None,
             "main_topic": [TopicInfo.from_dict(_item) for _item in obj["main_topic"]] if obj.get("main_topic") is not None else None,
             "secondary_topic": [TopicInfo.from_dict(_item) for _item in obj["secondary_topic"]] if obj.get("secondary_topic") is not None else None,
-            "ratings": [ContentRatingInfo.from_dict(_item) for _item in obj["ratings"]] if obj.get("ratings") is not None else None,
+            "ratings": [ContententRatingInfo.from_dict(_item) for _item in obj["ratings"]] if obj.get("ratings") is not None else None,
             "offers": [ContentOfferInfo.from_dict(_item) for _item in obj["offers"]] if obj.get("offers") is not None else None,
             "comments": [ContentCommentInfo.from_dict(_item) for _item in obj["comments"]] if obj.get("comments") is not None else None,
             "contacts": Contacts.from_dict(obj["contacts"]) if obj.get("contacts") is not None else None,

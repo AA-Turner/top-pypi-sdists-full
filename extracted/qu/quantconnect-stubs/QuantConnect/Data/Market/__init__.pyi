@@ -18,6 +18,8 @@ import System
 import System.Collections.Generic
 import System.IO
 
+QuantConnect_Data_Market_OptionChain = typing.Any
+
 QuantConnect_Data_Market_DataDictionary_T = typing.TypeVar("QuantConnect_Data_Market_DataDictionary_T")
 QuantConnect_Data_Market_BaseChain_TContractsCollection = typing.TypeVar("QuantConnect_Data_Market_BaseChain_TContractsCollection")
 QuantConnect_Data_Market_BaseChain_T = typing.TypeVar("QuantConnect_Data_Market_BaseChain_T")
@@ -2055,6 +2057,20 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         """
         ...
 
+    @overload
+    def __init__(self, other: QuantConnect.Data.Market.BaseChain[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection], contracts: typing.List[QuantConnect_Data_Market_BaseChain_T]) -> None:
+        """
+        Initializes a new instance of the BaseChain{T, TContractsCollection} class as a copy of the specified chain
+        containing only the given subset of its contracts. The underlying, ticks, trade bars, quote bars and auxiliary data are shared with the source chain
+        
+        
+        This Class is protected.
+        
+        :param other: The chain to copy
+        :param contracts: The contracts to keep
+        """
+        ...
+
     def __iter__(self) -> typing.Iterator[QuantConnect_Data_Market_BaseChain_T]:
         ...
 
@@ -2476,10 +2492,10 @@ class OptionContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.
         ...
 
 
-class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts]):
+class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts], QuantConnect.Securities.IOptionContractFilters[QuantConnect_Data_Market_OptionChain]):
     """
-    Represents an entire chain of option contracts for a single underlying security.
-    This type is IEnumerable{OptionContract}
+    The option chain filters, the same ones the option universe selection offers, see IOptionContractFilters{TSelf}.
+    Each filter returns a new chain, leaving this one untouched
     """
 
     @overload
@@ -2506,11 +2522,449 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         """
         ...
 
+    def back_month(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts of the second nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.BackMonth
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def back_months(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts of all expirations but the nearest one. Same as ContractSecurityFilterUniverse{T, TData}.BackMonths
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def box_spread(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects an OTM call, an ITM call, an OTM put and an ITM put with the same expiry closest to the criteria given, for a box spread. Same as BaseOptionFilterUniverse{TUniverse, TData}.BoxSpread
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desired strike price distance of the OTM call and the OTM put from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def call_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects an ITM, an ATM and an OTM call with the same expiry and equal strike distance closest to the criteria given, for a call butterfly. Same as BaseOptionFilterUniverse{TUniverse, TData}.CallButterfly
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desired strike price distance of the ITM and OTM calls from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def call_calendar_spread(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the 2 call contracts with the same strike and different expiries closest to the criteria given, for a call calendar spread. Same as BaseOptionFilterUniverse{TUniverse, TData}.CallCalendarSpread
+        
+        :param strike_from_atm: The desired strike price distance from the current underlying price
+        :param min_near_days_till_expiry: The minimum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The minimum days till expiry of the further contract from the current time, closest expiry will be selected
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def call_ladder(self, min_days_till_expiry: int, higher_strike_from_atm: float, middle_strike_from_atm: float, lower_strike_from_atm: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects 3 calls with the same expiry and different strikes closest to the criteria given, for a bull or bear call ladder. Same as BaseOptionFilterUniverse{TUniverse, TData}.CallLadder
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desired strike price distance from the current underlying price of the higher strike price
+        :param middle_strike_from_atm: The desired strike price distance from the current underlying price of the middle strike price
+        :param lower_strike_from_atm: The desired strike price distance from the current underlying price of the lower strike price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def calls_only(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the call contracts. Same as BaseOptionFilterUniverse{TUniverse, TData}.CallsOnly
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def call_spread(self, min_days_till_expiry: int = 30, higher_strike_from_atm: float = 5, lower_strike_from_atm: typing.Optional[float] = None) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the 2 call contracts with the same expiry and different strikes closest to the criteria given, for a bull or bear call spread. Same as BaseOptionFilterUniverse{TUniverse, TData}.CallSpread
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desired strike price distance from the current underlying price of the higher strike price
+        :param lower_strike_from_atm: The desired strike price distance from the current underlying price of the lower strike price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
     def clone(self) -> QuantConnect.Data.BaseData:
         """
         Return a new instance clone of this object, used in fill forward
         
         :returns: A clone of the current object.
+        """
+        ...
+
+    def conversion(self, min_days_till_expiry: int = 30, strike_from_atm: float = 5) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects a call and a put with the same expiry and strike closest to the criteria given, for a conversion or reverse conversion. Same as BaseOptionFilterUniverse{TUniverse, TData}.Conversion
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_from_atm: The desired strike price distance from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def d(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with delta in the given range. Alias for delta
+        
+        :param min: The minimum delta value
+        :param max: The maximum delta value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def delta(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with delta in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.Delta
+        
+        :param min: The minimum delta value
+        :param max: The maximum delta value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    @overload
+    def expiration(self, min_expiry: datetime.timedelta, max_expiry: datetime.timedelta) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts expiring in the given range relative to the chain date.
+        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(TimeSpan, TimeSpan)
+        
+        :param min_expiry: The minimum time until expiry to include, for example, TimeSpan.FromDays(10)
+        would exclude contracts expiring in less than 10 days
+        :param max_expiry: The maximum time until expiry to include, for example, TimeSpan.FromDays(10)
+        would exclude contracts expiring in more than 10 days
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    @overload
+    def expiration(self, min_expiry_days: int, max_expiry_days: int) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts expiring in the given range of days relative to the chain date.
+        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(int, int)
+        
+        :param min_expiry_days: The minimum time, expressed in days, until expiry to include, for example, 10
+        would exclude contracts expiring in less than 10 days
+        :param max_expiry_days: The maximum time, expressed in days, until expiry to include, for example, 10
+        would exclude contracts expiring in more than 10 days
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def front_month(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts of the nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.FrontMonth
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def g(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with gamma in the given range. Alias for gamma
+        
+        :param min: The minimum gamma value
+        :param max: The maximum gamma value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def gamma(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with gamma in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.Gamma
+        
+        :param min: The minimum gamma value
+        :param max: The maximum gamma value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def implied_volatility(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with implied volatility in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.ImpliedVolatility
+        
+        :param min: The minimum implied volatility value
+        :param max: The maximum implied volatility value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def iron_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects an OTM call, an ATM call, an ATM put and an OTM put with the same expiry and equal strike distance closest to the criteria given, for an iron butterfly. Same as BaseOptionFilterUniverse{TUniverse, TData}.IronButterfly
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desired strike price distance of the OTM call and the OTM put from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def iron_condor(self, min_days_till_expiry: int = 30, near_strike_spread: float = 5, far_strike_spread: float = 10) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects a far OTM call, a near OTM call, a near OTM put and a far OTM put with the same expiry closest to the criteria given, for an iron condor. Same as BaseOptionFilterUniverse{TUniverse, TData}.IronCondor
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param near_strike_spread: The desired strike price distance of the near call and near put from the current underlying price
+        :param far_strike_spread: The desired strike price distance of the far call and far put from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def iv(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with implied volatility in the given range. Alias for implied_volatility
+        
+        :param min: The minimum implied volatility value
+        :param max: The maximum implied volatility value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def jelly_roll(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects 2 calls and 2 puts with the same strike and 2 expiries closest to the criteria given, for a jelly roll. Same as BaseOptionFilterUniverse{TUniverse, TData}.JellyRoll
+        
+        :param strike_from_atm: The desired strike price distance from the current underlying price
+        :param min_near_days_till_expiry: The minimum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The minimum days till expiry of the further contract from the current time, closest expiry will be selected
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def naked_call(self, min_days_till_expiry: int = 30, strike_from_atm: float = 0) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the single call contract with the closest match to the criteria given, for a naked, covered or protective call. Same as BaseOptionFilterUniverse{TUniverse, TData}.NakedCall
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_from_atm: The desired strike price distance from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def naked_put(self, min_days_till_expiry: int = 30, strike_from_atm: float = 0) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the single put contract with the closest match to the criteria given, for a naked, covered or protective put. Same as BaseOptionFilterUniverse{TUniverse, TData}.NakedPut
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_from_atm: The desired strike price distance from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def oi(self, min: int, max: int) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with open interest in the given range. Alias for open_interest
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def open_interest(self, min: int, max: int) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with open interest in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.OpenInterest
+        
+        :param min: The minimum open interest value
+        :param max: The maximum open interest value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def protective_collar(self, min_days_till_expiry: int = 30, call_strike_from_atm: float = 5, put_strike_from_atm: float = -5) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects a call and a put with the same expiry and a lower put strike closest to the criteria given, for a protective collar. Same as BaseOptionFilterUniverse{TUniverse, TData}.ProtectiveCollar
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param call_strike_from_atm: The desired strike price distance from the current underlying price of the call
+        :param put_strike_from_atm: The desired strike price distance from the current underlying price of the put
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def put_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects an ITM, an ATM and an OTM put with the same expiry and equal strike distance closest to the criteria given, for a put butterfly. Same as BaseOptionFilterUniverse{TUniverse, TData}.PutButterfly
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param strike_spread: The desired strike price distance of the ITM and OTM puts from the current underlying price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def put_calendar_spread(self, strike_from_atm: float = 0, min_near_days_till_expiry: int = 30, min_far_days_till_expiry: int = 60) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the 2 put contracts with the same strike and different expiries closest to the criteria given, for a put calendar spread. Same as BaseOptionFilterUniverse{TUniverse, TData}.PutCalendarSpread
+        
+        :param strike_from_atm: The desired strike price distance from the current underlying price
+        :param min_near_days_till_expiry: The minimum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The minimum days till expiry of the further contract from the current time, closest expiry will be selected
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def put_ladder(self, min_days_till_expiry: int, higher_strike_from_atm: float, middle_strike_from_atm: float, lower_strike_from_atm: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects 3 puts with the same expiry and different strikes closest to the criteria given, for a bull or bear put ladder. Same as BaseOptionFilterUniverse{TUniverse, TData}.PutLadder
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desired strike price distance from the current underlying price of the higher strike price
+        :param middle_strike_from_atm: The desired strike price distance from the current underlying price of the middle strike price
+        :param lower_strike_from_atm: The desired strike price distance from the current underlying price of the lower strike price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def puts_only(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the put contracts. Same as BaseOptionFilterUniverse{TUniverse, TData}.PutsOnly
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def put_spread(self, min_days_till_expiry: int = 30, higher_strike_from_atm: float = 5, lower_strike_from_atm: typing.Optional[float] = None) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the 2 put contracts with the same expiry and different strikes closest to the criteria given, for a bull or bear put spread. Same as BaseOptionFilterUniverse{TUniverse, TData}.PutSpread
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param higher_strike_from_atm: The desired strike price distance from the current underlying price of the higher strike price
+        :param lower_strike_from_atm: The desired strike price distance from the current underlying price of the lower strike price
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def r(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with rho in the given range. Alias for rho
+        
+        :param min: The minimum rho value
+        :param max: The maximum rho value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def rho(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with rho in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.Rho
+        
+        :param min: The minimum rho value
+        :param max: The maximum rho value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def standards_only(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the standard contracts in the chain, excluding weeklys. Unlike ContractSecurityFilterUniverse{T, TData}.StandardsOnly,
+        it applies to the contracts already selected, so it can be combined with the expiry filters in any order
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def straddle(self, min_days_till_expiry: int = 30) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the ATM call and the ATM put with the same expiry closest to the criteria given, for a straddle. Same as BaseOptionFilterUniverse{TUniverse, TData}.Straddle
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def strangle(self, min_days_till_expiry: int = 30, call_strike_from_atm: float = 5, put_strike_from_atm: float = -5) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects an OTM call and an OTM put with the same expiry closest to the criteria given, for a strangle. Same as BaseOptionFilterUniverse{TUniverse, TData}.Strangle
+        
+        :param min_days_till_expiry: The minimum days till expiry from the current time, closest expiry will be selected
+        :param call_strike_from_atm: The desired strike price distance from the current underlying price of the OTM call, must be positive
+        :param put_strike_from_atm: The desired strike price distance from the current underlying price of the OTM put, must be negative
+        :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def strikes(self, min_strike: int, max_strike: int) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with strikes in the given range relative to the underlying price, in number of strikes.
+        Same as BaseOptionFilterUniverse{TUniverse, TData}.Strikes
+        
+        :param min_strike: The minimum strike relative to the underlying price, for example, -1 would filter out contracts further than 1 strike below market price
+        :param max_strike: The maximum strike relative to the underlying price, for example, +1 would filter out contracts further than 1 strike above market price
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def t(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with theta in the given range. Alias for theta
+        
+        :param min: The minimum theta value
+        :param max: The maximum theta value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def theta(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with theta in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.Theta
+        
+        :param min: The minimum theta value
+        :param max: The maximum theta value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def v(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with vega in the given range. Alias for vega
+        
+        :param min: The minimum vega value
+        :param max: The maximum vega value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def vega(self, min: float, max: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with vega in the given range. Same as BaseOptionFilterUniverse{TUniverse, TData}.Vega
+        
+        :param min: The minimum vega value
+        :param max: The maximum vega value
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def weeklys_only(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the non standard weekly contracts in the chain. Unlike ContractSecurityFilterUniverse{T, TData}.WeeklysOnly,
+        it applies to the contracts already selected, so it can be combined with the expiry filters in any order
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def where(self, predicate: typing.Any) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts matching the given predicate, e.g. chain.where(lambda contract: contract.open_interest > 100).
+        From C# use Linq's Where, which keeps this chain's type untouched
+        
+        :param predicate: Function determining which contracts are kept
+        :returns: A new chain with the filter applied.
         """
         ...
 

@@ -1536,6 +1536,11 @@ _NO_PROGRESS_MARKERS = (
     "Add the issue details in `description`",
     "Support tickets are filed under a signed-in xpander user",
     "The support system did not confirm the ticket",
+    # harness Computer-view refusals: the agent's own container is its workspace and it is not serving
+    # (agent-controller workspace/proxy.py + workspace/functions.py - byte-matched prefixes)
+    "The agent's container is not running, so its workspace is closed",
+    "The agent's container stopped answering and is marked faulty",
+    "This agent's container has not been started yet",
     UNKNOWN_TOOL_PREFIX,
 )
 
@@ -5008,6 +5013,9 @@ def _load_llm_model(
             llm_model_name = task.llm_model_name.lower()
         if task.llm_reasoning_effort:
             llm_reasoning_effort = task.llm_reasoning_effort
+        mark_served = getattr(task, "mark_served_model", None)
+        if callable(mark_served):
+            mark_served(llm_model_name)
 
         # Attachment pipeline becomes capability-aware: to_message/get_images/
         # get_files plan against the model actually running this task.

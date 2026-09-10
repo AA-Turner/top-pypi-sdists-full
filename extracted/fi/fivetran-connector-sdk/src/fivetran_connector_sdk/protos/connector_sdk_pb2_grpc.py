@@ -6,7 +6,7 @@ import warnings
 from fivetran_connector_sdk import common_pb2 as common__pb2
 from fivetran_connector_sdk import connector_sdk_pb2 as connector__sdk__pb2
 
-GRPC_GENERATED_VERSION = '1.83.0'
+GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -26,7 +26,7 @@ if _version_not_supported:
     )
 
 
-class SourceConnectorStub:
+class SourceConnectorStub(object):
     """Fivetran (grpc client) <> SourceConnector (grpc server)
     """
 
@@ -58,7 +58,7 @@ class SourceConnectorStub:
                 _registered_method=True)
 
 
-class SourceConnectorServicer:
+class SourceConnectorServicer(object):
     """Fivetran (grpc client) <> SourceConnector (grpc server)
     """
 
@@ -117,7 +117,7 @@ def add_SourceConnectorServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class SourceConnector:
+class SourceConnector(object):
     """Fivetran (grpc client) <> SourceConnector (grpc server)
     """
 

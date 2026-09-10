@@ -12,6 +12,9 @@ from aws_durable_execution_sdk_python.config import (
 from aws_durable_execution_sdk_python.exceptions import (
     ExecutionError,
     InvalidStateError,
+    RetryableSerDesError,
+    SerDesError,
+    StepError,
     StepInterruptedError,
 )
 from aws_durable_execution_sdk_python.lambda_service import (
@@ -86,13 +89,11 @@ class StepOperationExecutor(OperationExecutor[T]):
             CheckResult indicating the next action to take
 
         Raises:
-            CallableRuntimeError: For FAILED operations
+            StepError: For FAILED operations
             StepInterruptedError: For interrupted AT_MOST_ONCE operations
             SuspendExecution: For PENDING operations waiting for retry
         """
-        checkpointed_result: CheckpointedResult = self.state.get_checkpoint_result(
-            self.operation_identifier.operation_id
-        )
+        checkpointed_result = self._get_checkpoint_result()
 
         # Terminal success - deserialize and return
         if checkpointed_result.is_succeeded():
@@ -115,7 +116,7 @@ class StepOperationExecutor(OperationExecutor[T]):
         # Terminal failure
         if checkpointed_result.is_failed():
             # Have to throw the exact same error on replay as the checkpointed failure
-            checkpointed_result.raise_callable_error()
+            checkpointed_result.raise_operation_error(StepError)
 
         # Pending retry
         if checkpointed_result.is_pending():
@@ -143,7 +144,7 @@ class StepOperationExecutor(OperationExecutor[T]):
             # Step was previously interrupted in a prior invocation - handle retry
             msg: str = f"Step operation_id={self.operation_identifier.operation_id} name={self.operation_identifier.name} was previously interrupted"
             self.retry_handler(StepInterruptedError(msg), checkpointed_result)
-            checkpointed_result.raise_callable_error()
+            checkpointed_result.raise_operation_error(StepError)
 
         # Ready to execute if STARTED + AT_LEAST_ONCE
         if (
@@ -172,9 +173,7 @@ class StepOperationExecutor(OperationExecutor[T]):
             # After creating sync checkpoint, check the status
             if is_sync:
                 # Refresh checkpoint result to check for immediate response
-                refreshed_result: CheckpointedResult = self.state.get_checkpoint_result(
-                    self.operation_identifier.operation_id
-                )
+                refreshed_result = self._get_checkpoint_result()
 
                 # START checkpoint only returns STARTED status
                 # Any errors would be thrown as runtime exceptions during checkpoint creation
@@ -214,7 +213,8 @@ class StepOperationExecutor(OperationExecutor[T]):
                     op_id=self.operation_identifier,
                     attempt=attempt,
                 )
-            )
+            ),
+            attempt=attempt,
         )
 
         try:
@@ -227,11 +227,27 @@ class StepOperationExecutor(OperationExecutor[T]):
             )
             raw_result: T = wrapped_user_func(step_context)
 
-            serialized_result: str = serialize(
+            # A custom serdes may serialize to None, which is handled below.
+            serialized_result: str | None = serialize(
                 serdes=self.config.serdes,
                 value=raw_result,
                 operation_id=self.operation_identifier.operation_id,
                 durable_execution_arn=self.state.durable_execution_arn,
+            )
+
+            # Round-trip before the SUCCEED checkpoint so a SUCCEEDED step is
+            # always reconstructable and the first run matches replay. A None
+            # payload is returned as-is, mirroring the replay path. A permanent
+            # serdes failure here fails before any SUCCEED is written.
+            return_value: T = (
+                None  # type: ignore[assignment]
+                if serialized_result is None
+                else deserialize(
+                    serdes=self.config.serdes,
+                    data=serialized_result,
+                    operation_id=self.operation_identifier.operation_id,
+                    durable_execution_arn=self.state.durable_execution_arn,
+                )
             )
 
             success_operation: OperationUpdate = OperationUpdate.create_step_succeed(
@@ -249,7 +265,28 @@ class StepOperationExecutor(OperationExecutor[T]):
                 self.operation_identifier.operation_id,
                 self.operation_identifier.name,
             )
-            return raw_result  # noqa: TRY300
+            return return_value
+        except RetryableSerDesError:
+            # Transient serdes failure: fail the invocation for backend retry,
+            # bypassing the step retry strategy. For AT_MOST_ONCE steps the
+            # START checkpoint remains, so the next invocation surfaces
+            # StepInterruptedError (the step body already ran and its side
+            # effects are not re-run).
+            raise
+        except SerDesError as e:
+            # Permanent serdes failure: terminal FAIL surfaced as SerDesError,
+            # without the step retry strategy.
+            logger.exception(
+                "❌ serdes failed for step id: %s, name: %s",
+                self.operation_identifier.operation_id,
+                self.operation_identifier.name,
+            )
+            error_object: ErrorObject = ErrorObject.from_exception(e)
+            fail_operation: OperationUpdate = OperationUpdate.create_step_fail(
+                identifier=self.operation_identifier, error=error_object
+            )
+            self.state.create_checkpoint(operation_update=fail_operation)
+            error_object.raise_as_operation_error(StepError)
         except Exception as e:
             if isinstance(e, ExecutionError):
                 # No retry on fatal - e.g checkpoint exception
@@ -286,9 +323,12 @@ class StepOperationExecutor(OperationExecutor[T]):
 
         Raises:
             SuspendExecution: If retry is scheduled
-            StepInterruptedError: If the error is a StepInterruptedError
-            CallableRuntimeError: If retry is exhausted or error is not retryable
+            StepError: If retry is exhausted or the error is not retryable
+                (including an exhausted StepInterruptedError)
         """
+        # Checkpoint the raw escaping error (records its own type, e.g.
+        # "ValueError"); the StepError wrapper is what we raise, and it is
+        # recorded one level up by whoever catches it.
         error_object = ErrorObject.from_exception(error)
 
         retry_strategy = self.config.retry_strategy or RetryPresets.default()
@@ -360,7 +400,8 @@ class StepOperationExecutor(OperationExecutor[T]):
         # This guarantees the error is durable and the step won't be retried on replay.
         self.state.create_checkpoint(operation_update=fail_operation)
 
-        if isinstance(error, StepInterruptedError):
-            raise error
-
-        raise error_object.to_callable_runtime_error()
+        # Surface as a StepError reconstructed from the checkpointed error, the
+        # same path replay uses, so first run and replay are identical. (An
+        # exhausted StepInterruptedError surfaces the same way as any other
+        # step failure.)
+        error_object.raise_as_operation_error(StepError)

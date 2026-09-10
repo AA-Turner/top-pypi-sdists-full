@@ -25,6 +25,7 @@ from datamodel_code_generator import (
     MIN_VERSION,
     DanglingRefWarning,
     DataModelType,
+    Error,
     InputFileType,
     OpenAPIScope,
     PythonVersionMin,
@@ -71,6 +72,7 @@ from tests.main.conftest import (
     OPEN_API_DATA_PATH,
     TIMESTAMP,
     _generated_model,
+    _generated_package_module,
     assert_generated_model_json_invalid,
     assert_generated_model_json_validation,
     run_generate_file_and_assert,
@@ -9742,3 +9744,380 @@ def test_main_openapi_discriminated_oneof_allof_cycle(output_file: Path) -> None
         input_file_type="openapi",
         assert_func=assert_file_content,
     )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+@pytest.mark.parametrize(
+    ("case", "source", "alias_file", "options", "field_name", "model_name"),
+    [
+        ("none", "direct", "none", {}, "petType", "Pet"),
+        ("global", "direct", "global", {}, "kind", "Pet"),
+        ("scoped", "direct", "scoped", {}, "kind", "Pet"),
+        (
+            "affix",
+            "direct",
+            "affix",
+            {"class_name_prefix": "Pre", "class_name_suffix": "Suffix"},
+            "kind",
+            "PrePetSuffix",
+        ),
+        ("snake", "direct", "none", {"snake_case_field": True}, "pet_type", "Pet"),
+        ("inherited", "inherited", "inherited", {}, "kind", "Pet"),
+        ("missing", "missing", "scoped", {}, "kind", "Pet"),
+        ("nullable", "nullable", "scoped", {}, "kind", "Pet"),
+        ("collision", "collision", "collision", {}, "kind", "Pet"),
+        ("serialization", "direct", "scoped", {"serialization_aliases": {"petType": "wireKind"}}, "kind", "Pet"),
+        ("wire_collision", "wire_collision", "wire_collision", {}, "kind", "Pet"),
+        ("wire_collision_enum", "wire_collision_enum", "wire_collision", {}, "kind", "Pet"),
+        ("wire_collision_const", "wire_collision_const", "wire_collision", {}, "kind", "Pet"),
+        ("wire_collision_nullable", "wire_collision_nullable", "wire_collision", {}, "kind", "Pet"),
+        (
+            "wire_collision_inherited",
+            "wire_collision_inherited",
+            "wire_collision_inherited",
+            {"use_enum_values_in_discriminator": True, "use_subclass_enum": True},
+            "kind",
+            "Pet",
+        ),
+        (
+            "wire_collision_serialization",
+            "wire_collision",
+            "wire_collision",
+            {"serialization_aliases": {"petType": "wireKind"}},
+            "kind",
+            "Pet",
+        ),
+        (
+            "wire_collision_global_inherited",
+            "wire_collision_inherited",
+            "wire_collision_global_inherited",
+            {"use_enum_values_in_discriminator": True, "use_subclass_enum": True},
+            "kind",
+            "Pet",
+        ),
+        ("wire_collision_global", "wire_collision", "wire_collision_global", {}, "kind", "Pet"),
+        ("wire_collision_global_enum", "wire_collision_enum", "wire_collision_global", {}, "kind", "Pet"),
+        ("wire_collision_global_const", "wire_collision_const", "wire_collision_global", {}, "kind", "Pet"),
+        ("wire_collision_global_missing", "wire_collision_missing", "wire_collision_global", {}, "kind", "Pet"),
+        ("wire_collision_global_nullable", "wire_collision_nullable", "wire_collision_global", {}, "kind", "Pet"),
+    ],
+)
+def test_discriminator_final_field_aliases(
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+    entrypoint: str,
+    case: str,
+    source: str,
+    alias_file: str,
+    options: dict[str, Any],
+    field_name: str,
+    model_name: str,
+) -> None:
+    """Resolve variant fields without globalizing scoped aliases or changing tag input."""
+    fixture_dir = OPEN_API_DATA_PATH / "discriminator_field_aliases"
+    aliases_path = fixture_dir / f"{alias_file}_aliases.json"
+    expected = EXPECTED_OPENAPI_PATH / "discriminator_field_aliases" / f"{case}.py"
+    if case.startswith("wire_collision"):
+        expected = EXPECTED_OPENAPI_PATH / "discriminator_field_aliases/wire_collision_error.txt"
+        if entrypoint == "cli":
+            run_main_and_assert(
+                input_path=fixture_dir / f"{source}.json",
+                output_path=output_file,
+                input_file_type="openapi",
+                extra_args=["--aliases", str(aliases_path)],
+                expected_exit=Exit.ERROR,
+                capsys=capsys,
+                expected_stderr=expected.read_text() + "\n",
+                output_should_not_exist=True,
+            )
+        else:
+            with pytest.raises(Error) as exc_info:
+                run_generate_file_and_assert(
+                    input_path=fixture_dir / f"{source}.json",
+                    output_path=output_file,
+                    input_file_type=InputFileType.OpenAPI,
+                    aliases=json.loads(aliases_path.read_text()),
+                    assert_func=assert_file_content,
+                    **options,
+                )
+            assert_output(str(exc_info.value), expected)
+        return
+    if entrypoint == "cli":
+        args = ["--aliases", str(aliases_path), "--disable-timestamp"]
+        for key, value in options.items():
+            args.append(f"--{key.replace('_', '-')}")
+            if value is not True:
+                args.append(str(fixture_dir / "serialization_aliases.json") if isinstance(value, dict) else str(value))
+        run_main_and_assert(
+            input_path=fixture_dir / f"{source}.json",
+            output_path=output_file,
+            input_file_type="openapi",
+            assert_func=assert_file_content,
+            expected_file=expected,
+            extra_args=args,
+            force_exec_validation=True,
+        )
+    else:
+        aliases = json.loads(aliases_path.read_text())
+        run_generate_file_and_assert(
+            input_path=fixture_dir / f"{source}.json",
+            output_path=output_file,
+            input_file_type=InputFileType.OpenAPI,
+            assert_func=assert_file_content,
+            expected_file=expected,
+            aliases=aliases,
+            disable_timestamp=True,
+            unchanged_inputs={"aliases": aliases},
+            **options,
+        )
+    for tag, detail in [("cat", "meow"), ("dog", "bark")]:
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=f"generated_discriminator_alias_{case}_{tag}",
+            model_name=model_name,
+            valid_json=json.dumps({"petType": tag, detail: "yes"}),
+            invalid_json='{"petType":"bird"}',
+            expected_error_type="union_tag_invalid",
+            expected_attribute_path=("root", field_name),
+            expected_attribute_value=tag,
+        )
+        with _generated_model(output_file, f"generated_discriminator_dump_{case}_{tag}", model_name) as model:
+            value = model.model_validate({"petType": tag, detail: "yes"})
+            wire_name = "wireKind" if "serialization_aliases" in options else "petType"
+            payload_dir = DATA_PATH / "payloads" / "discriminator_alias_outputs"
+            assert_output(
+                json.dumps(value.model_dump(by_alias=True, exclude_none=True), sort_keys=True) + "\n",
+                payload_dir / f"{wire_name}_{tag}.txt",
+            )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+def test_discriminator_different_field_aliases(
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+    entrypoint: str,
+) -> None:
+    """Reject incompatible Python tag names without weakening tagged-union validation."""
+    fixture_dir = OPEN_API_DATA_PATH / "discriminator_field_aliases"
+    message = (
+        "Discriminator 'petType' resolves to different field names 'cat_kind' and 'dog_kind'; "
+        "use the same alias for all variants."
+    )
+    if entrypoint == "cli":
+        run_main_with_args(
+            [
+                "--input",
+                str(fixture_dir / "direct.json"),
+                "--input-file-type",
+                "openapi",
+                "--aliases",
+                str(fixture_dir / "different_aliases.json"),
+                "--output",
+                str(output_file),
+            ],
+            expected_exit=Exit.ERROR,
+        )
+        assert_error_message(capsys, message)
+    else:
+        with pytest.raises(Error, match=re.escape(message)):
+            generate(
+                fixture_dir / "direct.json",
+                input_file_type=InputFileType.OpenAPI,
+                aliases=json.loads((fixture_dir / "different_aliases.json").read_text()),
+                output=output_file,
+            )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+def test_discriminator_field_aliases_msgspec(output_file: Path, entrypoint: str) -> None:
+    """Keep msgspec's existing wire-field handling independent of Pydantic tag names."""
+    fixture_dir = OPEN_API_DATA_PATH / "discriminator_field_aliases"
+    aliases_path = fixture_dir / "different_aliases.json"
+    expected = EXPECTED_OPENAPI_PATH / "discriminator_field_aliases" / "msgspec.py"
+    if entrypoint == "cli":
+        run_main_and_assert(
+            input_path=fixture_dir / "direct.json",
+            output_path=output_file,
+            input_file_type="openapi",
+            assert_func=assert_file_content,
+            expected_file=expected,
+            extra_args=["--aliases", str(aliases_path), "--disable-timestamp", "--output-model-type", "msgspec.Struct"],
+            force_exec_validation=True,
+        )
+    else:
+        run_generate_file_and_assert(
+            input_path=fixture_dir / "direct.json",
+            output_path=output_file,
+            input_file_type=InputFileType.OpenAPI,
+            assert_func=assert_file_content,
+            expected_file=expected,
+            aliases=json.loads(aliases_path.read_text()),
+            disable_timestamp=True,
+            output_model_type=DataModelType.MsgspecStruct,
+        )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+@pytest.mark.parametrize("case", ["local", "external", "relative", "url", "scoped", "bare", "empty", "many_ordinary"])
+def test_external_discriminator_base(output_file: Path, entrypoint: str, case: str) -> None:
+    """Keep discriminator definitions, mappings and tag payloads in their source document."""
+    fixture_dir = OPEN_API_DATA_PATH / "external_discriminator_base"
+    expected = EXPECTED_OPENAPI_PATH / "external_discriminator_base" / f"{case}.py"
+    if entrypoint == "cli":
+        args = ["--disable-timestamp"]
+        if case in {"bare", "empty"}:
+            args.append("--allow-remote-refs")
+        if case == "url":
+            args.extend(["--http-local-ref-path", str(fixture_dir / "mirror")])
+        run_main_and_assert(
+            input_path=fixture_dir / f"{case}.json",
+            output_path=output_file,
+            input_file_type="openapi",
+            assert_func=assert_file_content,
+            expected_file=expected,
+            extra_args=args,
+            force_exec_validation=True,
+        )
+    else:
+        options = {"http_local_ref_path": fixture_dir / "mirror"} if case == "url" else {}
+        if case in {"bare", "empty"}:
+            options["allow_remote_refs"] = True
+        run_generate_file_and_assert(
+            input_path=fixture_dir / f"{case}.json",
+            output_path=output_file,
+            input_file_type=InputFileType.OpenAPI,
+            assert_func=assert_file_content,
+            expected_file=expected,
+            disable_timestamp=True,
+            **options,
+        )
+    for tag, inherited_detail, mapped_detail in [("cat", "meow", "purr"), ("dog", "bark", "woof")]:
+        inherited = {"kind": tag, inherited_detail: "yes"}
+        mapped = {"species": tag, mapped_detail: 7}
+        if case == "scoped":
+            payload = {"local": inherited, "left": inherited, "right": mapped}
+            invalid = {**payload, "right": {"species": "bird"}}
+            attribute = "right"
+        else:
+            payload = {
+                "item": {"kind": tag}
+                if case == "empty"
+                else inherited
+                if case in {"local", "external", "many_ordinary"}
+                else mapped
+            }
+            tag_property = "species" if case in {"relative", "url", "bare"} else "kind"
+            invalid = {"item": {tag_property: [] if case == "empty" else "bird"}}
+            attribute = "item"
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=f"generated_external_discriminator_{case}_{tag}",
+            model_name="Wrapper",
+            valid_json=json.dumps(payload),
+            invalid_json=json.dumps(invalid),
+            expected_error_type="string_type" if case == "empty" else "union_tag_invalid",
+            expected_attribute_path=(attribute, "species" if case in {"relative", "url", "bare", "scoped"} else "kind"),
+            expected_attribute_value=tag,
+        )
+        with _generated_model(output_file, f"generated_external_discriminator_dump_{case}_{tag}", "Wrapper") as model:
+            assert_output(
+                json.dumps(model.model_validate(payload).model_dump(by_alias=True, exclude_none=True), sort_keys=True)
+                + "\n",
+                DATA_PATH / "payloads" / "external_discriminator_outputs" / f"{case}_{tag}.txt",
+            )
+    if case == "many_ordinary":
+        with _generated_model(output_file, "generated_discriminator_ordinary_refs", "Controls") as model:
+            payload = {"field0": {"value": "first"}, "field99": {"value": "last"}}
+            assert_output(
+                json.dumps(model.model_validate(payload).model_dump(exclude_none=True), sort_keys=True) + "\n",
+                DATA_PATH / "payloads" / "external_discriminator_outputs" / "ordinary.txt",
+            )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+@pytest.mark.parametrize("formatters", [[Formatter.BLACK, Formatter.ISORT], [Formatter.BUILTIN]])
+def test_external_discriminator_multiple_inputs(
+    output_dir: Path,
+    entrypoint: str,
+    formatters: list[Formatter],
+) -> None:
+    """Do not recollect or lose metadata when a referenced document is also an input."""
+    fixture_dir = OPEN_API_DATA_PATH / "external_discriminator_base" / "multiple"
+    expected = EXPECTED_OPENAPI_PATH / "external_discriminator_base" / "multiple"
+    if entrypoint == "cli":
+        run_main_and_assert(
+            input_path=fixture_dir,
+            output_path=output_dir,
+            input_file_type="openapi",
+            expected_directory=expected,
+            extra_args=["--disable-timestamp", "--formatters", *(formatter.value for formatter in formatters)],
+            runtime_validation_module="a",
+            runtime_validation_model_name="Wrapper",
+            runtime_validation_data={"item": {"kind": "cat", "meow": "yes"}},
+        )
+    else:
+        generate(
+            fixture_dir,
+            input_file_type=InputFileType.OpenAPI,
+            output=output_dir,
+            disable_timestamp=True,
+            formatters=formatters,
+        )
+        assert_directory_content(output_dir, expected)
+    with _generated_package_module(output_dir, "a") as module:
+        for tag, detail in [("cat", "meow"), ("dog", "bark")]:
+            payload = {"item": {"kind": tag, detail: "yes"}}
+            assert_output(
+                json.dumps(module.Wrapper.model_validate(payload).model_dump(exclude_none=True), sort_keys=True) + "\n",
+                DATA_PATH / "payloads" / "external_discriminator_outputs" / f"local_{tag}.txt",
+            )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+@pytest.mark.parametrize("case", ["child_first", "parent_first"])
+def test_external_discriminator_parent_load_order(output_file: Path, entrypoint: str, case: str) -> None:
+    """Keep external child fields when their discriminator parent is loaded later."""
+    source = OPEN_API_DATA_PATH / "external_discriminator_base" / f"{case}.json"
+    expected = EXPECTED_OPENAPI_PATH / "external_discriminator_base" / f"{case}.py"
+    if entrypoint == "cli":
+        run_main_and_assert(
+            input_path=source,
+            output_path=output_file,
+            input_file_type="openapi",
+            assert_func=assert_file_content,
+            expected_file=expected,
+            extra_args=["--disable-timestamp"],
+        )
+    else:
+        run_generate_file_and_assert(
+            input_path=source,
+            output_path=output_file,
+            input_file_type=InputFileType.OpenAPI,
+            assert_func=assert_file_content,
+            expected_file=expected,
+            disable_timestamp=True,
+        )
+    payloads = json.loads((DATA_PATH / "payloads/external_discriminator_pending.json").read_text())
+    for model_file in (DATA_PATH / "python/discriminator_pending/native.py", output_file):
+        for tag in ("cat", "dog"):
+            assert_generated_model_json_validation(
+                model_file,
+                module_name="discriminator_pending_validation",
+                model_name="Wrapper",
+                valid_json=json.dumps(payloads[tag]),
+                invalid_json=json.dumps(payloads["unknown"]),
+                expected_error_type="union_tag_invalid",
+            )
+            assert_generated_model_json_validation(
+                model_file,
+                module_name="discriminator_pending_required",
+                model_name="Wrapper",
+                valid_json=json.dumps(payloads[tag]),
+                invalid_json=json.dumps(payloads["missing"]),
+                expected_error_type="missing",
+            )
+            with _generated_model(model_file, "discriminator_pending_dump", "Wrapper") as model:
+                assert_output(
+                    json.dumps(model.model_validate(payloads[tag]).model_dump(), sort_keys=True) + "\n",
+                    DATA_PATH / "payloads/external_discriminator_outputs" / f"local_{tag}.txt",
+                )

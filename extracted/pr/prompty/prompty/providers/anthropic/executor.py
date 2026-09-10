@@ -1,0 +1,601 @@
+"""Anthropic executor — calls Anthropic Messages API.
+
+Maps abstract ``Message`` objects to the Anthropic wire format
+and sends them to the API. Only supports ``chat`` apiType
+(Anthropic has no embedding or image APIs).
+
+The agent loop (tool-call iteration) is handled by the pipeline,
+not the executor.
+
+Registered as ``anthropic`` in ``prompty.executors``.
+"""
+
+from __future__ import annotations
+
+import functools
+import inspect
+import warnings
+from typing import Any
+
+from ...core.connections import get_connection
+from ...core.types import (
+    AsyncPromptyStream,
+    ContentPart,
+    ImagePart,
+    Message,
+    PromptyStream,
+    TextPart,
+)
+from ...model import (
+    Agent,
+    ApiKeyConnection,
+    ReferenceConnection,
+)
+from ...tracing.tracer import trace
+
+__all__ = ["AnthropicExecutor"]
+
+DEFAULT_MAX_TOKENS = 4096
+
+
+# ---------------------------------------------------------------------------
+# Wire format mapping
+# ---------------------------------------------------------------------------
+
+
+def _message_to_wire(msg: Message) -> dict[str, Any]:
+    """Convert an abstract Message to Anthropic wire format.
+
+    Anthropic always uses array content format: ``[{type: "text", text: "..."}]``.
+    """
+    wire: dict[str, Any] = {"role": msg.role}
+
+    # Assistant message with raw_content from tool-call pipeline
+    raw_content = msg.metadata.get("raw_content")
+    if raw_content and msg.role == "assistant":
+        wire["content"] = raw_content
+        return wire
+
+    # Tool result messages with batched results from pipeline
+    tool_results = msg.metadata.get("tool_results")
+    if tool_results:
+        wire["role"] = "user"
+        wire["content"] = [
+            {
+                "type": "tool_result",
+                "tool_use_id": r["tool_use_id"],
+                "content": r["content"],
+            }
+            for r in tool_results
+        ]
+        return wire
+
+    # Single tool result message (legacy / direct usage)
+    tool_use_id = msg.metadata.get("tool_use_id") or msg.metadata.get("tool_call_id")
+    if tool_use_id:
+        wire["role"] = "user"
+        wire["content"] = [
+            {
+                "type": "tool_result",
+                "tool_use_id": tool_use_id,
+                "content": msg.to_text_content(),
+            }
+        ]
+        return wire
+
+    # Always use array content format for Anthropic
+    wire["content"] = [_part_to_wire(part) for part in msg.parts]
+
+    return wire
+
+
+def _part_to_wire(part: ContentPart) -> dict[str, Any]:
+    """Convert a ContentPart to Anthropic wire format."""
+    if isinstance(part, TextPart):
+        return {"type": "text", "text": part.value}
+    elif isinstance(part, ImagePart):
+        # Data URI: data:image/png;base64,...
+        if part.source.startswith("data:"):
+            header, _, data = part.source.partition(",")
+            import re
+
+            match = re.search(r"data:(.*?);", header)
+            media_type = match.group(1) if match else "image/png"
+            return {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": data,
+                },
+            }
+        # Raw base64 data with media_type set on the part
+        if part.media_type:
+            return {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": part.media_type,
+                    "data": part.source,
+                },
+            }
+        # URL
+        return {
+            "type": "image",
+            "source": {"type": "url", "url": part.source},
+        }
+    return {"type": "text", "text": str(part)}
+
+
+def _build_options(agent: Agent) -> dict[str, Any]:
+    """Map ModelOptions to Anthropic API parameters."""
+    opts = agent.model.options
+    if opts is None:
+        return {}
+
+    result = opts.to_wire("anthropic")
+    if not opts.stop_sequences:
+        result.pop("stop_sequences", None)
+
+    # Pass through additionalProperties
+    if opts.additional_properties:
+        for k, v in opts.additional_properties.items():
+            if k not in result and k != "max_tokens":
+                result[k] = v
+
+    return result
+
+
+# Anthropic sampling params deprecated/removed for models after Claude Opus 4.6.
+_ANTHROPIC_DEPRECATED_SAMPLING = ("temperature", "top_k", "top_p")
+
+# output_config.effort values accepted by anthropic >= 1.4.
+_ANTHROPIC_EFFORT_VALUES = frozenset({"low", "medium", "high", "xhigh", "max"})
+
+# reasoningEffort (our enum) → Anthropic output_config.effort.
+# ``none`` disables effort; ``minimal`` clamps up to the lowest supported level.
+_ANTHROPIC_EFFORT_MAP: dict[str, str | None] = {
+    "none": None,
+    "minimal": "low",
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "xhigh": "xhigh",
+    "max": "max",
+}
+
+
+@functools.lru_cache(maxsize=1)
+def _anthropic_create_params() -> frozenset[str] | None:
+    """Named params accepted by the installed ``messages.create()``.
+
+    Returns ``None`` when the signature can't be introspected or accepts
+    arbitrary ``**kwargs`` (in which case filtering would be unsafe).
+    """
+    try:
+        from anthropic.resources.messages import Messages
+
+        sig = inspect.signature(Messages.create)
+    except Exception:
+        return None
+    for p in sig.parameters.values():
+        if p.kind is inspect.Parameter.VAR_KEYWORD:
+            return None
+    return frozenset(sig.parameters)
+
+
+def _drop_unsupported_anthropic_params(result: dict[str, Any]) -> None:
+    """Remove wire params the installed SDK's ``create()`` won't accept, in place.
+
+    Applied on the final request args in the live execute path (not in the pure
+    ``_build_options`` mapper) so wire-conformance vectors keep asserting the
+    deterministic ``@@knownAs`` rename. ``temperature``/``top_k``/``top_p`` were
+    removed from ``messages.create()`` for models after Claude Opus 4.6; the
+    replacement control is ``reasoningEffort`` → ``output_config.effort``.
+    """
+    accepted = _anthropic_create_params()
+    if accepted is None:
+        return
+    for key in list(result):
+        if key not in accepted:
+            if key in _ANTHROPIC_DEPRECATED_SAMPLING:
+                warnings.warn(
+                    f"Anthropic no longer accepts '{key}' (deprecated for models after "
+                    f"Claude Opus 4.6); dropping it. Use reasoningEffort instead.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+            result.pop(key, None)
+
+
+def _reasoning_effort_to_anthropic(agent: Agent) -> str | None:
+    """Translate our ``reasoningEffort`` to an Anthropic ``output_config.effort`` value."""
+    opts = agent.model.options
+    raw = getattr(opts, "reasoning_effort", None) if opts is not None else None
+    if not raw:
+        return None
+    key = str(raw).lower()
+    mapped = _ANTHROPIC_EFFORT_MAP.get(key, key)
+    if mapped is None:
+        return None
+    if mapped not in _ANTHROPIC_EFFORT_VALUES:
+        warnings.warn(
+            f"reasoningEffort '{raw}' is not supported by Anthropic output_config.effort "
+            f"({sorted(_ANTHROPIC_EFFORT_VALUES)}); dropping it.",
+            UserWarning,
+            stacklevel=3,
+        )
+        return None
+    return mapped
+
+
+# Kind → JSON Schema type mapping
+_KIND_TO_JSON_TYPE: dict[str, str] = {
+    "string": "string",
+    "integer": "integer",
+    "float": "number",
+    "number": "number",
+    "boolean": "boolean",
+    "array": "array",
+    "object": "object",
+}
+
+
+def _property_to_json_schema(prop: Any) -> dict[str, Any]:
+    """Convert a Property to JSON Schema format."""
+    json_type = _KIND_TO_JSON_TYPE.get(getattr(prop, "kind", ""))
+    schema: dict[str, Any] = {"type": json_type} if json_type else {}
+
+    if hasattr(prop, "description") and prop.description:
+        schema["description"] = prop.description
+    if hasattr(prop, "enum_values") and prop.enum_values:
+        schema["enum"] = prop.enum_values
+
+    if getattr(prop, "kind", None) == "array":
+        items = getattr(prop, "items", None)
+        schema["items"] = _property_to_json_schema(items) if items else {"type": "string"}
+
+    if getattr(prop, "kind", None) == "object":
+        props = getattr(prop, "properties", None)
+        if props:
+            nested: dict[str, Any] = {}
+            req: list[str] = []
+            for p in props:
+                name = getattr(p, "name", None)
+                if not name:
+                    continue
+                nested[name] = _property_to_json_schema(p)
+                if getattr(p, "required", False):
+                    req.append(name)
+            schema["properties"] = nested
+            if req:
+                schema["required"] = req
+        else:
+            schema["properties"] = {}
+        schema["additionalProperties"] = False
+
+    if getattr(prop, "kind", None) == "union":
+        one_of = getattr(prop, "one_of", None)
+        any_of = getattr(prop, "any_of", None)
+        has_one_of = isinstance(one_of, list) and bool(one_of)
+        has_any_of = isinstance(any_of, list) and bool(any_of)
+        if has_one_of == has_any_of:
+            raise ValueError("UnionProperty must specify exactly one non-empty composition: oneOf or anyOf")
+        if has_one_of:
+            schema["oneOf"] = [_property_to_json_schema(branch) for branch in prop.one_of]
+        else:
+            schema["anyOf"] = [_property_to_json_schema(branch) for branch in prop.any_of]
+
+    if getattr(prop, "nullable", False):
+        _add_nullability(schema)
+
+    return schema
+
+
+def _add_nullability(schema: dict[str, Any]) -> None:
+    """Add JSON Schema null support without emitting an invalid empty type."""
+    if isinstance(schema.get("enum"), list) and None not in schema["enum"]:
+        schema["enum"].append(None)
+    if isinstance(schema.get("type"), str):
+        schema["type"] = [schema["type"], "null"]
+    elif isinstance(schema.get("anyOf"), list):
+        schema["anyOf"].append({"type": "null"})
+    elif isinstance(schema.get("oneOf"), list):
+        schema["oneOf"].append({"type": "null"})
+
+
+def _schema_to_wire(properties: list[Any]) -> dict[str, Any]:
+    """Convert a Property list to JSON Schema object."""
+    props: dict[str, Any] = {}
+    required: list[str] = []
+
+    for p in properties:
+        name = getattr(p, "name", None)
+        if not name:
+            continue
+        props[name] = _property_to_json_schema(p)
+        if getattr(p, "required", False):
+            required.append(name)
+
+    result: dict[str, Any] = {"type": "object", "properties": props}
+    if required:
+        result["required"] = required
+    return result
+
+
+def _tools_to_wire(agent: Agent) -> list[dict[str, Any]]:
+    """Convert agent tools to Anthropic format: {name, description, input_schema}."""
+    if not agent.tools:
+        return []
+
+    result: list[dict[str, Any]] = []
+    for tool in agent.tools:
+        if getattr(tool, "kind", None) != "function":
+            continue
+
+        tool_def: dict[str, Any] = {"name": tool.name}
+        if tool.description:
+            tool_def["description"] = tool.description
+
+        params = getattr(tool, "parameters", None)
+        if params and isinstance(params, list):
+            tool_def["input_schema"] = _schema_to_wire(params)
+        else:
+            tool_def["input_schema"] = {"type": "object", "properties": {}}
+
+        result.append(tool_def)
+    return result
+
+
+def _output_schema_to_wire(agent: Agent) -> dict[str, Any] | None:
+    """Convert outputs to Anthropic output_config.format.
+
+    Anthropic format: ``output_config: { format: { type: "json_schema", schema: {...} } }``
+    """
+    outputs = agent.outputs
+    if not outputs:
+        return None
+
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for prop in outputs:
+        name = getattr(prop, "name", None)
+        if not name:
+            continue
+        properties[name] = _property_to_json_schema(prop)
+        if getattr(prop, "required", False):
+            required.append(name)
+
+    if not properties:
+        return None
+
+    return {
+        "format": {
+            "type": "json_schema",
+            "schema": {
+                "type": "object",
+                "properties": properties,
+                **({"required": required} if required else {}),
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _build_chat_args(agent: Agent, messages: list[Message]) -> dict[str, Any]:
+    """Build Anthropic Messages API arguments."""
+    model = agent.model.id or "claude-sonnet-4-5-20250929"
+
+    system_parts: list[str] = []
+    conversation: list[dict[str, Any]] = []
+
+    for msg in messages:
+        if msg.role == "system":
+            system_parts.append(msg.text)
+        else:
+            conversation.append(_message_to_wire(msg))
+
+    opts = _build_options(agent)
+    if "max_tokens" not in opts:
+        opts["max_tokens"] = DEFAULT_MAX_TOKENS
+
+    args: dict[str, Any] = {
+        "model": model,
+        "messages": conversation,
+        **opts,
+    }
+
+    if system_parts:
+        args["system"] = "\n\n".join(system_parts)
+
+    tools = _tools_to_wire(agent)
+    if tools:
+        args["tools"] = tools
+
+    output_config = _output_schema_to_wire(agent) or {}
+    effort = _reasoning_effort_to_anthropic(agent)
+    if effort is not None:
+        output_config = {**output_config, "effort": effort}
+    if output_config:
+        args["output_config"] = output_config
+
+    return args
+
+
+# ---------------------------------------------------------------------------
+# Executor
+# ---------------------------------------------------------------------------
+
+
+class AnthropicExecutor:
+    """Executor for Anthropic Messages API.
+
+    Supports:
+    - ``apiType: chat`` → ``messages.create()``
+    - Streaming when ``additionalProperties.stream`` is set
+    - Reference and API key connections
+
+    The agent loop (tool-call iteration) is handled by the pipeline.
+    """
+
+    @trace
+    def execute(self, agent: Agent, data: Any) -> Any:
+        client = self._resolve_client(agent)
+        api_type = agent.model.api_type or "chat"
+
+        if api_type == "chat":
+            return self._execute_chat(client, agent, data)
+        else:
+            raise ValueError(
+                f"Unsupported apiType '{api_type}' for Anthropic. Anthropic only supports 'chat' (Messages API)."
+            )
+
+    @trace
+    async def execute_async(self, agent: Agent, data: Any) -> Any:
+        client = self._resolve_client_async(agent)
+        api_type = agent.model.api_type or "chat"
+
+        if api_type == "chat":
+            return await self._execute_chat_async(client, agent, data)
+        else:
+            raise ValueError(
+                f"Unsupported apiType '{api_type}' for Anthropic. Anthropic only supports 'chat' (Messages API)."
+            )
+
+    def _execute_chat(self, client: Any, agent: Agent, data: Any) -> Any:
+        args = _build_chat_args(agent, data)
+        _drop_unsupported_anthropic_params(args)
+        is_streaming = args.pop("stream", False) or (
+            agent.model.options
+            and agent.model.options.additional_properties
+            and agent.model.options.additional_properties.get("stream", False)
+        )
+
+        if is_streaming:
+            args["stream"] = True
+            response = client.messages.create(**args)
+            return PromptyStream("AnthropicExecutor", response)
+
+        return client.messages.create(**args)
+
+    async def _execute_chat_async(self, client: Any, agent: Agent, data: Any) -> Any:
+        args = _build_chat_args(agent, data)
+        _drop_unsupported_anthropic_params(args)
+        is_streaming = args.pop("stream", False) or (
+            agent.model.options
+            and agent.model.options.additional_properties
+            and agent.model.options.additional_properties.get("stream", False)
+        )
+
+        if is_streaming:
+            args["stream"] = True
+            response = await client.messages.create(**args)
+            return AsyncPromptyStream("AnthropicExecutor", response)
+
+        return await client.messages.create(**args)
+
+    def _resolve_client(self, agent: Agent) -> Any:
+        """Resolve the sync Anthropic client from connection config."""
+        from anthropic import Anthropic
+
+        conn = agent.model.connection
+
+        if isinstance(conn, ReferenceConnection):
+            return get_connection(conn.name)
+
+        kwargs = self._client_kwargs(agent)
+        return Anthropic(**kwargs)
+
+    def _resolve_client_async(self, agent: Agent) -> Any:
+        """Resolve the async Anthropic client from connection config."""
+        from anthropic import AsyncAnthropic
+
+        conn = agent.model.connection
+
+        if isinstance(conn, ReferenceConnection):
+            return get_connection(conn.name)
+
+        kwargs = self._client_kwargs(agent)
+        return AsyncAnthropic(**kwargs)
+
+    def _client_kwargs(self, agent: Agent) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {}
+        conn = agent.model.connection
+
+        if isinstance(conn, ApiKeyConnection):
+            if conn.api_key:
+                kwargs["api_key"] = conn.api_key
+            if conn.endpoint:
+                kwargs["base_url"] = conn.endpoint
+        elif conn:
+            kind = getattr(conn, "kind", type(conn).__name__)
+            raise NotImplementedError(
+                f"Connection kind '{kind}' is not supported by the Anthropic executor. "
+                f"Use 'key' for API key auth or 'reference' with register_connection() for pre-configured clients."
+            )
+
+        return kwargs
+
+    # -- FormatToolMessages -------------------------------------------------
+
+    def format_tool_messages(
+        self,
+        raw_response: Any,
+        tool_calls: list[Any],
+        tool_results: list[str],
+        text_content: str = "",
+    ) -> list[Message]:
+        """Format tool messages in Anthropic wire format.
+
+        Anthropic requires:
+        1. Assistant message preserves ALL content blocks (text + tool_use)
+        2. Tool results are batched into a single ``user`` message with
+           ``tool_result`` content blocks.
+        """
+        import json
+
+        from ...core.types import Message, TextPart
+
+        result_messages: list[Message] = []
+
+        # --- Assistant message with ALL content blocks (text + tool_use) ---
+        raw_content: list[dict[str, Any]] = []
+        if text_content:
+            raw_content.append({"type": "text", "text": text_content})
+        for tc in tool_calls:
+            raw_content.append(
+                {
+                    "type": "tool_use",
+                    "id": tc.id,
+                    "name": tc.name,
+                    "input": json.loads(tc.arguments),
+                }
+            )
+        result_messages.append(
+            Message(
+                role="assistant",
+                parts=[TextPart(value=text_content)] if text_content else [],
+                metadata={"raw_content": raw_content},
+            )
+        )
+
+        # --- Single user message with batched tool_result blocks ---
+        tool_result_blocks: list[dict[str, Any]] = []
+        for i, tc in enumerate(tool_calls):
+            tool_result_blocks.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tc.id,
+                    "content": tool_results[i],
+                }
+            )
+        result_messages.append(
+            Message(
+                role="tool",
+                parts=[TextPart(value=r) for r in tool_results],
+                metadata={"tool_results": tool_result_blocks},
+            )
+        )
+
+        return result_messages

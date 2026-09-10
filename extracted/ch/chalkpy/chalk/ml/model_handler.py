@@ -121,7 +121,6 @@ def model_handler(cls: _T) -> _T:
     ...     def predict(self, df):
     ...         preds = self.model.predict(df.to_pandas())
     ...         return pd.DataFrame({"prediction": preds})
-    ...
     >>> client.register_model_version(
     ...     name="rf",
     ...     model=RFModel(model=trained_rf, files=["./scaler.pkl"]),

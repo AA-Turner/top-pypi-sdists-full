@@ -34,10 +34,14 @@ def read_asset(name: str) -> str:
     return (ASSETS_DIR / name).read_text(encoding="utf-8")
 
 
-FACADE_TYPING_IMPORTS = (
-    "from typing import (Any, Callable, Dict, List, Literal, Mapping, NotRequired, Optional, Tuple, TypedDict, "
-    "Sequence, Union, ParamSpec, TypeVar, cast, overload)"
-)
+FACADE_TYPING_IMPORTS = """\
+from typing import (Any, Callable, Dict, List, Literal, Mapping, Optional, Tuple, Sequence, Union, TypeVar, cast,
+                    overload)
+
+if sys.version_info >= (3, 11):
+    from typing import NotRequired, ParamSpec, TypedDict
+else:
+    from typing_extensions import NotRequired, ParamSpec, TypedDict"""
 
 
 def generate_facade_preludes(model: Model) -> List[str]:
@@ -88,17 +92,25 @@ def _to_envp(value):
 
 def _make_options(cls, values, selectors):
     options = cls()
+    _apply_settings(options, values, selectors)
+    return options
+
+
+def _apply_settings(impl, values, selectors):
     for name, value in values.items():
         if value is None:
             continue
         select = selectors.get(name)
         if select is None:
-            setattr(options, name, value)
+            setattr(impl, name, _unwrap(value))
+        elif isinstance(value, dict):
+            add = getattr(impl, select)
+            for key, element in value.items():
+                add(key, _unwrap(element))
         else:
-            add = getattr(options, select)
+            add = getattr(impl, select)
             for element in value:
-                add(element)
-    return options
+                add(_unwrap(element))
 
 
 _current_cancellable = threading.local()
@@ -182,17 +194,25 @@ def _to_envp(value):
 
 def _make_options(cls, values, selectors):
     options = cls()
+    _apply_settings(options, values, selectors)
+    return options
+
+
+def _apply_settings(impl, values, selectors):
     for name, value in values.items():
         if value is None:
             continue
         select = selectors.get(name)
         if select is None:
-            setattr(options, name, value)
+            setattr(impl, name, _unwrap(value))
+        elif isinstance(value, dict):
+            add = getattr(impl, select)
+            for key, element in value.items():
+                add(key, _unwrap(element))
         else:
-            add = getattr(options, select)
+            add = getattr(impl, select)
             for element in value:
-                add(element)
-    return options
+                add(_unwrap(element))
 
 
 _current_cancellable: contextvars.ContextVar = contextvars.ContextVar("frida_current_cancellable", default=None)
@@ -516,10 +536,8 @@ def generate_facade_init(otype: ObjectType) -> str:
 {body}"""
 
     return f"""    def __init__(self, *args, **kwargs):
-        self._impl = _frida.{otype.py_name}(
-            *[_unwrap(a) for a in args],
-            **{{k: _unwrap(v) for k, v in kwargs.items()}},
-        )
+        self._impl = _frida.{otype.py_name}(*[_unwrap(a) for a in args])
+        _apply_settings(self._impl, kwargs, {build_option_selectors(otype)})
         setup = getattr(self, "_setup", None)
         if setup is not None:
             setup()"""
@@ -643,7 +661,7 @@ def generate_py_sync_method(method: Method, model: Model) -> Optional[str]:
         return None
 
     params = [facade_param(param, model) for param in method.input_parameters]
-    names = ", ".join(param.name for param in method.input_parameters)
+    names = ", ".join(facade_argument(param, model) for param in method.input_parameters)
 
     call = f"self._impl.{method.name}({names})"
     if method.return_value is not None:
@@ -657,6 +675,12 @@ def generate_py_sync_method(method: Method, model: Model) -> Optional[str]:
 
 def facade_signature(method: Method, params: List[str]) -> str:
     return ", ".join(["self"] + (method.custom_facade_params or params))
+
+
+def facade_argument(param, model: Model) -> str:
+    if resolve_input_object_type(param.type, model) is not None:
+        return f"_unwrap({param.name})"
+    return param.name
 
 
 def facade_param(param, model: Model) -> str:
@@ -769,12 +793,21 @@ def generate_pyi_class(otype: ObjectType, model: Model) -> List[str]:
 
     body = []
 
-    ctor = next(iter(otype.constructors), None)
-    if ctor is not None and not ctor.throws:
-        params = pyi_parameters(ctor.input_parameters, model)
+    primary = primary_constructor(otype)
+    if primary is not None and not primary.throws:
+        params = pyi_parameters(primary.input_parameters, model)
         if params is not None:
             signature = ", ".join(["self"] + params)
             body.append(f"    def __init__({signature}) -> None: ...")
+
+    for ctor in otype.constructors:
+        if ctor is primary:
+            continue
+        params = pyi_parameters(ctor.input_parameters, model)
+        if params is None:
+            continue
+        body.append("    @staticmethod")
+        body.append(f"    def {ctor.name}({', '.join(params)}) -> {otype.py_name}: ...")
 
     if otype.name == "Object":
         body.append("    def on(self, signal: str, callback: Callable[..., Any]) -> None: ...")
@@ -924,6 +957,8 @@ def generate_extension_c(model: Model) -> str:
             code += generate_interface_implementation(otype)
 
         code += generate_object_type_constructor(otype)
+        for ctor in factory_constructors(otype):
+            code += generate_factory_function(otype, ctor, build_constructor_marshals(ctor))
 
     return code
 
@@ -1198,6 +1233,10 @@ def generate_prototypes(model: Model) -> str:
                 "",
                 f"static int {otype_cprefix}_init ({otype_cprefix} * self, PyObject * args, PyObject * kw);",
             ]
+            for ctor in factory_constructors(otype):
+                prototypes.append(
+                    f"static PyObject * {otype_cprefix}_{ctor.name} (PyObject * self, PyObject * args, PyObject * kw);"
+                )
             if implementable_interface(otype):
                 prototypes += [
                     f"static int {otype_cprefix}_traverse (PyObject * self, visitproc visit, void * arg);",
@@ -1313,6 +1352,9 @@ def generate_object_type_methods(otype: ObjectType) -> str:
         function, entry = emitted
         functions.append(function)
         entries.append(entry)
+
+    for ctor in factory_constructors(otype):
+        entries.append(factory_method_entry(otype, ctor))
 
     return f"""{"".join(functions)}
 static PyMethodDef {otype.c_symbol_prefix}_methods[] =
@@ -1839,6 +1881,16 @@ def build_sync_param(param: Parameter) -> Optional["SyncParam"]:
             cleanup=f"g_clear_pointer (&{name}, g_variant_unref);",
         )
 
+    if resolve_input_object_type(param.type, param.object_type.model) is not None:
+        return SyncParam(
+            decl=f"PyObject * {name}_obj;\n{param.type.c} {name} = NULL;",
+            fmt="O",
+            parse_args=[f"&{name}_obj"],
+            pre=f"""if ({name}_obj != Py_None)
+    {name} = ({param.type.c}) PY_GOBJECT_HANDLE ({name}_obj);""",
+            call_arg=name,
+        )
+
     return None
 
 
@@ -2255,26 +2307,45 @@ def generate_object_type_constructor(otype: ObjectType) -> str:
     if implementable_interface(otype):
         return generate_interface_init(otype)
 
-    ctor = next(iter(otype.constructors), None)
+    ctor = primary_constructor(otype)
 
     if ctor is None:
         return generate_bare_init(otype)
 
-    marshals: Optional[List[ParamMarshal]] = None
-    if not ctor.throws:
-        marshals = []
-        for param in ctor.input_parameters:
-            marshal = build_param_marshal(param)
-            if marshal is None:
-                marshals = None
-                break
-            marshal.optional = param.optional
-            marshals.append(marshal)
+    if ctor.throws:
+        return generate_unconstructable_init(otype)
 
+    marshals = build_constructor_marshals(ctor)
     if marshals is None:
         return generate_unconstructable_init(otype)
 
     return generate_constructor_init(otype, ctor, marshals)
+
+
+def primary_constructor(otype: ObjectType) -> Optional[Procedure]:
+    if not otype.constructors:
+        return None
+    return next((c for c in otype.constructors if c.name == "new"), otype.constructors[0])
+
+
+def factory_constructors(otype: ObjectType) -> List[Procedure]:
+    primary = primary_constructor(otype)
+    return [
+        ctor
+        for ctor in otype.constructors
+        if ctor is not primary and not ctor.is_async and build_constructor_marshals(ctor) is not None
+    ]
+
+
+def build_constructor_marshals(ctor: Procedure) -> Optional[List["ParamMarshal"]]:
+    marshals = []
+    for param in ctor.input_parameters:
+        marshal = build_param_marshal(param)
+        if marshal is None:
+            return None
+        marshal.optional = param.optional
+        marshals.append(marshal)
+    return marshals
 
 
 def generate_interface_init(otype: ObjectType) -> str:
@@ -2377,7 +2448,88 @@ static int
 {generate_constructor_tail(marshals)}"""
 
 
-def generate_argument_parse(marshals: List["ParamMarshal"]) -> str:
+def factory_method_entry(otype: ObjectType, ctor: Procedure) -> str:
+    return (
+        f'  {{ "{ctor.name}", (PyCFunction) {otype.c_symbol_prefix}_{ctor.name}, '
+        "METH_VARARGS | METH_KEYWORDS | METH_STATIC, NULL },"
+    )
+
+
+def generate_factory_function(otype: ObjectType, ctor: Procedure, marshals: List["ParamMarshal"]) -> str:
+    indent = " " * (len(otype.c_symbol_prefix) + len(ctor.name) + 3)
+
+    decls = [line for m in marshals for line in m.decls]
+    decls.append(f"{otype.c_type} * handle;")
+    if ctor.throws:
+        decls.append("GError * error = NULL;")
+    decls.append("PyObject * result = NULL;")
+    decls_block = indent_c_code("\n".join(decls), 1, prologue="\n")
+
+    keyword_decl = ""
+    parse_block = ""
+    if marshals:
+        keywords = ", ".join([f'"{m.keyword}"' for m in marshals] + ["NULL"])
+        keyword_decl = f"\n  static char * keywords[] = {{ {keywords} }};"
+        parse_block = "\n" + generate_argument_parse(marshals, on_failure="return NULL;")
+
+    post_block = ""
+    for m in marshals:
+        if m.post is not None:
+            post_block += indent_c_code(m.post, 1, prologue="\n") + "\n"
+
+    call_args = [m.call_arg for m in marshals]
+    if ctor.throws:
+        call_args.append("&error")
+    call = f"handle = ({otype.c_type} *) {ctor.c_identifier} ({', '.join(call_args)});"
+
+    error_block = ""
+    if ctor.throws:
+        error_block = """
+  if (error != NULL)
+  {
+    result = PyFrida_raise (error);
+    goto beach;
+  }
+"""
+
+    take_handle = f"result = PyGObject_new_take_handle (g_steal_pointer (&handle), PYFRIDA_TYPE ({otype.py_name}));"
+
+    return f"""
+static PyObject *
+{otype.c_symbol_prefix}_{ctor.name} (PyObject * self,
+{indent}PyObject * args,
+{indent}PyObject * kw)
+{{{keyword_decl}{decls_block}
+{parse_block}{post_block}
+  {call}
+{error_block}
+  {take_handle}
+
+{generate_factory_tail(marshals, ctor.throws)}"""
+
+
+def generate_factory_tail(marshals: List["ParamMarshal"], throws: bool) -> str:
+    cleanups = [m.cleanup for m in marshals if m.cleanup is not None]
+    cleanup_block = indent_c_code("\n".join(reversed(cleanups)), 1) if cleanups else ""
+
+    if throws or constructor_needs_beach(marshals):
+        prologue = f"{cleanup_block}\n\n" if cleanup_block else ""
+        return f"""beach:
+{prologue}  return result;
+}}
+"""
+    if cleanup_block:
+        return f"""{cleanup_block}
+
+  return result;
+}}
+"""
+    return """  return result;
+}
+"""
+
+
+def generate_argument_parse(marshals: List["ParamMarshal"], on_failure: str = "return -1;") -> str:
     fmt = ""
     optional_started = False
     for m in marshals:
@@ -2391,7 +2543,7 @@ def generate_argument_parse(marshals: List["ParamMarshal"]) -> str:
     indent = " " * len("  if (!PyArg_ParseTupleAndKeywords (")
     parse_args_str = (",\n" + indent).join(parse_args)
     return f"""  if (!PyArg_ParseTupleAndKeywords ({parse_args_str}))
-    return -1;
+    {on_failure}
 """
 
 

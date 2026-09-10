@@ -317,7 +317,11 @@ fn collect_values(
             }
             Ok(vals)
         }
-        other => Ok(vec![evaluate(other, cells)?]),
+        other => match evaluate(other, cells)? {
+            Variant::Array(values) => Ok(values),
+            Variant::VbaArray(array) => Ok(array.elements),
+            value => Ok(vec![value]),
+        },
     }
 }
 
@@ -386,6 +390,7 @@ fn eval_func(
         "MODE.MULT" => func_mode_mult(args, cells),
         "PRODUCT" => func_product(args, cells),
         "ROW" => func_row(args, cells),
+        "ROWS" => func_rows(args, cells),
         "DATE" => func_date(args, cells),
         "TODAY" => func_today(args, cells),
         "NETWORKDAYS" => func_networkdays(args, cells),
@@ -460,6 +465,7 @@ fn eval_func(
         // -- Lookup --
         "CHOOSE" => func_choose(args, cells),
         "COLUMN" => func_column(args, cells),
+        "COLUMNS" => func_columns(args, cells),
         "LOOKUP" => func_lookup(args, cells),
         "XMATCH" => func_xmatch(args, cells),
         // -- Info --
@@ -1394,7 +1400,7 @@ fn matches_criteria(val: &Variant, criteria: &Variant) -> bool {
     }
 }
 
-fn wildcard_match(text: &str, pattern: &str) -> bool {
+pub(crate) fn wildcard_match(text: &str, pattern: &str) -> bool {
     if pattern.contains('~') {
         return wildcard_match_escaped(text, pattern);
     }
@@ -1978,9 +1984,61 @@ fn func_row(
     }
 }
 
+fn func_rows(
+    args: &[FormulaExpr],
+    cells: &HashMap<(u32, u32), CellContent>,
+) -> Result<Variant, String> {
+    if args.len() != 1 {
+        return Err("ROWS requires 1 argument".into());
+    }
+    let rows = formula_array_dimensions(&args[0], cells)?.map_or(1, |(rows, _)| rows);
+    Ok(Variant::Integer(rows as i64))
+}
+
+/// Return the known two-dimensional shape of a reference or a bounded array
+/// constructor. Flat `Variant::Array` values intentionally remain unknown:
+/// their producer may have lost shape metadata, so guessing would make
+/// ROWS/COLUMNS silently report a false dimension.
+fn formula_array_dimensions(
+    expr: &FormulaExpr,
+    cells: &HashMap<(u32, u32), CellContent>,
+) -> Result<Option<(u32, u32)>, String> {
+    match expr {
+        FormulaExpr::Range { r1, r2, c1, c2, .. } => Ok(Some((
+            r2.saturating_sub(*r1).saturating_add(1),
+            c2.saturating_sub(*c1).saturating_add(1),
+        ))),
+        FormulaExpr::CellRef { .. } => Ok(Some((1, 1))),
+        FormulaExpr::FuncCall { name, args } if name.eq_ignore_ascii_case("SEQUENCE") => {
+            if args.is_empty() || args.len() > 4 {
+                return Err("SEQUENCE requires 1 to 4 arguments".into());
+            }
+            let dimension = |arg: &FormulaExpr| -> Result<u32, String> {
+                let value = to_float(&evaluate(arg, cells)?)?;
+                if !value.is_finite() || value.fract() != 0.0 || value <= 0.0 {
+                    return Err("SEQUENCE dimensions must be positive integers".into());
+                }
+                if value > u32::MAX as f64 {
+                    return Err("SEQUENCE dimension is too large".into());
+                }
+                Ok(value as u32)
+            };
+            let rows = dimension(&args[0])?;
+            let columns = args.get(1).map(dimension).transpose()?.unwrap_or(1);
+            Ok(Some((rows, columns)))
+        }
+        FormulaExpr::FuncCall { name, args }
+            if name.eq_ignore_ascii_case("TRANSPOSE") && args.len() == 1 =>
+        {
+            Ok(formula_array_dimensions(&args[0], cells)?.map(|(rows, columns)| (columns, rows)))
+        }
+        _ => Ok(None),
+    }
+}
+
 // ── XLOOKUP ───────────────────────────────────────────────────────────────────
 
-fn xlookup_binary_index(
+pub(crate) fn xlookup_binary_index(
     lookup: &[Variant],
     key: &Variant,
     ascending: bool,
@@ -3518,6 +3576,17 @@ fn func_column(
             Ok(Variant::Integer(1))
         }
     }
+}
+
+fn func_columns(
+    args: &[FormulaExpr],
+    cells: &HashMap<(u32, u32), CellContent>,
+) -> Result<Variant, String> {
+    if args.len() != 1 {
+        return Err("COLUMNS requires 1 argument".into());
+    }
+    let columns = formula_array_dimensions(&args[0], cells)?.map_or(1, |(_, columns)| columns);
+    Ok(Variant::Integer(columns as i64))
 }
 
 fn func_lookup(
@@ -7321,6 +7390,10 @@ mod tests {
         assert_eq!(calc("=ROW(A5)", &c), Variant::Integer(5));
         assert_eq!(calc("=ROW()", &c), Variant::Integer(1));
         assert_eq!(calc("=ROW(B3:C7)", &c), Variant::Integer(3));
+        assert_eq!(calc("=ROWS(B3:C7)", &c), Variant::Integer(5));
+        assert_eq!(calc("=ROWS(B3)", &c), Variant::Integer(1));
+        assert_eq!(calc("=ROWS(SEQUENCE(3))", &c), Variant::Integer(3));
+        assert_eq!(calc("=ROWS(TRANSPOSE(B3:C7))", &c), Variant::Integer(2));
     }
 
     #[test]
@@ -7910,6 +7983,10 @@ mod tests {
         );
         assert_eq!(calc("=COLUMN(C1)", &c), Variant::Integer(3));
         assert_eq!(calc("=COLUMN()", &c), Variant::Integer(1));
+        assert_eq!(calc("=COLUMNS(B3:C7)", &c), Variant::Integer(2));
+        assert_eq!(calc("=COLUMNS(B3)", &c), Variant::Integer(1));
+        assert_eq!(calc("=COLUMNS(SEQUENCE(2,3))", &c), Variant::Integer(3));
+        assert_eq!(calc("=COLUMNS(TRANSPOSE(B3:C7))", &c), Variant::Integer(5));
     }
 
     #[test]
@@ -8787,6 +8864,34 @@ mod tests {
         );
         assert!(evaluate(&fparse("=TAKE(SEQUENCE(3),1.5)").unwrap(), &c).is_err());
         assert!(evaluate(&fparse("=DROP(SEQUENCE(3),0)").unwrap(), &c).is_err());
+    }
+
+    #[test]
+    fn test_aggregate_functions_flatten_formula_arrays() {
+        let mut cells = HashMap::new();
+        cells.insert(
+            (1, 1),
+            CellContent {
+                formula: None,
+                value: Variant::Integer(1),
+            },
+        );
+        cells.insert(
+            (2, 1),
+            CellContent {
+                formula: None,
+                value: Variant::Integer(2),
+            },
+        );
+        cells.insert(
+            (3, 1),
+            CellContent {
+                formula: None,
+                value: Variant::Integer(3),
+            },
+        );
+        assert_eq!(calc("=SUM(TRANSPOSE(A1:A3))", &cells), Variant::Integer(6));
+        assert_eq!(calc("=SUM(SEQUENCE(3))", &cells), Variant::Integer(6));
     }
 
     #[test]

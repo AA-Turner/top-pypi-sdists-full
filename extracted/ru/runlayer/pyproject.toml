@@ -1,6 +1,6 @@
 [project]
 name = "runlayer"
-version = "0.30.9"
+version = "0.30.12"
 description = "A command-line interface for running MCP servers via HTTP transport"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,7 +36,7 @@ dependencies = [
   "questionary>=2.0.0",
   "keyring>=25.0.0,<26",
   "truststore>=0.10.4,<0.11",
-  "runlayer-hooks-sdk==0.2.2",
+  "runlayer-hooks-sdk==0.2.3",
   "opentelemetry-sdk>=1.27.0",
   "opentelemetry-exporter-otlp-proto-http>=1.27.0",
   "tomlkit>=0.15.0",
@@ -112,6 +112,7 @@ markers = [
   "e2e: end-to-end tests",
   "no_backend_e2e: end-to-end tests that do not require a running backend",
   "frozen_binary: builds + runs the PyInstaller bundle (slow; opt-in)",
+  "real_llm_routing: runs the LLM routing reconcile step unstubbed (its own suite)",
 ]
 addopts = "-m 'not e2e and not frozen_binary'"
 

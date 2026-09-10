@@ -112,20 +112,19 @@ def _base_payload(
     return payload
 
 
-def _submit_payload(
+def _submit_payload_for_response(
     client: RunlayerClient,
     payload: dict[str, object],
     *,
     log_event: str,
-) -> None:
-    """Submit a check-in best-effort, retrying bounded transport failures."""
+) -> dict[str, object] | None:
+    """Like ``_submit_payload`` but returns the response body (None on failure)."""
     for attempt in range(len(_CHECKIN_RETRY_DELAYS_SECONDS) + 1):
         try:
-            client.submit_aiwatch_checkin(payload)
-            return
+            return client.submit_aiwatch_checkin(payload)
         except ValueError as exc:
             logger.warning(log_event, error=str(exc))
-            return
+            return None
         except httpx.HTTPStatusError as exc:
             logger.warning(
                 "aiwatch_checkin_rejected",
@@ -135,15 +134,65 @@ def _submit_payload(
                     :_CHECKIN_REJECTED_RESPONSE_BODY_MAX_LEN
                 ],
             )
-            return
+            return None
         except (httpx.TransportError, OSError) as exc:
             if attempt == len(_CHECKIN_RETRY_DELAYS_SECONDS):
                 logger.warning(log_event, error=str(exc))
-                return
+                return None
             time.sleep(_CHECKIN_RETRY_DELAYS_SECONDS[attempt])
         except httpx.HTTPError as exc:
             logger.warning(log_event, error=str(exc))
-            return
+            return None
+    return None
+
+
+def _submit_payload(
+    client: RunlayerClient,
+    payload: dict[str, object],
+    *,
+    log_event: str,
+) -> None:
+    """Submit a check-in best-effort, retrying bounded transport failures."""
+    _submit_payload_for_response(client, payload, log_event=log_event)
+
+
+def submit_llm_routing_checkin(
+    client: RunlayerClient,
+    *,
+    ctx: DeviceContext,
+    tools: list[InstalledTool],
+    status: str,
+    device_key_hash: str | None,
+    rotate: bool = False,
+    error_message: str | None = None,
+) -> dict[str, object] | None:
+    """Report LLM routing state and return the backend's key decision.
+
+    Unlike the other check-ins the caller needs the body (``device_key`` /
+    ``device_key_status``). Returns None on any transport/HTTP failure or when
+    the backend predates the endpoint (``{"unsupported": True}``).
+    ``rotate`` asks the backend to supersede the active key and mint a new one
+    when the credential on disk is gone.
+    """
+    payload = _base_payload(
+        ctx,
+        feature="llm_routing",
+        status=status,
+        tools=tools,
+        agent_version=__version__,
+        error_message=error_message,
+    )
+    payload["device_key_hash"] = device_key_hash
+    if rotate:
+        payload["rotate"] = True
+    response = _submit_payload_for_response(
+        client,
+        payload,
+        log_event="aiwatch_llm_routing_checkin_failed",
+    )
+    if response is None or response.get("unsupported"):
+        return None
+    return response
 
 
 def _submit_simple_checkin(

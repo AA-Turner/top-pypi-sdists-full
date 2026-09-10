@@ -282,6 +282,10 @@ class AdCampaignsResource:
         goal: str,
         *,
         idempotency_key: str | None = None,
+        is_skadnetwork_attribution: bool | None = None,
+        promoted_object: Any | None = None,
+        buying_type: str | None = None,
+        validate_only: bool | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
@@ -297,6 +301,10 @@ class AdCampaignsResource:
             ad_account_id=ad_account_id,
             name=name,
             goal=goal,
+            is_skadnetwork_attribution=is_skadnetwork_attribution,
+            promoted_object=promoted_object,
+            buying_type=buying_type,
+            validate_only=validate_only,
             special_ad_categories=special_ad_categories,
             budget_amount=budget_amount,
             budget_type=budget_type,
@@ -351,6 +359,7 @@ class AdCampaignsResource:
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        allow_shared_budget_update: bool | None = False,
         budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -363,6 +372,7 @@ class AdCampaignsResource:
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+            allow_shared_budget_update=allow_shared_budget_update,
             budget=budget,
             name=name,
             platform_specific_data=platform_specific_data,
@@ -685,14 +695,22 @@ class AdCampaignsResource:
         )
         return self._client._get("/v1/ads/timeline", params=params)
 
-    def get_ad(self, ad_id: str) -> dict[str, Any]:
+    def get_ad(
+        self, ad_id: str, *, refresh_promotion: bool | None = False
+    ) -> dict[str, Any]:
         """Get ad details"""
-        return self._client._get(f"/v1/ads/{ad_id}")
+        params = self._build_params(
+            refresh_promotion=refresh_promotion,
+        )
+        return self._client._get(f"/v1/ads/{ad_id}", params=params)
 
     def update_ad(
         self,
         ad_id: str,
         *,
+        headlines: list[Any] | None = None,
+        descriptions: list[Any] | None = None,
+        final_urls: list[str] | None = None,
         status: str | None = None,
         budget: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -701,6 +719,9 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Update ad"""
         payload = self._build_payload(
+            headlines=headlines,
+            descriptions=descriptions,
+            final_urls=final_urls,
             status=status,
             budget=budget,
             targeting=targeting,
@@ -720,17 +741,29 @@ class AdCampaignsResource:
         )
         return self._client._put(f"/v1/ads/{ad_id}/status", data=payload)
 
+    def list_campaign_assets(
+        self, campaign_id: str, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List campaign assets"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return self._client._get(
+            f"/v1/ads/campaigns/{campaign_id}/assets", params=params
+        )
+
     def attach_campaign_assets(
         self,
         campaign_id: str,
         account_id: str,
         *,
         customer_id: str | None = None,
-        sitelinks: list[dict[str, Any]] | None = None,
+        sitelinks: list[Any] | None = None,
         callouts: list[str] | None = None,
-        structured_snippets: list[dict[str, Any]] | None = None,
+        structured_snippets: list[Any] | None = None,
     ) -> dict[str, Any]:
-        """Attach extension assets to a Google Search campaign"""
+        """Attach campaign assets"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -742,6 +775,117 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/assets", data=payload
         )
 
+    def update_campaign_assets(
+        self,
+        campaign_id: str,
+        account_id: str,
+        updates: list[Any],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update campaign assets"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return self._client._put(
+            f"/v1/ads/campaigns/{campaign_id}/assets", data=payload
+        )
+
+    def remove_campaign_assets(
+        self,
+        campaign_id: str,
+        account_id: str,
+        asset_resource_names: list[str],
+        campaign_asset_resource_names: list[str],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Remove campaign assets"""
+        return self._client._delete(f"/v1/ads/campaigns/{campaign_id}/assets")
+
+    def list_ad_group_assets(
+        self, ad_set_id: str, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List ad-group assets"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return self._client._get(f"/v1/ads/ad-sets/{ad_set_id}/assets", params=params)
+
+    def attach_ad_group_assets(
+        self,
+        ad_set_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        sitelinks: list[Any] | None = None,
+        callouts: list[str] | None = None,
+        structured_snippets: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Attach ad-group assets"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            sitelinks=sitelinks,
+            callouts=callouts,
+            structured_snippets=structured_snippets,
+        )
+        return self._client._post(f"/v1/ads/ad-sets/{ad_set_id}/assets", data=payload)
+
+    def update_ad_group_assets(
+        self,
+        ad_set_id: str,
+        account_id: str,
+        updates: list[Any],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update ad-group assets"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return self._client._put(f"/v1/ads/ad-sets/{ad_set_id}/assets", data=payload)
+
+    def remove_ad_group_assets(
+        self,
+        ad_set_id: str,
+        account_id: str,
+        asset_resource_names: list[str],
+        ad_group_asset_resource_names: list[str],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Remove ad-group assets"""
+        return self._client._delete(f"/v1/ads/ad-sets/{ad_set_id}/assets")
+
+    def list_campaign_negative_keyword_lists(
+        self, campaign_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """List campaign negative lists"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return self._client._get(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", params=params
+        )
+
+    def replace_campaign_negative_keyword_lists(
+        self, campaign_id: str, list_ids: list[str], *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Replace campaign negative lists"""
+        payload = self._build_payload(
+            platform=platform,
+            list_ids=list_ids,
+        )
+        return self._client._put(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", data=payload
+        )
+
     def boost_post(
         self,
         account_id: str,
@@ -749,12 +893,14 @@ class AdCampaignsResource:
         name: str,
         goal: str,
         *,
+        creative_features: Any | None = None,
         post_id: str | None = None,
         platform_post_id: str | None = None,
         ad_set_id: str | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
+        whatsapp_phone_number: str | None = None,
         currency: str | None = None,
         schedule: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -779,6 +925,7 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Boost post as ad"""
         payload = self._build_payload(
+            creative_features=creative_features,
             post_id=post_id,
             platform_post_id=platform_post_id,
             account_id=account_id,
@@ -789,6 +936,7 @@ class AdCampaignsResource:
             budget=budget,
             instagram_account_id=instagram_account_id,
             destination_type=destination_type,
+            whatsapp_phone_number=whatsapp_phone_number,
             currency=currency,
             schedule=schedule,
             targeting=targeting,
@@ -822,13 +970,14 @@ class AdCampaignsResource:
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
         ad_name: str | None = None,
-        tracking: dict[str, Any] | None = None,
+        tracking: Any | None = None,
         goal: str | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
         buying_type: str | None = None,
         rf_prediction_id: str | None = None,
-        creative_features: dict[str, Any] | None = None,
+        promotion: Any | None = None,
+        creative_features: Any | None = None,
         multi_advertiser: str | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
@@ -893,8 +1042,8 @@ class AdCampaignsResource:
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
         campaign_negative_keywords: list[Any] | None = None,
-        additional_headlines: list[str] | None = None,
-        additional_descriptions: list[str] | None = None,
+        additional_headlines: list[Any] | None = None,
+        additional_descriptions: list[Any] | None = None,
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[dict[str, Any]] | None = None,
@@ -913,7 +1062,11 @@ class AdCampaignsResource:
         brand_identity: dict[str, Any] | None = None,
         identity_type: str | None = None,
         smart_plus: bool | None = None,
-        promoted_object: dict[str, Any] | None = None,
+        user_os: list[str] | None = None,
+        user_device: list[str] | None = None,
+        is_skadnetwork_attribution: bool | None = None,
+        campaign_attribution: str | None = None,
+        promoted_object: Any | None = None,
     ) -> dict[str, Any]:
         """Create standalone ad"""
         payload = self._build_payload(
@@ -929,6 +1082,7 @@ class AdCampaignsResource:
             billing_event=billing_event,
             buying_type=buying_type,
             rf_prediction_id=rf_prediction_id,
+            promotion=promotion,
             creative_features=creative_features,
             multi_advertiser=multi_advertiser,
             validate_only=validate_only,
@@ -1014,6 +1168,10 @@ class AdCampaignsResource:
             brand_identity=brand_identity,
             identity_type=identity_type,
             smart_plus=smart_plus,
+            user_os=user_os,
+            user_device=user_device,
+            is_skadnetwork_attribution=is_skadnetwork_attribution,
+            campaign_attribution=campaign_attribution,
             promoted_object=promoted_object,
         )
         return self._client._post("/v1/ads/create", data=payload)
@@ -1227,6 +1385,10 @@ class AdCampaignsResource:
         goal: str,
         *,
         idempotency_key: str | None = None,
+        is_skadnetwork_attribution: bool | None = None,
+        promoted_object: Any | None = None,
+        buying_type: str | None = None,
+        validate_only: bool | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
@@ -1242,6 +1404,10 @@ class AdCampaignsResource:
             ad_account_id=ad_account_id,
             name=name,
             goal=goal,
+            is_skadnetwork_attribution=is_skadnetwork_attribution,
+            promoted_object=promoted_object,
+            buying_type=buying_type,
+            validate_only=validate_only,
             special_ad_categories=special_ad_categories,
             budget_amount=budget_amount,
             budget_type=budget_type,
@@ -1298,6 +1464,7 @@ class AdCampaignsResource:
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         portfolio_bid_strategy_id: str | None = None,
+        allow_shared_budget_update: bool | None = False,
         budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -1310,6 +1477,7 @@ class AdCampaignsResource:
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
             portfolio_bid_strategy_id=portfolio_bid_strategy_id,
+            allow_shared_budget_update=allow_shared_budget_update,
             budget=budget,
             name=name,
             platform_specific_data=platform_specific_data,
@@ -1638,14 +1806,22 @@ class AdCampaignsResource:
         )
         return await self._client._aget("/v1/ads/timeline", params=params)
 
-    async def aget_ad(self, ad_id: str) -> dict[str, Any]:
+    async def aget_ad(
+        self, ad_id: str, *, refresh_promotion: bool | None = False
+    ) -> dict[str, Any]:
         """Get ad details (async)"""
-        return await self._client._aget(f"/v1/ads/{ad_id}")
+        params = self._build_params(
+            refresh_promotion=refresh_promotion,
+        )
+        return await self._client._aget(f"/v1/ads/{ad_id}", params=params)
 
     async def aupdate_ad(
         self,
         ad_id: str,
         *,
+        headlines: list[Any] | None = None,
+        descriptions: list[Any] | None = None,
+        final_urls: list[str] | None = None,
         status: str | None = None,
         budget: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -1654,6 +1830,9 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Update ad (async)"""
         payload = self._build_payload(
+            headlines=headlines,
+            descriptions=descriptions,
+            final_urls=final_urls,
             status=status,
             budget=budget,
             targeting=targeting,
@@ -1673,17 +1852,29 @@ class AdCampaignsResource:
         )
         return await self._client._aput(f"/v1/ads/{ad_id}/status", data=payload)
 
+    async def alist_campaign_assets(
+        self, campaign_id: str, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List campaign assets (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return await self._client._aget(
+            f"/v1/ads/campaigns/{campaign_id}/assets", params=params
+        )
+
     async def aattach_campaign_assets(
         self,
         campaign_id: str,
         account_id: str,
         *,
         customer_id: str | None = None,
-        sitelinks: list[dict[str, Any]] | None = None,
+        sitelinks: list[Any] | None = None,
         callouts: list[str] | None = None,
-        structured_snippets: list[dict[str, Any]] | None = None,
+        structured_snippets: list[Any] | None = None,
     ) -> dict[str, Any]:
-        """Attach extension assets to a Google Search campaign (async)"""
+        """Attach campaign assets (async)"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -1695,6 +1886,123 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/assets", data=payload
         )
 
+    async def aupdate_campaign_assets(
+        self,
+        campaign_id: str,
+        account_id: str,
+        updates: list[Any],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update campaign assets (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return await self._client._aput(
+            f"/v1/ads/campaigns/{campaign_id}/assets", data=payload
+        )
+
+    async def aremove_campaign_assets(
+        self,
+        campaign_id: str,
+        account_id: str,
+        asset_resource_names: list[str],
+        campaign_asset_resource_names: list[str],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Remove campaign assets (async)"""
+        return await self._client._adelete(f"/v1/ads/campaigns/{campaign_id}/assets")
+
+    async def alist_ad_group_assets(
+        self, ad_set_id: str, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List ad-group assets (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return await self._client._aget(
+            f"/v1/ads/ad-sets/{ad_set_id}/assets", params=params
+        )
+
+    async def aattach_ad_group_assets(
+        self,
+        ad_set_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        sitelinks: list[Any] | None = None,
+        callouts: list[str] | None = None,
+        structured_snippets: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Attach ad-group assets (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            sitelinks=sitelinks,
+            callouts=callouts,
+            structured_snippets=structured_snippets,
+        )
+        return await self._client._apost(
+            f"/v1/ads/ad-sets/{ad_set_id}/assets", data=payload
+        )
+
+    async def aupdate_ad_group_assets(
+        self,
+        ad_set_id: str,
+        account_id: str,
+        updates: list[Any],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update ad-group assets (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return await self._client._aput(
+            f"/v1/ads/ad-sets/{ad_set_id}/assets", data=payload
+        )
+
+    async def aremove_ad_group_assets(
+        self,
+        ad_set_id: str,
+        account_id: str,
+        asset_resource_names: list[str],
+        ad_group_asset_resource_names: list[str],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Remove ad-group assets (async)"""
+        return await self._client._adelete(f"/v1/ads/ad-sets/{ad_set_id}/assets")
+
+    async def alist_campaign_negative_keyword_lists(
+        self, campaign_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """List campaign negative lists (async)"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return await self._client._aget(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", params=params
+        )
+
+    async def areplace_campaign_negative_keyword_lists(
+        self, campaign_id: str, list_ids: list[str], *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Replace campaign negative lists (async)"""
+        payload = self._build_payload(
+            platform=platform,
+            list_ids=list_ids,
+        )
+        return await self._client._aput(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", data=payload
+        )
+
     async def aboost_post(
         self,
         account_id: str,
@@ -1702,12 +2010,14 @@ class AdCampaignsResource:
         name: str,
         goal: str,
         *,
+        creative_features: Any | None = None,
         post_id: str | None = None,
         platform_post_id: str | None = None,
         ad_set_id: str | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
+        whatsapp_phone_number: str | None = None,
         currency: str | None = None,
         schedule: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -1732,6 +2042,7 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Boost post as ad (async)"""
         payload = self._build_payload(
+            creative_features=creative_features,
             post_id=post_id,
             platform_post_id=platform_post_id,
             account_id=account_id,
@@ -1742,6 +2053,7 @@ class AdCampaignsResource:
             budget=budget,
             instagram_account_id=instagram_account_id,
             destination_type=destination_type,
+            whatsapp_phone_number=whatsapp_phone_number,
             currency=currency,
             schedule=schedule,
             targeting=targeting,
@@ -1775,13 +2087,14 @@ class AdCampaignsResource:
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
         ad_name: str | None = None,
-        tracking: dict[str, Any] | None = None,
+        tracking: Any | None = None,
         goal: str | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
         buying_type: str | None = None,
         rf_prediction_id: str | None = None,
-        creative_features: dict[str, Any] | None = None,
+        promotion: Any | None = None,
+        creative_features: Any | None = None,
         multi_advertiser: str | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
@@ -1846,8 +2159,8 @@ class AdCampaignsResource:
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
         campaign_negative_keywords: list[Any] | None = None,
-        additional_headlines: list[str] | None = None,
-        additional_descriptions: list[str] | None = None,
+        additional_headlines: list[Any] | None = None,
+        additional_descriptions: list[Any] | None = None,
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[dict[str, Any]] | None = None,
@@ -1866,7 +2179,11 @@ class AdCampaignsResource:
         brand_identity: dict[str, Any] | None = None,
         identity_type: str | None = None,
         smart_plus: bool | None = None,
-        promoted_object: dict[str, Any] | None = None,
+        user_os: list[str] | None = None,
+        user_device: list[str] | None = None,
+        is_skadnetwork_attribution: bool | None = None,
+        campaign_attribution: str | None = None,
+        promoted_object: Any | None = None,
     ) -> dict[str, Any]:
         """Create standalone ad (async)"""
         payload = self._build_payload(
@@ -1882,6 +2199,7 @@ class AdCampaignsResource:
             billing_event=billing_event,
             buying_type=buying_type,
             rf_prediction_id=rf_prediction_id,
+            promotion=promotion,
             creative_features=creative_features,
             multi_advertiser=multi_advertiser,
             validate_only=validate_only,
@@ -1967,6 +2285,10 @@ class AdCampaignsResource:
             brand_identity=brand_identity,
             identity_type=identity_type,
             smart_plus=smart_plus,
+            user_os=user_os,
+            user_device=user_device,
+            is_skadnetwork_attribution=is_skadnetwork_attribution,
+            campaign_attribution=campaign_attribution,
             promoted_object=promoted_object,
         )
         return await self._client._apost("/v1/ads/create", data=payload)

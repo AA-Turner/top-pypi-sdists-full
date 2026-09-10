@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import shutil
 from collections import defaultdict
 from collections.abc import Callable
 from functools import partial
@@ -14,12 +13,10 @@ from uuid import UUID
 import anyio
 import anyio.to_thread
 import httpx
-import json5
 import structlog
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from runlayer_cli import regex_safe
 from runlayer_cli.api import (
     API_KEY_HEADER_NAME,
     PluginDetail,
@@ -37,7 +34,6 @@ from runlayer_cli.commands.setup import (
     _read_config_file,
     _write_config_file,
     build_plugin_proxy_url,
-    build_server_proxy_url,
     normalize_server_name,
 )
 from runlayer_cli.metrics import (
@@ -45,6 +41,18 @@ from runlayer_cli.metrics import (
     build_plugin_install_event,
 )
 from runlayer_cli.metrics_flush import flush_installation_events
+from runlayer_cli.plugins.layouts import (
+    CANONICAL_BASE,
+    NATIVE_INSTALL_MODES,
+    NATIVE_LAYOUTS,
+    NATIVE_PLUGIN_CLIENTS,
+    build_plugin_proxy_servers,
+    cleanup_native_install,
+    native_layout,
+    project_scope_unsupported_reason,
+    purge_owned_content,
+    to_slug,
+)
 from runlayer_cli.scan.clients import get_client_by_name
 from runlayer_cli.skills.frontmatter import rewrite_skill_frontmatter_name
 from runlayer_cli.skills.installer import _sanitize_name
@@ -53,20 +61,15 @@ from runlayer_cli.uuid_utils import is_uuid
 
 logger = structlog.get_logger(__name__)
 
-PLUGINS_DIR_MAP: dict[str, tuple[str, str]] = {
-    "claude_code": (".claude/plugins", ".claude/plugins"),
-    "cursor": (".cursor/plugins", ".cursor/plugins"),
-    "vscode": (".vscode/plugins", ".vscode/plugins"),
-}
-
 LOCKFILE = "plugin-lock.yml"
 INSTALLED_MARKER = ".installed"
-CANONICAL_BASE = ".agents/plugins"
-CODEX_NATIVE_INSTALL_MODE = "native_codex_marketplace"
-CLAUDE_CODE_MARKETPLACE = "runlayer"
-CLAUDE_CODE_PLUGIN_VERSION = "1.0.0"
 _MAX_CONCURRENT = 10
-_CODEX_NAME_PARTS_RE = regex_safe.compile(r"[^a-z0-9]+")
+# Both `.mcp.json` and the per-client manifest can carry the API key on global
+# installs, so each is written owner-only at write time for every client. The
+# mode has to be right here, at the only place these files are created: Cursor
+# installs by copying the canonical tree, and the copy inherits whatever mode
+# it finds.
+_SECRET_FILE_MODE = 0o600
 
 
 class PluginLockEntry(BaseModel):
@@ -118,28 +121,16 @@ class PluginInstallerClient(Protocol):
 def resolve_plugin_dirs(
     client_name: str, global_install: bool, cwd: Path
 ) -> tuple[Path, Path, Path]:
-    if client_name in PLUGINS_DIR_MAP:
-        project_rel, global_rel = PLUGINS_DIR_MAP[client_name]
-        if global_install:
-            home = Path.home()
-            canonical = home / CANONICAL_BASE
-            editor = home / global_rel
-            lockfile = home / ".runlayer" / LOCKFILE
-        else:
-            canonical = cwd / CANONICAL_BASE
-            editor = cwd / project_rel
-            lockfile = cwd / ".runlayer" / LOCKFILE
-    else:
-        # MCP fallback clients: no canonical/editor dirs, just lockfile
-        if global_install:
-            home = Path.home()
-            canonical = home / CANONICAL_BASE
-            editor = canonical
-            lockfile = home / ".runlayer" / LOCKFILE
-        else:
-            canonical = cwd / CANONICAL_BASE
-            editor = canonical
-            lockfile = cwd / ".runlayer" / LOCKFILE
+    layout = NATIVE_LAYOUTS.get(client_name)
+    base = Path.home() if global_install else cwd
+    canonical = base / CANONICAL_BASE
+    editor_rel = None
+    if layout is not None:
+        editor_rel = layout.global_rel if global_install else layout.project_rel
+    # No editor-relative dir means the client loads the canonical tree itself:
+    # Codex (marketplace record) and the MCP fallback clients (no dirs at all).
+    editor = canonical if editor_rel is None else base / editor_rel
+    lockfile = base / ".runlayer" / LOCKFILE
     return canonical, editor, lockfile
 
 
@@ -178,18 +169,8 @@ def _write_plugin_lockfile(path: Path, entries: list[PluginLockEntry]) -> None:
     )
 
 
-def _to_codex_slug(name: str) -> str:
-    normalized = _CODEX_NAME_PARTS_RE.sub("-", name.strip().lower()).strip("-")
-    if not normalized:
-        raise ValueError(f"invalid Codex plugin or skill name: {name!r}")
-    return normalized
-
-
-def _to_claude_code_slug(name: str) -> str:
-    normalized = _CODEX_NAME_PARTS_RE.sub("-", name.strip().lower()).strip("-")
-    if not normalized:
-        raise ValueError(f"invalid Claude Code plugin or skill name: {name!r}")
-    return normalized
+def _plugin_install_name(client_name: str, plugin: PluginDetail) -> str:
+    return plugin.install_name or native_layout(client_name).install_name(plugin.name)
 
 
 def _rewrite_plugin_skill_content(content: str, skill_name: str) -> str:
@@ -200,158 +181,28 @@ def _rewrite_plugin_skill_content(content: str, skill_name: str) -> str:
     )
 
 
-def _build_codex_plugin_manifest(
-    plugin: PluginDetail,
-    install_name: str,
-    host: str | None,
-) -> dict[str, Any]:
-    manifest: dict[str, Any] = {
-        "name": install_name,
-        "description": plugin.description,
-        "interface": {"displayName": plugin.name},
-    }
-    if plugin.skills and not plugin.use_dynamic_tools:
-        manifest["skills"] = "./skills/"
-    if (plugin.use_dynamic_tools or plugin.servers) and host is not None:
-        manifest["mcpServers"] = "./.mcp.json"
-    return manifest
+def _write_owner_only_json(path: Path, data: dict[str, Any]) -> None:
+    """Write JSON that may carry the API key, owner-readable only at every step.
 
-
-def _build_standard_native_plugin_manifest(
-    plugin: PluginDetail,
-    _install_name: str,
-    _host: str | None,
-) -> dict[str, Any]:
-    return {
-        "id": plugin.id,
-        "name": plugin.name,
-        "description": plugin.description,
-        "namespace": plugin.namespace,
-    }
-
-
-def _build_claude_code_plugin_manifest(
-    plugin: PluginDetail,
-    install_name: str,
-    host: str | None,
-    secret: str | None = None,
-) -> dict[str, Any]:
-    manifest: dict[str, Any] = {
-        "name": install_name,
-        "description": plugin.description or f"Runlayer plugin for {plugin.name}",
-        "version": CLAUDE_CODE_PLUGIN_VERSION,
-        "keywords": ["runlayer", "mcp"],
-    }
-    if (plugin.use_dynamic_tools or plugin.servers) and host is not None:
-        manifest["mcpServers"] = _build_plugin_proxy_servers(
-            plugin, host, "claude_code", secret=secret
-        )
-    return manifest
-
-
-def _build_cursor_plugin_manifest(
-    plugin: PluginDetail,
-    host: str | None,
-) -> dict[str, Any]:
-    manifest = _build_standard_native_plugin_manifest(plugin, plugin.name, host)
-    if (plugin.use_dynamic_tools or plugin.servers) and host is not None:
-        manifest["mcpServers"] = "./.mcp.json"
-    return manifest
-
-
-def _finalize_symlink_install(
-    canonical_dir: Path,
-    editor_dir: Path,
-    plugin_name: str,
-) -> None:
-    _symlink_plugin(canonical_dir, editor_dir, plugin_name)
-
-
-def _finalize_codex_install(
-    canonical_dir: Path,
-    _editor_dir: Path,
-    plugin_name: str,
-) -> None:
-    _upsert_codex_marketplace_entry(
-        canonical_dir=canonical_dir,
-        plugin_name=plugin_name,
-    )
-
-
-NATIVE_PLUGIN_CLIENTS = {"claude_code", "cursor", "vscode", "codex"}
-
-
-def _native_manifest_dir_name(client_name: str) -> str:
-    if client_name == "claude_code":
-        return ".claude-plugin"
-    if client_name == "cursor":
-        return ".cursor-plugin"
-    if client_name == "vscode":
-        return ".vscode-plugin"
-    if client_name == "codex":
-        return ".codex-plugin"
-    raise ValueError(f"unsupported native plugin client: {client_name}")
-
-
-def _native_install_mode(client_name: str) -> str:
-    if client_name == "codex":
-        return CODEX_NATIVE_INSTALL_MODE
-    if client_name in NATIVE_PLUGIN_CLIENTS:
-        return "native"
-    return "mcp_fallback"
-
-
-def _native_install_name(client_name: str, name: str) -> str:
-    if client_name == "claude_code":
-        return _to_claude_code_slug(name)
-    if client_name == "codex":
-        return _to_codex_slug(name)
-    return name
-
-
-def _plugin_install_name(client_name: str, plugin: PluginDetail) -> str:
-    return plugin.install_name or _native_install_name(client_name, plugin.name)
-
-
-def _native_build_plugin_manifest(
-    client_name: str,
-    plugin: PluginDetail,
-    install_name: str,
-    host: str | None,
-    secret: str | None = None,
-) -> dict[str, Any]:
-    if client_name == "codex":
-        return _build_codex_plugin_manifest(plugin, install_name, host)
-    if client_name == "claude_code":
-        return _build_claude_code_plugin_manifest(
-            plugin, install_name, host, secret=secret
-        )
-    if client_name == "cursor":
-        return _build_cursor_plugin_manifest(plugin, host)
-    return _build_standard_native_plugin_manifest(plugin, install_name, host)
-
-
-def _native_rewrite_skill_file(
-    client_name: str,
-    title: str,
-    content: str,
-    skill_name: str,
-) -> str:
-    if client_name in ("claude_code", "codex") and title == "SKILL.md":
-        return _rewrite_plugin_skill_content(content, skill_name)
-    return content
-
-
-def _finalize_native_install(
-    client_name: str,
-    canonical_dir: Path,
-    editor_dir: Path,
-    plugin_name: str,
-) -> None:
-    if client_name == "codex":
-        _finalize_codex_install(canonical_dir, editor_dir, plugin_name)
-        return
-    _finalize_symlink_install(canonical_dir, editor_dir, plugin_name)
+    ``open``'s mode argument is masked by the umask and ignored outright for a
+    file that already exists, so the descriptor is ``fchmod``-ed before any
+    bytes land: the file is never world-readable, not even briefly. Windows has
+    no ``fchmod``, so there the mode is applied to the path after the write.
+    """
+    payload = json.dumps(data, indent=2) + "\n"
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, _SECRET_FILE_MODE)
+    try:
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, _SECRET_FILE_MODE)
+        handle = os.fdopen(fd, "w", encoding="utf-8")
+    except BaseException:
+        # `os.fdopen` takes ownership of the fd only once it succeeds.
+        os.close(fd)
+        raise
+    with handle:
+        handle.write(payload)
+    if not hasattr(os, "fchmod"):
+        os.chmod(path, _SECRET_FILE_MODE)
 
 
 def _write_plugin_manifest_file(
@@ -361,9 +212,8 @@ def _write_plugin_manifest_file(
 ) -> None:
     manifest_dir = plugin_dir / manifest_dir_name
     manifest_dir.mkdir(parents=True, exist_ok=True)
-    (manifest_dir / "plugin.json").write_text(
-        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
-    )
+    # The Claude Code manifest embeds the API key header on global installs.
+    _write_owner_only_json(manifest_dir / "plugin.json", manifest)
 
 
 def _write_plugin_manifest(
@@ -375,62 +225,11 @@ def _write_plugin_manifest(
     secret: str | None = None,
 ) -> None:
     _sanitize_name(plugin_name)
+    layout = native_layout(client_name)
     plugin_dir = canonical_dir / plugin_name
     plugin_dir.mkdir(parents=True, exist_ok=True)
-    manifest = _native_build_plugin_manifest(
-        client_name, plugin, plugin_name, host, secret=secret
-    )
-    _write_plugin_manifest_file(
-        plugin_dir,
-        _native_manifest_dir_name(client_name),
-        manifest,
-    )
-
-
-_PLUGIN_HTTP_TYPE_CLIENTS = {"claude_code", "vscode"}
-
-
-def _build_plugin_proxy_servers(
-    plugin: PluginDetail,
-    host: str,
-    client_name: str,
-    secret: str | None = None,
-) -> dict[str, dict[str, Any]]:
-    if plugin.use_dynamic_tools:
-        install_client = InstallClient(client_name)
-        headers = {API_KEY_HEADER_NAME: secret} if secret else None
-        spec = InstallServerSpec(
-            server_id=plugin.id,
-            name=plugin.name,
-            proxy_url=build_plugin_proxy_url(host, plugin.id),
-            host=host,
-            is_local=False,
-            headers=headers,
-            is_dynamic_plugin=True,
-        )
-        return {
-            normalize_server_name(plugin.name): _build_server_entry(
-                install_client, spec
-            )
-        }
-
-    servers: dict[str, dict[str, Any]] = {}
-
-    for srv in plugin.servers:
-        srv_id = srv.get("server_id") or srv.get("id", "")
-        srv_name = srv.get("name", srv_id)
-        if not srv_id:
-            continue
-
-        key = normalize_server_name(srv_name)
-        entry: dict[str, Any] = {"url": build_server_proxy_url(host, srv_id)}
-        if client_name in _PLUGIN_HTTP_TYPE_CLIENTS:
-            entry["type"] = "http"
-        if secret:
-            entry["headers"] = {API_KEY_HEADER_NAME: secret}
-        servers[key] = entry
-
-    return servers
+    manifest = layout.build_manifest(plugin, plugin_name, host, secret)
+    _write_plugin_manifest_file(plugin_dir, layout.manifest_dir, manifest)
 
 
 def _build_plugin_mcp_config(
@@ -439,7 +238,7 @@ def _build_plugin_mcp_config(
     client_name: str,
     secret: str | None = None,
 ) -> dict[str, Any]:
-    servers = _build_plugin_proxy_servers(plugin, host, client_name, secret=secret)
+    servers = build_plugin_proxy_servers(plugin, host, client_name, secret=secret)
     return {"mcpServers": servers}
 
 
@@ -456,233 +255,56 @@ def _write_plugin_mcp_json(
     plugin_dir.mkdir(parents=True, exist_ok=True)
 
     mcp_config = _build_plugin_mcp_config(plugin, host, client_name, secret=secret)
-    (plugin_dir / ".mcp.json").write_text(
-        json.dumps(mcp_config, indent=2) + "\n", encoding="utf-8"
-    )
+    _write_owner_only_json(plugin_dir / ".mcp.json", mcp_config)
 
 
-def _json_object_or_empty(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    try:
-        data = json5.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def _write_json_object(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-
-
-def _utc_timestamp() -> str:
-    return (
-        datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
-    )
-
-
-def _claude_code_plugins_root() -> Path:
-    return Path.home() / ".claude" / "plugins"
-
-
-def _claude_code_marketplace_dir() -> Path:
-    return _claude_code_plugins_root() / "marketplaces" / CLAUDE_CODE_MARKETPLACE
-
-
-def _claude_code_cache_dir(plugin_name: str) -> Path:
-    return (
-        _claude_code_plugins_root()
-        / "cache"
-        / CLAUDE_CODE_MARKETPLACE
-        / plugin_name
-        / CLAUDE_CODE_PLUGIN_VERSION
-    )
-
-
-def _claude_code_plugin_id(plugin_name: str) -> str:
-    return f"{plugin_name}@{CLAUDE_CODE_MARKETPLACE}"
-
-
-def _upsert_claude_code_marketplace(plugin_name: str, description: str) -> None:
-    marketplace_dir = _claude_code_marketplace_dir()
-    manifest_path = marketplace_dir / ".claude-plugin" / "marketplace.json"
-    marketplace = _json_object_or_empty(manifest_path)
-    plugins = marketplace.get("plugins")
-    if not isinstance(plugins, list):
-        plugins = []
-
-    entry = {
-        "name": plugin_name,
-        "description": description,
-        "source": f"./plugins/{plugin_name}",
-        "category": "productivity",
-    }
-    next_plugins: list[Any] = []
-    updated = False
-    for item in plugins:
-        if isinstance(item, dict) and item.get("name") == plugin_name:
-            next_plugins.append(entry)
-            updated = True
-            continue
-        next_plugins.append(item)
-    if not updated:
-        next_plugins.append(entry)
-
-    marketplace["name"] = CLAUDE_CODE_MARKETPLACE
-    marketplace["owner"] = {"name": "Runlayer"}
-    marketplace["plugins"] = next_plugins
-    _write_json_object(manifest_path, marketplace)
-
-
-def _upsert_claude_code_known_marketplace() -> None:
-    path = _claude_code_plugins_root() / "known_marketplaces.json"
-    data = _json_object_or_empty(path)
-    marketplace_dir = _claude_code_marketplace_dir()
-    data[CLAUDE_CODE_MARKETPLACE] = {
-        "source": {
-            "source": "directory",
-            "path": str(marketplace_dir),
-        },
-        "installLocation": str(marketplace_dir),
-        "lastUpdated": _utc_timestamp(),
-    }
-    _write_json_object(path, data)
-
-
-def _upsert_claude_code_plugin_registration(
+async def _fetch_native_plugin_content(
+    client: PluginInstallerClient,
     plugin: PluginDetail,
-    canonical_dir: Path,
-    plugin_name: str,
-    installed_at: str | None = None,
-) -> None:
-    plugin_dir = canonical_dir / plugin_name
-    cache_dir = _claude_code_cache_dir(plugin_name)
-    if cache_dir.exists():
-        shutil.rmtree(cache_dir)
-    cache_dir.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(plugin_dir, cache_dir, symlinks=True)
+    limiter: anyio.CapacityLimiter,
+) -> list[tuple[str, list[SkillFileDetail]]]:
+    """Fetch everything a native install writes, before anything is destroyed.
 
-    marketplace_plugin_dir = _claude_code_marketplace_dir() / "plugins" / plugin_name
-    marketplace_plugin_dir.parent.mkdir(parents=True, exist_ok=True)
-    if marketplace_plugin_dir.is_symlink() or marketplace_plugin_dir.exists():
-        if marketplace_plugin_dir.is_dir() and not marketplace_plugin_dir.is_symlink():
-            shutil.rmtree(marketplace_plugin_dir)
-        else:
-            marketplace_plugin_dir.unlink()
-    marketplace_plugin_dir.symlink_to(
-        os.path.relpath(plugin_dir, marketplace_plugin_dir.parent)
-    )
-
-    description = plugin.description or f"Runlayer plugin for {plugin.name}"
-    _upsert_claude_code_marketplace(plugin_name, description)
-    _upsert_claude_code_known_marketplace()
-
-    plugin_id = _claude_code_plugin_id(plugin_name)
-    registry_path = _claude_code_plugins_root() / "installed_plugins.json"
-    registry = _json_object_or_empty(registry_path)
-    installed = registry.get("plugins")
-    if not isinstance(installed, dict):
-        installed = {}
-    existing = installed.get(plugin_id)
-    first_existing = (
-        existing[0]
-        if isinstance(existing, list) and existing and isinstance(existing[0], dict)
-        else {}
-    )
-    first_installed_at = installed_at or first_existing.get("installedAt")
-    installed[plugin_id] = [
-        {
-            "scope": "user",
-            "installPath": str(cache_dir),
-            "installedAt": first_installed_at or _utc_timestamp(),
-            "lastUpdated": _utc_timestamp(),
-            "version": CLAUDE_CODE_PLUGIN_VERSION,
-        }
-    ]
-    registry["version"] = registry.get("version") or 2
-    registry["plugins"] = installed
-    _write_json_object(registry_path, registry)
-
-    settings_path = Path.home() / ".claude" / "settings.json"
-    settings = _json_object_or_empty(settings_path)
-    enabled = settings.get("enabledPlugins")
-    if not isinstance(enabled, dict):
-        enabled = {}
-    enabled[plugin_id] = True
-    settings["enabledPlugins"] = enabled
-    _write_json_object(settings_path, settings)
-
-
-def _remove_claude_code_plugin_registration(plugin_name: str) -> str | None:
-    plugin_id = _claude_code_plugin_id(plugin_name)
-    registry_path = _claude_code_plugins_root() / "installed_plugins.json"
-    registry = _json_object_or_empty(registry_path)
-    installed = registry.get("plugins")
-    installed_at = None
-    if isinstance(installed, dict) and plugin_id in installed:
-        existing = installed.get(plugin_id)
-        first_existing = (
-            existing[0]
-            if isinstance(existing, list) and existing and isinstance(existing[0], dict)
-            else {}
+    ``install`` and ``update`` clear the previous install in place, so the
+    network work has to finish first: a transient API failure then leaves the
+    old files and the lock entry alone instead of stranding a lock entry whose
+    files were already deleted. Dynamic-tools plugins ship no skills, so the
+    list is empty and nothing is fetched.
+    """
+    if plugin.use_dynamic_tools:
+        return []
+    content: list[tuple[str, list[SkillFileDetail]]] = []
+    for skill_ref in plugin.skills:
+        skill_detail = await anyio.to_thread.run_sync(
+            partial(client.get_skill, skill_ref.id)
         )
-        raw_installed_at = first_existing.get("installedAt")
-        installed_at = raw_installed_at if isinstance(raw_installed_at, str) else None
-        del installed[plugin_id]
-        registry["plugins"] = installed
-        _write_json_object(registry_path, registry)
-
-    settings_path = Path.home() / ".claude" / "settings.json"
-    settings = _json_object_or_empty(settings_path)
-    enabled = settings.get("enabledPlugins")
-    if isinstance(enabled, dict) and plugin_id in enabled:
-        del enabled[plugin_id]
-        settings["enabledPlugins"] = enabled
-        _write_json_object(settings_path, settings)
-
-    cache_dir = _claude_code_cache_dir(plugin_name)
-    if cache_dir.exists():
-        shutil.rmtree(cache_dir)
-
-    marketplace_plugin_dir = _claude_code_marketplace_dir() / "plugins" / plugin_name
-    if marketplace_plugin_dir.is_symlink() or marketplace_plugin_dir.exists():
-        if marketplace_plugin_dir.is_dir() and not marketplace_plugin_dir.is_symlink():
-            shutil.rmtree(marketplace_plugin_dir)
-        else:
-            marketplace_plugin_dir.unlink()
-
-    manifest_path = (
-        _claude_code_marketplace_dir() / ".claude-plugin" / "marketplace.json"
-    )
-    marketplace = _json_object_or_empty(manifest_path)
-    plugins = marketplace.get("plugins")
-    if isinstance(plugins, list):
-        marketplace["plugins"] = [
-            item
-            for item in plugins
-            if not isinstance(item, dict) or item.get("name") != plugin_name
-        ]
-        _write_json_object(manifest_path, marketplace)
-    return installed_at
+        if not skill_detail.files:
+            continue
+        files = await _fetch_skill_files(
+            client,
+            skill_ref.id,
+            [f.id for f in skill_detail.files],
+            limiter,
+        )
+        content.append((skill_install_name(skill_ref), files))
+    return content
 
 
 async def _materialize_native_plugin(
     *,
-    client: PluginInstallerClient,
     plugin: PluginDetail,
+    skills: list[tuple[str, list[SkillFileDetail]]],
     canonical_dir: Path,
     editor_dir: Path,
     client_name: str,
     host: str,
     install_scope: Literal["project", "global"],
-    limiter: anyio.CapacityLimiter,
-    claude_code_installed_at: str | None = None,
     secret: str | None = None,
 ) -> None:
     # Only embed the API key in global installs — project-level files
     # live inside a git repo and could be committed by accident.
     effective_secret = secret if install_scope == "global" else None
+    layout = native_layout(client_name)
     install_name = _plugin_install_name(client_name, plugin)
     _write_plugin_manifest(
         canonical_dir,
@@ -701,39 +323,22 @@ async def _materialize_native_plugin(
         secret=effective_secret,
     )
 
-    if not plugin.use_dynamic_tools:
-        for skill_ref in plugin.skills:
-            skill_detail = await anyio.to_thread.run_sync(
-                partial(client.get_skill, skill_ref.id)
-            )
-            if not skill_detail.files:
-                continue
-            files = await _fetch_skill_files(
-                client,
-                skill_ref.id,
-                [f.id for f in skill_detail.files],
-                limiter,
-            )
-            _write_plugin_skills(
-                canonical_dir,
-                install_name,
-                skill_install_name(skill_ref),
-                files,
-                client_name=client_name,
-            )
+    for skill_name, files in skills:
+        _write_plugin_skills(
+            canonical_dir,
+            install_name,
+            skill_name,
+            files,
+            client_name=client_name,
+        )
 
     marker = canonical_dir / install_name / INSTALLED_MARKER
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text("", encoding="utf-8")
 
-    _finalize_native_install(client_name, canonical_dir, editor_dir, install_name)
-    if client_name == "claude_code" and install_scope == "global":
-        _upsert_claude_code_plugin_registration(
-            plugin,
-            canonical_dir,
-            install_name,
-            installed_at=claude_code_installed_at,
-        )
+    layout.finalize(canonical_dir, editor_dir, install_name)
+    if install_scope == "global":
+        layout.register_global(plugin, canonical_dir, install_name)
 
 
 async def _fetch_skill_files(
@@ -766,7 +371,8 @@ def _write_plugin_skills(
     client_name: str,
 ) -> None:
     _sanitize_name(plugin_name)
-    install_skill_name = _native_install_name(client_name, skill_name)
+    layout = native_layout(client_name)
+    install_skill_name = layout.install_name(skill_name)
     _sanitize_name(install_skill_name)
     skills_dir = canonical_dir / plugin_name / "skills" / install_skill_name
     skills_dir.mkdir(parents=True, exist_ok=True)
@@ -774,135 +380,10 @@ def _write_plugin_skills(
         _sanitize_name(f.title)
         fpath = skills_dir / PurePosixPath(f.title)
         fpath.parent.mkdir(parents=True, exist_ok=True)
-        content = _native_rewrite_skill_file(
-            client_name, f.title, f.content, install_skill_name
-        )
+        content = f.content
+        if layout.rewrites_skill_frontmatter and f.title == "SKILL.md":
+            content = _rewrite_plugin_skill_content(content, install_skill_name)
         fpath.write_text(content, encoding="utf-8")
-
-
-def _symlink_plugin(canonical_dir: Path, editor_dir: Path, plugin_name: str) -> None:
-    _sanitize_name(plugin_name)
-    src = canonical_dir / plugin_name
-    dest = editor_dir / plugin_name
-    if src == dest:
-        return
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.is_symlink():
-        dest.unlink()
-    elif dest.exists():
-        if dest.is_dir():
-            shutil.rmtree(dest)
-        else:
-            dest.unlink()
-    rel = os.path.relpath(src, dest.parent)
-    dest.symlink_to(rel)
-
-
-def _codex_marketplace_path(canonical_dir: Path) -> Path:
-    return canonical_dir / "marketplace.json"
-
-
-def _read_codex_marketplace(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    try:
-        data = json5.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError) as e:
-        raise ValueError(f"invalid Codex marketplace JSON: {e}") from e
-    if not isinstance(data, dict):
-        raise ValueError("invalid Codex marketplace format: expected object")
-    return data
-
-
-def _write_codex_marketplace(
-    path: Path,
-    data: dict[str, Any],
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-
-
-def _build_codex_marketplace_source_path(
-    plugin_name: str,
-) -> str:
-    plugin_path = Path(CANONICAL_BASE) / plugin_name
-    return f"./{plugin_path.as_posix()}"
-
-
-def _build_codex_marketplace_entry(
-    plugin_name: str,
-) -> dict[str, Any]:
-    return {
-        "name": plugin_name,
-        "source": {
-            "source": "local",
-            "path": _build_codex_marketplace_source_path(plugin_name),
-        },
-        "policy": {
-            "installation": "AVAILABLE",
-            "authentication": "ON_INSTALL",
-        },
-        "category": "Productivity",
-    }
-
-
-def _upsert_codex_marketplace_entry(
-    *,
-    canonical_dir: Path,
-    plugin_name: str,
-) -> None:
-    _sanitize_name(plugin_name)
-    marketplace_path = _codex_marketplace_path(canonical_dir)
-    data = _read_codex_marketplace(marketplace_path)
-    plugins = data.get("plugins")
-    if not isinstance(plugins, list):
-        plugins = []
-
-    entry = _build_codex_marketplace_entry(plugin_name)
-    updated = False
-    next_plugins: list[Any] = []
-    for item in plugins:
-        if not isinstance(item, dict):
-            next_plugins.append(item)
-            continue
-        if item.get("name") == plugin_name:
-            next_plugins.append(entry)
-            updated = True
-            continue
-        next_plugins.append(item)
-
-    if not updated:
-        next_plugins.append(entry)
-
-    data["name"] = str(data.get("name") or "runlayer-local")
-    data["plugins"] = next_plugins
-    _write_codex_marketplace(marketplace_path, data)
-
-
-def _remove_codex_marketplace_entry(
-    *,
-    canonical_dir: Path,
-    plugin_name: str,
-) -> None:
-    marketplace_path = _codex_marketplace_path(canonical_dir)
-    if not marketplace_path.exists():
-        return
-
-    data = _read_codex_marketplace(marketplace_path)
-    plugins = data.get("plugins")
-    if not isinstance(plugins, list):
-        return
-
-    next_plugins = [
-        item
-        for item in plugins
-        if not isinstance(item, dict) or item.get("name") != plugin_name
-    ]
-    if len(next_plugins) == len(plugins):
-        return
-
-    data["plugins"] = next_plugins
-    _write_codex_marketplace(marketplace_path, data)
 
 
 def _install_plugin_mcp_fallback(
@@ -969,108 +450,136 @@ def _remove_plugin_mcp_fallback(
         _write_config_file(config_path, config, config_format)
 
 
-def _remove_native_plugin_files(
-    canonical_dir: Path,
-    editor_dir: Path,
-    plugin_name: str,
-    *,
-    remove_canonical: bool = True,
-) -> None:
-    _sanitize_name(plugin_name)
-    if remove_canonical:
-        plugin_dir = canonical_dir / plugin_name
-        if plugin_dir.exists():
-            shutil.rmtree(plugin_dir)
-
-    if canonical_dir != editor_dir:
-        link = editor_dir / plugin_name
-        if link.is_symlink():
-            link.unlink()
-        elif link.exists():
-            shutil.rmtree(link)
-
-
 def _plugin_install_candidates(entry: PluginLockEntry) -> list[str]:
+    """Every name this entry's files could be sitting under, newest first.
+
+    Older lock entries carry no ``install_name``, so removal also has to try the
+    slug the client would have derived (Codex and Claude Code both install under
+    it) and the plugin's own name. The slug is the same string for every client,
+    so it is appended once; ``client_label`` only shapes an error discarded here.
+    """
     candidates: list[str] = []
     if entry.install_name:
         candidates.append(entry.install_name)
-    if _is_native_install_mode(entry.install_mode):
+    if _is_native_install_mode(entry.install_mode) or entry.client == "claude_code":
         try:
-            candidates.append(_to_codex_slug(entry.name))
-        except ValueError:
-            pass
-    if entry.client == "claude_code":
-        try:
-            candidates.append(_to_claude_code_slug(entry.name))
-        except ValueError:
-            pass
-    if entry.install_mode == CODEX_NATIVE_INSTALL_MODE:
-        try:
-            candidates.append(_to_codex_slug(entry.name))
+            candidates.append(to_slug(entry.name, client_label=entry.client))
         except ValueError:
             pass
     candidates.append(entry.name)
     return list(dict.fromkeys(candidates))
 
 
-def _cleanup_symlink_install(
-    canonical_dir: Path,
-    editor_dir: Path,
-    plugin_name: str,
-    remove_canonical: bool = True,
-) -> None:
-    _remove_native_plugin_files(
-        canonical_dir,
-        editor_dir,
-        plugin_name,
-        remove_canonical=remove_canonical,
-    )
-
-
-def _cleanup_codex_install(
-    canonical_dir: Path,
-    editor_dir: Path,
-    plugin_name: str,
-    remove_canonical: bool = True,
-) -> None:
-    _remove_native_plugin_files(
-        canonical_dir,
-        editor_dir,
-        plugin_name,
-        remove_canonical=remove_canonical,
-    )
-    _remove_codex_marketplace_entry(
-        canonical_dir=canonical_dir,
-        plugin_name=plugin_name,
-    )
-
-
 def _is_native_install_mode(install_mode: str) -> bool:
-    return install_mode in {"native", CODEX_NATIVE_INSTALL_MODE}
+    return install_mode in NATIVE_INSTALL_MODES
 
 
-def _cleanup_native_install(
+def _layout_stale(entry: PluginLockEntry) -> bool:
+    """True when a native entry's recorded layout is no longer its client's.
+
+    A fresh install records its client's current ``install_mode``, so an entry
+    holding a different native mode was written by an older layout and needs a
+    reinstall in place — unless the client declares that mode legacy and still
+    serves it. Cursor is the current instance: pre-``local/`` installs were
+    recorded as plain ``native`` and linked one level above the directory
+    Cursor scans, so they never loaded, and neither ``add`` (already locked, so
+    skipped) nor ``update`` (version unchanged, so up to date) would otherwise
+    touch them.
+    """
+    if not _is_native_install_mode(entry.install_mode):
+        return False
+    layout = NATIVE_LAYOUTS.get(entry.client)
+    if layout is None:
+        return False
+    return (
+        entry.install_mode != layout.install_mode
+        and entry.install_mode not in layout.legacy_install_modes
+    )
+
+
+class UnsupportedInstallScopeError(ValueError):
+    """Raised when a client cannot load plugins installed in the requested scope."""
+
+
+def ensure_scope_supported(
+    client_name: str, install_scope: Literal["project", "global"]
+) -> None:
+    """Raise unless ``client_name`` can load plugins installed in ``install_scope``."""
+    if install_scope != "project":
+        return
+    reason = project_scope_unsupported_reason(client_name)
+    if reason is None:
+        return
+    raise UnsupportedInstallScopeError(
+        f"{reason}, so a project-scope install would never appear in "
+        f"{native_layout(client_name).display_name}. Use --global "
+        f"(`plugins remove --client {client_name}` still works to clean up an "
+        "old project-scope install)."
+    )
+
+
+def _canonical_name_claimed_by_another_entry(
+    entry: PluginLockEntry, lock_entries: list[PluginLockEntry]
+) -> bool:
+    """True when another lock entry still uses this plugin name.
+
+    ``~/.agents/plugins/<name>`` is shared by every native client, so removal
+    and reinstall must leave the canonical tree alone while another entry --
+    another client, or the same client under a different plugin id -- claims
+    the name.
+    """
+    return any(
+        e.name == entry.name and (e.client != entry.client or e.id != entry.id)
+        for e in lock_entries
+    )
+
+
+def _remove_native_entry(
+    entry: PluginLockEntry,
+    lock_entries: list[PluginLockEntry],
     canonical_dir: Path,
     editor_dir: Path,
-    plugin_name: str,
-    install_mode: str,
     *,
-    remove_canonical: bool = True,
+    install_scope: Literal["project", "global"],
+    reinstalling: bool,
+    keep_install_name: str | None = None,
 ) -> None:
-    if install_mode == CODEX_NATIVE_INSTALL_MODE:
-        _cleanup_codex_install(
+    """Remove a native lock entry's files ahead of a reinstall or removal.
+
+    The canonical tree is shared, so it is kept while another lock entry still
+    uses this plugin name; only this client's editor-side entry (link, copy, or
+    marketplace record) and the legacy Cursor link go. On a kept tree the
+    content this client owns -- ``skills/`` and its own manifest dir -- is
+    purged via ``purge_owned_content`` only when ``reinstalling``, because just
+    that caller writes it back immediately; a plain removal leaves the shared
+    tree untouched so the client still using it keeps its skills. The Claude
+    Code registration is removed on the same ``install_scope == "global"``
+    condition that writes it, except for ``keep_install_name``: a reinstall
+    under the same name re-registers immediately, and unregistering first would
+    drop the ``installedAt`` the upsert would otherwise carry forward.
+
+    Uses ``entry.install_mode``, so a stale pre-``local/`` Cursor entry gets the
+    symlink-era cleanup its own layout needs.
+    """
+    keep = _canonical_name_claimed_by_another_entry(entry, lock_entries)
+    layout = NATIVE_LAYOUTS.get(entry.client)
+    manifest_dir_name = layout.manifest_dir if layout is not None else None
+    for install_name in _plugin_install_candidates(entry):
+        cleanup_native_install(
             canonical_dir,
             editor_dir,
-            plugin_name,
-            remove_canonical=remove_canonical,
+            install_name,
+            entry.install_mode,
+            remove_canonical=not keep,
         )
-        return
-    _cleanup_symlink_install(
-        canonical_dir,
-        editor_dir,
-        plugin_name,
-        remove_canonical=remove_canonical,
-    )
+        if keep and reinstalling:
+            purge_owned_content(canonical_dir, install_name, manifest_dir_name)
+        if (
+            layout is not None
+            and install_scope == "global"
+            and install_name != keep_install_name
+        ):
+            layout.unregister_global(install_name)
 
 
 def _extract_server_ids(plugin: PluginDetail) -> list[str]:
@@ -1120,11 +629,13 @@ async def install_plugins(
     lockfile_path: Path,
     client_name: str,
     host: str,
-    install_scope: Literal["project", "global"] = "project",
+    *,
+    install_scope: Literal["project", "global"],
     dry_run: bool = False,
     on_progress: Callable[[str, str], None] | None = None,
     secret: str | None = None,
 ) -> PluginInstallResult:
+    ensure_scope_supported(client_name, install_scope)
     result = PluginInstallResult()
     lock_entries = read_plugin_lockfile(lockfile_path)
     locked_keys = {(e.client, e.id) for e in lock_entries}
@@ -1231,7 +742,18 @@ async def install_plugins(
 
     for plugin in plugins:
         key = (client_name, plugin.id)
-        if key in locked_keys:
+        # Deciding *when* to migrate stays inside this loop and
+        # ``update_plugins`` because the two need opposite lock handling, so a
+        # pre-pass that cleaned and dropped stale entries up front would break
+        # both: ``add`` must keep the stale entry until the reinstall succeeds
+        # (a failed reinstall in a multi-plugin run must not drop it), and
+        # ``update`` iterates lock entries, so dropping one would make it skip
+        # the plugin entirely.
+        stale_entry = next(
+            (e for e in lock_entries if (e.client, e.id) == key and _layout_stale(e)),
+            None,
+        )
+        if key in locked_keys and stale_entry is None:
             result.skipped.append(plugin.name)
             if on_progress:
                 on_progress(plugin.name, "already installed")
@@ -1264,24 +786,40 @@ async def install_plugins(
                 locked_install_name_to_id[install_name] = plugin.id
             result.installed.append(plugin.name)
             if on_progress:
-                on_progress(plugin.name, "would install")
+                on_progress(
+                    plugin.name, "would reinstall" if stale_entry else "would install"
+                )
             continue
 
         try:
             install_mode = (
-                _native_install_mode(client_name) if is_native else "mcp_fallback"
+                native_layout(client_name).install_mode if is_native else "mcp_fallback"
             )
 
             if is_native:
+                skill_content = await _fetch_native_plugin_content(
+                    client, plugin, limiter
+                )
+                if stale_entry is not None:
+                    # Nothing is destroyed until the fetch above is in hand,
+                    # and the stale lock entry is only dropped once the
+                    # reinstall succeeds, so a failure leaves both for a retry.
+                    _remove_native_entry(
+                        stale_entry,
+                        lock_entries,
+                        canonical_dir,
+                        editor_dir,
+                        install_scope=install_scope,
+                        reinstalling=True,
+                    )
                 await _materialize_native_plugin(
-                    client=client,
                     plugin=plugin,
+                    skills=skill_content,
                     canonical_dir=canonical_dir,
                     editor_dir=editor_dir,
                     client_name=client_name,
                     host=host,
                     install_scope=install_scope,
-                    limiter=limiter,
                     secret=secret,
                 )
             else:
@@ -1292,6 +830,8 @@ async def install_plugins(
                     secret=secret if install_scope == "global" else None,
                 )
 
+            if stale_entry is not None:
+                lock_entries = [e for e in lock_entries if e is not stale_entry]
             lock_entries.append(
                 PluginLockEntry(
                     name=plugin.name,
@@ -1320,7 +860,7 @@ async def install_plugins(
                 )
             )
             if on_progress:
-                on_progress(plugin.name, "installed")
+                on_progress(plugin.name, "reinstalled" if stale_entry else "installed")
         except Exception as e:
             logger.error("install_failed", plugin=plugin.name, error=str(e))
             result.errors.append(f"{plugin.name}: {e}")
@@ -1341,29 +881,22 @@ async def uninstall_plugin(
     editor_dir: Path,
     lockfile_path: Path,
     client_name: str,
+    *,
+    install_scope: Literal["project", "global"],
 ) -> str:
     _sanitize_name(name)
     entry = resolve_plugin_lock_entry(lockfile_path, client_name, name)
 
     if _is_native_install_mode(entry.install_mode):
         lock_entries = read_plugin_lockfile(lockfile_path)
-        keep_name = any(
-            e.name == entry.name and (e.client != client_name or e.id != entry.id)
-            for e in lock_entries
+        _remove_native_entry(
+            entry,
+            lock_entries,
+            canonical_dir,
+            editor_dir,
+            install_scope=install_scope,
+            reinstalling=False,
         )
-        for install_name in _plugin_install_candidates(entry):
-            _cleanup_native_install(
-                canonical_dir,
-                editor_dir,
-                install_name,
-                entry.install_mode,
-                remove_canonical=not keep_name,
-            )
-            if (
-                client_name == "claude_code"
-                and editor_dir == _claude_code_plugins_root()
-            ):
-                _remove_claude_code_plugin_registration(install_name)
     else:
         _remove_plugin_mcp_fallback(entry.name, client_name)
 
@@ -1383,11 +916,13 @@ async def update_plugins(
     lockfile_path: Path,
     client_name: str,
     host: str,
-    install_scope: Literal["project", "global"] = "project",
+    *,
+    install_scope: Literal["project", "global"],
     dry_run: bool = False,
     on_progress: Callable[[str, str], None] | None = None,
     secret: str | None = None,
 ) -> PluginUpdateResult:
+    ensure_scope_supported(client_name, install_scope)
     result = PluginUpdateResult()
     lock_entries = read_plugin_lockfile(lockfile_path)
     client_entries = [e for e in lock_entries if e.client == client_name]
@@ -1420,28 +955,14 @@ async def update_plugins(
                     logger.warning("plugin_gone", name=entry.name, id=entry.id)
                     if not dry_run:
                         if _is_native_install_mode(entry.install_mode):
-                            keep_name = any(
-                                le.name == entry.name
-                                and not (
-                                    le.client == entry.client and le.id == entry.id
-                                )
-                                for le in lock_entries
+                            _remove_native_entry(
+                                entry,
+                                lock_entries,
+                                canonical_dir,
+                                editor_dir,
+                                install_scope=install_scope,
+                                reinstalling=False,
                             )
-                            for install_name in _plugin_install_candidates(entry):
-                                _cleanup_native_install(
-                                    canonical_dir,
-                                    editor_dir,
-                                    install_name,
-                                    entry.install_mode,
-                                    remove_canonical=not keep_name,
-                                )
-                                if (
-                                    client_name == "claude_code"
-                                    and editor_dir == _claude_code_plugins_root()
-                                ):
-                                    _remove_claude_code_plugin_registration(
-                                        install_name
-                                    )
                         else:
                             _remove_plugin_mcp_fallback(entry.name, client_name)
                         lock_entries = [
@@ -1460,9 +981,9 @@ async def update_plugins(
 
             # Reachable MCP fallback clients render the same config in both modes.
             # Codex is mode-sensitive, but plugins add always routes it natively.
-            native_mode_changed = (
-                _is_native_install_mode(entry.install_mode)
-                and remote.use_dynamic_tools != entry.use_dynamic_tools
+            native_mode_changed = _is_native_install_mode(entry.install_mode) and (
+                remote.use_dynamic_tools != entry.use_dynamic_tools
+                or _layout_stale(entry)
             )
             if (
                 not native_mode_changed
@@ -1482,35 +1003,38 @@ async def update_plugins(
                 continue
 
             if _is_native_install_mode(entry.install_mode):
-                claude_code_installed_at = None
-                for install_name in _plugin_install_candidates(entry):
-                    _cleanup_native_install(
-                        canonical_dir,
-                        editor_dir,
-                        install_name,
-                        entry.install_mode,
-                        remove_canonical=True,
-                    )
-                    if (
-                        client_name == "claude_code"
-                        and editor_dir == _claude_code_plugins_root()
-                    ):
-                        removed_installed_at = _remove_claude_code_plugin_registration(
-                            install_name
-                        )
-                        claude_code_installed_at = (
-                            claude_code_installed_at or removed_installed_at
-                        )
+                # Fetch first: nothing below is undoable, so a failed skill
+                # fetch must not have already deleted the previous install.
+                skill_content = await _fetch_native_plugin_content(
+                    client, remote, limiter
+                )
+                # Same cleanup as the stale-layout migration: the canonical
+                # tree survives while another client's lock entry still uses
+                # this name, so an update for one client no longer deletes the
+                # manifest another client symlinks to. What this update owns --
+                # `skills/` and this client's manifest dir -- is still purged
+                # (`reinstalling=True`) because the materialize below writes it
+                # straight back, so content dropped upstream stops loading in
+                # both clients. The remaining cost of sharing is `.mcp.json`,
+                # which is rendered per client into the shared tree (last
+                # writer wins); that predates this and is out of scope here.
+                _remove_native_entry(
+                    entry,
+                    lock_entries,
+                    canonical_dir,
+                    editor_dir,
+                    install_scope=install_scope,
+                    reinstalling=True,
+                    keep_install_name=_plugin_install_name(client_name, remote),
+                )
                 await _materialize_native_plugin(
-                    client=client,
                     plugin=remote,
+                    skills=skill_content,
                     canonical_dir=canonical_dir,
                     editor_dir=editor_dir,
                     client_name=client_name,
                     host=host,
                     install_scope=install_scope,
-                    limiter=limiter,
-                    claude_code_installed_at=claude_code_installed_at,
                     secret=secret,
                 )
             else:
@@ -1523,6 +1047,8 @@ async def update_plugins(
 
             for le in lock_entries:
                 if le.client == entry.client and le.id == entry.id:
+                    if _layout_stale(le):
+                        le.install_mode = native_layout(le.client).install_mode
                     le.install_name = (
                         _plugin_install_name(client_name, remote)
                         if _is_native_install_mode(entry.install_mode)

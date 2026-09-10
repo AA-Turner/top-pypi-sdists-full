@@ -233,9 +233,11 @@ async def _fetch_user_content(user_id: str, parsed: Any) -> dict[str, Any]:
             for r in note_rows
         ]
     if parsed.source in ("conversations", "both"):
-        # Mine recent USER-typed text. chat.message.content (jsonb blocks) is
-        # the source of truth: user_content is NULL for user-role rows BY
-        # DESIGN (it's the agent-template display override). chat.conversation
+        # Mine recent USER-typed text. Prefer chat.message.user_content: it is
+        # the pristine human-authored projection, while content may also carry
+        # an agent-authored template and resolved machine context for replay.
+        # Historical rows predate that contract and fall back to content.
+        # chat.conversation
         # has NO user_id column — it's created_by (the OLD raw SQL's c.user_id
         # never existed post schema-reorg and would have 500'd live).
         Conversation = get_model("Conversation")
@@ -258,11 +260,18 @@ async def _fetch_user_content(user_id: str, parsed: Any) -> dict[str, Any]:
                 .filter(Q(is_visible_to_user=True) | Q(is_visible_to_user__isnull=True))
                 .order_by("-position")
                 .limit(6)
-                .values("content")
+                .values("content", "user_content")
             )
             texts = [
                 t[:500]
-                for t in (_extract_text_blocks(m["content"]) for m in msg_rows)
+                for t in (
+                    _extract_text_blocks(
+                        m["user_content"]
+                        if m.get("user_content") is not None
+                        else m["content"]
+                    )
+                    for m in msg_rows
+                )
                 if t
             ]
             conversations.append(

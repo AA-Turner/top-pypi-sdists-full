@@ -30,6 +30,7 @@ from matrx_ai.providers.reasoning import (
     emit_complete_reasoning_block,
     openai_compatible_reasoning_text,
 )
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import GenericOpenAITranslator
@@ -187,7 +188,11 @@ class GenericOpenAIChat:
     ) -> UnifiedResponse:
         vcprint(f"{self.endpoint_name} Starting API call (non-streaming)...", color="cyan")
 
-        response = await self.client.chat.completions.create(**config_data)
+        response = await self.client.chat.completions.create(
+            **route_undeclared_params(
+                self.client.chat.completions.create, config_data, provider="generic_openai"
+            )
+        )
 
         vcprint(f"{self.endpoint_name} API call completed, processing response...", color="cyan")
         vcprint(response, f"{self.endpoint_name} Response", color="green", verbose=self.debug)
@@ -232,7 +237,11 @@ class GenericOpenAIChat:
     ) -> UnifiedResponse:
         vcprint(f"{self.endpoint_name} Starting API call (streaming)...", color="cyan")
 
-        stream = await self.client.chat.completions.create(**config_data)
+        stream = await self.client.chat.completions.create(
+            **route_undeclared_params(
+                self.client.chat.completions.create, config_data, provider="generic_openai"
+            )
+        )
 
         vcprint(f"{self.endpoint_name} Stream connection established, processing chunks...", color="cyan")
 

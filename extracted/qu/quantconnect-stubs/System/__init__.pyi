@@ -6086,6 +6086,14 @@ class OperatingSystem(System.Object, System.Runtime.Serialization.ISerializable,
         ...
 
     @staticmethod
+    def is_open_bsd() -> bool:
+        ...
+
+    @staticmethod
+    def is_open_bsd_version_at_least(major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
+        ...
+
+    @staticmethod
     def is_os_platform(platform: str) -> bool:
         ...
 

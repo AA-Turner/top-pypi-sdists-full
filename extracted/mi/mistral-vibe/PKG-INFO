@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.25.0
+Version: 2.25.1
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -62,6 +62,7 @@ Requires-Dist: markdownify==1.2.3
 Requires-Dist: mcp==1.28.1
 Requires-Dist: mdit-py-plugins==0.5.0
 Requires-Dist: mdurl==0.1.2
+Requires-Dist: mistralai-vibe-local-harness==0.4.3
 Requires-Dist: mistralai==2.6.0
 Requires-Dist: more-itertools==11.0.2
 Requires-Dist: opentelemetry-api==1.39.1
@@ -363,7 +364,7 @@ Simply run `vibe` to enter the interactive chat loop.
 - **Todo View Toggle**: Press `Ctrl+T` to toggle the todo list view.
 - **Debug Console**: Press `Ctrl+\` to toggle the debug console.
 - **Agent Selection**: Press `Shift+Tab` to cycle through agents (ask, plan, ...).
-- **Queueing**: Prompts submitted while the agent is working are queued by the app server and run later as separate FIFO turns. Shell commands and non-side-channel slash commands require an idle session. `Ctrl+C` removes the newest queued prompt, `Escape` interrupts the active turn and pauses remaining prompts, and an empty `Enter` resumes them.
+- **Queueing**: Prompts submitted while the agent is working are queued by the app server. Empty `Enter` or `Ctrl+Enter` steers the queued prompts into the active turn; on Unified Harness sessions, this atomically consumes the stored queue item. `Ctrl+C` removes the newest queued prompt. `Escape` interrupts the active turn and pauses remaining prompts, and `Enter` resumes a paused queue. Shell commands and non-side-channel slash commands require an idle session.
 - **Exit**: Type `/exit`, `exit`, `quit`, `:q`, or `:quit` in the input box, or press `Ctrl+C` / `Ctrl+D` twice within ~1 second. Set `ask_confirmation_on_exit = false` (or toggle it in `/config`) to make `Ctrl+D` quit on the first press; `Ctrl+C` always requires confirmation.
 
 ### Copying & Text Selection
@@ -1102,7 +1103,7 @@ Valid levels: `DEBUG`, `INFO`, `WARNING` (default), `ERROR`, `CRITICAL`.
 
 Precedence: session override > `LOG_LEVEL` env var > `log_level` in config.toml > default.
 
-The `LOG_LEVEL` environment variable overrides the config value at startup. Use `DEBUG_MODE=true` to force `DEBUG` at startup (also enables `debugpy` under `vibe-acp`).
+The `LOG_LEVEL` environment variable overrides the config value at startup. Use `DEBUG_MODE=true` to force `DEBUG` at startup.
 
 ## Editors/IDEs
 

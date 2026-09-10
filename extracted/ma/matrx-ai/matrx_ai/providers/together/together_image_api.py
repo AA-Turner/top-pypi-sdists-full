@@ -30,6 +30,7 @@ from matrx_ai.providers.base_media import (
     GeneratedAsset,
 )
 from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 # Together applies dynamic per-model request limits in one-second windows and
 # explicitly rewards steady traffic over bursts. Reserve image request starts
@@ -118,7 +119,9 @@ class TogetherImageGeneration(BaseMediaGeneration):
 
     async def _call_provider(self, kwargs: dict[str, Any]) -> Any:
         await _pace_together_image_request()
-        return await self.client.images.generate(**kwargs)
+        return await self.client.images.generate(
+            **route_undeclared_params(self.client.images.generate, kwargs, provider="together")
+        )
 
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:
         data = getattr(raw, "data", None) or []

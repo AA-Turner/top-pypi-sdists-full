@@ -248,7 +248,6 @@ class AmazonEchoApi:
             await self._media_handler.update_music_providers()
             await self._sequence_handler.update_routines()
             await self._todo_handler.update_lists()
-            await self._init_default_device()
 
             self._last_daily_refresh = datetime.now(UTC)
 
@@ -267,6 +266,12 @@ class AmazonEchoApi:
             # Set device endpoint data
             await self._device_handler.set_device_endpoints_data()
             self._last_endpoint_refresh = datetime.now(UTC)
+
+        # Resolve the default device only once base and endpoint devices are
+        # loaded: sensor-only devices (e.g. Amazon Air Quality Monitor) are
+        # created by set_device_endpoints_data() and would otherwise be missed,
+        # aborting the refresh with NoOnlineDevicesError.
+        await self._init_default_device()
 
     async def get_devices_data(
         self,
@@ -353,11 +358,27 @@ class AmazonEchoApi:
             volume = AmazonVolumeState(
                 payload.get("volumeSetting"), payload.get("isMuted")
             )
+            # check if device is part of a cluster
             self._media_handler.update_cached_device_volume(serial, volume)
+            volume_device: AmazonDevice | None = self._device_handler.devices.get(
+                serial, None
+            )
+            if volume_device:
+                for parent_serial in volume_device.parent_clusters:
+                    if parent_cluster := (
+                        self._device_handler.devices.get(parent_serial, None)
+                    ):
+                        self._media_handler.update_cached_speaker_group_volume(
+                            parent_serial,
+                            list(parent_cluster.device_cluster_members),
+                        )
 
         await self._emit_volume_state_event()
 
     async def _handle_eq_event_as_history_proxy(self) -> None:
+        if not self.on_history_event.frozen:
+            _LOGGER.debug("No vocal history subscribers, skipping fetch")
+            return
         vocal_history = await self._history_handler.get_vocal_history()
         await self._emit_history_event(vocal_history)
 

@@ -105,14 +105,6 @@ class SetMediaFeaturesOverrideParameters:
 
 
 @dataclass
-class MediaFeature:
-    """MediaFeature."""
-
-    name: str | None = None
-    value: str | None = None
-
-
-@dataclass
 class NetworkConditionsOffline:
     """NetworkConditionsOffline."""
 

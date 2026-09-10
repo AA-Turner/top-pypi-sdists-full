@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Protocol
 
 import structlog
 import typer
@@ -38,6 +38,7 @@ from runlayer_cli.hook_install.daemon_lifecycle import (
     ensure_daemon_unit,
     ensure_scan_unit,
 )
+from runlayer_cli.hook_install.llm_routing import reconcile_routing, unroute
 from runlayer_cli.install_window import InstallWindowState, install_window_state
 from runlayer_cli.mdm_config import (
     ManagedConfig,
@@ -45,6 +46,7 @@ from runlayer_cli.mdm_config import (
     read_managed_config,
     resolve_include_pipeline,
     resolve_install_hooks,
+    resolve_llm_routing,
     resolve_mcp_usage_metadata_only,
     resolve_mode,
 )
@@ -255,6 +257,145 @@ def _check_absent(scope: InstallScope) -> bool:
             err=True,
         )
     return drift
+
+
+class _LlmRoutingReporter(Protocol):
+    def __call__(
+        self,
+        status: str,
+        key_hash: str | None,
+        error_message: str | None,
+        *,
+        rotate: bool = False,
+    ) -> dict[str, object] | None: ...
+
+
+def _configured_llm_routing_base_url(managed: ManagedConfig) -> str:
+    base_url = managed.get("llm_routing_base_url")
+    return base_url if isinstance(base_url, str) else ""
+
+
+def _llm_routing_step(
+    managed: ManagedConfig,
+    *,
+    scope: InstallScope,
+    host: str,
+    key: str,
+) -> bool:
+    """Route Claude Code / Codex through the LLM gateway per the backend decision.
+
+    Returns whether anything was written. Never contributes to the failure flag:
+    a routing problem is reported through the ``llm_routing`` check-in status
+    (``error``) and a WARN line, so it can't flip the exit code or the bootstrap
+    retry counter.
+    """
+    # USER installs are manual and have no managed snapshot or org key mint path.
+    if scope != InstallScope.MDM:
+        return False
+
+    try:
+        reporter: _LlmRoutingReporter | None = None
+        if host and key:
+            from runlayer_cli.aiwatch_checkin import (  # noqa: PLC0415
+                _make_device_context,
+                submit_llm_routing_checkin,
+            )
+            from runlayer_cli.api import RunlayerClient  # noqa: PLC0415
+            from runlayer_cli.scan.device import get_installed_tools  # noqa: PLC0415
+
+            ctx = _make_device_context()
+            if ctx["username"]:
+                tools = get_installed_tools()
+                client = RunlayerClient(hostname=host, secret=key)
+
+                def submit(
+                    status: str,
+                    key_hash: str | None,
+                    error_message: str | None,
+                    *,
+                    rotate: bool = False,
+                ) -> dict[str, object] | None:
+                    return submit_llm_routing_checkin(
+                        client,
+                        ctx=ctx,
+                        tools=tools,
+                        status=status,
+                        device_key_hash=key_hash,
+                        rotate=rotate,
+                        error_message=error_message,
+                    )
+
+                reporter = submit
+            else:
+                logger.warning("aiwatch_llm_routing_checkin_skipped_no_console_user")
+
+        desired = resolve_llm_routing(managed)
+        if desired and reporter is None:
+            typer.secho(
+                f"{WARN} llm_routing: no backend check-in available "
+                "(missing managed host or console user); "
+                "leaving client configs untouched.",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+            return False
+
+        def fetch_decision(
+            key_hash: str | None, *, rotate: bool
+        ) -> dict[str, object] | None:
+            if reporter is None:
+                return None
+            return reporter("ok", key_hash, None, rotate=rotate)
+
+        outcome = reconcile_routing(
+            desired=desired,
+            base_url=_configured_llm_routing_base_url(managed),
+            scope=scope,
+            fetch_decision=fetch_decision,
+        )
+        if outcome is None:
+            typer.secho(
+                f"{WARN} llm_routing: backend check-in failed; "
+                "leaving client configs untouched.",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+            return False
+
+        if outcome["wrote"]:
+            typer.secho(
+                f"{OK} llm_routing: Claude Code + Codex routed through "
+                f"{_configured_llm_routing_base_url(managed)}.",
+                fg=typer.colors.GREEN,
+                err=True,
+            )
+        if outcome["status"] in {"drifted", "error"}:
+            typer.secho(
+                f"{WARN} llm_routing: {outcome['status']} "
+                f"({outcome['error_message']}).",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+        if not outcome["steady"] and reporter is not None:
+            reporter(
+                outcome["status"],
+                outcome["key_hash"],
+                outcome["error_message"],
+            )
+        return outcome["wrote"]
+    except Exception as exc:
+        logger.warning(
+            "aiwatch_llm_routing_step_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        typer.secho(
+            f"{WARN} llm_routing: reconcile failed ({exc}).",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
+        return False
 
 
 def _install_browser_extension_step(managed: ManagedConfig) -> tuple[bool, bool]:
@@ -506,6 +647,16 @@ def _reconcile_hooks(
     # registered an unmanaged "sh" background item). --user (dev / manual) scope
     # is never gated.
     if scope == InstallScope.MDM and not managed.get("org_api_key"):
+        # An offboarded or unconfigured fleet must not keep stale routing. Any
+        # failure here must still exit 0, or KeepAlive relaunches forever.
+        try:
+            unroute(scope=InstallScope.MDM)
+        except Exception as exc:
+            logger.warning(
+                "aiwatch_llm_routing_unroute_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
         return EXIT_OK
 
     effective_host = resolve_host(host)
@@ -552,6 +703,12 @@ def _reconcile_hooks(
         )
         any_failed = _uninstall_targets(targets, scope=scope)
         if scope == InstallScope.MDM:
+            _llm_routing_step(
+                managed,
+                scope=scope,
+                host=checkin_host,
+                key=checkin_key,
+            )
             ext_failed, _ = _install_browser_extension_step(managed)
             # Keep the macOS supervisor installed for its hourly gate check.
             # Windows reconciliation removes the service while the gate is closed.
@@ -645,6 +802,12 @@ def _reconcile_hooks(
             )
 
     if scope == InstallScope.MDM:
+        routing_wrote = _llm_routing_step(
+            managed,
+            scope=scope,
+            host=checkin_host,
+            key=checkin_key,
+        )
         ext_failed, ext_wrote = _install_browser_extension_step(managed)
         daemon_failed, daemon_wrote = _install_daemon_lifecycle_step(
             managed,
@@ -652,7 +815,9 @@ def _reconcile_hooks(
         )
         scan_failed, scan_wrote = _install_scan_lifecycle_step()
         any_failed = any_failed or ext_failed or daemon_failed or scan_failed
-        wrote_any = wrote_any or ext_wrote or daemon_wrote or scan_wrote
+        wrote_any = (
+            wrote_any or routing_wrote or ext_wrote or daemon_wrote or scan_wrote
+        )
 
     if config_changed:
         _submit_config_change_checkins(

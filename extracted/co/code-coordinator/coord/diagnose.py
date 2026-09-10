@@ -512,28 +512,84 @@ def _finalize_dead(assignment: "Assignment", config: "Config") -> str:
 
 
 def _kill_session(assignment: "Assignment", config: "Config") -> bool:
-    """``tmux kill-session`` for *assignment* (local or remote).  Used by reset
-    to stop a live session before finalizing.  Returns True when the kill ran."""
+    """Stop *assignment*'s live session, whichever shape it is, and confirm it
+    actually stopped.  Used by reset to stop a live session before
+    finalizing/deleting its row.
+
+    #3223: a tmux ``kill-session`` alone is blind to HEADLESS workers. A
+    headless assignment (``interactive=False`` — the ordinary shape of an
+    auto-loop review/work leg) is a plain ``claude -p`` subprocess spawned
+    directly by ``AgentServer.assign``; it never has a tmux session, so
+    ``tmux kill-session`` targets a session that never existed, silently
+    does nothing, and (pre-fix) still reported success. This now branches:
+    an interactive tmux pane is killed via tmux as before; anything else is
+    treated as headless and stopped through the agent's own
+    ``POST /cancel/{id}`` — the same seam ``coord stop`` uses (there is
+    exactly one way to ask "did this assignment get cancelled", not two
+    implementations that could disagree).
+
+    Returns True only when a fresh liveness re-probe, taken AFTER the stop
+    attempt, confirms the session is actually gone (#2096) — never from the
+    mere absence of an exception. Callers gating a destructive action (e.g.
+    deleting the only board row `coord stop` can find the assignment by)
+    must treat False as "did not stop, do not proceed."
+    """
     import subprocess  # noqa: PLC0415
 
     from coord.interactive import (  # noqa: PLC0415
         TmuxHost,
         tmux_session_name,
+        tmux_session_running,
     )
 
     if not assignment.assignment_id:
         return False
     host = TmuxHost(ssh_target=_ssh_target_for(assignment, config))
     sname = tmux_session_name(assignment.assignment_id)
+
     try:
-        subprocess.run(
-            host.cmd(["kill-session", "-t", sname]),
-            capture_output=True,
-            timeout=20,
+        was_tmux_live = tmux_session_running(sname, host=host)
+    except Exception:  # noqa: BLE001 — probe error; fall through to the
+        # headless branch rather than claim a tmux session that may or may
+        # not exist — the agent cross-check below is the authoritative one
+        # for anything tmux can't positively confirm.
+        was_tmux_live = False
+
+    if was_tmux_live:
+        try:
+            subprocess.run(
+                host.cmd(["kill-session", "-t", sname]),
+                capture_output=True,
+                timeout=20,
+            )
+        except Exception as exc:  # noqa: BLE001 — best-effort; the re-probe below is the real verdict
+            log.warning("tmux kill-session failed for %s: %s", assignment.assignment_id, exc)
+        try:
+            return not tmux_session_running(sname, host=host)
+        except Exception as exc:  # noqa: BLE001 — can't confirm; don't claim success
+            log.warning(
+                "could not re-probe tmux session %s after kill: %s", sname, exc
+            )
+            return False
+
+    # No tmux session at all — the headless shape (#3223). The only seam
+    # that can reach it is the agent's own POST /cancel/{id}.
+    machine = _resolve_machine(config, assignment.machine_name)
+    if machine is None:
+        log.warning(
+            "cannot stop headless assignment %s: machine %r not in config",
+            assignment.assignment_id, assignment.machine_name,
         )
-        return True
-    except Exception:  # noqa: BLE001 — best-effort
         return False
+    from coord.network import cancel_assignment  # noqa: PLC0415
+
+    result = cancel_assignment(machine, assignment.assignment_id)
+    if not result.ok:
+        log.warning(
+            "agent cancel failed for headless assignment %s on %s: %s",
+            assignment.assignment_id, machine.name, result.error,
+        )
+    return result.ok
 
 
 def _reconcile_issue_merges(
@@ -857,8 +913,8 @@ def _recover_review(
                 res.actions_taken.append("recovered review verdict/findings from transcript")
             res.actions_taken.append(f"finalized phantom review session ({_finalize_dead(latest, config)})")
             res.recovered = True
-    elif state == "live" and _is_stale(latest):
-        res.findings.append("review session is LIVE but stale (idle days) — capturing read-only, reset to clear")
+    elif state == "live" and _is_stale(latest, config):
+        res.findings.append("review session is LIVE but stale (silent past threshold) — capturing read-only, reset to clear")
         if not dry_run and _recover_review_findings(latest, config):
             res.actions_taken.append("captured current review findings from transcript (session left running)")
         res.needs_reset = True
@@ -1090,8 +1146,8 @@ def _recover_work_like(
             _prune_orphan_for_failed(board, config, latest, res, dry_run=dry_run)
         if not res.needs_reset:
             res.recovered = True
-    elif state == "live" and _is_stale(latest):
-        res.findings.append("session is LIVE but stale (idle days) — reset to clear it")
+    elif state == "live" and _is_stale(latest, config):
+        res.findings.append("session is LIVE but stale (silent past threshold) — reset to clear it")
         res.needs_reset = True
     elif state == "live":
         res.findings.append("session is live and recent — left running")
@@ -1431,9 +1487,15 @@ def _do_reset(
             if latest.type == "review" and latest.review_of_assignment_id
             else latest.assignment_id
         )
+        # #3223: `latest` — NOT `target_id` — is the row whose SESSION might
+        # still be live. When `latest.type == "review"`, `target_id` is the FK
+        # to the (already-done) work row being reviewed; the live/wedged
+        # process, if any, is the review leg itself (`latest`). Threaded
+        # through separately so `_reset_review_stage` can stop the right
+        # session before touching any row.
         _reset_review_stage(
             config, repo_name, issue_number, res,
-            dry_run=dry_run, assignment_id=target_id,
+            dry_run=dry_run, assignment_id=target_id, live_assignment=latest,
         )
         return
     if stage == "test":
@@ -1448,7 +1510,10 @@ def _do_reset(
         res.needs_reset = True
         return
     if _session_state(latest, config) == "live" and _kill_session(latest, config):
-        res.actions_taken.append("stopped the live session (tmux kill-session)")
+        # #3223: `_kill_session` now covers both shapes — tmux for an
+        # interactive pane, agent `POST /cancel/{id}` for a headless leg —
+        # so the message no longer names a single mechanism.
+        res.actions_taken.append("stopped the live session")
     try:
         res.actions_taken.append(f"finalized session ({_finalize_dead(latest, config)})")
     except Exception as exc:  # noqa: BLE001 — fall back to a direct terminal mark
@@ -1461,9 +1526,45 @@ def _do_reset(
     res.actions_taken.append("branch preserved — stage is re-dispatchable")
 
 
+def _session_may_be_live(assignment: "Assignment", config: "Config") -> bool:
+    """Whether *assignment* might still have a running session, asked the way
+    a DESTRUCTIVE reset needs it asked (#3223).
+
+    Deliberately the single implementation both the dry-run preview and the
+    real reset call, so the preview can never describe a different decision
+    than the one that actually runs (#2085: one question, one answer).
+
+    Two-step, in this order:
+
+    1. A row whose ``status`` is already terminal (``dao.TERMINAL_STATUSES``
+       — the canonical set, not a local re-list) has **no session to
+       strand**: its finish was recorded by the agent, or by a reaper that
+       had already confirmed the process was gone. Answer ``False`` without
+       probing. This matters beyond tidiness — ``notify``'s
+       ``review_done_no_verdict`` sweep resets a ``status="done"`` review on
+       a schedule, and calls ``_reset_review_stage`` directly precisely to
+       avoid paying an ssh/HTTP liveness probe per tick. Probing there would
+       also *wedge that recovery*: an unreachable agent probes ``"unknown"``,
+       and step 2 treats ``"unknown"`` as "might be live", so an
+       already-finished review would refuse to reset for as long as its
+       machine stayed down.
+    2. Otherwise probe (:func:`_session_state`, which already covers the
+       headless shape via the agent's own ``/status`` — #1658) and treat
+       anything that is not a confirmed ``"dead"`` as possibly live.
+       ``"unknown"`` counts as possibly-live on purpose: the caller is about
+       to delete the only row ``coord stop`` could find this assignment by,
+       and an unconfirmed guess is not grounds for that (#2096).
+    """
+    from coord.dao import TERMINAL_STATUSES  # noqa: PLC0415
+
+    if assignment.status in TERMINAL_STATUSES:
+        return False
+    return _session_state(assignment, config) != "dead"
+
+
 def _reset_review_stage(
     config, repo_name: str, issue_number: int, res: DiagnoseResult, *,
-    dry_run: bool, assignment_id: str,
+    dry_run: bool, assignment_id: str, live_assignment: "Assignment",
 ) -> None:
     """Wipe a completed review so the stage returns to grey + re-reviewable:
     delete the ``type='review'`` rows, reset the work's ``review_state``, and
@@ -1479,21 +1580,65 @@ def _reset_review_stage(
     guards against. ``work``/``plan`` behavior is unchanged (still issue-wide,
     which is safe for those types).
 
-    Callers must resolve this themselves: the review stage's ``latest`` row can
-    be either the reviewed assignment (test-author/mock-author, no review
-    dispatched yet) or a ``type='review'`` row pointing at it via
-    ``review_of_assignment_id`` — the two cases need different resolution. See
-    ``_do_reset``.
+    ``live_assignment`` is a DIFFERENT id: it's the actual row whose SESSION
+    might still be running — the review leg itself when one was dispatched
+    (``latest.type == "review"``), or the same row as ``assignment_id`` for
+    the JIT test-author/mock-author case. See ``_do_reset``'s #3223 note.
+
+    Callers must resolve ``assignment_id`` themselves: the review stage's
+    ``latest`` row can be either the reviewed assignment (test-author/
+    mock-author, no review dispatched yet) or a ``type='review'`` row
+    pointing at it via ``review_of_assignment_id`` — the two cases need
+    different resolution. See ``_do_reset``.
+
+    #3223: before touching any row, stop ``live_assignment``'s session if it
+    might still be running — a headless review leg (``interactive=False``,
+    the ordinary auto-loop shape) is a plain agent subprocess with no tmux
+    session; the only way to reach it is the agent's own
+    ``POST /cancel/{id}`` (``_kill_session`` now covers this). Order matters:
+    cancel on the agent FIRST, then clear the board — reversing it destroys
+    the only handle ``coord stop`` has to find the assignment by, converting
+    a visible stall into an invisible orphan holding a worker slot forever.
+    When the stop can't be confirmed, this reports why and returns WITHOUT
+    deleting anything, leaving the row as the recovery handle it has to be.
+    An ALREADY-TERMINAL ``live_assignment`` skips the stop (and its probe)
+    entirely — see :func:`_session_may_be_live` for why that short-circuit
+    is load-bearing for ``notify``'s ``review_done_no_verdict`` sweep, not
+    merely an optimization.
     """
     from coord import state  # noqa: PLC0415
 
     if dry_run:
-        res.findings.append(
-            "(dry-run) would DELETE the review rows, reset work review_state → "
-            "pending, and purge #603 review notes (box → grey, re-reviewable)"
+        tail = (
+            "DELETE the review rows, reset work review_state → pending, "
+            "and purge #603 review notes (box → grey, re-reviewable)"
         )
+        if _session_may_be_live(live_assignment, config):
+            msg = (
+                f"(dry-run) would first stop {live_assignment.assignment_id}'s "
+                f"live session, then {tail}"
+            )
+        else:
+            msg = f"(dry-run) would {tail}"
+        res.findings.append(msg)
         res.needs_reset = True
         return
+
+    if _session_may_be_live(live_assignment, config):
+        if _kill_session(live_assignment, config):
+            res.actions_taken.append(
+                f"stopped the live review session ({live_assignment.assignment_id})"
+            )
+        else:
+            res.findings.append(
+                f"could not stop {live_assignment.assignment_id}'s session — "
+                "leaving the review row in place (it's the only handle "
+                "`coord stop` has); resolve manually, e.g. `coord stop "
+                f"{live_assignment.assignment_id}`, then re-run --reset"
+            )
+            res.needs_reset = True
+            return
+
     deleted = state.delete_assignments_for_issue(
         repo_name, issue_number, types=("review",),
         review_of_assignment_id=assignment_id,
@@ -1655,13 +1800,130 @@ def _cleanup_issue(
             res.actions_taken.append(f"cleanup: marked phantom row {a.assignment_id} terminal ({exc})")
 
 
-def _is_stale(assignment: "Assignment", *, max_age_hours: float = 12.0) -> bool:
-    """A still-running session whose dispatch is older than *max_age_hours* is
-    treated as stale (abandoned/idle) — recovery can't safely finalize a live
-    session, so these escalate to a reset offer."""
+@dataclass(frozen=True)
+class _OutputSignal:
+    """What :func:`_last_output_at` was able to learn, and — crucially — WHY
+    it came back empty when it did. A bare ``float | None`` can't carry that
+    distinction, and #3222 review iteration 1 found that collapsing it lets a
+    tight, review-oriented silence threshold misfire on a case it was never
+    meant to judge (see :func:`_is_stale`)."""
+
+    last_output_at: float | None
+    # True  = the assignment's own agent answered `/status` and we could read
+    #         its `active` list (whether or not this id was in it).
+    # False = we affirmatively know the agent could NOT be asked (unreachable,
+    #         no machine to resolve, or no assignment id at all).
+    agent_reachable: bool
+
+
+def _last_output_at(assignment: "Assignment", config: "Config") -> _OutputSignal:
+    """The Unix timestamp of *assignment*'s most recent output, per its own
+    agent's ``/status`` (``last_output_at`` — the agent stats its own log
+    file's mtime, #1632; the same field :mod:`coord.notifier` reads for its
+    output-silence probe), plus whether the agent could be reached at all.
+
+    ``last_output_at`` is ``None`` when the machine can't be resolved, the
+    agent is unreachable, or the agent's ``active`` list doesn't carry this
+    id (already finished, never produced a byte of output yet, or — commonly
+    — an interactive ``--review-of``/``--fix-of``/``--rework-of`` tmux pane
+    that never went through ``AgentServer.assign()`` at all and so can
+    NEVER appear there, see :mod:`coord.interactive`). The caller must not
+    read a bare ``None`` as "silent" — :func:`_is_stale` uses
+    ``agent_reachable`` to tell a confirmed-unreachable agent (where "unknown"
+    is the only signal available) from a healthy, reachable one that simply
+    never registered this id (where "unknown" means nothing at all) — the
+    same distinction :mod:`coord.notifier.predicate` already draws for this
+    exact question (``agent_reachable`` there, ``quiet_for is None``)."""
+    if not assignment.assignment_id:
+        return _OutputSignal(None, agent_reachable=False)
+    machine = _resolve_machine(config, assignment.machine_name)
+    if machine is None:
+        return _OutputSignal(None, agent_reachable=False)
+    from coord.network import fetch_status  # noqa: PLC0415
+
+    result = fetch_status(machine)
+    if not result.ok or result.data is None:
+        return _OutputSignal(None, agent_reachable=False)
+    active = result.data.get("active") or []
+    for entry in active:
+        if isinstance(entry, dict) and entry.get("id") == assignment.assignment_id:
+            value = entry.get("last_output_at")
+            try:
+                last_output_at = None if value is None else float(value)
+            except (TypeError, ValueError):
+                last_output_at = None
+            return _OutputSignal(last_output_at, agent_reachable=True)
+    return _OutputSignal(None, agent_reachable=True)
+
+
+def _is_stale(
+    assignment: "Assignment",
+    config: "Config",
+    *,
+    max_silence_secs: float | None = None,
+    max_dispatch_age_hours: float = 12.0,
+) -> bool:
+    """A still-``live`` session that has gone SILENT for *max_silence_secs* is
+    stale (wedged) — recovery can't safely finalize a live session, so these
+    escalate to a reset offer.
+
+    #3222: this used to measure ``time.time() - assignment.dispatched_at`` —
+    how long ago the session *started* — against a 12h default. That is the
+    wrong clock in both directions: a review wedged 51 minutes into a
+    4-second-old dispatch read as fresh (51min < 12h) and was reported
+    "healthy" (the coord-tui#81 incident this closes), while a
+    long-but-healthy session past 12h and still emitting output every few
+    seconds would have been flagged stale for no reason. ``dispatched_at``
+    answers "how long has this run" — a question the docstring never asked;
+    "is it doing anything" is answered by the agent's own output-silence
+    gap, ``last_output_at`` (#1632), which is exactly the signal the
+    original incident was diagnosed with by hand.
+
+    ``max_silence_secs`` defaults to :data:`coord.notifier.baseline.
+    SILENCE_CAP_SECS` (45 minutes) — the same ceiling the notifier's own
+    output-silence probe uses for every assignment type, cold or warmed up
+    (`silence_threshold` is clamped into ``[SILENCE_FLOOR_SECS,
+    SILENCE_CAP_SECS]`` regardless of stratum). Reusing it rather than
+    inventing a second constant means "how long is too long to be silent"
+    has one answer in this codebase, not two that can drift apart — but that
+    is ONLY the threshold for a session whose output gap is actually known.
+
+    #3222 review iteration 1: when the output gap is unknown
+    (``last_output_at is None``), that tight 45-minute threshold must NOT be
+    reused for the ``dispatched_at`` fallback below, because ``None`` covers
+    two very different cases and only one of them is evidence of anything:
+
+    * The agent is confirmed unreachable (probe error, no machine, no id) —
+      genuinely no signal, same as a fresh dispatch that hasn't posted status
+      yet.
+    * The agent is reachable and answered fine, but its ``active`` list
+      simply doesn't list this id — which is the everyday shape of an
+      interactive ``--review-of``/``--fix-of``/``--rework-of`` tmux pane
+      (:mod:`coord.interactive`): those sessions never go through
+      ``AgentServer.assign()``, so they can never appear in any agent's
+      ``/status`` output, permanently, not transiently. Per the same
+      distinction :mod:`coord.notifier.predicate` (#2609/#2657) already
+      draws for this exact question, this is "unknown == fine", not
+      "unknown == silent" — a healthy, reachable agent has told us nothing
+      bad, it just isn't the one tracking this session.
+
+    Both fall back to comparing ``dispatched_at`` against
+    *max_dispatch_age_hours* (12h, the old default) rather than
+    *max_silence_secs* — a human actively working a ``--review-of``/
+    ``--fix-of`` pane for an hour must not be told it is "stale" just
+    because the review-oriented silence threshold is short.
+    """
+    if max_silence_secs is None:
+        from coord.notifier.baseline import SILENCE_CAP_SECS  # noqa: PLC0415
+
+        max_silence_secs = SILENCE_CAP_SECS
+
+    signal = _last_output_at(assignment, config)
+    if signal.last_output_at is not None:
+        return (time.time() - signal.last_output_at) > max_silence_secs
     if not assignment.dispatched_at:
         return False
-    return (time.time() - assignment.dispatched_at) > max_age_hours * 3600.0
+    return (time.time() - assignment.dispatched_at) > max_dispatch_age_hours * 3600.0
 
 
 # ── #2536: fleet-wide phantom-row self-heal sweep ───────────────────────────

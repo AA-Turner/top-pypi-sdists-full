@@ -3,6 +3,7 @@
 //! This module extracts text with position information for structure detection.
 
 mod base14;
+mod clip_boundaries;
 mod content_decode;
 pub(crate) mod content_stream;
 mod fonts;
@@ -12,6 +13,7 @@ mod links;
 pub(crate) mod page_box;
 mod reading_order;
 mod scripts;
+mod text_paint;
 pub(crate) mod underline;
 mod xobjects;
 
@@ -1210,9 +1212,24 @@ fn trimmed_suffix(next: &TextItem) -> &str {
 }
 
 pub(crate) fn merge_text_items(items: Vec<TextItem>) -> Vec<TextItem> {
+    merge_text_items_with_clips(items, &[])
+}
+
+fn merge_text_items_with_clips(
+    items: Vec<TextItem>,
+    clips: &[Option<clip_boundaries::ClipRect>],
+) -> Vec<TextItem> {
     if items.is_empty() {
         return items;
     }
+
+    // References into `items` remain stable throughout grouping and sorting.
+    // Keep clipping provenance private rather than changing the public item type.
+    let clip_by_item: HashMap<*const TextItem, clip_boundaries::ClipRect> = items
+        .iter()
+        .zip(clips)
+        .filter_map(|(item, clip)| clip.map(|rect| (item as *const TextItem, rect)))
+        .collect();
 
     // Group items by (page, Y position) with 5pt tolerance
     let y_tolerance = 5.0;
@@ -1258,6 +1275,7 @@ pub(crate) fn merge_text_items(items: Vec<TextItem>) -> Vec<TextItem> {
         while i < group.len() {
             let first = group[i];
             let mut text = first.text.clone();
+            let mut legacy_symbol_rewrite = first.legacy_symbol_rewrite;
             let mut end_x = first.x + effective_merge_width(first);
             let mut box_right = first.x + first.width;
             let mut box_left = first.x;
@@ -1317,6 +1335,15 @@ pub(crate) fn merge_text_items(items: Vec<TextItem>) -> Vec<TextItem> {
                     break;
                 }
                 if gap < -first.font_size * 0.5 && !preserve_stream_order {
+                    break;
+                }
+                let previous = group[j - 1];
+                if clip_boundaries::separated_runs(
+                    previous,
+                    clip_by_item.get(&(previous as *const TextItem)),
+                    next,
+                    clip_by_item.get(&(next as *const TextItem)),
+                ) {
                     break;
                 }
                 // Vertically stacked DIGITS at different baselines — the
@@ -1396,6 +1423,7 @@ pub(crate) fn merge_text_items(items: Vec<TextItem>) -> Vec<TextItem> {
                     break;
                 }
                 text.push_str(&next.text);
+                legacy_symbol_rewrite |= next.legacy_symbol_rewrite;
                 box_right = box_right.max(next.x + next.width);
                 box_left = box_left.min(next.x);
                 let next_end = next.x + effective_merge_width(next);
@@ -1425,6 +1453,7 @@ pub(crate) fn merge_text_items(items: Vec<TextItem>) -> Vec<TextItem> {
                 height: first.height,
                 font: first.font.clone(),
                 font_tag: first.font_tag.clone(),
+                legacy_symbol_rewrite,
                 font_size: first.font_size,
                 page: first.page,
                 is_bold: first.is_bold,
@@ -1571,6 +1600,7 @@ mod tests {
             height: 12.0,
             font: "F1".into(),
             font_tag: String::new(),
+            legacy_symbol_rewrite: false,
             font_size: 12.0,
             page: 1,
             is_bold: false,
@@ -1950,6 +1980,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -1970,6 +2001,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -1990,6 +2022,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -2780,6 +2813,7 @@ mod tests {
                 height: 12.0,
                 font: "C2_0".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -2800,6 +2834,7 @@ mod tests {
                 height: 12.0,
                 font: "C2_0".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -2820,6 +2855,7 @@ mod tests {
                 height: 12.0,
                 font: "C2_0".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -2851,6 +2887,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -2871,6 +2908,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -2891,6 +2929,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -2924,6 +2963,7 @@ mod tests {
                 height: 13.3,
                 font: "F4".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 13.3,
                 page: 1,
                 is_bold: true,
@@ -2964,6 +3004,7 @@ mod tests {
                 height: 13.3,
                 font: "F5".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 13.3,
                 page: 1,
                 is_bold: false,
@@ -3005,6 +3046,7 @@ mod tests {
                 height: 12.0,
                 font: "C2_0".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -3025,6 +3067,7 @@ mod tests {
                 height: 12.0,
                 font: "C2_0".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -3045,6 +3088,7 @@ mod tests {
                 height: 12.0,
                 font: "C2_0".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -3073,6 +3117,7 @@ mod tests {
             height: 12.0,
             font: "F1".into(),
             font_tag: String::new(),
+            legacy_symbol_rewrite: false,
             font_size: 12.0,
             page: 1,
             is_bold: false,
@@ -3216,6 +3261,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -3236,6 +3282,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -3266,6 +3313,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -3286,6 +3334,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page: 1,
                 is_bold: false,
@@ -3332,6 +3381,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page,
                 is_bold: false,
@@ -3382,6 +3432,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page,
                 is_bold: false,
@@ -3432,6 +3483,7 @@ mod tests {
                 height: 12.0,
                 font: "F1".into(),
                 font_tag: String::new(),
+                legacy_symbol_rewrite: false,
                 font_size: 12.0,
                 page,
                 is_bold: false,
@@ -3475,6 +3527,7 @@ mod tests {
             height: font_size,
             font: "F1".into(),
             font_tag: String::new(),
+            legacy_symbol_rewrite: false,
             font_size,
             page: 1,
             is_bold: false,

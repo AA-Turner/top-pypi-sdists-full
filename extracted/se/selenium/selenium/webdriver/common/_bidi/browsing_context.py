@@ -245,6 +245,10 @@ class CaptureScreenshotParameters(Record):
         default=UNSET,
         metadata=meta("clip", ref="browsingContext.ClipRectangle"),
     )
+    image_size: ImageSize | UnsetType = field(
+        default=UNSET,
+        metadata=meta("imageSize", ref="browsingContext.ImageSize"),
+    )
 
 
 @register("browsingContext.ImageFormat")
@@ -257,6 +261,18 @@ class ImageFormat(Record):
 
     type: str = field(metadata=meta("type", required=True, primitive="str"))
     quality: float | UnsetType = field(default=UNSET, metadata=meta("quality", primitive="float"))
+
+
+@register("browsingContext.ImageSize")
+@dataclass(frozen=True)
+class ImageSize(Record):
+    """browsingContext.ImageSize.
+
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextimagesize
+    """
+
+    max_width: int | UnsetType = field(default=UNSET, metadata=meta("maxWidth", primitive="int"))
+    max_height: int | UnsetType = field(default=UNSET, metadata=meta("maxHeight", primitive="int"))
 
 
 @register("browsingContext.ElementClipRectangle")
@@ -857,12 +873,19 @@ class BrowsingContext(Domain):
         origin: CaptureScreenshotParametersOrigin | UnsetType = UNSET,
         format: ImageFormat | UnsetType = UNSET,
         clip: ClipRectangleValue | UnsetType = UNSET,
+        image_size: ImageSize | UnsetType = UNSET,
     ) -> CaptureScreenshotResult:
         """Execute browsingContext.captureScreenshot (internal, unsupported).
 
         See https://w3c.github.io/webdriver-bidi/#command-browsingContext-captureScreenshot
         """
-        params = CaptureScreenshotParameters(context=context, origin=origin, format=format, clip=clip)
+        params = CaptureScreenshotParameters(
+            context=context,
+            origin=origin,
+            format=format,
+            clip=clip,
+            image_size=image_size,
+        )
         return self._execute("browsingContext.captureScreenshot", params=params, result=CaptureScreenshotResult)
 
     def close(self, context: str, prompt_unload: bool | UnsetType = UNSET) -> Any:

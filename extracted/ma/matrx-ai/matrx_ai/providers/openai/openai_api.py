@@ -24,6 +24,7 @@ from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
 )
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import OpenAITranslator
@@ -294,7 +295,9 @@ class OpenAIChat:
         config_data_copy.pop("stream", None)
 
         # Make API call
-        response: OpenAIResponse = await self.client.responses.create(**config_data_copy)
+        response: OpenAIResponse = await self.client.responses.create(
+            **route_undeclared_params(self.client.responses.create, config_data_copy, provider="openai")
+        )
 
         content = ""
         for item in response.output:

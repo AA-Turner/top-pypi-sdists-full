@@ -325,7 +325,7 @@ class Bluetooth:
         self._conn = conn
         self._event_manager = _EventManager(conn, self.EVENT_CONFIGS)
 
-    def handle_request_device_prompt(self, context: Any | None = None, prompt: Any | None = None):
+    def handle_request_device_prompt(self, context: str | None = None, prompt: Any | None = None):
         """
         Dismiss or accept a Bluetooth device-chooser prompt.
 
@@ -347,7 +347,7 @@ class Bluetooth:
         result = self._conn.execute(cmd)
         return result
 
-    def simulate_adapter(self, context: Any | None = None, le_supported: bool | None = None, state: Any | None = None):
+    def simulate_adapter(self, context: str | None = None, le_supported: bool | None = None, state: Any | None = None):
         """
         Simulate a Bluetooth adapter in the given browsing context.
 
@@ -371,7 +371,7 @@ class Bluetooth:
         result = self._conn.execute(cmd)
         return result
 
-    def disable_simulation(self, context: Any | None = None):
+    def disable_simulation(self, context: str | None = None):
         """
         Disable all Bluetooth simulation in the given context, restoring real behaviour.
 
@@ -391,9 +391,9 @@ class Bluetooth:
 
     def simulate_preconnected_peripheral(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
-        name: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
+        name: str | None = None,
         manufacturer_data: list[Any] | None = None,
         known_service_uuids: list[Any] | None = None,
     ):
@@ -430,7 +430,7 @@ class Bluetooth:
         result = self._conn.execute(cmd)
         return result
 
-    def simulate_advertisement(self, context: Any | None = None, scan_entry: Any | None = None):
+    def simulate_advertisement(self, context: str | None = None, scan_entry: Any | None = None):
         """
         Inject a simulated Bluetooth advertisement packet.
 
@@ -454,8 +454,8 @@ class Bluetooth:
 
     def simulate_gatt_connection_response(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         code: int | None = None,
     ):
         """
@@ -483,7 +483,7 @@ class Bluetooth:
         result = self._conn.execute(cmd)
         return result
 
-    def simulate_gatt_disconnection(self, context: Any | None = None, address: Any | None = None):
+    def simulate_gatt_disconnection(self, context: str | None = None, address: str | None = None):
         """
         Simulate a GATT disconnection for the given peripheral.
 
@@ -507,8 +507,8 @@ class Bluetooth:
 
     def simulate_service(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         uuid: Any | None = None,
         type: Any | None = None,
     ):
@@ -542,8 +542,8 @@ class Bluetooth:
 
     def simulate_characteristic(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         service_uuid: Any | None = None,
         characteristic_uuid: Any | None = None,
         characteristic_properties: Any | None = None,
@@ -585,8 +585,8 @@ class Bluetooth:
 
     def simulate_characteristic_response(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         service_uuid: Any | None = None,
         characteristic_uuid: Any | None = None,
         type: Any | None = None,
@@ -633,8 +633,8 @@ class Bluetooth:
 
     def simulate_descriptor(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         service_uuid: Any | None = None,
         characteristic_uuid: Any | None = None,
         descriptor_uuid: Any | None = None,
@@ -678,8 +678,8 @@ class Bluetooth:
 
     def simulate_descriptor_response(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         service_uuid: Any | None = None,
         characteristic_uuid: Any | None = None,
         descriptor_uuid: Any | None = None,
@@ -731,8 +731,8 @@ class Bluetooth:
 
     def characteristic_event_generated(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         service_uuid: Any | None = None,
         characteristic_uuid: Any | None = None,
         type: Any | None = None,
@@ -765,8 +765,8 @@ class Bluetooth:
 
     def descriptor_event_generated(
         self,
-        context: Any | None = None,
-        address: Any | None = None,
+        context: str | None = None,
+        address: str | None = None,
         service_uuid: Any | None = None,
         characteristic_uuid: Any | None = None,
         descriptor_uuid: Any | None = None,

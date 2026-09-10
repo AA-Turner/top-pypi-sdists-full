@@ -1,0 +1,843 @@
+"""OpenAI executor — calls OpenAI APIs (chat, embedding, image).
+
+Maps abstract ``Message`` objects to the OpenAI wire format
+and sends them to the API. Dispatches on ``agent.model.apiType``.
+
+Registered as ``openai`` in ``prompty.executors``.
+
+Also provides shared wire-format helpers used by the Azure executor.
+"""
+
+from __future__ import annotations
+
+import re
+import warnings
+from typing import Any
+
+from ..._version import VERSION
+from ...core.connections import get_connection
+from ...core.types import (
+    AsyncPromptyStream,
+    AudioPart,
+    ContentPart,
+    FilePart,
+    ImagePart,
+    Message,
+    PromptyStream,
+    TextPart,
+)
+from ...model import (
+    Agent,
+    ApiKeyConnection,
+    ReferenceConnection,
+)
+from ...tracing.tracer import Tracer, trace
+
+__all__ = ["OpenAIExecutor", "_BaseExecutor"]
+
+
+# ---------------------------------------------------------------------------
+# Wire format mapping (shared with Azure executor)
+# ---------------------------------------------------------------------------
+
+
+def _message_to_wire(msg: Message) -> dict[str, Any]:
+    """Convert an abstract Message to OpenAI wire format."""
+    wire: dict[str, Any] = {"role": msg.role}
+
+    # Include metadata fields (e.g. name)
+    for k, v in msg.metadata.items():
+        if k not in ("role", "content"):
+            wire[k] = v
+
+    content = msg.to_text_content()
+    if isinstance(content, str):
+        wire["content"] = content
+    else:
+        # Multimodal content — convert parts to OpenAI format
+        wire_parts: list[dict[str, Any]] = []
+        for part in msg.parts:
+            wire_parts.append(_part_to_wire(part))
+        wire["content"] = wire_parts
+
+    return wire
+
+
+def _part_to_wire(part: ContentPart) -> dict[str, Any]:
+    """Convert a ContentPart to OpenAI wire format."""
+    if isinstance(part, TextPart):
+        return {"type": "text", "text": part.value}
+    elif isinstance(part, ImagePart):
+        image_url: dict[str, Any] = {"url": part.source}
+        if part.detail:
+            image_url["detail"] = part.detail
+        return {"type": "image_url", "image_url": image_url}
+    elif isinstance(part, AudioPart):
+        return {
+            "type": "input_audio",
+            "input_audio": {
+                "data": part.source,
+                "format": _audio_format(part.media_type),
+            },
+        }
+    elif isinstance(part, FilePart):
+        return {
+            "type": "file",
+            "file": {"url": part.source},
+        }
+    else:
+        return {"type": "text", "text": str(part)}
+
+
+def _audio_format(media_type: str | None) -> str:
+    """Map MIME type to OpenAI audio format string."""
+    if media_type:
+        if "wav" in media_type:
+            return "wav"
+        if "mp3" in media_type or media_type == "audio/mpeg":
+            return "mp3"
+    return "wav"
+
+
+def _tools_to_wire(agent: Agent) -> list[dict[str, Any]] | None:
+    """Convert agent tools to OpenAI function tool format.
+
+    Supports ``kind: function`` (direct schema).
+    """
+    if not agent.tools:
+        return None
+
+    wire_tools: list[dict[str, Any]] = []
+    for tool in agent.tools:
+        kind = getattr(tool, "kind", None)
+
+        if kind == "function":
+            func_def: dict[str, Any] = {
+                "name": tool.name,
+            }
+            if tool.description:
+                func_def["description"] = tool.description
+            if hasattr(tool, "parameters") and tool.parameters:
+                bound_names = {b.name for b in tool.bindings} if tool.bindings else set()
+                params = [p for p in tool.parameters if p.name not in bound_names]
+                func_def["parameters"] = _schema_to_wire(params, strict=bool(getattr(tool, "strict", False)))
+            if hasattr(tool, "strict") and tool.strict:
+                func_def["strict"] = True
+                if "parameters" in func_def:
+                    func_def["parameters"]["additionalProperties"] = False
+            wire_tools.append({"type": "function", "function": func_def})
+
+    return wire_tools if wire_tools else None
+
+
+def _schema_to_wire(properties: list, *, strict: bool = False) -> dict[str, Any]:
+    """Convert a list of Property instances to a JSON Schema dict for OpenAI tools."""
+    props_dict: dict[str, Any] = {}
+    required: list[str] = []
+
+    for prop in properties:
+        props_dict[prop.name] = _property_to_json_schema(
+            prop, optional=strict and not bool(prop.required), strict=strict
+        )
+        if strict or prop.required:
+            required.append(prop.name)
+
+    result: dict[str, Any] = {"type": "object", "properties": props_dict}
+    if required:
+        result["required"] = required
+    return result
+
+
+def _property_to_json_schema(prop: Any, *, optional: bool = False, strict: bool = False) -> dict[str, Any]:
+    """Convert a Property to a JSON Schema dict for structured output."""
+    kind_map = {
+        "string": "string",
+        "integer": "integer",
+        "float": "number",
+        "number": "number",
+        "boolean": "boolean",
+        "array": "array",
+        "object": "object",
+    }
+
+    json_type = kind_map.get(getattr(prop, "kind", ""))
+    schema: dict[str, Any] = {"type": json_type} if json_type else {}
+
+    if prop.description:
+        schema["description"] = prop.description
+    if prop.enum_values:
+        schema["enum"] = prop.enum_values
+
+    # Array items — default to string if unspecified
+    if prop.kind == "array":
+        if hasattr(prop, "items") and prop.items is not None:
+            schema["items"] = _property_to_json_schema(prop.items, strict=strict)
+        else:
+            schema["items"] = {"type": "string"}
+
+    # Object properties (with strict additionalProperties: False)
+    if prop.kind == "object":
+        if hasattr(prop, "properties") and prop.properties:
+            props: dict[str, Any] = {}
+            required: list[str] = []
+            for p in prop.properties:
+                props[p.name] = _property_to_json_schema(p, optional=strict and not bool(p.required), strict=strict)
+                if strict or p.required:
+                    required.append(p.name)
+            schema["properties"] = props
+            if required:
+                schema["required"] = required
+        else:
+            schema["properties"] = {}
+        schema["additionalProperties"] = False
+
+    if prop.kind == "union":
+        has_one_of = isinstance(prop.one_of, list) and bool(prop.one_of)
+        has_any_of = isinstance(prop.any_of, list) and bool(prop.any_of)
+        if has_one_of == has_any_of:
+            raise ValueError("UnionProperty must specify exactly one non-empty composition: oneOf or anyOf")
+        if has_one_of:
+            raise ValueError(
+                "OpenAI schemas do not support UnionProperty.oneOf; use the provider-supported anyOf composition"
+            )
+        schema["anyOf"] = [_property_to_json_schema(branch, strict=strict) for branch in prop.any_of]
+
+    if getattr(prop, "nullable", False) or optional:
+        _add_nullability(schema)
+
+    return schema
+
+
+def _add_nullability(schema: dict[str, Any]) -> None:
+    """Add JSON Schema null support without emitting an invalid empty type."""
+    if isinstance(schema.get("type"), str):
+        schema["type"] = [schema["type"], "null"]
+    elif isinstance(schema.get("anyOf"), list):
+        schema["anyOf"].append({"type": "null"})
+    elif schema:
+        schema["anyOf"] = [schema.copy(), {"type": "null"}]
+
+    if isinstance(schema.get("enum"), list) and None not in schema["enum"]:
+        schema["enum"].append(None)
+
+
+def _output_schema_to_wire(agent: Agent) -> dict[str, Any] | None:
+    """Convert ``agent.outputs`` to OpenAI ``response_format``.
+
+    Returns ``None`` when no output schema is defined.  When present,
+    produces a ``json_schema`` response format with ``strict: True``
+    and ``additionalProperties: False`` at each object level.
+    """
+    if not agent.outputs:
+        return None
+
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for prop in agent.outputs:
+        properties[prop.name] = _property_to_json_schema(prop, optional=not bool(prop.required), strict=True)
+        required.append(prop.name)
+
+    schema: dict[str, Any] = {
+        "type": "object",
+        "properties": properties,
+        "additionalProperties": False,
+    }
+    if required:
+        schema["required"] = required
+
+    name = "structured_output"
+
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": name,
+            "strict": True,
+            "schema": schema,
+        },
+    }
+
+
+def _build_options(agent: Agent) -> dict[str, Any]:
+    """Extract model options into kwargs for the chat completions API call."""
+    if agent.model.options is None:
+        return {}
+
+    mo = agent.model.options
+    opts = mo.to_wire("openai")
+    if not mo.stop_sequences:
+        opts.pop("stop", None)
+
+    # Pass through additional properties
+    if mo.additional_properties:
+        for k, v in mo.additional_properties.items():
+            if k not in opts:
+                opts[k] = v
+
+    return opts
+
+
+# Sampling params that OpenAI reasoning models (o-series, GPT-5 family) reject.
+_OPENAI_REASONING_UNSUPPORTED = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "frequency_penalty",
+    "presence_penalty",
+)
+
+
+def _is_reasoning_model(model_id: str) -> bool:
+    """Best-effort detection of OpenAI reasoning models.
+
+    Reasoning models (o1/o3/o4/o5..., GPT-5 family) reject scalar sampling params
+    and use ``reasoning_effort`` instead. Detection is name-based, so custom Azure
+    deployment names that don't follow OpenAI's convention won't be recognized.
+    """
+    name = (model_id or "").lower().lstrip("./")
+    if re.match(r"^o[1-9]", name):
+        return True
+    if name.startswith("gpt-5"):
+        return True
+    return False
+
+
+def _apply_openai_reasoning_guard(model_id: str, opts: dict[str, Any]) -> None:
+    """Drop params incompatible with the target model class, in place.
+
+    - Reasoning models: drop scalar sampling params (with a ``DeprecationWarning``).
+    - Non-reasoning models: drop ``reasoning_effort`` (only valid on reasoning models).
+
+    This is a live-call capability guard, applied in the executor arg builders
+    just before the SDK call -- not in the pure ``to_wire`` option mappers. The
+    generated wire mapping stays deterministic (rename-only) so wire-conformance
+    vectors reflect the contract, while the guard shapes the actual request.
+    """
+    if _is_reasoning_model(model_id):
+        for key in _OPENAI_REASONING_UNSUPPORTED:
+            if key in opts:
+                warnings.warn(
+                    f"OpenAI reasoning model '{model_id}' does not support '{key}'; "
+                    f"dropping it. Use reasoningEffort instead.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                opts.pop(key, None)
+    else:
+        opts.pop("reasoning_effort", None)
+
+
+# ---------------------------------------------------------------------------
+# Responses API wire format helpers
+# ---------------------------------------------------------------------------
+
+
+def _build_responses_options(agent: Agent) -> dict[str, Any]:
+    """Extract model options for the Responses API (different param names)."""
+    if agent.model.options is None:
+        return {}
+
+    mo = agent.model.options
+    opts = mo.to_wire("responses")
+    if not mo.stop_sequences:
+        opts.pop("stop", None)
+
+    # Pass through additional properties
+    if mo.additional_properties:
+        for k, v in mo.additional_properties.items():
+            if k not in opts:
+                opts[k] = v
+
+    return opts
+
+
+def _responses_tools_to_wire(agent: Agent) -> list[dict[str, Any]] | None:
+    """Convert agent tools to Responses API flat tool format.
+
+    Unlike Chat Completions (``{type: "function", function: {...}}``),
+    the Responses API uses a flat structure: ``{type: "function", name: ..., parameters: ...}``.
+    """
+    if not agent.tools:
+        return None
+
+    wire_tools: list[dict[str, Any]] = []
+    for tool in agent.tools:
+        kind = getattr(tool, "kind", None)
+
+        if kind == "function":
+            tool_def: dict[str, Any] = {
+                "type": "function",
+                "name": tool.name,
+            }
+            if tool.description:
+                tool_def["description"] = tool.description
+            if hasattr(tool, "parameters") and tool.parameters:
+                tool_def["parameters"] = _schema_to_wire(tool.parameters, strict=bool(getattr(tool, "strict", False)))
+            if hasattr(tool, "strict") and tool.strict:
+                tool_def["strict"] = True
+                if "parameters" in tool_def:
+                    tool_def["parameters"]["additionalProperties"] = False
+            wire_tools.append(tool_def)
+
+    return wire_tools if wire_tools else None
+
+
+def _output_schema_to_responses_wire(agent: Agent) -> dict[str, Any] | None:
+    """Convert ``agent.outputs`` to Responses API ``text.format`` config.
+
+    Returns ``None`` when no output schema is defined. The Responses API
+    uses ``text: {format: {type: "json_schema", ...}}`` instead of
+    Chat Completions' ``response_format``.
+    """
+    if not agent.outputs:
+        return None
+
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for prop in agent.outputs:
+        properties[prop.name] = _property_to_json_schema(prop, optional=not bool(prop.required), strict=True)
+        required.append(prop.name)
+
+    name = "structured_output"
+
+    return {
+        "format": {
+            "type": "json_schema",
+            "name": name,
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": properties,
+                **({"required": required} if required else {}),
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _message_to_responses_input(msg: Message) -> dict[str, Any]:
+    """Convert a Message to Responses API input format.
+
+    Tool result messages are converted to ``function_call_output`` items.
+    Pass-through ``responses_function_call`` metadata for the agent loop.
+    Other messages become ``EasyInputMessage`` dicts.
+    """
+    content = msg.to_text_content()
+
+    # Pass-through original function_call items from the agent loop
+    if msg.metadata.get("responses_function_call"):
+        return msg.metadata["responses_function_call"]
+
+    # Tool result messages → function_call_output
+    if msg.metadata.get("tool_call_id"):
+        return {
+            "type": "function_call_output",
+            "call_id": msg.metadata["tool_call_id"],
+            "output": content if isinstance(content, str) else str(content),
+        }
+
+    role = "user" if msg.role == "tool" else msg.role
+    return {"role": role, "content": content}
+
+
+# ---------------------------------------------------------------------------
+# OpenAI Executor
+# ---------------------------------------------------------------------------
+# Base Executor (shared logic for OpenAI and Azure)
+# ---------------------------------------------------------------------------
+
+
+class _BaseExecutor:
+    """Shared implementation for OpenAI-SDK-based executors.
+
+    Subclasses must define ``_trace_prefix`` and ``_client_kwargs()``.
+    """
+
+    _trace_prefix: str = "OpenAI"
+
+    # -- Chat ---------------------------------------------------------------
+
+    def _execute_chat(self, client: Any, agent: Agent, messages: Any) -> Any:
+        with Tracer.start("chat.completions.create") as t:
+            t("type", "LLM")
+            t("signature", f"{self._trace_prefix}.chat.completions.create")
+            args = self._build_chat_args(agent, messages)
+            t("inputs", args)
+            response = client.chat.completions.create(**args)
+            if args.get("stream", False):
+                return PromptyStream(f"{self._trace_prefix}Executor", response)
+            t("result", response)
+        return response
+
+    async def _execute_chat_async(self, client: Any, agent: Agent, messages: Any) -> Any:
+        with Tracer.start("chat.completions.create") as t:
+            t("type", "LLM")
+            t("signature", f"Async{self._trace_prefix}.chat.completions.create")
+            args = self._build_chat_args(agent, messages)
+            t("inputs", args)
+            response = await client.chat.completions.create(**args)
+            if args.get("stream", False):
+                return AsyncPromptyStream(f"{self._trace_prefix}Executor", response)
+            t("result", response)
+        return response
+
+    # -- Embedding ----------------------------------------------------------
+
+    def _execute_embedding(self, client: Any, agent: Agent, data: Any) -> Any:
+        with Tracer.start("embeddings.create") as t:
+            t("type", "LLM")
+            t("signature", f"{self._trace_prefix}.embeddings.create")
+            args = self._build_embedding_args(agent, data)
+            t("inputs", args)
+            response = client.embeddings.create(**args)
+            t("result", response)
+        return response
+
+    async def _execute_embedding_async(self, client: Any, agent: Agent, data: Any) -> Any:
+        with Tracer.start("embeddings.create") as t:
+            t("type", "LLM")
+            t("signature", f"Async{self._trace_prefix}.embeddings.create")
+            args = self._build_embedding_args(agent, data)
+            t("inputs", args)
+            response = await client.embeddings.create(**args)
+            t("result", response)
+        return response
+
+    # -- Image --------------------------------------------------------------
+
+    def _execute_image(self, client: Any, agent: Agent, data: Any) -> Any:
+        with Tracer.start("images.generate") as t:
+            t("type", "LLM")
+            t("signature", f"{self._trace_prefix}.images.generate")
+            args = self._build_image_args(agent, data)
+            t("inputs", args)
+            response = client.images.generate(**args)
+            t("result", response)
+        return response
+
+    async def _execute_image_async(self, client: Any, agent: Agent, data: Any) -> Any:
+        with Tracer.start("images.generate") as t:
+            t("type", "LLM")
+            t("signature", f"Async{self._trace_prefix}.images.generate")
+            args = self._build_image_args(agent, data)
+            t("inputs", args)
+            response = await client.images.generate(**args)
+            t("result", response)
+        return response
+
+    # -- Arg builders -------------------------------------------------------
+
+    def _build_chat_args(self, agent: Agent, messages: list[Message]) -> dict[str, Any]:
+        """Build the full arguments dict for chat.completions.create."""
+        model = agent.model.id or "gpt-4"
+        wire_messages = [_message_to_wire(m) for m in messages]
+        args: dict[str, Any] = {
+            "model": model,
+            "messages": wire_messages,
+            **_build_options(agent),
+        }
+        _apply_openai_reasoning_guard(agent.model.id, args)
+
+        tools = _tools_to_wire(agent)
+        if tools:
+            args["tools"] = tools
+
+        response_format = _output_schema_to_wire(agent)
+        if response_format:
+            args["response_format"] = response_format
+
+        return args
+
+    def _build_embedding_args(self, agent: Agent, data: Any) -> dict[str, Any]:
+        """Build arguments dict for embeddings.create."""
+        model = agent.model.id or "text-embedding-ada-002"
+        args: dict[str, Any] = {
+            "input": data,
+            "model": model,
+        }
+        # Only pass through additional properties — standard chat options
+        # (temperature, top_p, etc.) are not valid for the embeddings API.
+        if agent.model.options and agent.model.options.additional_properties:
+            for k, v in agent.model.options.additional_properties.items():
+                args[k] = v
+        return args
+
+    def _build_image_args(self, agent: Agent, data: Any) -> dict[str, Any]:
+        """Build arguments dict for images.generate."""
+        model = agent.model.id or "dall-e-3"
+        args: dict[str, Any] = {
+            "prompt": data,
+            "model": model,
+        }
+        # Only pass through additional properties — standard chat options
+        # (temperature, top_p, etc.) are not valid for the images API.
+        if agent.model.options and agent.model.options.additional_properties:
+            for k, v in agent.model.options.additional_properties.items():
+                args[k] = v
+        return args
+
+    # -- Responses API -------------------------------------------------------
+
+    def _execute_responses(self, client: Any, agent: Agent, messages: Any) -> Any:
+        with Tracer.start("responses.create") as t:
+            t("type", "LLM")
+            t("signature", f"{self._trace_prefix}.responses.create")
+            args = self._build_responses_args(agent, messages)
+            t("inputs", args)
+            response = client.responses.create(**args)
+            if args.get("stream", False):
+                return PromptyStream(f"{self._trace_prefix}Executor", response)
+            t("result", response)
+        return response
+
+    async def _execute_responses_async(self, client: Any, agent: Agent, messages: Any) -> Any:
+        with Tracer.start("responses.create") as t:
+            t("type", "LLM")
+            t("signature", f"Async{self._trace_prefix}.responses.create")
+            args = self._build_responses_args(agent, messages)
+            t("inputs", args)
+            response = await client.responses.create(**args)
+            if args.get("stream", False):
+                return AsyncPromptyStream(f"{self._trace_prefix}Executor", response)
+            t("result", response)
+        return response
+
+    def _build_responses_args(self, agent: Agent, messages: list[Message]) -> dict[str, Any]:
+        """Build the full arguments dict for responses.create.
+
+        Key differences from chat.completions.create:
+        - System messages → ``instructions`` parameter
+        - Other messages → ``input`` as EasyInputMessage list
+        - ``maxOutputTokens`` → ``max_output_tokens``
+        - Tools use flat format (not nested ``function:``)
+        - Structured output → ``text.format`` (not ``response_format``)
+        """
+        model = agent.model.id or "gpt-4o"
+
+        system_parts: list[str] = []
+        input_messages: list[dict[str, Any]] = []
+
+        for msg in messages:
+            if msg.role in ("system", "developer"):
+                system_parts.append(msg.text)
+            else:
+                input_messages.append(_message_to_responses_input(msg))
+
+        args: dict[str, Any] = {
+            "model": model,
+            "input": input_messages,
+        }
+
+        if system_parts:
+            args["instructions"] = "\n\n".join(system_parts)
+
+        # Model options (Responses-specific mapping)
+        args.update(_build_responses_options(agent))
+        _apply_openai_reasoning_guard(agent.model.id, args)
+
+        # Tools (flat format)
+        tools = _responses_tools_to_wire(agent)
+        if tools:
+            args["tools"] = tools
+
+        # Structured output (text.format)
+        text_config = _output_schema_to_responses_wire(agent)
+        if text_config:
+            args["text"] = text_config
+
+        return args
+
+    # -- FormatToolMessages -------------------------------------------------
+
+    def format_tool_messages(
+        self,
+        raw_response: Any,
+        tool_calls: list[Any],
+        tool_results: list[str],
+        text_content: str = "",
+    ) -> list[Message]:
+        """Format tool messages in OpenAI wire format.
+
+        Returns an assistant message with tool_calls metadata followed by
+        individual tool-role messages (one per call). For Responses API,
+        returns individual assistant messages with responses_function_call
+        metadata followed by function_call_output messages.
+        """
+
+        from ...core.types import Message, TextPart
+
+        result_messages: list[Message] = []
+
+        # Detect if this was a Responses API call by checking tool call structure
+        # (Responses API tool calls have call_id instead of id)
+        is_responses = hasattr(tool_calls[0], "call_id") if tool_calls else False
+
+        if is_responses:
+            # Responses API: individual function_call items
+            for tc in tool_calls:
+                call_id = getattr(tc, "call_id", tc.id)
+                result_messages.append(
+                    Message(
+                        role="assistant",
+                        parts=[],
+                        metadata={
+                            "responses_function_call": {
+                                "type": "function_call",
+                                "call_id": call_id,
+                                "name": tc.name,
+                                "arguments": tc.arguments,
+                            }
+                        },
+                    )
+                )
+            for i, tc in enumerate(tool_calls):
+                call_id = getattr(tc, "call_id", tc.id)
+                result_messages.append(
+                    Message(
+                        role="tool",
+                        parts=[TextPart(value=tool_results[i])],
+                        metadata={"tool_call_id": call_id, "name": tc.name},
+                    )
+                )
+        else:
+            # OpenAI Chat format: single assistant message + individual tool messages
+            raw_tool_calls = [
+                {"id": tc.id, "type": "function", "function": {"name": tc.name, "arguments": tc.arguments}}
+                for tc in tool_calls
+            ]
+            result_messages.append(
+                Message(
+                    role="assistant",
+                    parts=[TextPart(value=text_content)] if text_content else [],
+                    metadata={"tool_calls": raw_tool_calls},
+                )
+            )
+            for i, tc in enumerate(tool_calls):
+                result_messages.append(
+                    Message(
+                        role="tool",
+                        parts=[TextPart(value=tool_results[i])],
+                        metadata={"tool_call_id": tc.id, "name": tc.name},
+                    )
+                )
+
+        return result_messages
+
+
+# ---------------------------------------------------------------------------
+# OpenAI Executor
+# ---------------------------------------------------------------------------
+
+
+class OpenAIExecutor(_BaseExecutor):
+    """Executor for the OpenAI API (non-Azure).
+
+    Registered as ``openai`` in ``prompty.executors``.
+
+    Supports ``kind: key`` (direct API key) and ``kind: reference``
+    (pre-registered client via :func:`prompty.register_connection`).
+    """
+
+    _trace_prefix = "OpenAI"
+
+    @trace
+    def execute(self, agent: Agent, data: Any) -> Any:
+        client = self._resolve_client(agent)
+        api_type = agent.model.api_type or "chat"
+
+        if api_type == "chat":
+            return self._execute_chat(client, agent, data)
+        elif api_type == "embedding":
+            return self._execute_embedding(client, agent, data)
+        elif api_type == "image":
+            return self._execute_image(client, agent, data)
+        elif api_type == "responses":
+            return self._execute_responses(client, agent, data)
+        else:
+            raise ValueError(f"Unsupported apiType: {api_type}")
+
+    @trace
+    async def execute_async(self, agent: Agent, data: Any) -> Any:
+        client = self._resolve_client_async(agent)
+        api_type = agent.model.api_type or "chat"
+
+        if api_type == "chat":
+            return await self._execute_chat_async(client, agent, data)
+        elif api_type == "embedding":
+            return await self._execute_embedding_async(client, agent, data)
+        elif api_type == "image":
+            return await self._execute_image_async(client, agent, data)
+        elif api_type == "responses":
+            return await self._execute_responses_async(client, agent, data)
+        else:
+            raise ValueError(f"Unsupported apiType: {api_type}")
+
+    def _resolve_client(self, agent: Agent) -> Any:
+        """Resolve the sync OpenAI client from connection config."""
+        from openai import OpenAI
+
+        conn = agent.model.connection
+
+        if isinstance(conn, ReferenceConnection):
+            return get_connection(conn.name)
+
+        kwargs = self._client_kwargs(agent)
+        with Tracer.start("OpenAI") as t:
+            t("type", "LLM")
+            t("signature", "OpenAI.ctor")
+            client = OpenAI(
+                default_headers={
+                    "User-Agent": f"prompty/{VERSION}",
+                    "x-ms-useragent": f"prompty/{VERSION}",
+                },
+                **kwargs,
+            )
+        return client
+
+    def _resolve_client_async(self, agent: Agent) -> Any:
+        """Resolve the async OpenAI client from connection config."""
+        from openai import AsyncOpenAI
+
+        conn = agent.model.connection
+
+        if isinstance(conn, ReferenceConnection):
+            return get_connection(conn.name)
+
+        kwargs = self._client_kwargs(agent)
+        with Tracer.start("AsyncOpenAI") as t:
+            t("type", "LLM")
+            t("signature", "AsyncOpenAI.ctor")
+            client = AsyncOpenAI(
+                default_headers={
+                    "User-Agent": f"prompty/{VERSION}",
+                    "x-ms-useragent": f"prompty/{VERSION}",
+                },
+                **kwargs,
+            )
+        return client
+
+    def _client_kwargs(self, agent: Agent) -> dict[str, Any]:
+        """Extract client constructor kwargs from an ApiKeyConnection."""
+        import os
+
+        kwargs: dict[str, Any] = {}
+        conn = agent.model.connection
+        if conn and isinstance(conn, ApiKeyConnection):
+            if conn.api_key:
+                kwargs["api_key"] = conn.api_key
+            if conn.endpoint:
+                kwargs["base_url"] = conn.endpoint
+        elif conn:
+            kind = getattr(conn, "kind", type(conn).__name__)
+            raise NotImplementedError(
+                f"Connection kind '{kind}' is not supported by the OpenAI executor. "
+                f"Use 'key' for API key auth or 'reference' with register_connection() for pre-configured clients."
+            )
+        # Some openai SDK builds do not fall back to the public API host when
+        # no base_url is configured, which surfaces as an APIConnectionError
+        # ("Request URL is missing an 'http://' or 'https://' protocol").
+        # Default to the public endpoint, still honoring OPENAI_BASE_URL.
+        if "base_url" not in kwargs:
+            kwargs["base_url"] = os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        return kwargs

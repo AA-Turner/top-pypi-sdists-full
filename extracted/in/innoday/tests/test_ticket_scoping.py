@@ -435,11 +435,11 @@ class TestBoardSyncProjectId:
             "parent_external_id": None,
         }
 
-        was_created, ticket = service._create_or_update_ticket(
+        outcome, ticket = service._create_or_update_ticket(
             external, board, db_session, project_id=project.id
         )
 
-        assert was_created is True
+        assert outcome == "created"
         assert ticket.project_id == project.id
 
     def test_create_ticket_assigns_project_ref_number(
@@ -509,10 +509,10 @@ class TestBoardSyncProjectId:
 
         # Sync the same external ticket again (update path)
         data["summary"] = "Updated title"
-        was_created, updated = service._create_or_update_ticket(
+        outcome, updated = service._create_or_update_ticket(
             data, board, db_session, project_id=project.id
         )
 
-        assert was_created is False
+        assert outcome in ("updated", "unchanged")
         assert updated.project_ref_number == original_ref
         assert updated.summary == "Updated title"

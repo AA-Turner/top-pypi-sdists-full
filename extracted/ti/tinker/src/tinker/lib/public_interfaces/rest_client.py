@@ -63,6 +63,7 @@ class RestClient(TelemetryProvider):
     - get_training_run() - get model information and metadata as ModelEntry
     - delete_checkpoint() - delete an existing checkpoint for a training run
     - get_checkpoint_archive_url() - get signed URL to download checkpoint archive
+    - get_external_weights_urls() - get per-file signed URLs for an external weights checkpoint
     - publish_checkpoint_from_tinker_path() - publish a checkpoint to make it public
     - unpublish_checkpoint_from_tinker_path() - unpublish a checkpoint to make it private
     - set_checkpoint_ttl_from_tinker_path() - set or remove TTL on a checkpoint
@@ -409,6 +410,52 @@ class RestClient(TelemetryProvider):
     ) -> types.CheckpointArchiveUrlResponse:
         """Async version of get_checkpoint_archive_url."""
         return await self._get_checkpoint_archive_url_submit(training_run_id, checkpoint_id)
+
+    def _get_external_weights_urls_submit(
+        self, tinker_path: str
+    ) -> AwaitableConcurrentFuture[types.ExternalWeightsUrlsResponse]:
+        parsed_tinker_path = types.ParsedCheckpointTinkerPath.from_tinker_path(tinker_path)
+        if not parsed_tinker_path.checkpoint_id.startswith("external_weights/"):
+            raise ValueError(
+                "get_external_weights_urls only accepts external weights checkpoints "
+                f"(tinker://<training_run_id>/external_weights/<name>), got {tinker_path!r}"
+            )
+
+        async def _get_external_weights_urls_async() -> types.ExternalWeightsUrlsResponse:
+            async def _send_request() -> types.ExternalWeightsUrlsResponse:
+                with self.holder.aclient(ClientConnectionPoolType.TRAIN) as client:
+                    return await client.weights.get_external_weights_urls(
+                        model_id=parsed_tinker_path.training_run_id,
+                        checkpoint_id=parsed_tinker_path.checkpoint_id,
+                    )
+
+            return await self.holder.execute_with_retries(_send_request)
+
+        return self.holder.run_coroutine_threadsafe(_get_external_weights_urls_async())
+
+    @sync_only
+    @capture_exceptions(fatal=True)
+    def get_external_weights_urls(
+        self, tinker_path: str
+    ) -> ConcurrentFuture[types.ExternalWeightsUrlsResponse]:
+        """Get signed download URLs, one per file, for an external weights checkpoint.
+
+        Args:
+        - `tinker_path`: The checkpoint's tinker path, as returned by `save_weights_external`
+          (`tinker://<training_run_id>/external_weights/<name>`)
+
+        Returns:
+        - A `Future` containing the `ExternalWeightsUrlsResponse`: `urls` maps each file path
+          (relative to the checkpoint root) to a signed URL, valid until `expires`
+        """
+        return self._get_external_weights_urls_submit(tinker_path).future()
+
+    @capture_exceptions(fatal=True)
+    async def get_external_weights_urls_async(
+        self, tinker_path: str
+    ) -> types.ExternalWeightsUrlsResponse:
+        """Async version of get_external_weights_urls."""
+        return await self._get_external_weights_urls_submit(tinker_path)
 
     def _delete_checkpoint_submit(
         self, training_run_id: types.ModelID, checkpoint_id: str

@@ -1716,6 +1716,17 @@ struct mj_geomDistance {
   }
 };
 
+struct mj_insideSite {
+  static constexpr char name[] = "mj_insideSite";
+  static constexpr char doc[] = "Return 1 if point is inside a site (convex hull for meshes), 0 otherwise.";
+  using type = int (const mjModel *, const mjData *, int, const mjtNum (*)[3]);
+  static constexpr auto param_names = std::make_tuple("m", "d", "siteid", "point");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return *reinterpret_cast<type*>(&::mj_insideSite);
+  }
+};
+
 struct mj_contactForce {
   static constexpr char name[] = "mj_contactForce";
   static constexpr char doc[] = "Extract 6D force:torque given contact id, in the contact frame.";

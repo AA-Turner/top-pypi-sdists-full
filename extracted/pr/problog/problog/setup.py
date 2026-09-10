@@ -1,8 +1,10 @@
 """
-problog.setup - Installation tools
-----------------------------------
+problog.setup - Environment discovery
+-------------------------------------
 
-Provides an installer for ProbLog dependencies.
+Locates the binaries and libraries ProbLog uses, and reports what is
+available.  Compiling those binaries is a build-time concern and lives in
+the top-level Makefile, not here.
 
 ..
     Part of the ProbLog distribution.
@@ -24,7 +26,6 @@ Provides an installer for ProbLog dependencies.
 import shutil
 
 import os
-import subprocess
 import sys
 
 
@@ -116,41 +117,6 @@ def gather_info():
     return system_info
 
 
-def detect_compiler():
-    """Detects the available C compiler."""
-    if shutil.which("gcc"):
-        return "gcc"
-    elif shutil.which("clang"):
-        return "clang"
-    elif shutil.which("cl"):  # Microsoft Visual C++ (MSVC)
-        return "cl"
-    else:
-        raise RuntimeError("No suitable C compiler found")
-
-def build_maxsatz():
-    if get_system() == "windows":
-        return  # We include the binary
-
-    dest_dir, source_dir = get_binary_paths()
-    source_dir = os.path.join(source_dir, "source", "maxsatz")
-    source_file = "maxsatz2009.c"
-    output_file = os.path.join(dest_dir, "maxsatz")
-
-    compiler = detect_compiler()
-    if compiler not in ["gcc", "clang"]:
-        return
-
-    with WorkingDir(source_dir):
-        compile_cmd = [compiler, "-o", output_file, source_file]
-        subprocess.run(compile_cmd, check=True)
-
-
-def install(force=True):
-    info = gather_info()
-    build_maxsatz()
-    return info
-
-
 def system_info():
     info = gather_info()
 
@@ -186,22 +152,3 @@ def system_info():
     #     s += '  ACTION: run ProbLog installer\n'
     #
     return s
-
-
-class WorkingDir(object):
-    def __init__(self, workdir):
-        self.workdir = workdir
-        self.currentdir = os.path.abspath(os.curdir)
-
-    def __enter__(self):
-        self.currentdir = os.path.abspath(os.curdir)
-        os.chdir(self.workdir)
-
-    def __exit__(self, *args):
-        os.chdir(self.currentdir)
-
-
-if __name__ == "__main__":
-    set_environment()
-    info = install()
-    print(info)

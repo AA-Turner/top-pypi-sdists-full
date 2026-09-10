@@ -76,6 +76,18 @@ class TestScopeFlag:
         with pytest.raises(SystemExit):
             parser.parse_args(["--scope", "everything"])
 
+    def test_waiting_for_the_board_sync_is_the_default(self, parser):
+        """#741: `--no-wait` is opt-in, so a bare `innoday sync` waits."""
+        from src.cli.commands.boards import DEFAULT_SYNC_WAIT_TIMEOUT
+
+        args = parser.parse_args([])
+        assert args.no_wait is False
+        assert args.wait_timeout == DEFAULT_SYNC_WAIT_TIMEOUT
+
+        opted_out = parser.parse_args(["--no-wait", "--wait-timeout", "30"])
+        assert opted_out.no_wait is True
+        assert opted_out.wait_timeout == 30.0
+
     def test_the_ticket_subcommand_still_parses_alongside(self, parser):
         args = parser.parse_args(["ticket", "PF-155"])
         assert args.sync_command == "ticket"

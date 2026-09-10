@@ -1,18 +1,18 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: vercel-internal-shared-vendored-deps
-Version: 0.1.1
+Version: 0.1.2
 Summary: Shared vendored dependencies for Vercel Python packages
 License-Expression: MIT
 License-File: LICENSE
 License-File: vercel/internal/_vendor/LICENSE.anyio
-License-File: vercel/internal/_vendor/LICENSE.certifi
 License-File: vercel/internal/_vendor/LICENSE.h11.txt
 License-File: vercel/internal/_vendor/LICENSE.h2
 License-File: vercel/internal/_vendor/LICENSE.hpack
-License-File: vercel/internal/_vendor/LICENSE.httpcore.md
-License-File: vercel/internal/_vendor/LICENSE.httpx.md
+License-File: vercel/internal/_vendor/LICENSE.httpcore2.md
+License-File: vercel/internal/_vendor/LICENSE.httpx2.md
 License-File: vercel/internal/_vendor/LICENSE.hyperframe
 License-File: vercel/internal/_vendor/LICENSE.idna.md
+License-File: vercel/internal/_vendor/LICENSE.truststore
 License-File: vercel/internal/_vendor/LICENSE.typing-extensions
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

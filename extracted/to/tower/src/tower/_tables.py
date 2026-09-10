@@ -1,0 +1,897 @@
+from __future__ import annotations
+
+import math
+import os
+import random
+import time
+from dataclasses import dataclass
+from typing import Any, Callable, Optional, TypeVar, Union
+
+from pyiceberg.expressions import (
+    BooleanExpression,
+    EqualTo,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+    NotEqualTo,
+)
+from pyiceberg.exceptions import CommitFailedException, NoSuchTableError
+
+TTable = TypeVar("TTable", bound="Table")
+TRetryResult = TypeVar("TRetryResult")
+
+import polars as pl
+import pyarrow as pa
+import pyarrow.compute as pc
+from pyiceberg.catalog import (
+    Catalog,
+    load_catalog,
+)
+from pyiceberg.table import Table as IcebergTable
+
+from ._context import TowerContext
+from ._storage import (
+    TOWER_CATALOG_TYPE,
+    _describe_tower_catalog_type,
+    get_tower_catalog_credentials,
+    load_vended_catalog,
+)
+from .exceptions import PyArrowFilterMigrationError
+from .tower_api_client.models import CatalogCredentials
+from .utils.tables import (
+    make_table_name,
+    namespace_or_default,
+)
+
+_MAX_COMMIT_RETRY_DELAY_SECONDS = 30.0
+
+
+@dataclass
+class RowsAffectedInformation:
+    inserts: int
+    updates: int
+
+
+@dataclass(frozen=True, eq=False)
+class _TableColumn:
+    name: str
+
+    def __eq__(self, value: Any) -> BooleanExpression:
+        return EqualTo(self.name, value)
+
+    def __ne__(self, value: Any) -> BooleanExpression:
+        return NotEqualTo(self.name, value)
+
+    def __gt__(self, value: Any) -> BooleanExpression:
+        return GreaterThan(self.name, value)
+
+    def __ge__(self, value: Any) -> BooleanExpression:
+        return GreaterThanOrEqual(self.name, value)
+
+    def __lt__(self, value: Any) -> BooleanExpression:
+        return LessThan(self.name, value)
+
+    def __le__(self, value: Any) -> BooleanExpression:
+        return LessThanOrEqual(self.name, value)
+
+
+_VendedCatalogIdentity = tuple[str, str, str]
+
+
+def _vended_catalog_identity(
+    credentials: CatalogCredentials,
+) -> _VendedCatalogIdentity:
+    return (
+        credentials.catalog_uri,
+        credentials.warehouse,
+        credentials.oauth_token,
+    )
+
+
+def _load_tower_catalog(
+    name: str,
+    environment: Optional[str],
+    mode: str,
+) -> tuple[Catalog, _VendedCatalogIdentity]:
+    credentials = get_tower_catalog_credentials(name, environment, mode)
+    return load_vended_catalog(name, credentials), _vended_catalog_identity(credentials)
+
+
+def _pyiceberg_catalog_env_prefix(name: str) -> str:
+    catalog_name = name.replace("-", "_").replace(".", "_").replace(":", "_").upper()
+    return f"PYICEBERG_CATALOG__{catalog_name}__"
+
+
+def _has_pyiceberg_catalog_config(name: str) -> bool:
+    try:
+        from pyiceberg.catalog import _ENV_CONFIG
+
+        if _ENV_CONFIG.get_catalog_config(name) is not None:
+            return True
+    except Exception:
+        pass
+
+    prefix = _pyiceberg_catalog_env_prefix(name)
+    return any(key.upper().startswith(prefix) for key in os.environ)
+
+
+def _should_vend_tower_credentials(
+    ctx: TowerContext,
+    name: str,
+    environment: str,
+    tower_credentials: Optional[bool],
+) -> bool:
+    """Choose Tower vending only for managed catalogs unless explicitly overridden.
+
+    BYO catalogs such as S3 Tables already receive PyIceberg config from the runner,
+    so the default path must preserve that instead of forcing Tower vending.
+    """
+    if tower_credentials is not None:
+        return tower_credentials
+
+    catalog_type = _describe_tower_catalog_type(ctx, name, environment)
+    if catalog_type is not None:
+        return catalog_type == TOWER_CATALOG_TYPE
+
+    return not _has_pyiceberg_catalog_config(name)
+
+
+class Table:
+    """
+    `Table` is a wrapper around an Iceberg table. It provides methods to read and
+    write data to the table.
+    """
+
+    def __init__(
+        self,
+        context: TowerContext,
+        table: IcebergTable,
+        table_reference: Optional[TableReference] = None,
+        table_identifier: Optional[str] = None,
+        catalog_mode: str = "read",
+    ):
+        """
+        Initialize a new Table instance that wraps an Iceberg table.
+
+        This constructor creates a Table object that provides a high-level interface
+        for interacting with an Iceberg table. It initializes the table statistics
+        tracking and stores the necessary context and table references.
+
+        Args:
+            context (TowerContext): The context in which the table operates, providing
+                configuration and environment settings.
+            table (IcebergTable): The underlying Iceberg table instance to be wrapped.
+
+        Attributes:
+            _stats (RowsAffectedInformation): Tracks the number of rows affected by
+                insert and update operations. Initialized with zero counts.
+            _context (TowerContext): The context in which the table operates.
+            _table (IcebergTable): The underlying Iceberg table instance.
+
+        Example:
+            >>> # Create a table reference and load it
+            >>> table_ref = tables("my_table")
+            >>> table = table_ref.load()  # This internally calls Table.__init__
+        """
+
+        self._stats = RowsAffectedInformation(0, 0)
+        self._context = context
+        self._table = table
+        self._table_reference = table_reference
+        self._table_identifier = table_identifier
+        self._catalog_mode = catalog_mode
+        self._loaded_from = (
+            table_reference._catalog if table_reference is not None else None
+        )
+
+    def _ensure_read_write_table(self) -> None:
+        if self._table_reference is None or self._table_identifier is None:
+            return
+
+        catalog = self._table_reference._ensure_catalog_mode("read-write")
+        if catalog is not self._loaded_from:
+            self._table = catalog.load_table(self._table_identifier)
+            self._loaded_from = catalog
+        self._catalog_mode = "read-write"
+
+    def read(self) -> pl.DataFrame:
+        """
+        Reads all data from the Iceberg table and returns it as a Polars DataFrame.
+
+        This method executes a full table scan and materializes the results into memory
+        as a Polars DataFrame. For large tables, consider using `to_polars()` to get a
+        LazyFrame that can be processed incrementally.
+
+        Returns:
+            pl.DataFrame: A Polars DataFrame containing all rows from the table.
+
+        Example:
+            >>> table = tables("my_table").load()
+            >>> # Read all data into a DataFrame
+            >>> df = table.read()
+            >>> # Perform operations on the DataFrame
+            >>> filtered_df = df.filter(pl.col("age") > 30)
+            >>> # Get basic statistics
+            >>> print(df.describe())
+        """
+        # We call `collect` here to force the execution of the query and get
+        # the result as a DataFrame.
+        # Note: reader_override="pyiceberg" ensures AWS S3 vended credentials are passed through
+        # properly. The native rust reader is faster but doesn't pass credentials from pyiceberg.
+        return pl.scan_iceberg(self._table, reader_override="pyiceberg").collect()
+
+    def to_polars(self) -> pl.LazyFrame:
+        """
+        Converts the table to a Polars LazyFrame for efficient, lazy evaluation.
+
+        This method returns a LazyFrame that allows for building complex query plans
+        without immediately executing them. This is particularly useful for:
+        - Processing large tables that don't fit in memory
+        - Building complex transformations and aggregations
+        - Optimizing query performance through Polars' query optimizer
+
+        Returns:
+            pl.LazyFrame: A Polars LazyFrame representing the table data.
+
+        Example:
+            >>> table = tables("my_table").load()
+            >>> # Create a lazy query plan
+            >>> lazy_df = table.to_polars()
+            >>> # Build complex transformations
+            >>> result = (lazy_df
+            ...     .filter(pl.col("age") > 30)
+            ...     .groupby("department")
+            ...     .agg(pl.col("salary").mean())
+            ...     .sort("department"))
+            >>> # Execute the plan
+            >>> final_df = result.collect()
+        """
+        # Note: reader_override="pyiceberg" ensures AWS S3 vended credentials are passed through
+        # properly. The native rust reader is faster but doesn't pass credentials from pyiceberg.
+        return pl.scan_iceberg(self._table, reader_override="pyiceberg")
+
+    def rows_affected(self) -> RowsAffectedInformation:
+        """
+        Returns statistics about the number of rows affected by write operations on the table.
+
+        This method tracks the cumulative number of rows that have been inserted or updated
+        through operations like `insert()` and `upsert()`. Note that delete operations are
+        not currently tracked due to limitations in the underlying Iceberg implementation.
+
+        Returns:
+            RowsAffectedInformation: An object containing:
+                - inserts (int): Total number of rows inserted
+                - updates (int): Total number of rows updated
+
+        Example:
+            >>> table = tables("my_table").load()
+            >>> # Insert some data
+            >>> table.insert(new_data)
+            >>> # Upsert some data
+            >>> table.upsert(updated_data, join_cols=["id"])
+            >>> # Check the impact of our operations
+            >>> stats = table.rows_affected()
+            >>> print(f"Inserted {stats.inserts} rows")
+            >>> print(f"Updated {stats.updates} rows")
+        """
+        return self._stats
+
+    @staticmethod
+    def _validate_retry_args(max_retries: int, retry_delay_seconds: float) -> None:
+        if max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
+        if not math.isfinite(retry_delay_seconds) or retry_delay_seconds < 0:
+            raise ValueError("retry_delay_seconds must be finite and >= 0")
+
+    def _commit_with_retry(
+        self,
+        operation: Callable[[], TRetryResult],
+        max_retries: int,
+        initial_retry_ceiling_seconds: float,
+    ) -> TRetryResult:
+        retry_ceiling_seconds = min(
+            initial_retry_ceiling_seconds, _MAX_COMMIT_RETRY_DELAY_SECONDS
+        )
+
+        for attempt in range(max_retries + 1):
+            try:
+                return operation()
+            except CommitFailedException:
+                if attempt == max_retries:
+                    raise
+
+                delay_seconds = random.uniform(0.0, retry_ceiling_seconds)
+                time.sleep(delay_seconds)
+                self._table.refresh()
+                retry_ceiling_seconds = min(
+                    retry_ceiling_seconds * 2, _MAX_COMMIT_RETRY_DELAY_SECONDS
+                )
+
+        raise AssertionError("unreachable")
+
+    def insert(
+        self,
+        data: pa.Table,
+        max_retries: int = 5,
+        retry_delay_seconds: float = 0.5,
+    ) -> TTable:
+        """
+        Inserts new rows into the Iceberg table. In case of commit conflicts, reloads the metadata and retries.
+
+        This method appends the provided data to the table. The data must be provided as a
+        PyArrow table with a schema that matches the table's schema. The operation is
+        tracked in the table's statistics, incrementing the insert count.
+
+        Args:
+            data (pa.Table): The data to insert into the table. The schema of this table
+                must match the schema of the target table.
+            max_retries (int): Maximum number of retry attempts on commit conflicts.
+                Defaults to 5.
+            retry_delay_seconds (float): Maximum randomized wait before the first retry,
+                in seconds. The maximum doubles after each conflict but never exceeds
+                30 seconds; values above 30 are treated as 30. Defaults to 0.5 seconds.
+
+        Returns:
+            TTable: The table instance with the newly inserted rows, allowing for method chaining.
+
+        Raises:
+            CommitFailedException: If all retry attempts are exhausted.
+
+        Example:
+            >>> table = tables("my_table").load()
+            >>> # Create a PyArrow table with new data
+            >>> new_data = pa.table({
+            ...     "id": [1, 2, 3],
+            ...     "name": ["Alice", "Bob", "Charlie"],
+            ...     "age": [25, 30, 35]
+            ... })
+            >>> # Insert the data
+            >>> table.insert(new_data)
+            >>> # Verify the insertion
+            >>> stats = table.rows_affected()
+            >>> print(f"Inserted {stats.inserts} rows")
+        """
+        self._validate_retry_args(max_retries, retry_delay_seconds)
+        self._ensure_read_write_table()
+
+        self._commit_with_retry(
+            lambda: self._table.append(data), max_retries, retry_delay_seconds
+        )
+        self._stats.inserts += data.num_rows
+        return self
+
+    def upsert(
+        self,
+        data: pa.Table,
+        join_cols: Optional[list[str]] = None,
+        max_retries: int = 5,
+        retry_delay_seconds: float = 0.5,
+    ) -> TTable:
+        """
+        Performs an upsert operation (update or insert) on the Iceberg table. In case of commit conflicts, reloads the metadata and retries.
+
+        This method will:
+        - Update existing rows if they match the join columns
+        - Insert new rows if no match is found
+        - Retry for max_retries if commits fail
+        All operations are case-sensitive by default.
+
+        Args:
+            data (pa.Table): The data to upsert into the table. The schema of this table
+                must match the schema of the target table.
+            join_cols (Optional[list[str]]): The columns that form the key to match rows on.
+                If not provided, all columns will be used for matching.
+            max_retries (int): Maximum number of retry attempts on commit conflicts.
+                Defaults to 5.
+            retry_delay_seconds (float): Maximum randomized wait before the first retry,
+                in seconds. The maximum doubles after each conflict but never exceeds
+                30 seconds; values above 30 are treated as 30. Defaults to 0.5 seconds.
+
+        Returns:
+            TTable: The table instance with the upserted rows, allowing for method chaining.
+
+        Raises:
+            CommitFailedException: If all retry attempts are exhausted.
+
+        Note:
+            - The operation is always case-sensitive
+            - When a match is found, all columns are updated
+            - When no match is found, the row is inserted
+            - The operation is tracked in the table's statistics
+
+        Example:
+            >>> table = tables("my_table").load()
+            >>> # Create a PyArrow table with data to upsert
+            >>> data = pa.table({
+            ...     "id": [1, 2, 3],
+            ...     "name": ["Alice", "Bob", "Charlie"],
+            ...     "age": [26, 31, 36]  # Updated ages
+            ... })
+            >>> # Upsert the data using 'id' as the key
+            >>> table.upsert(data, join_cols=["id"])
+            >>> # Verify the operation
+            >>> stats = table.rows_affected()
+            >>> print(f"Updated {stats.updates} rows")
+            >>> print(f"Inserted {stats.inserts} rows")
+        """
+        self._validate_retry_args(max_retries, retry_delay_seconds)
+        self._ensure_read_write_table()
+
+        res = self._commit_with_retry(
+            lambda: self._table.upsert(
+                data,
+                join_cols=join_cols,
+                # All upserts will always be case sensitive. Perhaps we'll add this
+                # as a parameter in the future?
+                case_sensitive=True,
+                # These are the defaults, but we're including them to be complete.
+                when_matched_update_all=True,
+                when_not_matched_insert_all=True,
+            ),
+            max_retries,
+            retry_delay_seconds,
+        )
+
+        self._stats.updates += res.rows_updated
+        self._stats.inserts += res.rows_inserted
+        return self
+
+    def delete(
+        self,
+        filters: str | BooleanExpression,
+        max_retries: int = 5,
+        retry_delay_seconds: float = 0.5,
+    ) -> TTable:
+        """
+        Deletes rows from the Iceberg table that match the specified filter conditions.
+        In case of commit conflicts, reloads the metadata and retries.
+
+        This method removes rows from the table based on the provided filter expressions.
+        The operation is always case-sensitive. Note that the number of deleted rows
+        cannot be tracked due to limitations in the underlying Iceberg implementation.
+
+        Args:
+            filters (str | BooleanExpression): A SQL-like string or a PyIceberg
+                boolean expression. Use ``Table.column()`` to construct expressions.
+            max_retries (int): Maximum number of retry attempts on commit conflicts.
+                Defaults to 5.
+            retry_delay_seconds (float): Maximum randomized wait before the first retry,
+                in seconds. The maximum doubles after each conflict but never exceeds
+                30 seconds; values above 30 are treated as 30. Defaults to 0.5 seconds.
+
+        Returns:
+            TTable: The table instance with the deleted rows, allowing for method chaining.
+
+        Raises:
+            CommitFailedException: If all retry attempts are exhausted.
+
+        Note:
+            - The operation is always case-sensitive
+            - The number of deleted rows cannot be tracked in the table statistics
+            - To get the number of deleted rows, you would need to compare snapshots
+
+        Example:
+            >>> table = tables("my_table").load()
+            >>> # Delete rows where age is greater than 30
+            >>> table.delete(table.column("age") > 30)
+            >>> # Delete rows matching multiple conditions
+            >>> table.delete(
+            ...     (table.column("age") > 30)
+            ...     & (table.column("department") == "IT")
+            ... )
+            >>> # Delete rows using a string expression
+            >>> table.delete("age > 30 AND department = 'IT'")
+        """
+        self._validate_retry_args(max_retries, retry_delay_seconds)
+        filters = self._normalize_delete_filter(filters)
+        self._ensure_read_write_table()
+
+        self._commit_with_retry(
+            lambda: self._table.delete(
+                delete_filter=filters,
+                # We want this to always be the case. Not sure why you wouldn't?
+                case_sensitive=True,
+            ),
+            max_retries,
+            retry_delay_seconds,
+        )
+
+        # NOTE: There is, unfortunately, no way to get the number of rows
+        # deleted besides comparing the two snapshots that were created.
+
+        return self
+
+    @staticmethod
+    def _normalize_delete_filter(filters: object) -> str | BooleanExpression:
+        if isinstance(filters, (pc.Expression, list)):
+            raise PyArrowFilterMigrationError()
+        if isinstance(filters, (str, BooleanExpression)):
+            return filters
+        raise TypeError(
+            "filters must be a SQL-like string or a PyIceberg BooleanExpression"
+        )
+
+    def schema(self) -> pa.Schema:
+        """
+        Returns the schema of the table as a PyArrow schema.
+
+        This method converts the underlying Iceberg table schema into a PyArrow schema,
+        which can be used for type information and schema validation.
+
+        Returns:
+            pa.Schema: The PyArrow schema representation of the table's structure.
+        Example:
+            >>> table = tables("my_table").load()
+            >>> schema = table.schema()
+        """
+        iceberg_schema = self._table.schema()
+        return iceberg_schema.as_arrow()
+
+    def column(self, name: str) -> _TableColumn:
+        """
+        Returns a structural builder for PyIceberg filter expressions.
+
+        This method is useful for creating column-based expressions that can be used in
+        comparison operators build PyIceberg boolean expressions that can be passed to
+        ``delete()`` and composed with ``&``, ``|``, and ``~``.
+
+        Args:
+            name (str): The name of the column to retrieve from the table schema.
+
+        Returns:
+            _TableColumn: A builder for PyIceberg comparison expressions.
+
+        Raises:
+            ValueError: If the specified column name is not found in the table schema.
+
+        Example:
+            >>> table = tables("my_table").load()
+            >>> # Create a filter expression for rows where age > 30
+            >>> age_expr = table.column("age") > 30
+            >>> # Use the expression in a delete operation
+            >>> table.delete(age_expr)
+        """
+        try:
+            self._table.schema().find_field(name, case_sensitive=True)
+        except ValueError:
+            raise ValueError(f"Column {name} not found in table schema") from None
+
+        return _TableColumn(name)
+
+
+class TableReference:
+    def __init__(
+        self,
+        ctx: TowerContext,
+        catalog: Catalog,
+        name: str,
+        namespace: Optional[str] = None,
+        catalog_name: Optional[str] = None,
+        catalog_environment: Optional[str] = None,
+        tower_vended: bool = False,
+        catalog_mode: str = "read",
+        vended_catalog_identity: Optional[_VendedCatalogIdentity] = None,
+    ):
+        self._context = ctx
+        self._catalog = catalog
+        self._name = name
+        self._namespace = namespace
+        self._catalog_name = catalog_name
+        self._catalog_environment = catalog_environment
+        self._tower_vended = tower_vended
+        self._catalog_mode = catalog_mode
+        self._vended_catalog_identity = vended_catalog_identity
+
+    def _ensure_catalog_mode(self, mode: str) -> Catalog:
+        if not self._tower_vended or self._catalog_name is None:
+            return self._catalog
+
+        # Keep references read-first; write credentials are vended only on write paths.
+        credentials = get_tower_catalog_credentials(
+            self._catalog_name,
+            environment=self._catalog_environment,
+            mode=mode,
+        )
+        identity = _vended_catalog_identity(credentials)
+
+        if self._catalog_mode != mode or self._vended_catalog_identity != identity:
+            self._catalog = load_vended_catalog(
+                self._catalog_name,
+                credentials,
+            )
+            self._catalog_mode = mode
+            self._vended_catalog_identity = identity
+
+        return self._catalog
+
+    def load(self) -> Table:
+        """
+        Loads an existing Iceberg table from the catalog.
+
+        This method resolves the table's namespace and name, then loads the table
+        from the catalog. If the table doesn't exist, this will raise an error.
+        Use `create()` or `create_if_not_exists()` to create new tables.
+
+        Returns:
+            Table: A new Table instance wrapping the loaded Iceberg table.
+
+        Raises:
+            TableNotFoundError: If the table doesn't exist in the catalog.
+
+        Example:
+            >>> # Load the existing table
+            >>> table = tables("my_table", namespace="my_namespace").load()
+            >>> # Now you can use the table
+            >>> df = table.read()
+        """
+
+        namespace = namespace_or_default(self._namespace)
+        table_name = make_table_name(self._name, namespace)
+        table = self._catalog.load_table(table_name)
+        return Table(
+            self._context,
+            table,
+            table_reference=self if self._tower_vended else None,
+            table_identifier=table_name,
+            catalog_mode=self._catalog_mode,
+        )
+
+    def create(self, schema: pa.Schema) -> Table:
+        """
+        Creates a new Iceberg table with the specified schema.
+
+        This method will:
+        1. Resolve the table's namespace (using default if not specified)
+        2. Create the namespace if it doesn't exist
+        3. Create a new table with the provided schema
+        4. Return a Table instance for the newly created table
+
+        Args:
+            schema (pa.Schema): The PyArrow schema defining the structure of the table.
+                PyIceberg validates it and assigns Iceberg field IDs. Lossy or
+                unsupported types, including nanosecond timestamps by default, are
+                rejected.
+
+        Returns:
+            Table: A new Table instance wrapping the created Iceberg table.
+
+        Raises:
+            TableAlreadyExistsError: If a table with the same name already exists in the namespace.
+            NamespaceError: If there are issues creating or accessing the namespace.
+
+        Example:
+            >>> # Define the table schema
+            >>> schema = pa.schema([
+            ...     pa.field("id", pa.int64()),
+            ...     pa.field("name", pa.string()),
+            ...     pa.field("age", pa.int32())
+            ... ])
+            >>> # Create the table
+            >>> table = tables("my_table", namespace="my_namespace").create(schema)
+            >>> # Now you can use the table
+            >>> table.insert(new_data)
+        """
+
+        namespace = namespace_or_default(self._namespace)
+        table_name = make_table_name(self._name, namespace)
+        catalog = self._ensure_catalog_mode("read-write")
+
+        # We need to create the relevant namespace if it's missing from the
+        # resolved namespace.
+        catalog.create_namespace_if_not_exists(namespace)
+
+        # Now that we're certain the namespace exists, we can create the
+        # underlying table. This will return an error if something went wrong
+        # along the way.
+        table = catalog.create_table(
+            identifier=table_name,
+            schema=schema,
+        )
+
+        return Table(
+            self._context,
+            table,
+            table_reference=self if self._tower_vended else None,
+            table_identifier=table_name,
+            catalog_mode=self._catalog_mode,
+        )
+
+    def create_if_not_exists(self, schema: pa.Schema) -> Table:
+        """
+        Creates a new Iceberg table if it doesn't exist, or returns the existing table.
+
+        This method will:
+        1. Resolve the table's namespace (using default if not specified)
+        2. Create the namespace if it doesn't exist
+        3. Create a new table with the provided schema if it doesn't exist
+        4. Return the existing table if it already exists
+        5. Return a Table instance for the table
+
+        Unlike `create()`, this method will not raise an error if the table already exists.
+        Instead, it will return the existing table, making it safe for idempotent operations.
+
+        Args:
+            schema (pa.Schema): The PyArrow schema defining the structure of the table.
+                PyIceberg validates it and assigns Iceberg field IDs. Lossy or
+                unsupported types, including nanosecond timestamps by default, are
+                rejected. This schema is only used if the
+                table needs to be created.
+
+        Returns:
+            Table: A Table instance wrapping either the newly created or existing Iceberg table.
+
+        Raises:
+            NamespaceError: If there are issues creating or accessing the namespace.
+
+        Example:
+            >>> # Define the table schema
+            >>> schema = pa.schema([
+            ...     pa.field("id", pa.int64()),
+            ...     pa.field("name", pa.string()),
+            ...     pa.field("age", pa.int32())
+            ... ])
+            >>> # Create the table if it doesn't exist
+            >>> table = tables("my_table", namespace="my_namespace").create_if_not_exists(schema)
+            >>> # This is safe to call multiple times
+            >>> table = tables("my_table", namespace="my_namespace").create_if_not_exists(schema)
+        """
+
+        namespace = namespace_or_default(self._namespace)
+        table_name = make_table_name(self._name, namespace)
+        catalog = self._ensure_catalog_mode("read-write")
+
+        # We need to create the relevant namespace if it's missing from the
+        # resolved namespace.
+        catalog.create_namespace_if_not_exists(namespace)
+
+        # We have the catalog, so let's attempt to create the table. It should
+        # not return an error and instead just return the table if it already
+        # exists.
+        table = catalog.create_table_if_not_exists(
+            identifier=table_name,
+            schema=schema,
+        )
+
+        return Table(
+            self._context,
+            table,
+            table_reference=self if self._tower_vended else None,
+            table_identifier=table_name,
+            catalog_mode=self._catalog_mode,
+        )
+
+    def drop(self) -> bool:
+        """
+        Drops (deletes) the Iceberg table from the catalog.
+
+        This method will:
+        1. Resolve the table's namespace (using default if not specified)
+        2. Drop the table from the catalog
+        3. Return True if successful, False if the table didn't exist
+
+        Returns:
+            bool: True if the table was successfully dropped, False if it didn't exist.
+
+        Raises:
+            CatalogError: If there are issues accessing the catalog or dropping the table.
+
+        Example:
+            >>> # Drop an existing table
+            >>> table_ref = tables("my_table", namespace="my_namespace")
+            >>> success = table_ref.drop()
+            >>> if success:
+            ...     print("Table dropped successfully")
+            ... else:
+            ...     print("Table didn't exist")
+        """
+        namespace = namespace_or_default(self._namespace)
+        table_name = make_table_name(self._name, namespace)
+        catalog = self._ensure_catalog_mode("read-write")
+
+        try:
+            catalog.drop_table(table_name)
+            return True
+        except NoSuchTableError:
+            # If the table doesn't exist or there's any other issue, return False
+            # The underlying PyIceberg catalog will raise different exceptions
+            # depending on the catalog implementation, so we catch all exceptions
+            return False
+
+
+def tables(
+    name: str,
+    catalog: Union[str, Catalog] = "default",
+    namespace: Optional[str] = None,
+    tower_credentials: Optional[bool] = None,
+) -> TableReference:
+    """
+    Creates a reference to an Iceberg table that can be used to load or create tables.
+
+    This function is the main entry point for working with Iceberg tables in Tower. It returns
+    a TableReference object that can be used to either load an existing table or create a new one.
+    The actual table operations (read, write, etc.) are performed through the Table instance
+    obtained by calling `load()` or `create()` on the returned reference.
+
+    Args:
+        name (str): The name of the table to reference. This will be used to either load
+            an existing table or create a new one.
+        catalog (Union[str, Catalog], optional): The catalog to use. Can be either:
+            - A string name of the catalog (defaults to "default")
+            - A Catalog instance (useful for testing or custom catalog implementations)
+            Defaults to "default".
+        namespace (Optional[str], optional): The namespace in which the table exists or
+            should be created. If not provided, a default namespace will be used.
+        tower_credentials (Optional[bool], optional): Credential resolution for string
+            catalogs. By default (None), Tower-managed catalogs vend credentials and
+            other configured catalogs use existing PyIceberg configuration (including
+            runner-injected ``PYICEBERG_CATALOG__*`` env vars for S3 Tables). Set
+            True to force Tower credential vending or False to force PyIceberg
+            configuration. Ignored when a Catalog instance is passed.
+
+    Returns:
+        TableReference: A reference object that can be used to:
+            - Load an existing table using `load()`
+            - Create a new table using `create()`
+            - Create a table if it doesn't exist using `create_if_not_exists()`
+            - Drop an existing table using `drop()`
+
+    Raises:
+        CatalogError: If there are issues accessing or loading the specified catalog.
+        TableNotFoundError: When trying to load a non-existent table (only if `load()` is called).
+
+    Examples:
+        >>> # Load an existing table from the default catalog
+        >>> table = tables("my_table").load()
+        >>> df = table.read()
+
+        >>> # Create a new table in a specific namespace
+        >>> schema = pa.schema([
+        ...     pa.field("id", pa.int64()),
+        ...     pa.field("name", pa.string())
+        ... ])
+        >>> table = tables("new_table", namespace="my_namespace").create(schema)
+
+        >>> # Use a specific catalog
+        >>> table = tables("my_table", catalog="my_catalog").load()
+
+        >>> # Create a table if it doesn't exist
+        >>> table = tables("my_table").create_if_not_exists(schema)
+
+        >>> # Drop an existing table
+        >>> success = tables("my_table", namespace="my_namespace").drop()
+        >>> if success:
+        ...     print("Table dropped successfully")
+    """
+    ctx = TowerContext.build()
+    tower_vended = False
+    catalog_name = catalog if isinstance(catalog, str) else None
+    vended_catalog_identity = None
+
+    if isinstance(catalog, str):
+        if _should_vend_tower_credentials(
+            ctx,
+            catalog,
+            ctx.environment,
+            tower_credentials,
+        ):
+            catalog, vended_catalog_identity = _load_tower_catalog(
+                catalog,
+                environment=ctx.environment,
+                mode="read",
+            )
+            tower_vended = True
+        else:
+            catalog = load_catalog(catalog)
+
+    return TableReference(
+        ctx,
+        catalog,
+        name,
+        namespace,
+        catalog_name=catalog_name,
+        catalog_environment=ctx.environment,
+        tower_vended=tower_vended,
+        catalog_mode="read",
+        vended_catalog_identity=vended_catalog_identity,
+    )

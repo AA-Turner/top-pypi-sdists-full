@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: Scweet
-Version: 5.4.0
+Version: 5.5.0
 Summary: Scrape tweets, profiles, followers and more from Twitter/X — no API key needed
 Home-page: https://github.com/Altimis/Scweet
-Download-URL: https://github.com/Altimis/Scweet/archive/v5.4.0.tar.gz
+Download-URL: https://github.com/Altimis/Scweet/archive/v5.5.0.tar.gz
 Author: Yassine AIT JEDDI
 Author-email: aitjeddiyassine@gmail.com
 License: MIT
@@ -122,7 +122,7 @@ This runs on Apify instead of your machine. Use the local library below when you
   <li>No code required: configure and run from the Apify Console</li>
   <li>Prefer code? Use the Actor through Apify's <a href="https://apify.com/altimis/scweet/api/python">Python API guide</a></li>
   <li>No Twitter/X cookies or proxies to provide</li>
-  <li>Search tweets and profile timelines</li>
+  <li>Search tweets, profile timelines, and follower / following lists</li>
   <li>Export results as JSON, CSV, or XLSX from the Apify dataset</li>
   <li>Free tier included; current usage pricing is shown on the Apify Actor page</li>
 </ul>
@@ -230,29 +230,7 @@ For multi-account runs, use `--cookies-file cookies.json`.
 
 For higher throughput and reduced ban risk, use multiple dedicated accounts with per-account proxies.
 
-Running Scweet locally at any real volume usually means dedicated accounts and proxies. You can use a single proxy, a rotating proxy, or assign one per account.
-
-<table>
-<tr>
-<td>
-
-<p><strong>Need proxies for local Scweet?</strong></p>
-
-<p>
-<a href="https://www.webshare.io/?referral_code=kdgjcc09945q">Webshare</a> is a practical option for dedicated or rotating proxies.
-</p>
-
-<p align="center">
-  <a href="https://www.webshare.io/?referral_code=kdgjcc09945q">
-    <img alt="Get proxies on Webshare" src="https://img.shields.io/badge/Get%20proxies-Webshare-1F8BFF?style=for-the-badge">
-  </a>
-</p>
-
-<p>Disclosure: this is an affiliate link.</p>
-
-</td>
-</tr>
-</table>
+Running Scweet locally at any real volume usually means dedicated accounts and proxies. You can use a single proxy, a rotating proxy, or assign one per account. On a rotating provider, put `{session}` in the proxy URL to give each account its own session — see "Proxy modes" in DOCUMENTATION.md.
 
 **`cookies.json` format:**
 

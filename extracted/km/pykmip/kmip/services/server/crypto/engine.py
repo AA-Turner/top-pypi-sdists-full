@@ -269,12 +269,11 @@ class CryptographyEngine(api.CryptographicEngine):
             )
             cipher_algorithm = self._symmetric_key_algorithms.get(algorithm)
             try:
-                # ARC4 and IDEA algorithms will raise exception as CMAC
-                # requires block ciphers
+                # ARC4 and other non-block cipher algorithm will raise TypeError
                 c = cmac.CMAC(cipher_algorithm(key), backend=default_backend())
                 c.update(data)
                 mac_data = c.finalize()
-            except Exception as e:
+            except Exception:
                 raise exceptions.CryptographicFailure(
                     "An error occurred while computing a CMAC. "
                     "See the server log for more information."
@@ -585,13 +584,17 @@ class CryptographyEngine(api.CryptographicEngine):
                     "encryption.".format(padding_method)
                 )
 
-            backend = default_backend()
-
             try:
-                public_key = backend.load_der_public_key(encryption_key)
+                public_key = serialization.load_der_public_key(
+                    encryption_key,
+                    backend=default_backend()
+                )
             except Exception:
                 try:
-                    public_key = backend.load_pem_public_key(encryption_key)
+                    public_key = serialization.load_pem_public_key(
+                        encryption_key,
+                        backend=default_backend()
+                    )
                 except Exception:
                     raise exceptions.CryptographicFailure(
                         "The public key bytes could not be loaded."
@@ -929,18 +932,18 @@ class CryptographyEngine(api.CryptographicEngine):
                     "decryption.".format(padding_method)
                 )
 
-            backend = default_backend()
-
             try:
-                private_key = backend.load_der_private_key(
+                private_key = serialization.load_der_private_key(
                     decryption_key,
-                    None
+                    password=None,
+                    backend=default_backend()
                 )
             except Exception:
                 try:
-                    private_key = backend.load_pem_private_key(
+                    private_key = serialization.load_pem_private_key(
                         decryption_key,
-                        None
+                        password=None,
+                        backend=default_backend()
                     )
                 except Exception:
                     raise exceptions.CryptographicFailure(
@@ -1434,8 +1437,6 @@ class CryptographyEngine(api.CryptographicEngine):
                 loaded, or when the signature verification process fails
                 unexpectedly.
         """
-        backend = default_backend()
-
         hash_algorithm = None
         dsa_hash_algorithm = None
         dsa_signing_algorithm = None
@@ -1489,10 +1490,16 @@ class CryptographyEngine(api.CryptographicEngine):
                 )
 
             try:
-                public_key = backend.load_der_public_key(signing_key)
+                public_key = serialization.load_der_public_key(
+                    signing_key,
+                    backend=default_backend()
+                )
             except Exception:
                 try:
-                    public_key = backend.load_pem_public_key(signing_key)
+                    public_key = serialization.load_pem_public_key(
+                        signing_key,
+                        backend=default_backend()
+                    )
                 except Exception:
                     raise exceptions.CryptographicFailure(
                         "The signing key bytes could not be loaded."

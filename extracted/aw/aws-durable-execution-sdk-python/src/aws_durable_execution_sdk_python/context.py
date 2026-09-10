@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-import hashlib
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Concatenate, Generic, ParamSpec, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Concatenate,
+    Generic,
+    NoReturn,
+    ParamSpec,
+    TypeVar,
+)
 
 from aws_durable_execution_sdk_python.config import (
-    BatchedInput,
     CallbackConfig,
     ChildConfig,
     Duration,
@@ -19,12 +25,23 @@ from aws_durable_execution_sdk_python.config import (
     StepConfig,
     WaitForCallbackConfig,
 )
+from aws_durable_execution_sdk_python.concurrency.models import (
+    envelope_summary_generator,
+)
 from aws_durable_execution_sdk_python.exceptions import (
     CallbackError,
+    CallbackExternalError,
+    CallbackSubmitterError,
+    CallbackTimeoutError,
+    ChildContextError,
+    StepError,
     SuspendExecution,
     ValidationError,
 )
-from aws_durable_execution_sdk_python.identifier import OperationIdentifier
+from aws_durable_execution_sdk_python.identifier import (
+    OperationIdentifier,
+    OperationIdNamespace,
+)
 from aws_durable_execution_sdk_python.lambda_service import (
     OperationSubType,
     OperationType,
@@ -66,9 +83,10 @@ from aws_durable_execution_sdk_python.types import (
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterator, Sequence
 
     from aws_durable_execution_sdk_python.concurrency.models import BatchResult
+    from aws_durable_execution_sdk_python.lambda_service import ErrorObject
     from aws_durable_execution_sdk_python.state import CheckpointedResult
     from aws_durable_execution_sdk_python.types import LambdaContext
     from aws_durable_execution_sdk_python.waits import WaitForConditionConfig
@@ -252,8 +270,10 @@ class Callback(Generic[T], CallbackProtocol[T]):  # noqa: PYI059
         )
 
         if not checkpointed_result.is_existent():
+            # Should never happen (create_callback already checkpointed this op).
+            # Not external/timeout/submitter, so raise the base CallbackError.
             msg = "Callback operation must exist"
-            raise CallbackError(message=msg, callback_id=self.callback_id)
+            raise CallbackError(message=msg)
 
         if (
             checkpointed_result.is_failed()
@@ -261,12 +281,7 @@ class Callback(Generic[T], CallbackProtocol[T]):  # noqa: PYI059
             or checkpointed_result.is_timed_out()
             or checkpointed_result.is_stopped()
         ):
-            msg = (
-                checkpointed_result.error.message
-                if checkpointed_result.error and checkpointed_result.error.message
-                else "Callback failed"
-            )
-            raise CallbackError(message=msg, callback_id=self.callback_id)
+            self._raise_terminal_failure(checkpointed_result)
 
         if checkpointed_result.is_succeeded():
             if checkpointed_result.result is None:
@@ -283,6 +298,29 @@ class Callback(Generic[T], CallbackProtocol[T]):  # noqa: PYI059
         # therefore we should wait
         msg = "Callback result not received yet. Suspending execution while waiting for result."
         raise SuspendExecution(msg)
+
+    def _raise_terminal_failure(
+        self, checkpointed_result: CheckpointedResult
+    ) -> NoReturn:
+        """Raise the graded error for a terminal callback failure.
+
+        TIMED_OUT -> CallbackTimeoutError; any other non-succeeded terminal
+        (external FAILED, cancelled, stopped) -> CallbackExternalError.
+        Carries the message/data/stack_trace; the external error's own type
+        stays on the callback operation's details.
+        """
+        error: ErrorObject | None = checkpointed_result.error
+        is_timeout: bool = checkpointed_result.is_timed_out()
+        error_cls: type[CallbackError] = (
+            CallbackTimeoutError if is_timeout else CallbackExternalError
+        )
+        default_message: str = "Callback timed out" if is_timeout else "Callback failed"
+        message: str = error.message if error and error.message else default_message
+        raise error_cls(
+            message=message,
+            data=error.data if error else None,
+            stack_trace=error.stack_trace if error else None,
+        )
 
 
 class DurableContext(DurableContextProtocol):
@@ -305,6 +343,9 @@ class DurableContext(DurableContextProtocol):
         # differs from `parent_id` only for virtual contexts.
         self._step_id_prefix: str | None = (
             step_id_prefix if step_id_prefix is not None else parent_id
+        )
+        self._operation_id_namespace: OperationIdNamespace = OperationIdNamespace(
+            self._step_id_prefix
         )
         # cached at construction to make invariant even if parent/prefix mutates.
         self._is_virtual: bool = self._parent_id != self._step_id_prefix
@@ -436,9 +477,7 @@ class DurableContext(DurableContextProtocol):
         This allows us to recover operation ids or even look
         forward without changing the internal state of this context.
         """
-        prefix: str | None = self._step_id_prefix
-        step_id: str = f"{prefix}-{step}" if prefix else str(step)
-        return hashlib.blake2b(step_id.encode()).hexdigest()[:64]
+        return self._operation_id_namespace.create_id_for_step(step)
 
     def _create_step_id(self) -> str:
         """Generate a thread-safe step id, incrementing in order of invocation.
@@ -475,7 +514,9 @@ class DurableContext(DurableContextProtocol):
         return self._peek_next_checkpoint().is_existent()
 
     @contextmanager
-    def _replay_aware(self):
+    def _replay_aware(
+        self, operation_identifier: OperationIdentifier | None = None
+    ) -> Iterator[None]:
         """Wrap a single operation with replay-boundary detection.
 
         The operation kind is inferred from its own checkpoint (when one
@@ -495,32 +536,45 @@ class DurableContext(DurableContextProtocol):
           yet, we have reached the replay boundary.
         """
         was_replaying: bool = self.is_replaying()
-        # Only peek when replaying; avoids unnecessary checkpoint lookups (and
-        # any step-id side effects) on the common non-replay path.
+        # Only look up a checkpoint when replaying. Operation call sites pass
+        # their atomically allocated identifier so concurrent callers inspect
+        # the checkpoint for their own ID rather than peeking at shared state.
         next_checkpoint: CheckpointedResult | None = (
-            self._peek_next_checkpoint() if was_replaying else None
+            (
+                self.state.get_checkpoint_result(operation_identifier.operation_id)
+                if operation_identifier is not None
+                else self._peek_next_checkpoint()
+            )
+            if was_replaying
+            else None
         )
-        next_exists: bool = (
-            next_checkpoint.is_existent() if next_checkpoint is not None else False
+        next_operation = (
+            next_checkpoint.operation if next_checkpoint is not None else None
         )
-        next_terminal: bool = next_exists and next_checkpoint.is_terminal()
+        next_exists: bool = next_operation is not None
+        if was_replaying and next_operation is not None:
+            if operation_identifier is not None:
+                operation_identifier.validate_checkpoint(next_operation)
 
-        next_is_step: bool = (
-            next_exists
-            and next_checkpoint.operation.operation_type is OperationType.STEP
-        )
-        # While replaying, an operation that already has a checkpoint was
-        # observed in a prior invocation. If the backend says the operation
-        # changed since the last invocation, notify plugins as an update rather
-        # than replayed history; otherwise notify as replayed history. State
-        # owns the dedup; the context owns the "only while replaying" gate.
-        if was_replaying and next_exists:
+            # While replaying, an operation that already has a checkpoint was
+            # observed in a prior invocation. If the backend says the operation
+            # changed since the last invocation, notify plugins as an update rather
+            # than replayed history; otherwise notify as replayed history. State
+            # owns the dedup; the context owns the "only while replaying" gate.
             if self.state.is_operation_updated_since_last_invocation(
-                next_checkpoint.operation.operation_id
+                next_operation.operation_id
             ):
-                self.state.emit_operation_update_hook(next_checkpoint.operation)
+                self.state.emit_operation_update_hook(next_operation)
             else:
-                self.state.emit_operation_replay_hook(next_checkpoint.operation)
+                self.state.emit_operation_replay_hook(next_operation)
+
+        next_terminal: bool = (
+            next_checkpoint.is_terminal() if next_checkpoint is not None else False
+        )
+        next_is_step: bool = (
+            next_operation is not None
+            and next_operation.operation_type is OperationType.STEP
+        )
         # Deferred flip applies only to non-step resume points. For step ops we
         # flip before instead, so don't defer.
         flip_after: bool = (
@@ -539,6 +593,24 @@ class DurableContext(DurableContextProtocol):
                 self._set_replay_status_new()
             elif self.is_replaying() and not self._next_operation_exists():
                 self._set_replay_status_new()
+
+    @contextmanager
+    def _operation_replay_aware(
+        self,
+        sub_type: OperationSubType,
+        name: str | None = None,
+        operation_type: OperationType | None = None,
+    ) -> Iterator[OperationIdentifier]:
+        """Allocate an operation and validate its replay identity before hooks."""
+        operation_identifier = OperationIdentifier(
+            operation_id=self._create_step_id(),
+            sub_type=sub_type,
+            parent_id=self._parent_id,
+            name=name,
+            operation_type=operation_type,
+        )
+        with self._replay_aware(operation_identifier):
+            yield operation_identifier
 
     # endregion replay status
 
@@ -563,22 +635,18 @@ class DurableContext(DurableContextProtocol):
         """
         if not config:
             config = CallbackConfig()
-        with self._replay_aware():
-            operation_id: str = self._create_step_id()
+        with self._operation_replay_aware(
+            OperationSubType.CALLBACK, name
+        ) as operation_identifier:
             executor: CallbackOperationExecutor = CallbackOperationExecutor(
                 state=self.state,
-                operation_identifier=OperationIdentifier(
-                    operation_id=operation_id,
-                    sub_type=OperationSubType.CALLBACK,
-                    parent_id=self._parent_id,
-                    name=name,
-                ),
+                operation_identifier=operation_identifier,
                 config=config,
             )
             callback_id: str = executor.process()
             return Callback(
                 callback_id=callback_id,
-                operation_id=operation_id,
+                operation_id=operation_identifier.operation_id,
                 state=self.state,
                 serdes=config.serdes,
             )
@@ -603,18 +671,14 @@ class DurableContext(DurableContextProtocol):
         """
         if not config:
             config = InvokeConfig[P, R]()
-        with self._replay_aware():
-            operation_id = self._create_step_id()
+        with self._operation_replay_aware(
+            OperationSubType.CHAINED_INVOKE, name
+        ) as operation_identifier:
             executor: InvokeOperationExecutor[R] = InvokeOperationExecutor(
                 function_name=function_name,
                 payload=payload,
                 state=self.state,
-                operation_identifier=OperationIdentifier(
-                    operation_id=operation_id,
-                    sub_type=OperationSubType.CHAINED_INVOKE,
-                    parent_id=self._parent_id,
-                    name=name,
-                ),
+                operation_identifier=operation_identifier,
                 config=config,
             )
             return executor.process()
@@ -622,21 +686,23 @@ class DurableContext(DurableContextProtocol):
     def map(
         self,
         inputs: Sequence[U],
-        func: Callable[[DurableContext, U | BatchedInput[Any, U], int, Sequence[U]], T],
+        func: Callable[[DurableContext, U, int, Sequence[U]], T],
         name: str | None = None,
         config: MapConfig | None = None,
     ) -> BatchResult[R]:
         """Execute a callable for each item in parallel."""
         map_name: str | None = self._resolve_step_name(name, func)
 
-        with self._replay_aware():
-            operation_id = self._create_step_id()
-            operation_identifier = OperationIdentifier(
-                operation_id=operation_id,
-                sub_type=OperationSubType.MAP,
-                parent_id=self._parent_id,
-                name=map_name,
-            )
+        # Validate before the child context starts, so the error surfaces as
+        # a bare ValidationError (matching wait and wait_for_condition) with
+        # no STARTED/FAILED map operation in history.
+        if config is not None:
+            config.completion_config._validate_for_total(len(inputs))
+
+        with self._operation_replay_aware(
+            OperationSubType.MAP, map_name
+        ) as operation_identifier:
+            operation_id = operation_identifier.operation_id
             map_context = self.create_child_context(operation_id=operation_id)
 
             def map_in_child_context() -> BatchResult[R]:
@@ -651,6 +717,7 @@ class DurableContext(DurableContextProtocol):
                     execution_state=self.state,
                     map_context=map_context,
                     operation_identifier=operation_identifier,
+                    operation_id_namespace=OperationIdNamespace(operation_id),
                 )
 
             return child_handler(
@@ -659,11 +726,14 @@ class DurableContext(DurableContextProtocol):
                 operation_identifier=operation_identifier,
                 config=ChildConfig(
                     sub_type=OperationSubType.MAP,
-                    serdes=getattr(config, "serdes", None),
-                    # child_handler should only know the serdes of the parent serdes,
-                    # the item serdes will be passed when we are actually executing
-                    # the branch within its own child_handler.
-                    item_serdes=None,
+                    serdes=config.serdes if config else None,
+                    # The SDK-owned envelope records the completion decision for
+                    # replay. A configured summary_generator only contributes the
+                    # customer-facing summary field.
+                    summary_generator=envelope_summary_generator(
+                        "MapResult",
+                        config.summary_generator if config else None,
+                    ),
                 ),
             )
 
@@ -674,16 +744,17 @@ class DurableContext(DurableContextProtocol):
         config: ParallelConfig | None = None,
     ) -> BatchResult[T]:
         """Execute multiple callables in parallel."""
-        with self._replay_aware():
-            # _create_step_id() is thread-safe. rest of method is safe, since using local copy of parent id
-            operation_id = self._create_step_id()
+        # Validate before the child context starts, so the error surfaces as
+        # a bare ValidationError (matching wait and wait_for_condition) with
+        # no STARTED/FAILED parallel operation in history.
+        if config is not None:
+            config.completion_config._validate_for_total(len(functions))
+
+        with self._operation_replay_aware(
+            OperationSubType.PARALLEL, name
+        ) as operation_identifier:
+            operation_id = operation_identifier.operation_id
             parallel_context = self.create_child_context(operation_id=operation_id)
-            operation_identifier = OperationIdentifier(
-                operation_id=operation_id,
-                sub_type=OperationSubType.PARALLEL,
-                parent_id=self._parent_id,
-                name=name,
-            )
 
             def parallel_in_child_context() -> BatchResult[T]:
                 # parallel_context is a child_context of the context upon which `.map`
@@ -696,6 +767,7 @@ class DurableContext(DurableContextProtocol):
                     execution_state=self.state,
                     parallel_context=parallel_context,
                     operation_identifier=operation_identifier,
+                    operation_id_namespace=OperationIdNamespace(operation_id),
                 )
 
             return child_handler(
@@ -704,11 +776,14 @@ class DurableContext(DurableContextProtocol):
                 operation_identifier=operation_identifier,
                 config=ChildConfig(
                     sub_type=OperationSubType.PARALLEL,
-                    serdes=getattr(config, "serdes", None),
-                    # child_handler should only know the serdes of the parent serdes,
-                    # the item serdes will be passed when we are actually executing
-                    # the branch within its own child_handler.
-                    item_serdes=None,
+                    serdes=config.serdes if config else None,
+                    # The SDK-owned envelope records the completion decision for
+                    # replay. A configured summary_generator only contributes the
+                    # customer-facing summary field.
+                    summary_generator=envelope_summary_generator(
+                        "ParallelResult",
+                        config.summary_generator if config else None,
+                    ),
                 ),
             )
 
@@ -731,15 +806,18 @@ class DurableContext(DurableContextProtocol):
             T: The result of the callable.
         """
         step_name: str | None = self._resolve_step_name(name, func)
-        with self._replay_aware():
-            # _create_step_id() is thread-safe. rest of method is safe, since using local copy of parent id
-            operation_id = self._create_step_id()
-            sub_type = (
-                config.sub_type
-                if config and config.sub_type
-                else OperationSubType.RUN_IN_CHILD_CONTEXT
-            )
+        sub_type = (
+            config.sub_type
+            if config and config.sub_type
+            else OperationSubType.RUN_IN_CHILD_CONTEXT
+        )
 
+        with self._operation_replay_aware(
+            sub_type,
+            step_name,
+            operation_type=OperationType.CONTEXT,
+        ) as operation_identifier:
+            operation_id = operation_identifier.operation_id
             is_virtual: bool = config.is_virtual if config else False
 
             def callable_with_child_context():
@@ -752,12 +830,7 @@ class DurableContext(DurableContextProtocol):
             return child_handler(
                 func=callable_with_child_context,
                 state=self.state,
-                operation_identifier=OperationIdentifier(
-                    operation_id=operation_id,
-                    sub_type=sub_type,
-                    parent_id=self._parent_id,
-                    name=step_name,
-                ),
+                operation_identifier=operation_identifier,
                 config=config,
             )
 
@@ -771,18 +844,14 @@ class DurableContext(DurableContextProtocol):
         logger.debug("Step name: %s", step_name)
         if not config:
             config = StepConfig()
-        with self._replay_aware():
-            operation_id = self._create_step_id()
+        with self._operation_replay_aware(
+            OperationSubType.STEP, step_name
+        ) as operation_identifier:
             executor: StepOperationExecutor[T] = StepOperationExecutor(
                 func=func,
                 config=config,
                 state=self.state,
-                operation_identifier=OperationIdentifier(
-                    operation_id=operation_id,
-                    sub_type=OperationSubType.STEP,
-                    parent_id=self._parent_id,
-                    name=step_name,
-                ),
+                operation_identifier=operation_identifier,
                 context_logger=self.logger,
             )
             return executor.process()
@@ -798,18 +867,14 @@ class DurableContext(DurableContextProtocol):
         if seconds < 1:
             msg = "duration must be at least 1 second"
             raise ValidationError(msg)
-        with self._replay_aware():
-            operation_id = self._create_step_id()
+        with self._operation_replay_aware(
+            OperationSubType.WAIT, name
+        ) as operation_identifier:
             wait_seconds = duration.seconds
             executor: WaitOperationExecutor = WaitOperationExecutor(
                 seconds=wait_seconds,
                 state=self.state,
-                operation_identifier=OperationIdentifier(
-                    operation_id=operation_id,
-                    sub_type=OperationSubType.WAIT,
-                    parent_id=self._parent_id,
-                    name=name,
-                ),
+                operation_identifier=operation_identifier,
             )
             executor.process()
 
@@ -825,11 +890,29 @@ class DurableContext(DurableContextProtocol):
         def wait_in_child_context(context: DurableContext):
             return wait_for_callback_handler(context, submitter, step_name, config)
 
-        return self.run_in_child_context(
-            wait_in_child_context,
-            step_name,
-            ChildConfig(sub_type=OperationSubType.WAIT_FOR_CALLBACK),
-        )
+        # run_in_child_context is generic and raises ChildContextError with the
+        # inner failure on __cause__; translate to callback-typed errors here, at
+        # the call site, so it re-fires identically on replay.
+        try:
+            return self.run_in_child_context(
+                wait_in_child_context,
+                step_name,
+                ChildConfig(sub_type=OperationSubType.WAIT_FOR_CALLBACK),
+            )
+        except ChildContextError as e:
+            inner: BaseException | None = e.__cause__
+            # Callback failures (external/timeout/base) pass through.
+            if isinstance(inner, CallbackError):
+                raise inner
+            # A failed submitter step surfaces as CallbackSubmitterError, keeping
+            # the step's data/stack_trace (the StepError stays as its cause).
+            if isinstance(inner, StepError):
+                raise CallbackSubmitterError(
+                    inner.message or "Callback submitter failed",
+                    data=inner.data,
+                    stack_trace=inner.stack_trace,
+                ) from inner
+            raise
 
     def wait_for_condition(
         self,
@@ -854,19 +937,15 @@ class DurableContext(DurableContextProtocol):
             msg = "`config` is required for wait_for_condition"
             raise ValidationError(msg)
 
-        with self._replay_aware():
-            operation_id = self._create_step_id()
+        with self._operation_replay_aware(
+            OperationSubType.WAIT_FOR_CONDITION, name
+        ) as operation_identifier:
             executor: WaitForConditionOperationExecutor[T] = (
                 WaitForConditionOperationExecutor(
                     check=check,
                     config=config,
                     state=self.state,
-                    operation_identifier=OperationIdentifier(
-                        operation_id=operation_id,
-                        sub_type=OperationSubType.WAIT_FOR_CONDITION,
-                        parent_id=self._parent_id,
-                        name=name,
-                    ),
+                    operation_identifier=operation_identifier,
                     context_logger=self.logger,
                 )
             )

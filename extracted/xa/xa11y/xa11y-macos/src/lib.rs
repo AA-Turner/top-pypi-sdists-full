@@ -54,7 +54,7 @@ mod stub {
     }
 
     impl ScreenshotProvider for MacOSScreenshot {
-        fn capture_full(&self) -> Result<Screenshot> {
+        fn capture_full(&self) -> Result<(Screenshot, Point)> {
             unreachable!()
         }
         fn capture_region(&self, _: Rect) -> Result<Screenshot> {
@@ -100,6 +100,9 @@ mod stub {
             unreachable!()
         }
         fn focused_app(&self) -> Result<ElementData> {
+            unreachable!()
+        }
+        fn list_shell_surfaces(&self) -> Result<Vec<(ShellSurfaceKind, ElementData)>> {
             unreachable!()
         }
         fn press(&self, _: &ElementData) -> Result<()> {

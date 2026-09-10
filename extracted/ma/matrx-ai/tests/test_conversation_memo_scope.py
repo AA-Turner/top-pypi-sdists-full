@@ -224,3 +224,48 @@ async def test_closed_inherited_lane_uses_awaited_conversation_write(monkeypatch
 
     assert created == [conversation_id]
     assert gate._known_conversation_ids[conversation_id] is gate._ENSURED_DURABLE
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("phase", ["draining", "closed"])
+async def test_terminal_lane_user_request_anchor_and_status_are_awaited(monkeypatch, phase):
+    """A delayed workflow must commit its anchor before dependent child work."""
+    import matrx_connect.lane
+    import matrx_orm
+
+    events = []
+    request_id, user_id = str(uuid4()), str(uuid4())
+
+    class Requests:
+        model = object()
+
+        async def filter_user_requests(self, **kwargs):
+            return []
+
+        async def create_user_request(self, **kwargs):
+            events.append(("insert", kwargs["id"]))
+
+        async def update_user_request(self, rid, **kwargs):
+            events.append(("update", rid))
+
+        async def update_conversation(self, rid, **kwargs):
+            events.append(("conversation_status", rid))
+
+    @asynccontextmanager
+    async def session():
+        yield
+        events.append("committed")
+
+    @contextmanager
+    def allow_direct(*args, **kwargs):
+        yield
+
+    monkeypatch.setattr(matrx_connect.lane, "get_current_lane", lambda: SimpleNamespace(phase=phase))
+    monkeypatch.setattr(gate, "_get_coordinator", lambda: pytest.fail("terminal lane cannot own a write"))
+    monkeypatch.setattr(gate, "_cxm", lambda: SimpleNamespace(user_request=Requests(), conversation=Requests()))
+    monkeypatch.setattr(matrx_orm, "Session", session)
+    monkeypatch.setattr(matrx_orm, "allow_direct_coordinator_write", allow_direct)
+    await gate._create_user_request(request_id=request_id, user_id=user_id)
+    await gate.update_user_request_status(request_id, "completed")
+    await gate.update_conversation_status(request_id, "completed")
+    assert events == [("insert", request_id), "committed", ("update", request_id), "committed", ("conversation_status", request_id), "committed"]

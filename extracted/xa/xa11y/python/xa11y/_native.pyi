@@ -12,6 +12,23 @@ from typing import Literal
 MouseButtonName = Literal["left", "right", "middle"]
 AnchorName = Literal["center", "top_left", "top_right", "bottom_left", "bottom_right"]
 
+# Why an annotated element is not in the image. Identically spelled in the JS
+# binding, like every other enum value a user compares against as a literal.
+OmissionReasonName = Literal["no_bounds", "zero_area", "outside_capture"]
+
+# Shell-surface kinds. Like roles and key names, these strings are identical in
+# the JS binding — a kind is a value the user writes as a literal.
+ShellSurfaceKindName = Literal[
+    "menu_bar",
+    "status_items",
+    "taskbar",
+    "panel",
+    "dock",
+    "desktop",
+    "flyout",
+    "unknown",
+]
+
 # ── Exceptions ───────────────────────────────────────────────────────────────
 
 class XA11yError(Exception):
@@ -330,6 +347,95 @@ class App:
         in the app before writing selectors.
 
         For the same output from the shell, use ``xa11y tree --app NAME``.
+        """
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+# ── ShellSurface ──────────────────────────────────────────────────────────────
+
+class ShellSurface:
+    """One OS-owned shell surface — the taskbar, a desktop panel, the dock, the
+    menu bar, a process's status items, the desktop, or an open flyout.
+
+    ``ShellSurface`` is **not** an :class:`Element`. It represents the surface
+    as a whole and provides a ``locator()`` to search its accessibility tree,
+    exactly as :class:`App` does for an application.
+    """
+
+    @property
+    def kind(self) -> ShellSurfaceKindName:
+        """What this surface is, as a snake_case string (``"taskbar"``,
+        ``"status_items"``, ...). The same spelling in both bindings, in the
+        CLI's ``--shell`` flag, and in the ``shell_kind`` raw attribute on the
+        surface root."""
+    @property
+    def name(self) -> str:
+        """The owning app for per-app surfaces (``"Safari"`` menu bar), the
+        platform's own name otherwise (``"Taskbar"``, ``"Dock"``). Falls back
+        to the kind when the platform vends no name for the root."""
+    @property
+    def pid(self) -> int | None:
+        """Owning process where the platform reports one honestly. On Windows
+        this is the shell *host* (explorer.exe), because UIA carries no
+        per-icon owner — documented as the host, never faked."""
+    @staticmethod
+    def list() -> list[ShellSurface]:
+        """List the OS shell surfaces currently on screen.
+
+        Single enumeration, no polling. The listing is live: ``flyout``
+        surfaces appear only while they are open, and enumerating never opens,
+        closes, focuses, or presses anything. A platform with no surface of a
+        given kind simply returns none — that is honest scope, not a failure.
+        """
+    @staticmethod
+    def by_kind(kind: ShellSurfaceKindName, *, timeout: float | None = None) -> ShellSurface:
+        """Wait for exactly one shell surface of ``kind``.
+
+        ``kind`` is the snake_case kind name — ``ShellSurfaceKindName`` above
+        is the full set, and is the only place this file spells them out. An
+        unknown name raises ``ValueError`` before the accessibility API is
+        touched.
+
+        Polls until a single surface of that kind exists or ``timeout``
+        (seconds) elapses — see ``App.by_name`` for ``timeout`` semantics. The
+        wait is what makes the Windows overflow workflow a one-liner: press the
+        taskbar's "Show Hidden Icons" button, then wait for the flyout::
+
+            taskbar = xa11y.ShellSurface.by_kind("taskbar", timeout=0)
+            taskbar.locator("button[name='Show Hidden Icons']").press()
+            flyout = xa11y.ShellSurface.by_kind("flyout", timeout=3.0)
+
+        Raises :class:`SelectorNotMatchedError` both when no surface of that
+        kind is present and when *several* are — ambiguity is refused rather
+        than first-matched, with the candidates on the exception's
+        ``candidates`` attribute so the caller can disambiguate via
+        :meth:`list` and a pid.
+        """
+    def locator(self, selector: str) -> Locator:
+        """Create a Locator scoped to this surface's accessibility tree."""
+    def children(self) -> list[Element]:
+        """Get direct children of the surface root."""
+    def as_element(self) -> Element:
+        """Get an :class:`Element` handle for the surface root.
+
+        Useful for invoking Element-level methods (``children()``,
+        ``parent()``, etc.) without going through a locator.
+        """
+    def tree(self, max_depth: int | None = None) -> dict:
+        """Capture this surface's accessibility tree as a recursive dict.
+
+        Each dict has keys ``role``, ``name``, ``value``, and ``children``
+        (a list of dicts with the same shape). ``max_depth`` limits traversal:
+        ``0`` = only the surface root, ``1`` = root + direct children,
+        ``None`` = full subtree.
+        """
+    def dump(self, max_depth: int | None = None) -> str:
+        """Render this surface's accessibility tree as an indented string.
+
+        Returns the string without printing it. Same depth semantics as
+        :meth:`tree`. This is the primary inspection helper — call
+        ``print(surface.dump())`` to discover the role and name of every
+        element in the surface before writing selectors.
         """
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -680,12 +786,81 @@ class InputSim:
 
 # ── Screenshot ───────────────────────────────────────────────────────────────
 
+class LegendEntry:
+    """One drawn annotation box: the tag in the image, and the element it
+    came from.
+
+    A model reads a tag off the PNG; ``selector`` is what acts on the element
+    that tag labels::
+
+        entry = next(e for e in shot.legend if e.tag == "B1")
+        app.locator(entry.selector).set_value("42")
+    """
+
+    @property
+    def tag(self) -> str:
+        """What is drawn in the box — ``"B7"``. A group letter and a 1-based
+        index, with no separator that downscaling could lose."""
+    @property
+    def group(self) -> int:
+        """1-based, matching the position of this element's locator in
+        ``annotate=``."""
+    @property
+    def index(self) -> int:
+        """1-based, and exactly the ``:nth(n)`` argument in :attr:`selector`."""
+    @property
+    def selector(self) -> str:
+        """A selector usable as-is against the same scope the group had —
+        ``"button:nth(7)"``."""
+    @property
+    def role(self) -> str:
+        """The element's role, snake_case as everywhere else."""
+    @property
+    def name(self) -> str | None:
+        """The element's accessible name, when it has one."""
+    @property
+    def bounds(self) -> Rect:
+        """The element's bounds in logical screen coordinates."""
+    @property
+    def color(self) -> tuple[int, int, int]:
+        """The box colour as an ``(r, g, b)`` tuple, for correlating a box
+        with its entry by eye."""
+    def __repr__(self) -> str: ...
+
+class Omission:
+    """An element that matched an ``annotate=`` selector but is not in the
+    image.
+
+    Reported rather than dropped: a legend that disagreed with the picture,
+    with no way to find out why, is what this exists to prevent.
+    """
+
+    @property
+    def selector(self) -> str:
+        """The selector that would reach this element."""
+    @property
+    def role(self) -> str:
+        """The element's role, snake_case."""
+    @property
+    def name(self) -> str | None:
+        """The element's accessible name, when it has one."""
+    @property
+    def reason(self) -> OmissionReasonName:
+        """Why it could not be drawn: no bounds at all, zero-area bounds, or
+        bounds outside what was captured (a second monitor, or outside an
+        explicit ``region``)."""
+    def __repr__(self) -> str: ...
+
 class Screenshot:
     """A captured image: raw RGBA8 pixels plus dimensions and scale.
 
     ``width`` and ``height`` are in physical pixels. ``scale`` is the
     physical-to-logical ratio (1.0 on standard displays, 2.0 on typical
     Retina). ``pixels`` has length ``width * height * 4``.
+
+    ``legend``, ``omitted`` and ``truncated`` describe what ``annotate=``
+    drew. They are ``[]``, ``[]`` and ``0`` on an unannotated capture, so
+    consumers need no version check.
     """
 
     @property
@@ -697,6 +872,17 @@ class Screenshot:
     @property
     def pixels(self) -> bytes:
         """Raw RGBA8 pixel bytes (``width * height * 4``)."""
+    @property
+    def legend(self) -> list[LegendEntry]:
+        """One entry per drawn box, in group order and then match order."""
+    @property
+    def omitted(self) -> list[Omission]:
+        """Elements that matched an ``annotate=`` selector but could not be
+        drawn, each with the reason."""
+    @property
+    def truncated(self) -> int:
+        """How many matched elements were not described at all because the
+        annotation cap was reached. ``0`` when the cap did not bite."""
     def to_png(self) -> bytes:
         """Encode the image as a PNG and return the bytes."""
     def save_png(self, path: str | bytes | object) -> None:
@@ -736,6 +922,7 @@ def screenshot(
     *,
     element: Element | None = None,
     region: tuple[int, int, int, int] | None = None,
+    annotate: list[Locator | str] | None = None,
 ) -> Screenshot:
     """Capture pixels from the screen.
 
@@ -743,11 +930,47 @@ def screenshot(
     to capture the pixels under an element's current bounds, or ``region``
     as ``(x, y, width, height)`` to capture an explicit rectangle in logical
     screen coordinates. Passing both raises ``ValueError``.
+
+    ``annotate`` draws a numbered box over every element each locator
+    matches, and fills in :attr:`Screenshot.legend`,
+    :attr:`Screenshot.omitted` and :attr:`Screenshot.truncated`. Each entry
+    is one group, with its own colour and tag letter, and must be scoped to
+    an application: ``app.locator("button")``. An entry that is neither a
+    ``Locator`` nor a ``str`` raises ``TypeError``.
+
+    A rootless group raises ``InvalidSelectorError`` — a bare ``str``, or
+    :func:`locator`, searches every application, and each entry's
+    ``<selector>:nth(n)`` would then count within one application while the
+    legend counts across all of them. The two agree only for a single
+    application, so the selector on an entry would name a different element
+    than the box it labels.
+
+    Cropping and annotating are independent: annotations outside the
+    captured area land in ``omitted`` rather than being clamped to an edge.
+
+        shot = xa11y.screenshot(
+            element=app.locator("window").element(),
+            annotate=[app.locator("button"), app.locator("text_field")],
+        )
+    """
+
+# ── CLI entry point ──────────────────────────────────────────────────────────
+
+def _cli_main(args: list[str]) -> int:
+    """Run the Rust CLI and return the process exit code.
+
+    ``args`` excludes the program name. Returns ``0`` on success, ``1`` on an
+    operation failure, ``2`` on a usage error; the message is written to
+    stderr by the Rust side. Backs the ``xa11y`` console script.
     """
 
 # ── Test helpers ─────────────────────────────────────────────────────────────
 
 def _make_test_locator() -> Locator: ...
+def _make_test_shell_surfaces() -> list[ShellSurface]: ...
+def _find_test_shell_surface(
+    kind: ShellSurfaceKindName, *, timeout: float | None = None
+) -> ShellSurface: ...
 def _make_disconnected_subscription() -> Subscription: ...
 
 class _TestActionProbe:

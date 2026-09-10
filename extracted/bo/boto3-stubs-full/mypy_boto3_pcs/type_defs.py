@@ -396,11 +396,13 @@ class UpdateSlurmRestRequestTypeDef(TypedDict):
 class ComputeNodeGroupSlurmConfigurationRequestTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
+    gresCustomSettings: NotRequired[Sequence[Mapping[str, str]]]
 
 
 class ComputeNodeGroupSlurmConfigurationTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[list[SlurmCustomSettingTypeDef]]
+    gresCustomSettings: NotRequired[list[dict[str, str]]]
 
 
 class QueueSlurmConfigurationRequestTypeDef(TypedDict):
@@ -414,6 +416,7 @@ class QueueSlurmConfigurationTypeDef(TypedDict):
 class UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
+    gresCustomSettings: NotRequired[Sequence[Mapping[str, str]]]
 
 
 class UpdateQueueSlurmConfigurationRequestTypeDef(TypedDict):

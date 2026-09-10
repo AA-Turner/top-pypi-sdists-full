@@ -1,8 +1,8 @@
 """The pydantic UnifiedMessage — modelled on production data, not on the hints.
 
 Corpus: 57,213 message objects inside ``chat.request_snapshot`` (Phase 1a).
-Five of the nine declared fields ever appear on the wire; ``name``, ``status``,
-``is_visible_to_model`` and ``position`` never serialize into ``config.messages``
+Five of the ten declared fields appeared in the measured corpus; ``name``, ``status``,
+``is_visible_to_model``, ``user_content`` and ``position`` did not yet serialize into ``config.messages``
 (they are runtime/persistence concerns). They are kept — absence in the corpus is
 not proof a field is dead (`unfinished-work-alarm.md`) — but they are marked.
 
@@ -78,6 +78,10 @@ class UnifiedMessageModel(BaseModel):
     is_visible_to_model: bool = True
 
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    # Pristine human-authored projection for honest display/transcription.
+    # ``content`` remains the complete provider-replay payload.
+    user_content: list[Any] | None = None
 
     # cx_message.position. Corpus: never serialized.
     position: int | None = None

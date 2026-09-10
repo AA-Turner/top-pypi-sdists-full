@@ -7,12 +7,15 @@ from typing import TYPE_CHECKING, TypeVar
 
 from aws_durable_execution_sdk_python.config import ChildConfig
 from aws_durable_execution_sdk_python.exceptions import (
+    ChildContextError,
+    ExecutionError,
     InvocationError,
     SuspendExecution,
 )
 from aws_durable_execution_sdk_python.lambda_service import (
     ContextOptions,
     ErrorObject,
+    OperationStatus,
     OperationSubType,
     OperationUpdate,
 )
@@ -78,11 +81,9 @@ class ChildOperationExecutor(OperationExecutor[T]):
             CheckResult indicating the next action to take
 
         Raises:
-            CallableRuntimeError: For FAILED operations
+            ChildContextError: For FAILED operations
         """
-        checkpointed_result: CheckpointedResult = self.state.get_checkpoint_result(
-            self.operation_identifier.operation_id
-        )
+        checkpointed_result = self._get_checkpoint_result()
 
         # Terminal success without replay_children - deserialize and return
         if (
@@ -114,7 +115,7 @@ class ChildOperationExecutor(OperationExecutor[T]):
 
         # Terminal failure
         if checkpointed_result.is_failed():
-            checkpointed_result.raise_callable_error()
+            checkpointed_result.raise_operation_error(ChildContextError)
 
         # Create START checkpoint if not exists
         if not checkpointed_result.is_existent() and not self.is_virtual:
@@ -133,6 +134,20 @@ class ChildOperationExecutor(OperationExecutor[T]):
         # Ready to execute (checkpoint exists or was just created)
         return CheckResult.create_is_ready_to_execute(checkpointed_result)
 
+    def _deserialize_payload(self, serialized: str | None) -> T:
+        """Return the round-tripped value, so the first run matches replay.
+
+        A None payload is returned as-is.
+        """
+        if serialized is None:
+            return None  # type: ignore[return-value]
+        return deserialize(
+            serdes=self.config.serdes,
+            data=serialized,
+            operation_id=self.operation_identifier.operation_id,
+            durable_execution_arn=self.state.durable_execution_arn,
+        )
+
     def execute(self, checkpointed_result: CheckpointedResult) -> T:
         """Execute child context function with error handling and large payload support.
 
@@ -145,7 +160,7 @@ class ChildOperationExecutor(OperationExecutor[T]):
         Raises:
             SuspendExecution: Re-raised without checkpointing
             InvocationError: Re-raised after checkpointing FAIL
-            CallableRuntimeError: Raised for other exceptions after checkpointing FAIL
+            ChildContextError: Raised for other exceptions after checkpointing FAIL
         """
         logger.debug(
             "▶️ Executing child context for id: %s, name: %s",
@@ -162,13 +177,35 @@ class ChildOperationExecutor(OperationExecutor[T]):
             )
             raw_result: T = wrapped_user_func()
 
+            # Serialize once: used as the round-tripped return value in every
+            # mode, and as the checkpoint payload on the normal path. A custom
+            # serdes may serialize to None, which is handled below.
+            serialized_result: str | None = serialize(
+                serdes=self.config.serdes,
+                value=raw_result,
+                operation_id=self.operation_identifier.operation_id,
+                durable_execution_arn=self.state.durable_execution_arn,
+            )
+
+            # Round-trip before any SUCCEED checkpoint so a SUCCEEDED context is
+            # always reconstructable and the first run matches replay in every
+            # mode. A permanent serdes failure here fails before any SUCCEED is
+            # written.
+            return_value: T = self._deserialize_payload(serialized_result)
+
             if self.is_virtual:
                 logger.debug(
                     "Virtual context: Exiting child context without creating another checkpoint. id: %s, name: %s",
                     self.operation_identifier.operation_id,
                     self.operation_identifier.name,
                 )
-                return raw_result
+                self.state.emit_child_context_end_hook(
+                    self.operation_identifier,
+                    OperationStatus.SUCCEEDED,
+                    is_replayed=checkpointed_result.is_existent(),
+                )
+                # Virtual contexts never checkpoint and re-execute on replay.
+                return return_value
 
             # If in replay_children mode, return without checkpointing
             if checkpointed_result.is_replay_children():
@@ -177,30 +214,24 @@ class ChildOperationExecutor(OperationExecutor[T]):
                     self.operation_identifier.operation_id,
                     self.operation_identifier.name,
                 )
-                return raw_result
+                self.state.emit_child_context_end_hook(
+                    self.operation_identifier,
+                    OperationStatus.SUCCEEDED,
+                    is_replayed=True,
+                )
+                # Large payloads re-execute on replay; the checkpoint stays
+                # small (summary only).
+                return return_value
 
-            # Serialize result
-            serialized_result: str = serialize(
-                serdes=self.config.serdes,
-                value=raw_result,
-                operation_id=self.operation_identifier.operation_id,
-                durable_execution_arn=self.state.durable_execution_arn,
-            )
-
-            # Check payload size and use ReplayChildren mode if needed
-            # Summary Generator Logic:
-            # When the serialized result exceeds 256KB, we use ReplayChildren mode to avoid
-            # checkpointing large payloads. Instead, we checkpoint a compact summary and mark
-            # the operation for replay. This matches the TypeScript implementation behavior.
-            #
-            # See TypeScript reference:
-            # - aws-durable-execution-sdk-js/src/handlers/run-in-child-context-handler/run-in-child-context-handler.ts (lines ~200-220)
-            #
-            # The summary generator creates a JSON summary with metadata (type, counts, status)
-            # instead of the full BatchResult. During replay, the child context is re-executed
-            # to reconstruct the full result rather than deserializing from the checkpoint.
+            # Large results checkpoint a compact summary and use ReplayChildren
+            # so replay re-executes instead of deserializing. The returned value
+            # always uses the full serialized_result, never the summary.
+            payload_to_checkpoint: str | None = serialized_result
             replay_children: bool = False
-            if len(serialized_result) > CHECKPOINT_SIZE_LIMIT_BYTES:
+            if (
+                serialized_result is not None
+                and len(serialized_result) > CHECKPOINT_SIZE_LIMIT_BYTES
+            ):
                 logger.debug(
                     "Large payload detected, using ReplayChildren mode: id: %s, name: %s, payload_size: %d, limit: %d",
                     self.operation_identifier.operation_id,
@@ -209,8 +240,9 @@ class ChildOperationExecutor(OperationExecutor[T]):
                     CHECKPOINT_SIZE_LIMIT_BYTES,
                 )
                 replay_children = True
-                # Use summary generator if provided, otherwise use empty string (matches TypeScript)
-                serialized_result = (
+                # Summarize the raw result, not the round-tripped value: the
+                # summary is an opaque checkpoint payload, never returned.
+                payload_to_checkpoint = (
                     self.config.summary_generator(raw_result)
                     if self.config.summary_generator
                     else ""
@@ -219,7 +251,7 @@ class ChildOperationExecutor(OperationExecutor[T]):
             # Checkpoint SUCCEED
             success_operation: OperationUpdate = OperationUpdate.create_context_succeed(
                 identifier=self.operation_identifier,
-                payload=serialized_result,
+                payload=payload_to_checkpoint,
                 sub_type=self.sub_type,
                 context_options=ContextOptions(replay_children=replay_children),
             )
@@ -234,11 +266,23 @@ class ChildOperationExecutor(OperationExecutor[T]):
                 self.operation_identifier.operation_id,
                 self.operation_identifier.name,
             )
-            return raw_result  # noqa: TRY300
+            return return_value  # noqa: TRY300
         except SuspendExecution:
             # Don't checkpoint SuspendExecution - let it bubble up
             raise
+        except ExecutionError:
+            # Execution-terminal SDK errors (including nondeterminism) must
+            # escape unchanged without mutating history or being wrapped as a
+            # child failure.
+            raise
         except Exception as e:
+            # Retryable InvocationError: re-raise with no FAIL checkpoint so the
+            # backend retry re-runs. Non-retryable falls through to FAIL + wrap.
+            if isinstance(e, InvocationError) and e.is_retryable():
+                raise
+
+            # Any other error is terminal: persist FAIL, then surface as
+            # ChildContextError (original type kept on error_type/__cause__).
             error_object = ErrorObject.from_exception(e)
             # Virtual deliberately does not write checkpoints, but exception still propagates below
             if not self.is_virtual:
@@ -251,15 +295,17 @@ class ChildOperationExecutor(OperationExecutor[T]):
                 # Must ensure the failure state is persisted before raising the exception.
                 # This guarantees the error is durable and child operations won't be re-executed on replay.
                 self.state.create_checkpoint(operation_update=fail_operation)
+            else:
+                self.state.emit_child_context_end_hook(
+                    self.operation_identifier,
+                    OperationStatus.FAILED,
+                    error=error_object,
+                    is_replayed=checkpointed_result.is_existent(),
+                )
 
-            # InvocationError and its derivatives can be retried.
-            # When we encounter an invocation error (in all of its forms), we
-            # bubble that error upwards (with the checkpoint in place for
-            # non-virtual) such that we reach the execution handler at the
-            # very top, which will then make the backend retry.
-            if isinstance(e, InvocationError):
-                raise
-            raise error_object.to_callable_runtime_error() from e
+            # Reconstruct from the checkpointed error (same path as replay) so
+            # first run and replay surface an identical ChildContextError.
+            error_object.raise_as_operation_error(ChildContextError)
 
 
 def child_handler(

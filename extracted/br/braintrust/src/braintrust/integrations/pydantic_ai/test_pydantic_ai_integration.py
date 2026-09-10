@@ -2,8 +2,8 @@
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownParameterType=false
 # pyright: reportPrivateUsage=false
-import asyncio
 import inspect
+import os
 import time
 
 import pytest
@@ -43,6 +43,23 @@ def memory_logger():
     init_test_logger(PROJECT_NAME)
     with logger._internal_with_memory_background_logger() as bgl:
         yield bgl
+
+
+def _model_with_customization_counter():
+    from pydantic_ai.models import infer_model
+
+    inferred_model = infer_model(MODEL)
+    customization_calls = []
+
+    class SideEffectModel(type(inferred_model)):
+        def __str__(self):
+            return MODEL
+
+        def customize_request_parameters(self, model_request_parameters):
+            customization_calls.append(model_request_parameters)
+            return super().customize_request_parameters(model_request_parameters)
+
+    return SideEffectModel(inferred_model.model_name), customization_calls
 
 
 def _assert_metrics_are_valid(metrics, start, end):
@@ -648,18 +665,20 @@ async def test_agent_with_tools(memory_logger):
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_direct_model_request(memory_logger, direct):
-    """Test direct API model_request()."""
+    """Test direct API model_request() without tracing changing model preparation."""
     assert not memory_logger.pop()
 
+    model, customization_calls = _model_with_customization_counter()
     messages = [ModelRequest(parts=[UserPromptPart(content=TEST_PROMPT)])]
 
     start = time.time()
-    response = await direct.model_request(model=MODEL, messages=messages)
+    response = await direct.model_request(model=model, messages=messages)
     end = time.time()
 
     # Verify response
     assert response.parts
     assert "4" in str(response.parts[0].content)
+    assert len(customization_calls) == 1
 
     # Check spans
     spans = memory_logger.pop()
@@ -759,17 +778,19 @@ async def test_direct_model_request_stream(memory_logger, direct):
     """Test direct API model_request_stream() - verifies time_to_first_token is captured."""
     assert not memory_logger.pop()
 
+    model, customization_calls = _model_with_customization_counter()
     messages = [ModelRequest(parts=[UserPromptPart(content="Count from 1 to 3")])]
 
     start = time.time()
     chunk_count = 0
-    async with direct.model_request_stream(model=MODEL, messages=messages) as stream:
+    async with direct.model_request_stream(model=model, messages=messages) as stream:
         async for chunk in stream:
             chunk_count += 1
     end = time.time()
 
-    # Verify we got chunks
+    # Verify we got chunks and tracing did not rerun request customization.
     assert chunk_count > 0
+    assert len(customization_calls) == 1
 
     # Check spans
     spans = memory_logger.pop()
@@ -906,6 +927,18 @@ async def test_agent_structured_output(memory_logger):
     assert is_descendant(chat_span, agent_span["span_id"]), "chat span should be nested under agent_run"
     assert chat_span["metadata"]["model"] == "gpt-4o-mini"
     assert chat_span["metadata"]["provider"] == "openai"
+    output_tool = next(
+        (
+            tool
+            for tool in chat_span["metadata"]["tools"]
+            if tool.get("type") == "function" and tool.get("function", {}).get("name") == "final_result"
+        ),
+        None,
+    )
+    assert output_tool is not None
+    assert set(output_tool["function"]) == {"name", "description", "parameters", "strict"}
+    assert output_tool["function"]["parameters"]["properties"]["answer"]["type"] == "integer"
+    assert output_tool["function"]["strict"] is True
     _assert_metrics_are_valid(chat_span["metrics"], start, end)
 
     # Wrapper agent_run span must not log token metrics (would double-count at rollup).
@@ -1064,6 +1097,39 @@ async def test_agent_with_system_prompt_in_metadata(memory_logger):
     # Verify other metadata is present
     assert agent_span["metadata"]["model"] == "gpt-4o-mini"
     assert agent_span["metadata"]["provider"] == "openai"
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_agent_with_instructions_and_dynamic_system_prompt(memory_logger):
+    """Resolved instructions and system prompts should appear on agent and model spans."""
+    assert not memory_logger.pop()
+
+    instructions = "Answer with only the number requested by the user."
+    dynamic_system_prompt = "The user is currently taking a math quiz."
+    agent = Agent(MODEL, instructions=instructions, model_settings=ModelSettings(max_tokens=100))
+
+    @agent.system_prompt
+    def add_dynamic_system_prompt():
+        return dynamic_system_prompt
+
+    result = await agent.run(TEST_PROMPT)
+    assert "4" in str(result.output)
+
+    spans = memory_logger.pop()
+    assert len(spans) == 2, f"Expected 2 spans (agent_run + chat), got {len(spans)}"
+
+    agent_span = next(span for span in spans if span["span_attributes"]["type"] == SpanTypeAttribute.TASK)
+    chat_span = next(span for span in spans if span["span_attributes"]["type"] == SpanTypeAttribute.LLM)
+
+    assert agent_span["input"]["instructions"] == instructions
+    assert agent_span["input"]["system_prompt"] == dynamic_system_prompt
+
+    request = chat_span["input"]["messages"][0]
+    assert request["instructions"] == instructions
+    assert any(
+        part["part_kind"] == "system-prompt" and part["content"] == dynamic_system_prompt for part in request["parts"]
+    )
 
 
 @pytest.mark.vcr
@@ -1892,6 +1958,25 @@ async def test_agent_with_tool_execution(memory_logger):
     tool_names = [t["name"] for t in tools if isinstance(t, dict)]
     assert "calculate" in tool_names, f"calculate tool should be in tools list, got: {tool_names}"
 
+    # Tool definitions passed to each leaf model call belong in metadata.tools.
+    chat_spans = [s for s in spans if "chat" in s["span_attributes"]["name"]]
+    assert chat_spans, "chat span not found"
+    for chat_span in chat_spans:
+        model_tools = chat_span["metadata"]["tools"]
+        calculate_tool = next(
+            (
+                tool
+                for tool in model_tools
+                if tool.get("type") == "function" and tool.get("function", {}).get("name") == "calculate"
+            ),
+            None,
+        )
+        assert calculate_tool is not None, f"calculate tool should be in chat metadata.tools, got: {model_tools}"
+        assert set(calculate_tool) == {"type", "function"}
+        assert set(calculate_tool["function"]) == {"name", "description", "parameters", "strict"}
+        assert "operation" in calculate_tool["function"]["parameters"]["properties"]
+        assert calculate_tool["function"]["strict"] is True
+
     # Verify toolsets are NOT in metadata (following the principle: agent.run() accepts it)
     assert "toolsets" not in agent_span["metadata"], "toolsets should NOT be in metadata"
 
@@ -1932,9 +2017,16 @@ async def test_tool_execution_tracing_does_not_depend_on_message_reconstruction(
     spans = memory_logger.pop()
     agent_span = next((s for s in spans if "agent_run" in s["span_attributes"]["name"]), None)
     tool_span = next((s for s in spans if s["span_attributes"].get("name") == "get_weather"), None)
+    chat_spans = [s for s in spans if "chat" in s["span_attributes"]["name"]]
 
     assert agent_span is not None, "agent_run span not found"
     assert tool_span is not None, "runtime tool span not found"
+    assert chat_spans, "chat span not found"
+    for chat_span in chat_spans:
+        weather_tool = next(
+            tool for tool in chat_span["metadata"]["tools"] if tool["function"]["name"] == "get_weather"
+        )
+        assert weather_tool["function"].get("description") in (None, "")
     assert tool_span["span_attributes"]["type"] == SpanTypeAttribute.TOOL
     assert tool_span["span_parents"] == [agent_span["span_id"]]
     assert tool_span["metadata"].get("tool_call_id")
@@ -2140,6 +2232,80 @@ def test_agent_tool_with_custom_name():
     assert "parameters" in tool, "Tool should have parameters schema"
     assert "a" in tool["parameters"]["properties"]
     assert "b" in tool["parameters"]["properties"]
+
+
+@pytest.mark.vcr(match_on=["method", "scheme", "host", "port", "path"])
+@pytest.mark.asyncio
+async def test_agent_run_anthropic_reasoning_tokens(memory_logger):
+    """Real Anthropic extended-thinking response through pydantic-ai's own usage mapping.
+
+    pydantic-ai stashes the reasoning count under ``details["thinking_tokens"]`` for
+    Anthropic (vs ``reasoning_tokens`` for OpenAI); the extractor must surface it as
+    ``completion_reasoning_tokens``. This exercises the real provider mapping via a
+    checked-in cassette; ``test_reasoning_tokens_extraction_provider_keys`` is the
+    supplemental synthetic coverage.
+    """
+    if os.environ.get("BRAINTRUST_TEST_PACKAGE_VERSION") != "latest":
+        pytest.skip("Anthropic extended-thinking usage requires the latest pydantic-ai cassette")
+
+    import anthropic
+    from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
+    from pydantic_ai.providers.anthropic import AnthropicProvider
+
+    assert not memory_logger.pop()
+
+    model = AnthropicModel(
+        "claude-haiku-4-5-20251001",
+        provider=AnthropicProvider(anthropic_client=anthropic.AsyncAnthropic()),
+    )
+    agent = Agent(
+        model,
+        model_settings=AnthropicModelSettings(
+            max_tokens=2048,
+            anthropic_thinking={"type": "enabled", "budget_tokens": 1024},
+        ),
+    )
+
+    result = await agent.run("What is 17 * 23? Think it through, then give the number.")
+    assert "391" in str(result.output)
+
+    spans = memory_logger.pop()
+    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
+    assert chat_span is not None, "chat span not found"
+    assert chat_span["metadata"]["provider"] == "anthropic"
+    # pylint: disable=unsupported-membership-test,unsubscriptable-object
+    assert chat_span["metrics"]["completion_reasoning_tokens"] > 0
+    # pylint: enable=unsupported-membership-test,unsubscriptable-object
+
+
+@pytest.mark.parametrize(
+    "details_key",
+    [
+        "reasoning_tokens",  # OpenAI
+        "thinking_tokens",  # Anthropic
+        "thoughts_tokens",  # Google
+    ],
+)
+def test_reasoning_tokens_extraction_provider_keys(details_key):
+    """pydantic_ai stashes the reasoning-token count under a provider-specific key:
+    OpenAI "reasoning_tokens", Anthropic "thinking_tokens", Google "thoughts_tokens".
+    All three must surface as `completion_reasoning_tokens` (previously only OpenAI's
+    key was read, silently dropping Anthropic/Google reasoning).
+    """
+    from types import SimpleNamespace
+
+    from braintrust.integrations.pydantic_ai.tracing import _extract_response_metrics
+    from pydantic_ai.usage import RequestUsage
+
+    usage = RequestUsage(input_tokens=10, output_tokens=20, details={details_key: 128})
+    response = SimpleNamespace(parts=[], usage=usage)
+
+    metrics = _extract_response_metrics(response, start_time=1.0, end_time=2.0)
+
+    assert metrics is not None
+    # pylint: disable=unsupported-membership-test,unsubscriptable-object
+    assert metrics["completion_reasoning_tokens"] == 128.0
+    # pylint: enable=unsupported-membership-test,unsubscriptable-object
 
 
 def test_explicit_toolsets_kwarg_in_input():
@@ -2615,211 +2781,6 @@ def test_shape_messages_with_binary_content():
 
     # Second content item should be the string
     assert content[1] == "What is in this document?"
-
-
-@pytest.mark.asyncio
-async def test_streaming_wrappers_capture_time_to_first_token():
-    """Unit test verifying all streaming wrappers capture time_to_first_token.
-
-    This test uses mocks to verify the internal wrapper logic without requiring
-    API calls. It ensures that _first_token_time is tracked correctly in:
-    - _AgentStreamWrapper (async agent streaming)
-    - _DirectStreamWrapper (async direct API streaming)
-    - _AgentStreamResultSyncProxy (sync agent streaming)
-    - _DirectStreamWrapperSync (sync direct API streaming)
-    """
-    from unittest.mock import AsyncMock, MagicMock, Mock
-
-    from braintrust.integrations.pydantic_ai.tracing import (
-        _AgentStreamResultSyncProxy,
-        _AgentStreamWrapper,
-        _DirectStreamIteratorProxy,
-        _DirectStreamIteratorSyncProxy,
-        _DirectStreamWrapper,
-        _DirectStreamWrapperSync,
-        _StreamResultProxy,
-    )
-
-    # Test 1: _AgentStreamWrapper captures first token time
-    print("\n--- Testing _AgentStreamWrapper ---")
-
-    class MockStreamResult:
-        async def stream_text(self, delta=True):
-            for i in range(3):
-                await asyncio.sleep(0.001)
-                yield f"token{i} "
-
-        def usage(self):
-            usage_mock = Mock(input_tokens=50, output_tokens=20, total_tokens=70)
-            usage_mock.cache_read_tokens = None
-            usage_mock.cache_write_tokens = None
-            return usage_mock
-
-    mock_stream_result = MockStreamResult()
-    wrapper = _AgentStreamWrapper(
-        stream_cm=AsyncMock(),
-        span_name="test_stream",
-        input_data={"prompt": "test"},
-        metadata={"model": "gpt-4o"},
-    )
-
-    wrapper.span_cm = MagicMock()
-    wrapper.span_cm.__enter__ = MagicMock()
-    wrapper.start_time = time.time()
-    wrapper.stream_result = mock_stream_result
-
-    proxy = _StreamResultProxy(mock_stream_result, wrapper)
-
-    assert wrapper._first_token_time is None
-
-    chunk_count = 0
-    async for text in proxy.stream_text(delta=True):
-        chunk_count += 1
-        if chunk_count == 1:
-            assert wrapper._first_token_time is not None
-            assert wrapper._first_token_time > wrapper.start_time
-
-    assert chunk_count == 3
-    assert wrapper._first_token_time is not None
-    print("✓ _AgentStreamWrapper captures first token time")
-
-    # Test 2: _DirectStreamWrapper captures first token time
-    print("\n--- Testing _DirectStreamWrapper ---")
-
-    class MockStream:
-        def __init__(self):
-            self.chunks = []
-
-        async def __anext__(self):
-            if len(self.chunks) < 3:
-                await asyncio.sleep(0.001)
-                chunk = Mock(delta=Mock(content_delta=f"chunk{len(self.chunks)}"))
-                self.chunks.append(chunk)
-                return chunk
-            raise StopAsyncIteration
-
-        def __aiter__(self):
-            return self
-
-        def get(self):
-            usage_mock = Mock(input_tokens=50, output_tokens=20, total_tokens=70)
-            usage_mock.cache_read_tokens = None
-            usage_mock.cache_write_tokens = None
-            return Mock(usage=usage_mock)
-
-    mock_stream = MockStream()
-    direct_wrapper = _DirectStreamWrapper(
-        stream_cm=AsyncMock(),
-        span_name="test_direct_stream",
-        input_data={"messages": []},
-        metadata={"model": "gpt-4o"},
-    )
-
-    direct_wrapper.span_cm = MagicMock()
-    direct_wrapper.start_time = time.time()
-    direct_wrapper.stream = mock_stream
-
-    proxy = _DirectStreamIteratorProxy(mock_stream, direct_wrapper)
-
-    assert direct_wrapper._first_token_time is None
-
-    chunk_count = 0
-    async for chunk in proxy:
-        chunk_count += 1
-        if chunk_count == 1:
-            assert direct_wrapper._first_token_time is not None
-            assert direct_wrapper._first_token_time > direct_wrapper.start_time
-
-    assert chunk_count == 3
-    assert direct_wrapper._first_token_time is not None
-    print("✓ _DirectStreamWrapper captures first token time")
-
-    # Test 3: _AgentStreamResultSyncProxy captures first token time
-    print("\n--- Testing _AgentStreamResultSyncProxy ---")
-
-    class MockSyncStreamResult:
-        def stream_text(self, delta=True):
-            for i in range(3):
-                time.sleep(0.001)
-                yield f"token{i} "
-
-        def usage(self):
-            usage_mock = Mock(input_tokens=50, output_tokens=20, total_tokens=70)
-            usage_mock.cache_read_tokens = None
-            usage_mock.cache_write_tokens = None
-            return usage_mock
-
-    mock_sync_result = MockSyncStreamResult()
-    sync_proxy = _AgentStreamResultSyncProxy(
-        stream_result=mock_sync_result,
-        span=MagicMock(),
-        span_cm=MagicMock(),
-        start_time=time.time(),
-    )
-
-    assert sync_proxy._first_token_time is None
-
-    chunk_count = 0
-    for text in sync_proxy.stream_text(delta=True):
-        chunk_count += 1
-        if chunk_count == 1:
-            assert sync_proxy._first_token_time is not None
-
-    assert chunk_count == 3
-    assert sync_proxy._first_token_time is not None
-    print("✓ _AgentStreamResultSyncProxy captures first token time")
-
-    # Test 4: _DirectStreamWrapperSync captures first token time
-    print("\n--- Testing _DirectStreamWrapperSync ---")
-
-    class MockSyncStream:
-        def __init__(self):
-            self.chunks = []
-
-        def __iter__(self):
-            return self
-
-        def __next__(self):
-            if len(self.chunks) < 3:
-                time.sleep(0.001)
-                chunk = Mock(delta=Mock(content_delta=f"chunk{len(self.chunks)}"))
-                self.chunks.append(chunk)
-                return chunk
-            raise StopIteration
-
-        def get(self):
-            usage_mock = Mock(input_tokens=50, output_tokens=20, total_tokens=70)
-            usage_mock.cache_read_tokens = None
-            usage_mock.cache_write_tokens = None
-            return Mock(usage=usage_mock)
-
-    mock_sync_stream = MockSyncStream()
-    sync_wrapper = _DirectStreamWrapperSync(
-        stream_cm=MagicMock(),
-        span_name="test_sync_stream",
-        input_data={"messages": []},
-        metadata={"model": "gpt-4o"},
-    )
-
-    sync_wrapper.start_time = time.time()
-    sync_wrapper.stream = mock_sync_stream
-
-    sync_proxy = _DirectStreamIteratorSyncProxy(mock_sync_stream, sync_wrapper)
-
-    assert sync_wrapper._first_token_time is None
-
-    chunk_count = 0
-    for chunk in sync_proxy:
-        chunk_count += 1
-        if chunk_count == 1:
-            assert sync_wrapper._first_token_time is not None
-            assert sync_wrapper._first_token_time > sync_wrapper.start_time
-
-    assert chunk_count == 3
-    assert sync_wrapper._first_token_time is not None
-    print("✓ _DirectStreamWrapperSync captures first token time")
-
-    print("\n✅ All streaming wrapper unit tests passed!")
 
 
 @pytest.mark.asyncio

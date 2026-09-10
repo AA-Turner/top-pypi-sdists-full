@@ -1,6 +1,6 @@
 [project]
 name = "cadwyn"
-version = "7.2.0"
+version = "7.3.0"
 description = "Production-ready community-driven modern Stripe-like API versioning in FastAPI"
 authors = [{ name = "Stanislav Zmiev", email = "zmievsa@gmail.com" }]
 license = "MIT"
@@ -161,6 +161,9 @@ filterwarnings = [
 
     # FastAPI still uses httpx, we cannot fix it
     "ignore: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead",
+
+    # Starlette's test client still imports the alias deprecated in AnyIO 4.15.
+    'ignore:The anyio\.abc\.BlockingPortal alias is deprecated, use anyio\.from_thread\.BlockingPortal instead\.:DeprecationWarning:starlette\.testclient',
 
     # Older pydantic syntax is currently supported.
     "ignore:Using extra keyword arguments on `Field` is deprecated:DeprecationWarning:pydantic.fields",

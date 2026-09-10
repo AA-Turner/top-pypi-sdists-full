@@ -77,6 +77,24 @@ struct Output {
     /// attempted stage and the exact configuration/rule fingerprint it used.
     #[serde(skip_serializing_if = "Option::is_none")]
     recovery: Option<renkin::recovery_mode::RecoveryAudit>,
+    /// O5 named budget profile metadata. Omitted for legacy invocations so
+    /// standard output remains byte-compatible with pre-profile callers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    search_profile: Option<SearchProfileMetadata>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+struct SearchProfileMetadata {
+    schema_version: u32,
+    name: String,
+    effective_search_mode: &'static str,
+    baseline_depth: u32,
+    baseline_beam_width: usize,
+    recovery_depth: Option<u32>,
+    recovery_beam_width: Option<usize>,
+    recovery_timeout_secs: Option<u64>,
+    beam_diversity_slots: usize,
+    recovery_stage_policy: Option<&'static str>,
 }
 
 #[derive(Clone, Serialize)]
@@ -190,6 +208,7 @@ fn main() -> Result<()> {
     let mut value_model_artifact_path: Option<String> = None;
     let mut retro_generator_manifest_path: Option<String> = None;
     let mut retro_generator_artifact_path: Option<String> = None;
+    let mut retro_generator_slots_arg: Option<String> = None;
     let mut template_metadata_path: Option<String> = None;
     let mut top_templates: Option<usize> = None;
     let mut max_routes: usize = 5;
@@ -276,6 +295,10 @@ fn main() -> Result<()> {
                 retro_generator_artifact_path = Some(
                     required_flag_value(&args, &mut i, "--retro-generator-artifact")?.to_owned(),
                 );
+            }
+            "--retro-generator-slots" => {
+                retro_generator_slots_arg =
+                    Some(required_flag_value(&args, &mut i, "--retro-generator-slots")?.to_owned());
             }
             "--template-metadata" => {
                 template_metadata_path =
@@ -536,6 +559,7 @@ fn main() -> Result<()> {
              --template-policy-artifact <path>  Static policy score-table artifact\n  \
              --value-model-manifest <path>  Hash-pinned value-model manifest\n  \
              --value-model-artifact <path>  Static value-model artifact\n  \
+             --retro-generator-slots <N>  Extra beam capacity for direct-generator proposals\n  \
              --format / -f      Output format: json (default), tree, mermaid\n  \
              --avoid-elements / -e  Comma-separated elements to ban from BBs (e.g. \"Br,I\")\n  \
              --require-elements / -r  Comma-separated elements each route must supply (e.g. \"B\")\n  \
@@ -623,6 +647,8 @@ fn main() -> Result<()> {
             "unsupported --format {format:?} (expected json|tree|mermaid|explain|compare|table|compare-json|pareto)"
         );
     }
+
+    let requested_search_profile = search_profile_arg.clone();
 
     // G5: named search profiles. The absent profile remains byte-for-byte
     // compatible with the historical CLI. Profiles only fill recovery
@@ -1123,6 +1149,16 @@ fn main() -> Result<()> {
             }
         },
     };
+    let retro_generator_slots: usize = match retro_generator_slots_arg.as_deref() {
+        None => 0,
+        Some(v) => match v.parse() {
+            Ok(n) => n,
+            Err(_) => {
+                eprintln!("error: --retro-generator-slots '{v}' must be a non-negative integer");
+                std::process::exit(1);
+            }
+        },
+    };
     if element_accounting_retry && beam_diversity_retry {
         bail!(
             "--element-accounting-policy retry-on-integrity-failure cannot be combined with \
@@ -1208,6 +1244,30 @@ fn main() -> Result<()> {
         "native" => renkin::recovery_mode::RecoveryStagePolicy::Native,
         other => bail!("invalid --recovery-stage-policy '{other}' (expected full|native)"),
     };
+    let search_profile_metadata =
+        requested_search_profile
+            .as_deref()
+            .map(|name| SearchProfileMetadata {
+                schema_version: 1,
+                name: name.to_owned(),
+                effective_search_mode: match search_mode {
+                    SearchMode::Standard => "standard",
+                    SearchMode::Coverage => "coverage",
+                    SearchMode::Recovery => "recovery",
+                },
+                baseline_depth: eff_depth,
+                baseline_beam_width: beam_width,
+                recovery_depth,
+                recovery_beam_width,
+                recovery_timeout_secs: recovery_timeout.map(|duration| duration.as_secs()),
+                beam_diversity_slots,
+                recovery_stage_policy: (search_mode == SearchMode::Recovery).then_some(
+                    match recovery_stage_policy {
+                        renkin::recovery_mode::RecoveryStagePolicy::Full => "full",
+                        renkin::recovery_mode::RecoveryStagePolicy::Native => "native",
+                    },
+                ),
+            });
     let avoid_mask = chem_env::elem_symbols_to_mask(&avoid_elements)
         | chem_env::elem_symbols_to_mask(
             &constraints
@@ -1246,6 +1306,7 @@ fn main() -> Result<()> {
         reranker,
         reaction_prior,
         retro_generator,
+        retro_generator_slots,
         spectator_bond_policy,
         element_accounting_policy,
         beam_diversity_policy,
@@ -1282,7 +1343,20 @@ fn main() -> Result<()> {
         recovery_meta,
     ): SearchDispatchResult = match search_mode {
         SearchMode::Standard => {
-            if element_accounting_retry {
+            if config.retro_generator.is_some()
+                && !element_accounting_retry
+                && !beam_diversity_retry
+            {
+                let result = search::find_routes_with_retro_generator_retry(
+                    &target_smiles,
+                    &env,
+                    &rules,
+                    &config,
+                    &search::SearchControl::unlimited(),
+                )?;
+                let selected = result.selected;
+                (selected.routes, selected.stats, None, None, None, None)
+            } else if element_accounting_retry {
                 let result = search::find_routes_with_element_accounting_retry(
                     &target_smiles,
                     &env,
@@ -1570,6 +1644,9 @@ fn main() -> Result<()> {
                     out["search_mode"] = serde_json::Value::from("recovery");
                     out["recovery"] = serde_json::to_value(meta)?;
                 }
+                if let Some(ref profile) = search_profile_metadata {
+                    out["search_profile"] = serde_json::to_value(profile)?;
+                }
                 println!("{}", serde_json::to_string_pretty(&out)?);
             } else {
                 let joint_success_probability = 1.0
@@ -1600,6 +1677,7 @@ fn main() -> Result<()> {
                     element_accounting_retry: element_accounting_retry_meta,
                     beam_diversity_retry: beam_diversity_retry_meta,
                     recovery: recovery_meta,
+                    search_profile: search_profile_metadata,
                     routes,
                 };
                 println!("{}", serde_json::to_string_pretty(&output)?);
@@ -4615,5 +4693,28 @@ mod stock_import_cli_tests {
             "/nonexistent/path/templates.smi".to_string(),
         ];
         assert!(build_template_doctor_report(&args).is_err());
+    }
+
+    #[test]
+    fn search_profile_metadata_serializes_effective_budget_contract() {
+        let metadata = SearchProfileMetadata {
+            schema_version: 1,
+            name: "balanced".to_owned(),
+            effective_search_mode: "recovery",
+            baseline_depth: 5,
+            baseline_beam_width: 100,
+            recovery_depth: Some(6),
+            recovery_beam_width: Some(200),
+            recovery_timeout_secs: Some(15),
+            beam_diversity_slots: 0,
+            recovery_stage_policy: Some("native"),
+        };
+
+        let value = serde_json::to_value(metadata).unwrap();
+        assert_eq!(value["schema_version"], 1);
+        assert_eq!(value["name"], "balanced");
+        assert_eq!(value["baseline_depth"], 5);
+        assert_eq!(value["recovery_beam_width"], 200);
+        assert_eq!(value["recovery_stage_policy"], "native");
     }
 }

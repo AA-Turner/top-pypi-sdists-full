@@ -20,6 +20,7 @@ from .data import *
 
 # %% ../../nbs/09_vision.augment.ipynb #4f678d91
 from torch import stack, zeros_like as t0, ones_like as t1
+from torchvision.transforms.functional import pad as tvpad
 
 # %% ../../nbs/09_vision.augment.ipynb #d5a5551d
 class RandTransform(DisplayedTransform):

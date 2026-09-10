@@ -86,7 +86,7 @@ def get_heuristics_config(ba: op.BoundArguments) -> common.Config:
       tile_m=tile_m,
       tile_n=tile_n,
       tile_k=tile_k,
-      num_stages=min(2, k // tile_k),
+      num_stages=min(4, k // tile_k),
       grid_minor_dim=common.MatmulDimension.M,
   )
 
@@ -142,12 +142,15 @@ def gated_linear_unit(
 
   tile_m, tile_n, tile_k = config.tile_m, config.tile_n, config.tile_k
 
+  # `NotImplementedError`, not `ValueError`: see the note on the equivalent
+  # guards in `pallas_mosaic_gpu_kernel_sm90.py`. This is the signal `api.py`
+  # catches to fall through to the next implementation.
   if m % tile_m != 0:
-    raise ValueError(f"{m=} must be divisible by {tile_m=}")
+    raise NotImplementedError(f"{m=} must be divisible by {tile_m=}")
   if n % tile_n != 0:
-    raise ValueError(f"{n=} must be divisible by {tile_n=}")
+    raise NotImplementedError(f"{n=} must be divisible by {tile_n=}")
   if k % tile_k != 0:
-    raise ValueError(f"{k=} must be divisible by {tile_k=}")
+    raise NotImplementedError(f"{k=} must be divisible by {tile_k=}")
 
   grid = (m // tile_m, n // tile_n)
 
@@ -156,10 +159,6 @@ def gated_linear_unit(
       scratch_types=(mgpu_lib.tiled_swizzled_smem((tile_m, tile_n), dtype),),
       grid=(4 * backend.get_default_device().core_count,),
       grid_names=("block",),
-      compiler_params=plgpu.CompilerParams(
-          # TODO: Migrate to WG semantics once it supports cp_async.
-          lowering_semantics=plgpu.LoweringSemantics.Lane,
-      ),
   )
   def kernel(x_gmem, weights_gmem, out_gmem, out_smem):
 
@@ -173,9 +172,9 @@ def gated_linear_unit(
       def compute(_, x_smem, wg_smem, wp_smem, accs):
         gates, proj = accs
         with jax.named_scope("load"):
-          x = plgpu.load(x_smem, layout=plgpu.Layout.MMA_LHS(dtype))
-          w = plgpu.load(wg_smem, layout=plgpu.Layout.MMA_RHS(dtype))
-          v = plgpu.load(wp_smem, layout=plgpu.Layout.MMA_RHS(dtype))
+          x = x_smem[...]
+          w = wg_smem[...]
+          v = wp_smem[...]
         with jax.named_scope("mma"):
           gates = plgpu.mma(gates, x, w)
           proj = plgpu.mma(proj, x, v)
@@ -186,7 +185,6 @@ def gated_linear_unit(
       w_spec = spec((tile_k, tile_n), dtype, lambda ki: (ki, ni), "w")
 
       acc = jnp.zeros(out_smem.shape, jnp.float32)
-      acc = plgpu.layout_cast(acc, plgpu.Layout.MMA_ACC(dtype))
       gates, proj = plgpu.emit_pipeline(
           compute,
           grid=(k // tile_k,),

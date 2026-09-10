@@ -269,7 +269,7 @@ class BoardSyncService:
         session: Session,
         project_id: str,
         ref_retries: int = _PROJECT_REF_RETRIES,
-    ) -> Tuple[bool, Ticket]:
+    ) -> Tuple[str, Ticket]:
         """Write one ticket inside its own SAVEPOINT.
 
         Two problems, one mechanism:
@@ -290,13 +290,13 @@ class BoardSyncService:
         for attempt in range(ref_retries):
             try:
                 with session.begin_nested():
-                    was_created, ticket = self._create_or_update_ticket(
+                    outcome, ticket = self._create_or_update_ticket(
                         external_ticket, registration, session, project_id
                     )
                     # Surface constraint violations inside the savepoint, where
                     # they can still be contained.
                     session.flush()
-                return was_created, ticket
+                return outcome, ticket
             except IntegrityError as exc:
                 if attempt == last or not _is_project_ref_conflict(exc):
                     raise
@@ -402,12 +402,13 @@ class BoardSyncService:
         registration: BoardRegistration,
         session: Session,
         project_id: str,
-    ) -> Tuple[bool, Ticket]:
-        """
-        Create or update a ticket based on external data.
+    ) -> Tuple[str, Ticket]:
+        """Create, update, or leave a ticket alone, based on external data.
 
-        Returns:
-            Tuple of (was_created, ticket_object)
+        Returns `("created" | "updated" | "unchanged", ticket)`. **Three
+        outcomes, not two**: a board returns every ticket on every full sync,
+        and most of them have not moved. Collapsing "unchanged" into "updated"
+        made a quiet board report 258 updates having written nothing.
         """
         external_id = str(external_ticket.get("id", ""))
 
@@ -546,7 +547,13 @@ class BoardSyncService:
             if changed:
                 existing_ticket.updated_at = datetime.now(timezone.utc)
                 session.add(existing_ticket)
-            return False, existing_ticket
+            # **`changed` is already the answer to "was this an update?"** It was
+            # computed, used to decide whether to write, and then thrown away --
+            # so the caller, seeing only "not created", counted every row the
+            # board returned as an update. A full sync of a quiet board reported
+            # "258 tickets updated" having written none of them, which reads as
+            # the sync being wasteful when the waste was in the sentence.
+            return ("updated" if changed else "unchanged"), existing_ticket
         else:
             # Assign project-scoped sequential reference number. Racy on its own
             # -- uq_ticket_project_ref_number is what guarantees uniqueness, and
@@ -575,7 +582,7 @@ class BoardSyncService:
             )
 
             session.add(new_ticket)
-            return True, new_ticket
+            return "created", new_ticket
 
     @staticmethod
     def _ticket_to_external_dict(
@@ -679,7 +686,9 @@ class BoardSyncService:
         cycle and does not write a BoardSyncHistory record.
 
         Returns:
-            Tuple of (was_created, ticket)
+            Tuple of (was_created, ticket). Boolean here rather than the
+            three-way outcome its helper returns: this path answers "did I just
+            import this ticket", and an unchanged re-fetch is not a creation.
 
         Raises:
             ValueError: If the board registration is not found, or has no
@@ -708,12 +717,12 @@ class BoardSyncService:
 
         external_ticket = self._ticket_to_external_dict(ticket_from_board, registration)
 
-        was_created, ticket = self._create_or_update_ticket(
+        outcome, ticket = self._create_or_update_ticket(
             external_ticket, registration, session, project_id=project_id
         )
         session.commit()
 
-        return was_created, ticket
+        return outcome == "created", ticket
 
     async def sync_board_tickets(
         self,
@@ -759,8 +768,11 @@ class BoardSyncService:
             "tickets_updated": 0,
             "tickets_skipped": 0,
             # Distinct from `tickets_skipped`, which means "tried and failed".
-            # This is "the board says it has not moved since `since`, and we
-            # already have it" -- a deliberate no-op, not an error.
+            # A deliberate no-op, from either of two places: the board says the
+            # ticket has not moved since `since` and we already have it, or we
+            # compared every field the board owns and none differed. Both mean
+            # "nothing was written", which is what a reader needs; which of the
+            # two got there is a detail of how much work we saved.
             "tickets_unchanged": 0,
             "error_message": None,
         }
@@ -867,17 +879,14 @@ class BoardSyncService:
                         # Each ticket writes inside its own SAVEPOINT, so one
                         # failure cannot abort the transaction the remaining
                         # tickets (and the batch commit) depend on.
-                        was_created, ticket = self._persist_ticket(
+                        outcome, ticket = self._persist_ticket(
                             external_ticket,
                             registration,
                             session,
                             project_id=project_id,
                         )
 
-                        if was_created:
-                            results["tickets_created"] += 1
-                        else:
-                            results["tickets_updated"] += 1
+                        results[f"tickets_{outcome}"] += 1
 
                 except Exception as e:
                     logger.warning(
@@ -937,6 +946,7 @@ class BoardSyncService:
             sync_history.tickets_created = results["tickets_created"]
             sync_history.tickets_updated = results["tickets_updated"]
             sync_history.tickets_skipped = results["tickets_skipped"]
+            sync_history.tickets_unchanged = results["tickets_unchanged"]
 
             session.add(sync_history)
 
@@ -1068,6 +1078,7 @@ class BoardSyncService:
                 sync_history.tickets_created = results["tickets_created"]
                 sync_history.tickets_updated = results["tickets_updated"]
                 sync_history.tickets_skipped = results["tickets_skipped"]
+                sync_history.tickets_unchanged = results["tickets_unchanged"]
                 session.add(sync_history)
 
             # History records the attempt; the registration records the current

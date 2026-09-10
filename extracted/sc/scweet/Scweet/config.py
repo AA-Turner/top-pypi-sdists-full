@@ -25,23 +25,29 @@ class ScweetConfig(BaseModel):
 
     # HTTP tuning
     api_http_mode: ApiHttpMode = ApiHttpMode.AUTO
-    api_http_impersonate: Optional[str] = None
+    # "chrome" follows the newest Chrome fingerprint that the installed curl_cffi supports, so the TLS
+    # fingerprint does not age while the cookies stay current.
+    api_http_impersonate: Optional[str] = "chrome"
     api_user_agent: Optional[str] = None
 
     # Rate limiting
-    daily_requests_limit: int = Field(default=30, ge=1)
-    daily_tweets_limit: int = Field(default=600, ge=1)
+    daily_requests_limit: int = Field(default=300, ge=1)
+    daily_tweets_limit: int = Field(default=6000, ge=1)
     # Not 1, because X sends a stray empty page mid-chain while results remain, and 1 loses the rest.
     max_empty_pages: int = Field(default=3, ge=1)
     api_page_size: int = Field(default=20, ge=1, le=100)
     # X counts requests per account per window; measured 2026-08-31: 50 allowed, request 51 gave 429.
     window_request_limit: int = Field(default=50, ge=1)
     rate_limit_window_s: float = Field(default=900.0, gt=0.0)
-    # An optional floor between two requests. X counts the window total, not the gap, so 0 is safe.
-    min_delay_s: float = Field(default=0.0, ge=0.0)
+    # A floor between two requests of one account, so a burst does not arrive at wire speed. X counts the
+    # window total, so the floor costs little; 0 removes it.
+    min_delay_s: float = Field(default=1.0, ge=0.0)
     # Hand off when x-rate-limit-remaining falls to this value. Not 0, because the header can lag one
     # request behind X, and a 429 loses the page.
     rate_limit_min_remaining: int = Field(default=2, ge=0)
+    # The graph endpoint allows 50 requests in a window, and X restricts an account there more easily than
+    # at a search (measured 2026-09-07), so the followers paths keep a margin of 5.
+    relationship_window_request_limit: int = Field(default=45, ge=1)
 
     # Advanced
     enable_wal: bool = True
@@ -51,6 +57,8 @@ class ScweetConfig(BaseModel):
     cooldown_default_s: float = Field(default=120.0, ge=0.0)
     transient_cooldown_s: float = Field(default=120.0, ge=0.0)
     auth_cooldown_s: float = Field(default=30 * 24 * 60 * 60, ge=0.0)
+    # A locked account needs the user at x.com/account/access; the account retries each hour until then.
+    locked_cooldown_s: float = Field(default=3600.0, ge=0.0)
     cooldown_jitter_s: float = Field(default=10.0, ge=0.0)
     # Deprecated. The limiter paces to `window_request_limit` over `rate_limit_window_s`, not to a per-minute
     # rate. This field stays so an old configuration still loads, and the limiter no longer reads it.

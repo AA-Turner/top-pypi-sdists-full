@@ -16,7 +16,7 @@ from taktile_auth.counter import SharedCounter
 from taktile_auth.exceptions import InvalidAuthException, TaktileAuthException
 from taktile_auth.recursion import RecursionGate, RecursionMode
 from taktile_auth.schemas.session import SessionState, parse_session_prefix
-from taktile_auth.schemas.token import TaktileIdToken
+from taktile_auth.schemas.token import RequestableActor, TaktileIdToken
 from taktile_auth.settings import settings
 from taktile_auth.utils.cache import Cache
 
@@ -379,6 +379,7 @@ class AuthClient:
         workspace_id: t.Optional[str] = None,
         roles: t.Optional[t.Sequence[str]] = None,
         resource: t.Optional[str] = None,
+        actor: t.Optional[RequestableActor] = None,
     ) -> t.Union[
         JWTResponseSuccess,
         JWTResponseAllowedFailure,
@@ -397,6 +398,10 @@ class AuthClient:
         ``resource`` is the RFC 8707 resource indicator: the audience the
         minted token is for. An auth server that does not implement it
         ignores the param and mints its default audience.
+
+        ``actor`` names the party the caller acts on behalf of, limited
+        to the requestable actors, and forwards as the ``actor`` query
+        param.
         """
         # PEP-295 prefix is for *customer* hop accounting. The internal
         # access-token exchange is not a hop — the prefix would only
@@ -418,6 +423,8 @@ class AuthClient:
             params["roles"] = list(roles)
         if resource is not None:
             params["resource"] = resource
+        if actor is not None:
+            params["actor"] = actor.value
         try:
             res = requests.post(
                 self.access_token_url,

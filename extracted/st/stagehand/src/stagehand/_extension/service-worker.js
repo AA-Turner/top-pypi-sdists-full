@@ -7359,14 +7359,22 @@ function isRecord$1(value) {
 }
 var package_default$1 = {
 	name: "@browserbasehq/stagehand-protocol",
-	version: "1.0.0",
+	version: "2.0.0",
 	"private": true,
 	type: "module",
+	exports: {
+		"./json-rpc/schemas": "./json-rpc/schemas.ts",
+		"./json-rpc/types": "./json-rpc/types.ts",
+		"./json-rpc/wire-casing": "./json-rpc/wire-casing.ts",
+		"./protocol-version": "./protocol-version.ts",
+		"./schema-registry": "./schema-registry.ts",
+		"./schemas": "./schemas.ts",
+		"./types": "./types.ts"
+	},
 	scripts: {
 		"build": "node json-rpc/build-json-rpc-schema.ts && oxfmt --write stagehand.v4.json",
 		"test": "vitest run --root ../.. packages/protocol/tests packages/protocol/json-rpc/tests",
-		"test:unit": "vitest run --root ../.. packages/protocol/tests packages/protocol/json-rpc/tests --exclude=packages/protocol/tests/browser-runtime/**",
-		"test:browser": "vitest run --root ../.. packages/protocol/tests/browser-runtime",
+		"test:unit": "vitest run --root ../.. packages/protocol/tests packages/protocol/json-rpc/tests",
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	dependencies: {
@@ -7377,7 +7385,6 @@ var package_default$1 = {
 	devDependencies: {
 		"@types/chrome": "catalog:",
 		"@types/node": "catalog:",
-		"chrome-launcher": "catalog:",
 		"oxfmt": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
@@ -8302,7 +8309,6 @@ var PageNavigationOptionsSchema = strictObject({
 }).meta({ id: "PageNavigationOptions" });
 var PageVoidResultSchema = strictObject({ ok: literal(true) }).meta({ id: "PageVoidResult" });
 var ContextVoidResultSchema = strictObject({ ok: literal(true) }).meta({ id: "ContextVoidResult" });
-var ContextCloseResultSchema = strictObject({ closed: literal(true) }).meta({ id: "ContextCloseResult" });
 var PageScreenshotClipSchema = strictObject({
 	x: number$1(),
 	y: number$1(),
@@ -8361,7 +8367,7 @@ var PageEventNameSchema = _enum(["console"]).meta({ id: "PageEventName" });
 var PageCDPEventParamsSchema = record(string(), json$1()).meta({ id: "PageCDPEventParams" });
 var PageCDPEventSchema = strictObject({
 	pageId: string().min(1),
-	method: literal("Runtime.consoleAPICalled"),
+	method: _enum(["Runtime.consoleAPICalled"]),
 	params: PageCDPEventParamsSchema,
 	sessionId: string().min(1),
 	targetId: string().min(1)
@@ -8671,10 +8677,7 @@ var PageUrlResultSchema = string().meta({ id: "PageUrlResult" });
 var PageTitleResultSchema = string().meta({ id: "PageTitleResult" });
 var PageCloseResultSchema = strictObject({ closed: literal(true) }).meta({ id: "PageCloseResult" });
 var PageEvaluateResultSchema = strictObject({ value: json$1() }).meta({ id: "PageEvaluateResult" });
-var PageScreenshotResultSchema = strictObject({
-	data: base64().meta({ format: "byte" }),
-	type: _enum(["png", "jpeg"])
-}).meta({ id: "PageScreenshotResult" });
+var PageScreenshotResultSchema = strictObject({ data: base64().meta({ format: "byte" }) }).meta({ id: "PageScreenshotResult" });
 var PageWaitForSelectorResultSchema = strictObject({ matched: boolean() }).meta({ id: "PageWaitForSelectorResult" });
 var LocatorClickResultSchema = strictObject({ clicked: literal(true) }).meta({ id: "LocatorClickResult" });
 var LocatorFillResultSchema = strictObject({ filled: literal(true) }).meta({ id: "LocatorFillResult" });
@@ -8786,11 +8789,6 @@ var StagehandMethods = {
 		name: "context.set_active_page",
 		params: ContextSetActivePageParamsSchema,
 		result: ContextVoidResultSchema
-	},
-	contextClose: {
-		name: "context.close",
-		params: EmptyParamsSchema,
-		result: ContextCloseResultSchema
 	},
 	contextAddInitScript: {
 		name: "context.add_init_script",
@@ -11463,7 +11461,9 @@ var RPCClient = class {
 			});
 			return;
 		}
+		let releaseStagehandInstanceRequest;
 		try {
+			if (request.data.method !== StagehandMethods.stagehandInit.name && request.data.method !== StagehandMethods.stagehandClose.name) releaseStagehandInstanceRequest = this.router.runtime.acquireStagehandInstanceRequest();
 			const result = await this.router.handle(stagehandRequest.data, runtimeAttachments);
 			const parsedResult = method.result.safeParse(result);
 			if (!parsedResult.success) {
@@ -11473,6 +11473,7 @@ var RPCClient = class {
 				});
 				return;
 			}
+			await this.router.beforeResponse(stagehandRequest.data);
 			await this.runtime.send(JSONRPCSuccessResponseSchema.parse({
 				jsonrpc: "2.0",
 				id: request.data.id,
@@ -11487,6 +11488,8 @@ var RPCClient = class {
 				return;
 			}
 			await this.sendError(request.data.id, JSONRPCErrorCodes.internalError, error instanceof Error ? error.message : String(error), { name: error instanceof Error ? error.name : "Error" });
+		} finally {
+			releaseStagehandInstanceRequest?.();
 		}
 	}
 	receiveResponse(response) {
@@ -11553,10 +11556,6 @@ function createContextController(runtime) {
 		logger.debug("context.set_active_page", {});
 		return runtime.contextSetActivePage(params);
 	}
-	async function close(_params, { logger }) {
-		logger.debug("context.close", {});
-		return runtime.contextClose();
-	}
 	async function addInitScript(params, { logger }) {
 		logger.debug("context.add_init_script", {});
 		return runtime.contextAddInitScript(params);
@@ -11614,7 +11613,6 @@ function createContextController(runtime) {
 		newPage,
 		activePage,
 		setActivePage,
-		close,
 		addInitScript,
 		setExtraHTTPHeaders,
 		getDomainPolicy,
@@ -12333,8 +12331,9 @@ function reportPageEventListenerError(error) {
 //#endregion
 //#region ../sdk-ts/src/browserContext.ts
 var BrowserContext$1 = class {
-	constructor(rpcClient) {
+	constructor(rpcClient, closeBrowser) {
 		this.rpcClient = rpcClient;
+		this.closeBrowser = closeBrowser;
 	}
 	get clipboard() {
 		return this.clipboardRef ??= new BrowserClipboard(this.rpcClient);
@@ -12354,9 +12353,10 @@ var BrowserContext$1 = class {
 	async setActivePage(page) {
 		await this.rpcClient.send(StagehandMethods.contextSetActivePage, { pageId: page.pageId });
 	}
-	/** Close the remote context. Call Stagehand.close() to dispose the SDK's local resources. */
+	/** Close the underlying browser. */
 	async close() {
-		await this.rpcClient.send(StagehandMethods.contextClose, {});
+		if (!this.closeBrowser) throw new Error("Browser context is not attached to a browser");
+		await this.closeBrowser();
 	}
 	async addInitScript(script, arg) {
 		const source = await normalizeInitScriptSource$1(script, arg, "context.addInitScript");
@@ -12447,6 +12447,55 @@ strictObject({
 	sessionId: string().min(1),
 	extensionId: string().min(1).optional()
 }).meta({ id: "BrowserbaseConnectOptions" });
+var BrowserbaseClientOptionsSchema = {
+	apiKey: string().min(1),
+	baseUrl: url().default(DEFAULT_BROWSERBASE_URL)
+};
+strictObject({
+	...BrowserbaseClientOptionsSchema,
+	query: string().min(1).max(200),
+	numResults: int().min(1).max(25).optional()
+}).meta({ id: "BrowserbaseSearchOptions" });
+strictObject({
+	...BrowserbaseClientOptionsSchema,
+	url: url(),
+	allowInsecureSsl: boolean().optional(),
+	allowRedirects: boolean().optional(),
+	format: _enum([
+		"raw",
+		"json",
+		"markdown"
+	]).optional(),
+	proxies: boolean().optional(),
+	schema: record(string(), unknown()).optional()
+}).refine(({ format, schema }) => schema === void 0 || format === "json", {
+	message: "schema is only valid when format is \"json\"",
+	path: ["schema"]
+}).refine(({ format, schema }) => format !== "json" || schema !== void 0, {
+	message: "schema is required when format is \"json\"",
+	path: ["schema"]
+}).meta({ id: "BrowserbaseFetchOptions" });
+object$1({
+	query: string(),
+	requestId: string(),
+	results: array$1(object$1({
+		id: string(),
+		title: string(),
+		url: string(),
+		author: string().nullish(),
+		favicon: string().nullish(),
+		image: string().nullish(),
+		publishedDate: string().nullish()
+	}))
+}).meta({ id: "BrowserbaseSearchResult" });
+object$1({
+	id: string(),
+	content: union([string(), record(string(), unknown())]),
+	contentType: string(),
+	encoding: string(),
+	headers: record(string(), string()),
+	statusCode: number$1().int()
+}).meta({ id: "BrowserbaseFetchResult" });
 object$1({
 	id: string(),
 	connectUrl: string()
@@ -50849,13 +50898,13 @@ async function observe({ params, page, model, clientLLMGenerate, logger, systemP
 //#endregion
 //#region controllers/stagehandController.ts
 function createStagehandController(runtime, options = {}) {
-	const closeRuntime = options.close ?? (() => runtime.close());
+	const closeRuntime = options.close ?? (() => runtime.disposeStagehandInstance());
 	async function runOperation(name, { logger, telemetryScope }, run) {
 		return await logger.span(name, {}, (logger) => runtime.runWithTelemetryContext(telemetryScope, logger, () => run(logger)));
 	}
 	async function init(params, { logger }) {
 		const compatibility = checkProtocolCompatibility(params.protocolVersion, STAGEHAND_PROTOCOL_VERSION);
-		if (!compatibility.compatible) throw new StagehandProtocolCompatibilityError(compatibility.reason);
+		if (compatibility.compatible === false) throw new StagehandProtocolCompatibilityError(compatibility.reason);
 		logger.setLevel(params.logLevel);
 		logger.info("stagehand.init", {});
 		return options.initialize ? await options.initialize(params) : await runtime.initialize(params, logger);
@@ -50964,7 +51013,7 @@ var RPCRouter = class {
 	}
 	async handle(request, runtimeAttachments) {
 		const initParams = request.method === StagehandMethods.stagehandInit.name ? request.params : void 0;
-		if (initParams) this.runtime.tracing.configure(initParams.telemetry, initParams.clientInfo);
+		if (initParams) await this.runtime.tracing.configure(initParams.telemetry, initParams.clientInfo);
 		const parentContext = W3C_TRACE_CONTEXT_PROPAGATOR.extract(ROOT_CONTEXT, request, {
 			get(carrier, key) {
 				if (key === "traceparent" || key === "tracestate") return carrier[key];
@@ -50999,8 +51048,11 @@ var RPCRouter = class {
 			throw error;
 		} finally {
 			span.end();
-			if (request.method === StagehandMethods.stagehandClose.name) await this.runtime.tracing.shutdown();
 		}
+	}
+	async beforeResponse(request) {
+		if (request.method !== StagehandMethods.stagehandClose.name) return;
+		await this.runtime.tracing.forceFlush().catch(() => void 0);
 	}
 	async route(request, context, parsedInitParams) {
 		switch (request.method) {
@@ -51015,7 +51067,6 @@ var RPCRouter = class {
 			case "context.new_page": return this.contextController.newPage(parseParams(StagehandMethods.contextNewPage, request.params), context);
 			case "context.active_page": return this.contextController.activePage(parseParams(StagehandMethods.contextActivePage, request.params), context);
 			case "context.set_active_page": return this.contextController.setActivePage(parseParams(StagehandMethods.contextSetActivePage, request.params), context);
-			case "context.close": return this.contextController.close(parseParams(StagehandMethods.contextClose, request.params), context);
 			case "context.add_init_script": return this.contextController.addInitScript(parseParams(StagehandMethods.contextAddInitScript, request.params), context);
 			case "context.set_extra_http_headers": return this.contextController.setExtraHTTPHeaders(parseParams(StagehandMethods.contextSetExtraHTTPHeaders, request.params), context);
 			case "context.get_domain_policy": return this.contextController.getDomainPolicy(parseParams(StagehandMethods.contextGetDomainPolicy, request.params), context);
@@ -51263,14 +51314,10 @@ var StagehandLogger = class StagehandLogger {
 };
 //#endregion
 //#region runtimeState.ts
-var StagehandRuntimeStateSchema = discriminatedUnion("status", [
-	strictObject({ status: literal("created") }),
-	strictObject({
-		status: literal("initialized"),
-		initParams: StagehandInitParamsSchema
-	}),
-	strictObject({ status: literal("closed") })
-]);
+var StagehandRuntimeStateSchema = discriminatedUnion("status", [strictObject({ status: literal("idle") }), strictObject({
+	status: literal("initialized"),
+	initParams: StagehandInitParamsSchema
+})]);
 //#endregion
 //#region ../../node_modules/.pnpm/@opentelemetry+otlp-exporter-base@0.220.0_@opentelemetry+api@1.9.1/node_modules/@opentelemetry/otlp-exporter-base/build/esm/OTLPExporterBase.js
 var OTLPExporterBase = class {
@@ -53446,13 +53493,14 @@ var WebTracerProvider = class extends BasicTracerProvider {
 };
 var package_default = {
 	name: "@browserbasehq/stagehand-extension",
-	version: "1.0.1",
+	version: "1.0.2",
 	"private": true,
 	type: "module",
 	scripts: {
 		"build": "vite build --config vite.config.ts",
 		"test": "pnpm run build && vitest run --root ../.. packages/extension/tests",
-		"test:unit": "vitest run --root ../.. packages/extension/tests packages/extension/understudy"
+		"test:unit": "vitest run --root ../.. packages/extension/tests packages/extension/understudy",
+		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	dependencies: {
 		"@ai-sdk/anthropic": "catalog:",
@@ -53473,6 +53521,7 @@ var package_default = {
 		"zustand": "catalog:"
 	},
 	devDependencies: {
+		"@browserbasehq/stagehand-protocol": "workspace:*",
 		"@types/chrome": "catalog:",
 		"@types/node": "catalog:",
 		"fflate": "catalog:",
@@ -53521,22 +53570,48 @@ function createStagehandTracing(options = {}, dependencies = DEFAULT_TRACING_RUN
 	const pendingTracer = trace.getTracer(STAGEHAND_TRACER_NAME);
 	let runtime;
 	let shutDown = false;
+	let globalsRegistered = false;
+	let lifecycleTail = Promise.resolve();
+	let activeTelemetry;
+	let activeClientInfo;
+	function enqueueLifecycle(run) {
+		const result = lifecycleTail.then(run, run);
+		lifecycleTail = result.catch(() => void 0);
+		return result;
+	}
 	return {
 		get tracer() {
 			return runtime?.tracer ?? pendingTracer;
 		},
 		configure(telemetry, clientInfo) {
-			if (runtime || shutDown) return;
-			runtime = createStagehandTracingRuntime({
-				...options,
-				clientName: clientInfo.name,
-				clientVersion: clientInfo.version
-			}, { spanProcessors: [...dependencies.spanProcessors, createOtlpSpanProcessor(telemetry.traces)] });
+			return enqueueLifecycle(async () => {
+				if (shutDown) return;
+				if (runtime && telemetry === activeTelemetry && clientInfo === activeClientInfo) return;
+				const previousRuntime = runtime;
+				runtime = void 0;
+				await previousRuntime?.shutdown();
+				const registerGlobals = options.registerGlobals !== false && !globalsRegistered;
+				runtime = createStagehandTracingRuntime({
+					...options,
+					clientName: clientInfo.name,
+					clientVersion: clientInfo.version,
+					registerGlobals
+				}, { spanProcessors: [...dependencies.spanProcessors, createOtlpSpanProcessor(telemetry.traces)] });
+				activeTelemetry = telemetry;
+				activeClientInfo = clientInfo;
+				globalsRegistered ||= registerGlobals;
+			});
 		},
-		forceFlush: () => runtime?.forceFlush() ?? Promise.resolve(),
+		forceFlush: () => enqueueLifecycle(() => runtime?.forceFlush() ?? Promise.resolve()),
 		shutdown: () => {
 			shutDown = true;
-			return runtime?.shutdown() ?? Promise.resolve();
+			return enqueueLifecycle(async () => {
+				const activeRuntime = runtime;
+				runtime = void 0;
+				activeTelemetry = void 0;
+				activeClientInfo = void 0;
+				await activeRuntime?.shutdown();
+			});
 		}
 	};
 }
@@ -55168,6 +55243,7 @@ var LIFECYCLE_NAME = {
 };
 var MAX_WEBMCP_TOOLS_QUIET_WINDOW_MS = 100;
 var WEBMCP_SETTLED_INVOCATION_RETENTION_MS = 300 * 1e3;
+var PAGE_TO_CDP_EVENTS = { ["console"]: "Runtime.consoleAPICalled" };
 function createDeferred() {
 	let resolve;
 	let reject;
@@ -55209,6 +55285,16 @@ function webMCPToolResponse(event) {
 	});
 }
 var Page = class Page {
+	onWebMCPToolResponded(session, event) {
+		const record = this.webMCPInvocations.get(event.invocationId);
+		if (!record || record.session !== session || record.result !== void 0) return;
+		const result = webMCPToolResponse(event);
+		record.result = result;
+		record.deferred.resolve(result);
+		record.retentionTimer = setTimeout(() => {
+			this.removeWebMCPInvocation(event.invocationId, record);
+		}, WEBMCP_SETTLED_INVOCATION_RETENTION_MS);
+	}
 	constructor(conn, mainSession, _targetId, mainFrameId, logger, browserIsRemote = false) {
 		this.conn = conn;
 		this.mainSession = mainSession;
@@ -55224,21 +55310,8 @@ var Page = class Page {
 		this.initScripts = [];
 		this.extraHTTPHeaders = {};
 		this.webMCPInvocations = /* @__PURE__ */ new Map();
-		this.webMCPResponseListenerInstalled = false;
+		this.webMCPResponseSessions = /* @__PURE__ */ new Map();
 		this.cdpEventSubscriptions = /* @__PURE__ */ new Set();
-		this.onWebMCPToolResponded = (event) => {
-			const record = this.webMCPInvocations.get(event.invocationId);
-			if (!record || record.result !== void 0) return;
-			const result = webMCPToolResponse(event);
-			record.result = result;
-			record.deferred.resolve(result);
-			record.retentionTimer = setTimeout(() => {
-				if (this.webMCPInvocations.get(event.invocationId) === record) {
-					this.webMCPInvocations.delete(event.invocationId);
-					this.removeWebMCPResponseListenerIfIdle();
-				}
-			}, WEBMCP_SETTLED_INVOCATION_RETENTION_MS);
-		};
 		this.cursorEnabled = false;
 		this._pressedModifiers = /* @__PURE__ */ new Set();
 		this.pageId = _targetId;
@@ -55383,6 +55456,8 @@ var Page = class Page {
 	}
 	/** Detach an adopted child session and prune its subtree */
 	detachOopifSession(sessionId) {
+		const session = this.sessions.get(sessionId);
+		if (session) this.teardownWebMCPInvocationsForSession(session, (invocationId) => `WebMCP invocation "${invocationId}" was disposed before it completed because its frame detached from page "${this.pageId}".`);
 		for (const subscription of this.cdpEventSubscriptions) this.detachCDPEventSubscription(subscription, sessionId);
 		for (const fid of this.registry.framesForSession(sessionId)) {
 			this.registry.onFrameDetached(fid, "remove");
@@ -55421,9 +55496,10 @@ var Page = class Page {
 	sendInternalCDP(method, params) {
 		return this.mainSession.send(method, params);
 	}
-	/** Subscribe to console events on every session owned by this page. */
-	subscribeCDPEvent(listener) {
+	/** Subscribe to events on every session owned by this page. */
+	subscribeCDPEvent(pageEventName, listener) {
 		const subscription = {
+			cdpEventMethod: PAGE_TO_CDP_EVENTS[pageEventName],
 			listener,
 			sessionHandlers: /* @__PURE__ */ new Map()
 		};
@@ -55444,7 +55520,7 @@ var Page = class Page {
 			const normalizedParams = params !== null && typeof params === "object" && !Array.isArray(params) ? params : {};
 			const event = PageCDPEventSchema.parse({
 				pageId: this.pageId,
-				method: "Runtime.consoleAPICalled",
+				method: subscription.cdpEventMethod,
 				params: normalizedParams,
 				sessionId,
 				targetId: this.conn.targetIdForSession(session.id) ?? this._targetId
@@ -55455,7 +55531,7 @@ var Page = class Page {
 				this.logger.error("Page CDP event listener failed", {
 					category: "page",
 					pageId: this.pageId,
-					method: "Runtime.consoleAPICalled",
+					method: subscription.cdpEventMethod,
 					sessionId,
 					error: error instanceof Error ? error.message : String(error)
 				});
@@ -55465,19 +55541,20 @@ var Page = class Page {
 			session,
 			handler
 		});
-		session.on("Runtime.consoleAPICalled", handler);
+		session.on(subscription.cdpEventMethod, handler);
 	}
 	detachCDPEventSubscription(subscription, sessionId) {
 		const registered = subscription.sessionHandlers.get(sessionId);
 		if (!registered) return;
-		registered.session.off("Runtime.consoleAPICalled", registered.handler);
+		registered.session.off(subscription.cdpEventMethod, registered.handler);
 		subscription.sessionHandlers.delete(sessionId);
 	}
 	/**
-	* Return a fresh snapshot of the WebMCP tools registered by the current page.
+	* Return a fresh snapshot of the WebMCP tools registered by the current page and its frames.
 	*
-	* Enabling the domain emits `toolsAdded` for every currently registered tool. Keep the
-	* listeners scoped to this call so tools from an earlier document or call are never cached.
+	* Enabling the domain on each owned CDP session emits `toolsAdded` for every currently
+	* registered tool in that target. Keep the listeners scoped to this call so tools from an
+	* earlier document or call are never cached.
 	*/
 	async listWebMCPTools(options) {
 		const { timeout } = WebMCPToolsOptionsSchema$1.parse(options ?? {});
@@ -55506,10 +55583,13 @@ var Page = class Page {
 			scheduleQuietWindow?.();
 		};
 		const deadline = Date.now() + timeout;
-		this.mainSession.on("WebMCP.toolsAdded", onToolsAdded);
-		this.mainSession.on("WebMCP.toolsRemoved", onToolsRemoved);
+		const sessions = [this.mainSession, ...[...this.sessions.values()].filter((session) => session !== this.mainSession)];
+		for (const session of sessions) {
+			session.on("WebMCP.toolsAdded", onToolsAdded);
+			session.on("WebMCP.toolsRemoved", onToolsRemoved);
+		}
 		try {
-			await this.mainSession.send("WebMCP.enable");
+			await Promise.all(sessions.map((session) => session.send("WebMCP.enable")));
 			if (quietWindowMs === 0) return [...tools.values()];
 			await new Promise((resolve) => {
 				const versionAfterEnable = toolsVersion;
@@ -55538,36 +55618,54 @@ var Page = class Page {
 				scheduleQuietWindow();
 			});
 		} finally {
-			this.mainSession.off("WebMCP.toolsAdded", onToolsAdded);
-			this.mainSession.off("WebMCP.toolsRemoved", onToolsRemoved);
+			for (const session of sessions) {
+				session.off("WebMCP.toolsAdded", onToolsAdded);
+				session.off("WebMCP.toolsRemoved", onToolsRemoved);
+			}
 		}
 		return [...tools.values()];
 	}
 	async invokeWebMCPTool(frameId, toolName, options) {
 		const { input } = WebMCPInvokeOptionsSchema$1.parse(options ?? {});
-		this.ensureWebMCPResponseListener();
+		const session = this.webMCPSessionForFrame(frameId);
+		const responseState = this.ensureWebMCPResponseListener(session);
+		responseState.pendingCommands += 1;
 		let response;
 		try {
-			response = await this.mainSession.send("WebMCP.invokeTool", {
+			response = await session.send("WebMCP.invokeTool", {
 				frameId,
 				toolName,
 				input
 			});
 		} catch (error) {
-			this.removeWebMCPResponseListenerIfIdle();
+			responseState.pendingCommands -= 1;
+			this.removeWebMCPResponseListenerIfIdle(session);
 			throw error;
 		}
-		if (this.webMCPInvocations.has(response.invocationId)) throw new Error(`WebMCP returned duplicate invocation ID "${response.invocationId}".`);
-		const descriptor = WebMCPInvocationDescriptorSchema.parse({
-			invocationId: response.invocationId,
-			toolName,
-			frameId,
-			input
-		});
+		responseState.pendingCommands -= 1;
+		if (this.webMCPResponseSessions.get(session) !== responseState) throw new Error(`WebMCP session for frame "${frameId}" was disposed before invocation registration completed on page "${this.pageId}".`);
+		if (this.webMCPInvocations.has(response.invocationId)) {
+			this.removeWebMCPResponseListenerIfIdle(session);
+			throw new Error(`WebMCP returned duplicate invocation ID "${response.invocationId}".`);
+		}
+		let descriptor;
+		try {
+			descriptor = WebMCPInvocationDescriptorSchema.parse({
+				invocationId: response.invocationId,
+				toolName,
+				frameId,
+				input
+			});
+		} catch (error) {
+			this.removeWebMCPResponseListenerIfIdle(session);
+			throw error;
+		}
 		this.webMCPInvocations.set(response.invocationId, {
 			descriptor,
+			session,
 			deferred: createDeferred()
 		});
+		responseState.invocationIds.add(response.invocationId);
 		return descriptor;
 	}
 	async waitForWebMCPInvocationResult(invocationId, options) {
@@ -55587,34 +55685,60 @@ var Page = class Page {
 		}
 	}
 	async cancelWebMCPInvocation(invocationId) {
-		this.webMCPInvocation(invocationId);
-		await this.mainSession.send("WebMCP.cancelInvocation", { invocationId });
+		await this.webMCPInvocation(invocationId).session.send("WebMCP.cancelInvocation", { invocationId });
 	}
-	ensureWebMCPResponseListener() {
-		if (this.webMCPResponseListenerInstalled) return;
-		this.mainSession.on("WebMCP.toolResponded", this.onWebMCPToolResponded);
-		this.webMCPResponseListenerInstalled = true;
+	webMCPSessionForFrame(frameId) {
+		if (frameId === this.mainFrameId()) return this.mainSession;
+		const sessionId = this.registry.getOwnerSessionId(frameId);
+		const session = sessionId ? this.sessions.get(sessionId) : void 0;
+		if (session) return session;
+		throw new Error(`WebMCP frame "${frameId}" was not found on page "${this.pageId}" or has detached.`);
 	}
-	removeWebMCPResponseListenerIfIdle() {
-		if (this.webMCPInvocations.size > 0 || !this.webMCPResponseListenerInstalled) return;
-		this.mainSession.off("WebMCP.toolResponded", this.onWebMCPToolResponded);
-		this.webMCPResponseListenerInstalled = false;
+	ensureWebMCPResponseListener(session) {
+		const existing = this.webMCPResponseSessions.get(session);
+		if (existing) return existing;
+		const state = {
+			handler: (event) => this.onWebMCPToolResponded(session, event),
+			invocationIds: /* @__PURE__ */ new Set(),
+			pendingCommands: 0
+		};
+		session.on("WebMCP.toolResponded", state.handler);
+		this.webMCPResponseSessions.set(session, state);
+		return state;
+	}
+	removeWebMCPResponseListenerIfIdle(session) {
+		const state = this.webMCPResponseSessions.get(session);
+		if (!state || state.pendingCommands > 0 || state.invocationIds.size > 0) return;
+		session.off("WebMCP.toolResponded", state.handler);
+		this.webMCPResponseSessions.delete(session);
+	}
+	removeWebMCPInvocation(invocationId, record) {
+		if (this.webMCPInvocations.get(invocationId) !== record) return;
+		if (record.retentionTimer !== void 0) clearTimeout(record.retentionTimer);
+		this.webMCPInvocations.delete(invocationId);
+		this.webMCPResponseSessions.get(record.session)?.invocationIds.delete(invocationId);
+		this.removeWebMCPResponseListenerIfIdle(record.session);
 	}
 	webMCPInvocation(invocationId) {
 		const record = this.webMCPInvocations.get(invocationId);
 		if (record) return record;
 		throw new Error(`WebMCP invocation "${invocationId}" was not found on page "${this.pageId}".`);
 	}
-	teardownWebMCPInvocations() {
-		if (this.webMCPResponseListenerInstalled) {
-			this.mainSession.off("WebMCP.toolResponded", this.onWebMCPToolResponded);
-			this.webMCPResponseListenerInstalled = false;
+	teardownWebMCPInvocationsForSession(session, errorMessage) {
+		const responseState = this.webMCPResponseSessions.get(session);
+		if (responseState) {
+			session.off("WebMCP.toolResponded", responseState.handler);
+			this.webMCPResponseSessions.delete(session);
 		}
 		for (const [invocationId, record] of this.webMCPInvocations) {
+			if (record.session !== session) continue;
 			if (record.retentionTimer !== void 0) clearTimeout(record.retentionTimer);
-			if (record.result === void 0) record.deferred.reject(/* @__PURE__ */ new Error(`WebMCP invocation "${invocationId}" was disposed before it completed on page "${this.pageId}".`));
+			if (record.result === void 0) record.deferred.reject(new Error(errorMessage(invocationId)));
+			this.webMCPInvocations.delete(invocationId);
 		}
-		this.webMCPInvocations.clear();
+	}
+	teardownWebMCPInvocations() {
+		for (const session of this.webMCPResponseSessions.keys()) this.teardownWebMCPInvocationsForSession(session, (invocationId) => `WebMCP invocation "${invocationId}" was disposed before it completed on page "${this.pageId}".`);
 	}
 	/** Seed the cached URL before navigation events converge. */
 	seedCurrentUrl(url) {
@@ -56825,6 +56949,9 @@ var StagehandMetricsAccumulator = class {
 	snapshot() {
 		return { ...this.values };
 	}
+	reset() {
+		Object.assign(this.values, EMPTY_METRICS);
+	}
 };
 //#endregion
 //#region responseHandleTable.ts
@@ -56912,10 +57039,13 @@ var StagehandRuntime = class {
 		this.tracing = tracing;
 		this.metrics = new StagehandMetricsAccumulator();
 		this.responseHandles = new ResponseHandleTable();
-		this.state = createStore()(() => StagehandRuntimeStateSchema.parse({ status: "created" }));
+		this.state = createStore()(() => StagehandRuntimeStateSchema.parse({ status: "idle" }));
 		this.pagesById = /* @__PURE__ */ new Map();
 		this.pageEventSubscriptions = /* @__PURE__ */ new Map();
 		this.initializationInProgress = false;
+		this.lifecycleTail = Promise.resolve();
+		this.stagehandInstanceClosing = false;
+		this.activeStagehandInstanceRequests = 0;
 		this.logger = new StagehandLogger(tracing, adapters.emitLog);
 	}
 	async replaceBrowserConnection(params, bootstrapLogger) {
@@ -56935,29 +57065,31 @@ var StagehandRuntime = class {
 		}
 	}
 	async initialize(params, logger = this.logger) {
-		const state = this.state.getState();
-		if (state.status === "closed") throw new Error("Stagehand has been closed and cannot be initialized again");
 		if (this.initializationInProgress) throw new Error("Stagehand initialization is already in progress");
 		this.initializationInProgress = true;
 		try {
-			this.logger.setLevel(params.logLevel);
-			if (!this.browserSession) {
-				if (!params.browserCdpUrl) throw new Error("stagehand.init requires browserCdpUrl until resident mode is active");
-				await this.replaceBrowserConnection({ cdpUrl: params.browserCdpUrl }, logger);
-			}
-			const pages = await this.runWithTelemetryContext(Symbol("stagehand.init"), logger, async () => {
-				if (state.status === "created") await this.browserSession?.prepareForInitialization?.();
-				return await this.contextPages();
+			return await this.enqueueLifecycle(async () => {
+				const state = this.state.getState();
+				if (state.status !== "idle") throw new Error("A Stagehand instance is already initialized");
+				this.logger.setLevel(params.logLevel);
+				if (!this.browserSession?.connected) {
+					if (!params.browserCdpUrl) throw new Error("stagehand.init requires browserCdpUrl until resident mode is active");
+					await this.replaceBrowserConnection({ cdpUrl: params.browserCdpUrl }, logger);
+				}
+				const pages = await this.runWithTelemetryContext(Symbol("stagehand.init"), logger, async () => {
+					if (state.status === "idle") await this.browserSession?.prepareForInitialization?.();
+					return await this.contextPages();
+				});
+				await this.tracing.configure(params.telemetry, params.clientInfo);
+				this.state.setState(StagehandRuntimeStateSchema.parse({
+					status: "initialized",
+					initParams: params
+				}), true);
+				return {
+					initialized: true,
+					pages
+				};
 			});
-			this.tracing.configure(params.telemetry, params.clientInfo);
-			this.state.setState(StagehandRuntimeStateSchema.parse({
-				status: "initialized",
-				initParams: params
-			}), true);
-			return {
-				initialized: true,
-				pages
-			};
 		} finally {
 			this.initializationInProgress = false;
 		}
@@ -56994,10 +57126,6 @@ var StagehandRuntime = class {
 		const page = this.resolvePage(params.pageId);
 		await this.requireBrowserSession().setActivePage(page);
 		return { ok: true };
-	}
-	async contextClose() {
-		await this.close();
-		return { closed: true };
 	}
 	async contextAddInitScript(params) {
 		await this.requireBrowserSession().addInitScript(params.source);
@@ -57172,10 +57300,7 @@ var StagehandRuntime = class {
 				...resolvedMask ? { mask: resolvedMask } : {}
 			};
 		}
-		return {
-			data: bytesToBase64(await page.screenshot(options)),
-			type: params.options?.type ?? "png"
-		};
+		return { data: bytesToBase64(await page.screenshot(options)) };
 	}
 	async pageSnapshot(params) {
 		return await this.resolvePage(params.pageId).snapshot(params.options);
@@ -57208,7 +57333,7 @@ var StagehandRuntime = class {
 	}
 	pageOn(params) {
 		if (this.pageEventSubscriptions.has(params.subscriptionId)) throw new DuplicatePageEventSubscriptionError();
-		const dispose = this.resolvePage(params.pageId).subscribeCDPEvent((event) => {
+		const dispose = this.resolvePage(params.pageId).subscribeCDPEvent(params.event, (event) => {
 			this.adapters.emitPageCDPEvent({
 				subscriptionId: params.subscriptionId,
 				event
@@ -57297,16 +57422,64 @@ var StagehandRuntime = class {
 		return { set: true };
 	}
 	async close() {
-		const session = this.browserSession;
-		this.browserSession = void 0;
+		await this.enqueueLifecycle(async () => {
+			const session = this.browserSession;
+			this.browserSession = void 0;
+			this.clearStagehandInstance();
+			await session?.close();
+		});
+	}
+	async disposeStagehandInstance() {
+		if (this.stagehandInstanceDisposal) return await this.stagehandInstanceDisposal;
+		this.stagehandInstanceClosing = true;
+		const disposal = this.enqueueLifecycle(async () => {
+			await this.waitForStagehandInstanceRequests();
+			this.clearStagehandInstance();
+		});
+		this.stagehandInstanceDisposal = disposal.finally(() => {
+			this.stagehandInstanceClosing = false;
+			this.stagehandInstanceDisposal = void 0;
+		});
+		return await this.stagehandInstanceDisposal;
+	}
+	acquireStagehandInstanceRequest() {
+		if (this.stagehandInstanceClosing) throw new Error("Stagehand instance is closing");
+		this.activeStagehandInstanceRequests += 1;
+		let released = false;
+		return () => {
+			if (released) return;
+			released = true;
+			this.activeStagehandInstanceRequests -= 1;
+			if (this.activeStagehandInstanceRequests !== 0) return;
+			this.stagehandInstanceRequestsDrained?.resolve();
+			this.stagehandInstanceRequestsDrained = void 0;
+		};
+	}
+	clearStagehandInstance() {
 		this.disposeAllPageEventSubscriptions();
 		this.pagesById.clear();
 		this.responseHandles.clear();
-		try {
-			await session?.close();
-		} finally {
-			this.state.setState(StagehandRuntimeStateSchema.parse({ status: "closed" }), true);
+		this.metrics.reset();
+		this.state.setState(StagehandRuntimeStateSchema.parse({ status: "idle" }), true);
+	}
+	enqueueLifecycle(run) {
+		const result = this.lifecycleTail.then(run, run);
+		this.lifecycleTail = result.then(() => void 0, () => void 0);
+		return result;
+	}
+	waitForStagehandInstanceRequests() {
+		if (this.activeStagehandInstanceRequests === 0) return Promise.resolve();
+		if (!this.stagehandInstanceRequestsDrained) {
+			let resolve;
+			const promise = new Promise((drained) => {
+				resolve = drained;
+			});
+			this.stagehandInstanceRequestsDrained = {
+				promise,
+				resolve
+			};
 		}
+		return this.stagehandInstanceRequestsDrained.promise;
 	}
 	pageRefForId(pageId) {
 		return pageRefFromUnderstudyPage(this.resolvePage(pageId));

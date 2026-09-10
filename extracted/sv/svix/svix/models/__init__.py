@@ -15,6 +15,7 @@ from .application_out import ApplicationOut
 from .application_patch import ApplicationPatch
 from .application_token_expire_in import ApplicationTokenExpireIn
 from .auto_config_sink_type import AutoConfigSinkType
+from .auto_config_subscription_out import AutoConfigSubscriptionOut
 from .azure_blob_storage_config_in import AzureBlobStorageConfigIn
 from .azure_blob_storage_config_out import AzureBlobStorageConfigOut
 from .azure_blob_storage_config_patch import AzureBlobStorageConfigPatch
@@ -42,6 +43,13 @@ from .connector_upsert_in import ConnectorUpsertIn
 from .create_stream_events_in import CreateStreamEventsIn
 from .create_stream_events_out import CreateStreamEventsOut
 from .cron_config import CronConfig
+from .destination_in import DestinationIn
+from .destination_out import DestinationOut
+from .destination_patch import DestinationPatch
+from .destination_status import DestinationStatus
+from .destination_status_in import DestinationStatusIn
+from .destination_transform_in import DestinationTransformIn
+from .destination_transformation_out import DestinationTransformationOut
 from .docusign_config import DocusignConfig
 from .docusign_config_out import DocusignConfigOut
 from .easypost_config import EasypostConfig
@@ -79,6 +87,7 @@ from .event_type_out import EventTypeOut
 from .event_type_patch import EventTypePatch
 from .event_type_upsert_in import EventTypeUpsertIn
 from .expunge_all_contents_out import ExpungeAllContentsOut
+from .fifo_endpoint_config_in import FifoEndpointConfigIn
 from .github_config import GithubConfig
 from .github_config_out import GithubConfigOut
 from .google_cloud_pub_sub_config_in import GoogleCloudPubSubConfigIn
@@ -109,6 +118,7 @@ from .integration_update import IntegrationUpdate
 from .list_response_application_out import ListResponseApplicationOut
 from .list_response_background_task_out import ListResponseBackgroundTaskOut
 from .list_response_connector_out import ListResponseConnectorOut
+from .list_response_destination_out import ListResponseDestinationOut
 from .list_response_endpoint_message_out import ListResponseEndpointMessageOut
 from .list_response_endpoint_out import ListResponseEndpointOut
 from .list_response_event_type_out import ListResponseEventTypeOut
@@ -124,6 +134,8 @@ from .list_response_operational_webhook_endpoint_out import (
 from .list_response_stream_event_type_out import ListResponseStreamEventTypeOut
 from .list_response_stream_out import ListResponseStreamOut
 from .list_response_stream_sink_out import ListResponseStreamSinkOut
+from .merge_config import MergeConfig
+from .merge_config_out import MergeConfigOut
 from .message_attempt_out import MessageAttemptOut
 from .message_attempt_trigger_type import MessageAttemptTriggerType
 from .message_endpoint_out import MessageEndpointOut
@@ -210,6 +222,7 @@ from .sqs_config_in import SqsConfigIn
 from .sqs_config_out import SqsConfigOut
 from .sqs_config_patch import SqsConfigPatch
 from .starting_position import StartingPosition
+from .status import Status
 from .status_code_class import StatusCodeClass
 from .stream_event_type_in import StreamEventTypeIn
 from .stream_event_type_out import StreamEventTypeOut
@@ -257,6 +270,7 @@ __all__ = [
     "ApplicationPatch",
     "ApplicationTokenExpireIn",
     "AutoConfigSinkType",
+    "AutoConfigSubscriptionOut",
     "AzureBlobStorageConfigIn",
     "AzureBlobStorageConfigOut",
     "AzureBlobStorageConfigPatch",
@@ -284,6 +298,13 @@ __all__ = [
     "CreateStreamEventsIn",
     "CreateStreamEventsOut",
     "CronConfig",
+    "DestinationIn",
+    "DestinationOut",
+    "DestinationPatch",
+    "DestinationStatus",
+    "DestinationStatusIn",
+    "DestinationTransformIn",
+    "DestinationTransformationOut",
     "DocusignConfig",
     "DocusignConfigOut",
     "EasypostConfig",
@@ -321,6 +342,7 @@ __all__ = [
     "EventTypePatch",
     "EventTypeUpsertIn",
     "ExpungeAllContentsOut",
+    "FifoEndpointConfigIn",
     "GithubConfig",
     "GithubConfigOut",
     "GoogleCloudPubSubConfigIn",
@@ -351,6 +373,7 @@ __all__ = [
     "ListResponseApplicationOut",
     "ListResponseBackgroundTaskOut",
     "ListResponseConnectorOut",
+    "ListResponseDestinationOut",
     "ListResponseEndpointMessageOut",
     "ListResponseEndpointOut",
     "ListResponseEventTypeOut",
@@ -364,6 +387,8 @@ __all__ = [
     "ListResponseStreamEventTypeOut",
     "ListResponseStreamOut",
     "ListResponseStreamSinkOut",
+    "MergeConfig",
+    "MergeConfigOut",
     "MessageAttemptOut",
     "MessageAttemptTriggerType",
     "MessageEndpointOut",
@@ -448,6 +473,7 @@ __all__ = [
     "SqsConfigOut",
     "SqsConfigPatch",
     "StartingPosition",
+    "Status",
     "StatusCodeClass",
     "StreamEventTypeIn",
     "StreamEventTypeOut",

@@ -36,13 +36,25 @@ from langchain_core.callbacks import (
 )
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    model_validator,
+)
+from pydantic.errors import PydanticSchemaGenerationError
 
 from uipath.llm_client.httpx_client import (
     UiPathHttpxAsyncClient,
     UiPathHttpxClient,
+)
+from uipath.llm_client.utils.dollar_cost import (
+    get_captured_dollar_cost,
+    set_captured_dollar_cost,
 )
 from uipath.llm_client.utils.exceptions import wrap_provider_errors
 from uipath.llm_client.utils.headers import (
@@ -423,6 +435,85 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
     so that headers are captured transparently.
     """
 
+    model_settings: Mapping[str, Any] | None = Field(
+        default=None,
+        description="Provider-native model settings from agent.json "
+        "(settings.modelSettings), applied verbatim — no per-provider mapping.",
+    )
+
+    @model_validator(mode="after")
+    def apply_model_settings(self) -> Self:
+        self._apply_model_settings()
+        return self
+
+    def _assign_validated(self, field_name: str, value: Any) -> None:
+        """Coerce ``value`` against the field's declared type, then set it.
+
+        Values arrive as untyped JSON (agent.json / discovery data), so a plain
+        ``setattr`` would store e.g. ``"8192"`` on an ``int`` field. Coercion
+        runs through a ``TypeAdapter`` for the field's rebuilt annotation (its
+        type plus any ``Field`` constraints such as ``ge``/``le``/``pattern``)
+        rather than pydantic assignment validation: ``validate_assignment``
+        re-runs the model's validator chain, and LangChain's ``build_extra`` (a
+        before validator) then sweeps cached non-field entries from ``__dict__``
+        into ``model_kwargs``. Fields whose annotations can't produce a schema
+        (arbitrary types) are set as-is.
+        """
+        annotation = type(self).model_fields[field_name].rebuild_annotation()
+        if annotation is not None:
+            try:
+                adapter = TypeAdapter(annotation)
+            except PydanticSchemaGenerationError:
+                pass
+            else:
+                value = adapter.validate_python(value)
+        setattr(self, field_name, value)
+
+    def _resolve_settings_field(self, key: str) -> str | None:
+        """The field name a settings key targets: the name itself, or the name
+        whose alias/validation alias matches (e.g. ``timeout`` -> ``request_timeout``)."""
+        fields = type(self).model_fields
+        if key in fields:
+            return key
+        for name, field in fields.items():
+            if key == field.alias or key == field.validation_alias:
+                return name
+            if isinstance(field.validation_alias, AliasChoices) and any(
+                key == choice for choice in field.validation_alias.choices
+            ):
+                return name
+        return None
+
+    def _apply_model_settings(self) -> None:
+        """Apply each ``model_settings`` key onto the model.
+
+        Keys naming a field (by name or alias) are coerced against the field's
+        type and set, the rest are routed to ``model_kwargs``; keys in
+        ``disabled_params`` are skipped.
+        """
+        if not self.model_settings:
+            return
+        fields = type(self).model_fields
+        disabled = self.disabled_params or {}
+        extra: dict[str, Any] = {}
+        for key, value in self.model_settings.items():
+            if key in disabled:
+                continue
+            field_name = self._resolve_settings_field(key)
+            if field_name is not None:
+                self._assign_validated(field_name, value)
+            else:
+                extra[key] = value
+        if extra:
+            if "model_kwargs" in fields:
+                self.model_kwargs = {**(self.model_kwargs or {}), **extra}
+            else:
+                (self.logger or logging.getLogger(__name__)).debug(
+                    "Dropping unsupported model settings %s for %s",
+                    list(extra),
+                    type(self).__name__,
+                )
+
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -437,15 +528,20 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
             logger=self.logger,
         )
         set_captured_response_headers({})
+        # Models that bypass the UiPath httpx client (litellm) would otherwise
+        # inherit the value a previous request left in this context.
+        set_captured_dollar_cost(None)
         try:
             with wrap_provider_errors():
                 result = self._uipath_generate(
                     messages, stop=stop, run_manager=run_manager, **kwargs
                 )
             self._inject_gateway_headers(result.generations)
+            self._inject_dollar_cost(result.generations)
             return result
         finally:
             set_captured_response_headers({})
+            set_captured_dollar_cost(None)
 
     def _uipath_generate(
         self,
@@ -471,15 +567,18 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
             logger=self.logger,
         )
         set_captured_response_headers({})
+        set_captured_dollar_cost(None)
         try:
             with wrap_provider_errors():
                 result = await self._uipath_agenerate(
                     messages, stop=stop, run_manager=run_manager, **kwargs
                 )
             self._inject_gateway_headers(result.generations)
+            self._inject_dollar_cost(result.generations)
             return result
         finally:
             set_captured_response_headers({})
+            set_captured_dollar_cost(None)
 
     async def _uipath_agenerate(
         self,
@@ -505,6 +604,7 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
             logger=self.logger,
         )
         set_captured_response_headers({})
+        set_captured_dollar_cost(None)
         try:
             first = True
             with wrap_provider_errors():
@@ -515,8 +615,12 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
                         self._inject_gateway_headers([chunk])
                         first = False
                     yield chunk
+            cost_chunk = self._dollar_cost_chunk()
+            if cost_chunk is not None:
+                yield cost_chunk
         finally:
             set_captured_response_headers({})
+            set_captured_dollar_cost(None)
 
     def _uipath_stream(
         self,
@@ -542,6 +646,7 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
             logger=self.logger,
         )
         set_captured_response_headers({})
+        set_captured_dollar_cost(None)
         try:
             first = True
             with wrap_provider_errors():
@@ -552,8 +657,12 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
                         self._inject_gateway_headers([chunk])
                         first = False
                     yield chunk
+            cost_chunk = self._dollar_cost_chunk()
+            if cost_chunk is not None:
+                yield cost_chunk
         finally:
             set_captured_response_headers({})
+            set_captured_dollar_cost(None)
 
     async def _uipath_astream(
         self,
@@ -575,6 +684,28 @@ class UiPathBaseChatModel(UiPathBaseLLMClient, BaseChatModel):
             return
         for generation in generations:
             generation.message.response_metadata["headers"] = headers
+
+    def _inject_dollar_cost(self, generations: Sequence[ChatGeneration]) -> None:
+        """Absent (None) means "not priced" and is never injected as $0."""
+        cost = get_captured_dollar_cost()
+        if cost is None:
+            return
+        for generation in generations:
+            generation.message.response_metadata["associated_dollar_cost"] = cost
+
+    def _dollar_cost_chunk(self) -> ChatGenerationChunk | None:
+        """Trailing empty chunk carrying the cost, or None if not priced.
+
+        The cost is only known after the last content chunk was yielded. Holding
+        chunks back would delay every token, so it rides on an extra empty chunk
+        (like langchain-openai's usage chunk); merging folds it into response_metadata.
+        """
+        cost = get_captured_dollar_cost()
+        if cost is None:
+            return None
+        return ChatGenerationChunk(
+            message=AIMessageChunk(content="", response_metadata={"associated_dollar_cost": cost})
+        )
 
 
 class UiPathBaseEmbeddings(UiPathBaseLLMClient, Embeddings):

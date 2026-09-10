@@ -451,19 +451,34 @@ def anthropic_temp_topp_exclusion(
         )
         top_p = None
 
+    # ai_076 — THE WIRE CONTAINER IS CATALOG DATA. anthropic SDK 1.x dropped the
+    # sampling kwargs from messages.create/stream while the Messages API still
+    # accepts them on the non-adaptive models, so the api rule declares
+    # processor_config.wire_container="extra_body" and the three keys are
+    # emitted nested there (same bytes on the wire). Absent → top-level, and
+    # the shared SDK-drift guard (providers/sdk_drift.py) is the loud backstop.
+    container = ctx.config.get("wire_container")
+    if container:
+        wire = params.get(container)
+        if not isinstance(wire, dict):
+            wire = {}
+            params[container] = wire
+    else:
+        wire = params
+
     if temperature is not None:
-        params["temperature"] = temperature
+        wire["temperature"] = temperature
     if top_p is not None:
-        params["top_p"] = top_p
+        wire["top_p"] = top_p
     if top_k is not None:
-        params["top_k"] = top_k
+        wire["top_k"] = top_k
 
     if "thinking" not in params:
-        return params
+        return _prune_empty_container(params, container)
 
-    sent_temp = params.get("temperature")
+    sent_temp = wire.get("temperature")
     if sent_temp is not None and sent_temp != 1:
-        params.pop("temperature")
+        wire.pop("temperature")
         ctx.adjustments.append(
             Adjustment(
                 key="temperature",
@@ -473,8 +488,8 @@ def anthropic_temp_topp_exclusion(
                 reason="Anthropic extended thinking requires temperature=1 — dropped",
             )
         )
-    if "top_k" in params:
-        dropped_top_k = params.pop("top_k")
+    if "top_k" in wire:
+        dropped_top_k = wire.pop("top_k")
         ctx.adjustments.append(
             Adjustment(
                 key="top_k",
@@ -484,9 +499,9 @@ def anthropic_temp_topp_exclusion(
                 reason="Anthropic extended thinking accepts no top_k — dropped",
             )
         )
-    sent_top_p = params.get("top_p")
+    sent_top_p = wire.get("top_p")
     if sent_top_p is not None and sent_top_p < 0.95:
-        params.pop("top_p")
+        wire.pop("top_p")
         ctx.adjustments.append(
             Adjustment(
                 key="top_p",
@@ -496,6 +511,14 @@ def anthropic_temp_topp_exclusion(
                 reason="Anthropic extended thinking only accepts top_p in [0.95, 1] — dropped",
             )
         )
+    return _prune_empty_container(params, container)
+
+
+def _prune_empty_container(params: dict[str, Any], container: str | None) -> dict[str, Any]:
+    """Never send an empty ``extra_body: {}`` — it is noise on the wire and in
+    every request snapshot/golden."""
+    if container and isinstance(params.get(container), dict) and not params[container]:
+        params.pop(container)
     return params
 
 

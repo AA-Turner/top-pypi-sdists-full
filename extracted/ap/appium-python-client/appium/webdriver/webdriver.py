@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -62,6 +63,9 @@ from .locator_converter import AppiumLocatorConverter
 from .mobilecommand import MobileCommand as Command
 from .switch_to import MobileSwitchTo
 from .webelement import WebElement as MobileWebElement
+
+if TYPE_CHECKING:
+    from selenium.webdriver.common.by import By
 
 
 class ExtensionBase:
@@ -281,10 +285,10 @@ class WebDriver(
 
     if TYPE_CHECKING:
 
-        def find_element(self, by: str, value: str | dict | None = None) -> 'MobileWebElement':  # type: ignore[override]
+        def find_element(self, by: str = By.ID, value: str | dict | None = None) -> 'MobileWebElement':  # type: ignore[override]
             ...
 
-        def find_elements(self, by: str, value: str | dict | None = None) -> list['MobileWebElement']:  # type: ignore[override]
+        def find_elements(self, by: str = By.ID, value: str | dict | None = None) -> list['MobileWebElement']:  # type: ignore[override]
             ...
 
     def delete_extensions(self) -> None:
@@ -318,11 +322,19 @@ class WebDriver(
         executor = f'{protocol}://{hostname}:{port}{path}'
 
         logger.debug('Updated request endpoint to %s', executor)
+
         # Override command executor.
+        # The client configuration given by a user, e.g. the read timeout, the proxy or
+        # the authentication credentials, must be kept as-is. Only the endpoint the client
+        # talks to changes, thus a copy of the current configuration is reused instead of
+        # building a brand-new one out of the endpoint URL.
+        client_config = copy.copy(self.command_executor.client_config)
+        client_config.remote_server_addr = executor
+        client_config.keep_alive = keep_alive
         if isinstance(self.command_executor, AppiumConnection):  # type: ignore
-            self.command_executor = AppiumConnection(executor, keep_alive=keep_alive)
+            self.command_executor = AppiumConnection(client_config=client_config)
         else:
-            self.command_executor = RemoteConnection(executor, keep_alive=keep_alive)
+            self.command_executor = RemoteConnection(client_config=client_config)
         self._add_commands()
 
     # https://github.com/SeleniumHQ/selenium/blob/06fdf2966df6bca47c0ae45e8201cd30db9b9a49/py/selenium/webdriver/remote/webdriver.py#L277

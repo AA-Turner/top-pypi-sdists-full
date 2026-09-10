@@ -109,15 +109,20 @@ class MaterializedFeatureView:
         if isinstance(update_cadence, timedelta):
             if update_cadence < _MIN_UPDATE_CADENCE:
                 raise ValueError(f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}.")
-        elif update_cadence not in ("infinity", "all"):
-            if _is_cron_expression(update_cadence):
-                min_interval = _cron_min_interval_minutes(update_cadence)
-                if min_interval < 10:
-                    raise ValueError(f"MaterializedFeatureView 'update_cadence' cron '{update_cadence}' can fire as frequently as every {min_interval} minute(s); the minimum allowed interval is 10 minutes.")
-            else:
-                td = parse_chalk_duration(update_cadence)
-                if td < _MIN_UPDATE_CADENCE:
-                    raise ValueError(f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}.")
+        elif isinstance(update_cadence, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            if update_cadence not in ("infinity", "all"):
+                if _is_cron_expression(update_cadence):
+                    min_interval = _cron_min_interval_minutes(update_cadence)
+                    if min_interval < 10:
+                        raise ValueError(f"MaterializedFeatureView 'update_cadence' cron '{update_cadence}' can fire as frequently as every {min_interval} minute(s); the minimum allowed interval is 10 minutes.")
+                else:
+                    td = parse_chalk_duration(update_cadence)
+                    if td < _MIN_UPDATE_CADENCE:
+                        raise ValueError(f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}.")
+        else:
+            raise TypeError(
+                f"MaterializedFeatureView 'update_cadence' must be a string (cron expression or duration) or a timedelta, got {type(update_cadence).__name__!r}."
+            )
 
         from chalk.utils.object_inspect import get_source_object_starting
 

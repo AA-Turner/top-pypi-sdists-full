@@ -523,6 +523,27 @@ def get_pronunciation_locator_resolver() -> Any:
 #             -> list[dict]
 #   * Raises on DB error; the tool translates the exception into a human message.
 
+# ---------------------------------------------------------------------------
+# AI-catalog write hook (auto reload)
+# ---------------------------------------------------------------------------
+#
+# The structured `sql` tool is how the AI Model Config Sync agent edits the
+# catalog (ai.model_definition / ai.offering / ...). The server only USES a
+# catalog change after `reload_ai_catalog()` runs, and until 2026-09-09 the
+# only way to trigger that was a human or an admin-UI save — so an agent's sync
+# ended with a model that was not callable. Arman: "any update busts cache".
+# The host registers a hook(schema, table, verb); the tool calls it after
+# every successful write to a catalog table. The host debounces, since one
+# sync makes many writes.
+
+_AI_CATALOG_WRITE_HOOK_KEY = "ai_catalog_write_hook"
+
+
+def get_ai_catalog_write_hook() -> Any:
+    """Return the host-injected catalog write hook, or None."""
+    return _registry.get(_AI_CATALOG_WRITE_HOOK_KEY)
+
+
 _SCOPED_QUERY_RUNNER_KEY = "run_scoped_query"
 
 

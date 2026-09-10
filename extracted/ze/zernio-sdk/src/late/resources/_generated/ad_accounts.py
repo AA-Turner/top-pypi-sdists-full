@@ -79,15 +79,78 @@ class AdAccountsResource:
         *,
         placement: str | None = None,
         limit: int | None = 25,
+        since: str | None = None,
+        until: str | None = None,
         cursor: str | None = None,
     ) -> dict[str, Any]:
         """List comments on an ad"""
         params = self._build_params(
             placement=placement,
             limit=limit,
+            since=since,
+            until=until,
             cursor=cursor,
         )
         return self._client._get(f"/v1/ads/{ad_id}/comments", params=params)
+
+    def reply_to_ad_comment(
+        self,
+        ad_id: str,
+        comment_id: str,
+        text: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Reply to an ad comment"""
+        params = self._build_params(
+            since=since,
+            until=until,
+        )
+        payload = self._build_payload(
+            text=text,
+        )
+        return self._client._post(
+            f"/v1/ads/{ad_id}/comments/{comment_id}/reply", data=payload, params=params
+        )
+
+    def hide_ad_comment(
+        self,
+        ad_id: str,
+        comment_id: str,
+        hidden: bool,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Hide or unhide an ad comment"""
+        params = self._build_params(
+            since=since,
+            until=until,
+        )
+        payload = self._build_payload(
+            hidden=hidden,
+        )
+        return self._client._post(
+            f"/v1/ads/{ad_id}/comments/{comment_id}/hide", data=payload, params=params
+        )
+
+    def delete_ad_comment(
+        self,
+        ad_id: str,
+        comment_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete an ad comment"""
+        params = self._build_params(
+            since=since,
+            until=until,
+        )
+        return self._client._delete(
+            f"/v1/ads/{ad_id}/comments/{comment_id}", params=params
+        )
 
     def list_ads_business_centers(self, account_id: str) -> dict[str, Any]:
         """List TikTok Business Centers"""
@@ -137,6 +200,37 @@ class AdAccountsResource:
             after=after,
         )
         return self._client._get("/v1/ads/studies", params=params)
+
+    def list_ads_instagram_accounts(
+        self, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """List Instagram ad identities"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._get("/v1/ads/instagram-accounts", params=params)
+
+    def list_advertisable_applications(
+        self, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """List advertisable apps"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._get("/v1/ads/advertisable-applications", params=params)
+
+    def get_ios_fourteen_campaign_limits(
+        self, account_id: str, ad_account_id: str, application_id: str
+    ) -> dict[str, Any]:
+        """Get iOS 14 campaign limits"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            application_id=application_id,
+        )
+        return self._client._get("/v1/ads/ios-fourteen-campaign-limits", params=params)
 
     def list_meta_businesses(
         self, account_id: str, *, limit: int | None = 25, after: str | None = None
@@ -276,10 +370,124 @@ class AdAccountsResource:
             f"/v1/ads/value-rule-sets/{value_rule_set_id}", params=params
         )
 
+    def list_ad_negative_keyword_lists(
+        self,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """List negative keyword lists"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+        )
+        return self._client._get(
+            "/v1/ads/accounts/negative-keyword-lists", params=params
+        )
+
+    def create_ad_negative_keyword_list(
+        self,
+        account_id: str,
+        name: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+        keywords: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a negative keyword list"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+            name=name,
+            keywords=keywords,
+        )
+        return self._client._post(
+            "/v1/ads/accounts/negative-keyword-lists", data=payload
+        )
+
+    def get_ad_negative_keyword_list(
+        self,
+        list_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a negative keyword list"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+        )
+        return self._client._get(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}", params=params
+        )
+
+    def update_ad_negative_keyword_list(
+        self,
+        list_id: str,
+        account_id: str,
+        name: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Rename a negative keyword list"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+            name=name,
+        )
+        return self._client._put(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}", data=payload
+        )
+
+    def delete_ad_negative_keyword_list(
+        self,
+        list_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete a negative keyword list"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+        )
+        return self._client._delete(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}", params=params
+        )
+
+    def replace_ad_negative_keyword_list_keywords(
+        self,
+        list_id: str,
+        account_id: str,
+        keywords: list[Any],
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Replace negative list keywords"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+            keywords=keywords,
+        )
+        return self._client._put(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}/keywords", data=payload
+        )
+
     def list_account_callouts(
         self, account_id: str, *, customer_id: str | None = None
     ) -> dict[str, Any]:
-        """List account-level callout extensions"""
+        """List account callouts"""
         params = self._build_params(
             account_id=account_id,
             customer_id=customer_id,
@@ -289,7 +497,7 @@ class AdAccountsResource:
     def add_account_callouts(
         self, account_id: str, callouts: list[str], *, customer_id: str | None = None
     ) -> dict[str, Any]:
-        """Add account-level callout extensions"""
+        """Add account callouts"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -297,11 +505,114 @@ class AdAccountsResource:
         )
         return self._client._post("/v1/ads/accounts/callouts", data=payload)
 
+    def update_account_callouts(
+        self,
+        account_id: str,
+        updates: list[dict[str, Any]],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update account callouts"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return self._client._put("/v1/ads/accounts/callouts", data=payload)
+
     def remove_account_callout(
         self, account_id: str, asset_id: str, *, customer_id: str | None = None
     ) -> dict[str, Any]:
-        """Remove an account-level callout extension"""
+        """Remove account callout"""
         return self._client._delete("/v1/ads/accounts/callouts")
+
+    def list_account_sitelinks(
+        self, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List account sitelinks"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return self._client._get("/v1/ads/accounts/sitelinks", params=params)
+
+    def add_account_sitelinks(
+        self, account_id: str, sitelinks: list[Any], *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """Add account sitelinks"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            sitelinks=sitelinks,
+        )
+        return self._client._post("/v1/ads/accounts/sitelinks", data=payload)
+
+    def update_account_sitelinks(
+        self,
+        account_id: str,
+        updates: list[dict[str, Any]],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update account sitelinks"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return self._client._put("/v1/ads/accounts/sitelinks", data=payload)
+
+    def remove_account_sitelink(
+        self, account_id: str, asset_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """Remove account sitelink"""
+        return self._client._delete("/v1/ads/accounts/sitelinks")
+
+    def list_account_structured_snippets(
+        self, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List account snippets"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return self._client._get("/v1/ads/accounts/structured-snippets", params=params)
+
+    def add_account_structured_snippets(
+        self,
+        account_id: str,
+        structured_snippets: list[Any],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Add account snippets"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            structured_snippets=structured_snippets,
+        )
+        return self._client._post("/v1/ads/accounts/structured-snippets", data=payload)
+
+    def update_account_structured_snippets(
+        self,
+        account_id: str,
+        updates: list[dict[str, Any]],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update account snippets"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return self._client._put("/v1/ads/accounts/structured-snippets", data=payload)
+
+    def remove_account_structured_snippet(
+        self, account_id: str, asset_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """Remove account snippet"""
+        return self._client._delete("/v1/ads/accounts/structured-snippets")
 
     def get_ad_account_finance(
         self, account_id: str, ad_account_id: str
@@ -401,15 +712,78 @@ class AdAccountsResource:
         *,
         placement: str | None = None,
         limit: int | None = 25,
+        since: str | None = None,
+        until: str | None = None,
         cursor: str | None = None,
     ) -> dict[str, Any]:
         """List comments on an ad (async)"""
         params = self._build_params(
             placement=placement,
             limit=limit,
+            since=since,
+            until=until,
             cursor=cursor,
         )
         return await self._client._aget(f"/v1/ads/{ad_id}/comments", params=params)
+
+    async def areply_to_ad_comment(
+        self,
+        ad_id: str,
+        comment_id: str,
+        text: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Reply to an ad comment (async)"""
+        params = self._build_params(
+            since=since,
+            until=until,
+        )
+        payload = self._build_payload(
+            text=text,
+        )
+        return await self._client._apost(
+            f"/v1/ads/{ad_id}/comments/{comment_id}/reply", data=payload, params=params
+        )
+
+    async def ahide_ad_comment(
+        self,
+        ad_id: str,
+        comment_id: str,
+        hidden: bool,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Hide or unhide an ad comment (async)"""
+        params = self._build_params(
+            since=since,
+            until=until,
+        )
+        payload = self._build_payload(
+            hidden=hidden,
+        )
+        return await self._client._apost(
+            f"/v1/ads/{ad_id}/comments/{comment_id}/hide", data=payload, params=params
+        )
+
+    async def adelete_ad_comment(
+        self,
+        ad_id: str,
+        comment_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete an ad comment (async)"""
+        params = self._build_params(
+            since=since,
+            until=until,
+        )
+        return await self._client._adelete(
+            f"/v1/ads/{ad_id}/comments/{comment_id}", params=params
+        )
 
     async def alist_ads_business_centers(self, account_id: str) -> dict[str, Any]:
         """List TikTok Business Centers (async)"""
@@ -459,6 +833,41 @@ class AdAccountsResource:
             after=after,
         )
         return await self._client._aget("/v1/ads/studies", params=params)
+
+    async def alist_ads_instagram_accounts(
+        self, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """List Instagram ad identities (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._aget("/v1/ads/instagram-accounts", params=params)
+
+    async def alist_advertisable_applications(
+        self, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """List advertisable apps (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._aget(
+            "/v1/ads/advertisable-applications", params=params
+        )
+
+    async def aget_ios_fourteen_campaign_limits(
+        self, account_id: str, ad_account_id: str, application_id: str
+    ) -> dict[str, Any]:
+        """Get iOS 14 campaign limits (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            application_id=application_id,
+        )
+        return await self._client._aget(
+            "/v1/ads/ios-fourteen-campaign-limits", params=params
+        )
 
     async def alist_meta_businesses(
         self, account_id: str, *, limit: int | None = 25, after: str | None = None
@@ -598,10 +1007,124 @@ class AdAccountsResource:
             f"/v1/ads/value-rule-sets/{value_rule_set_id}", params=params
         )
 
+    async def alist_ad_negative_keyword_lists(
+        self,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """List negative keyword lists (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+        )
+        return await self._client._aget(
+            "/v1/ads/accounts/negative-keyword-lists", params=params
+        )
+
+    async def acreate_ad_negative_keyword_list(
+        self,
+        account_id: str,
+        name: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+        keywords: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a negative keyword list (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+            name=name,
+            keywords=keywords,
+        )
+        return await self._client._apost(
+            "/v1/ads/accounts/negative-keyword-lists", data=payload
+        )
+
+    async def aget_ad_negative_keyword_list(
+        self,
+        list_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a negative keyword list (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+        )
+        return await self._client._aget(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}", params=params
+        )
+
+    async def aupdate_ad_negative_keyword_list(
+        self,
+        list_id: str,
+        account_id: str,
+        name: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Rename a negative keyword list (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+            name=name,
+        )
+        return await self._client._aput(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}", data=payload
+        )
+
+    async def adelete_ad_negative_keyword_list(
+        self,
+        list_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete a negative keyword list (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+        )
+        return await self._client._adelete(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}", params=params
+        )
+
+    async def areplace_ad_negative_keyword_list_keywords(
+        self,
+        list_id: str,
+        account_id: str,
+        keywords: list[Any],
+        *,
+        customer_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """Replace negative list keywords (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            platform=platform,
+            keywords=keywords,
+        )
+        return await self._client._aput(
+            f"/v1/ads/accounts/negative-keyword-lists/{list_id}/keywords", data=payload
+        )
+
     async def alist_account_callouts(
         self, account_id: str, *, customer_id: str | None = None
     ) -> dict[str, Any]:
-        """List account-level callout extensions (async)"""
+        """List account callouts (async)"""
         params = self._build_params(
             account_id=account_id,
             customer_id=customer_id,
@@ -611,7 +1134,7 @@ class AdAccountsResource:
     async def aadd_account_callouts(
         self, account_id: str, callouts: list[str], *, customer_id: str | None = None
     ) -> dict[str, Any]:
-        """Add account-level callout extensions (async)"""
+        """Add account callouts (async)"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -619,11 +1142,120 @@ class AdAccountsResource:
         )
         return await self._client._apost("/v1/ads/accounts/callouts", data=payload)
 
+    async def aupdate_account_callouts(
+        self,
+        account_id: str,
+        updates: list[dict[str, Any]],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update account callouts (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return await self._client._aput("/v1/ads/accounts/callouts", data=payload)
+
     async def aremove_account_callout(
         self, account_id: str, asset_id: str, *, customer_id: str | None = None
     ) -> dict[str, Any]:
-        """Remove an account-level callout extension (async)"""
+        """Remove account callout (async)"""
         return await self._client._adelete("/v1/ads/accounts/callouts")
+
+    async def alist_account_sitelinks(
+        self, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List account sitelinks (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return await self._client._aget("/v1/ads/accounts/sitelinks", params=params)
+
+    async def aadd_account_sitelinks(
+        self, account_id: str, sitelinks: list[Any], *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """Add account sitelinks (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            sitelinks=sitelinks,
+        )
+        return await self._client._apost("/v1/ads/accounts/sitelinks", data=payload)
+
+    async def aupdate_account_sitelinks(
+        self,
+        account_id: str,
+        updates: list[dict[str, Any]],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update account sitelinks (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return await self._client._aput("/v1/ads/accounts/sitelinks", data=payload)
+
+    async def aremove_account_sitelink(
+        self, account_id: str, asset_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """Remove account sitelink (async)"""
+        return await self._client._adelete("/v1/ads/accounts/sitelinks")
+
+    async def alist_account_structured_snippets(
+        self, account_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """List account snippets (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+        )
+        return await self._client._aget(
+            "/v1/ads/accounts/structured-snippets", params=params
+        )
+
+    async def aadd_account_structured_snippets(
+        self,
+        account_id: str,
+        structured_snippets: list[Any],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Add account snippets (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            structured_snippets=structured_snippets,
+        )
+        return await self._client._apost(
+            "/v1/ads/accounts/structured-snippets", data=payload
+        )
+
+    async def aupdate_account_structured_snippets(
+        self,
+        account_id: str,
+        updates: list[dict[str, Any]],
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update account snippets (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            updates=updates,
+        )
+        return await self._client._aput(
+            "/v1/ads/accounts/structured-snippets", data=payload
+        )
+
+    async def aremove_account_structured_snippet(
+        self, account_id: str, asset_id: str, *, customer_id: str | None = None
+    ) -> dict[str, Any]:
+        """Remove account snippet (async)"""
+        return await self._client._adelete("/v1/ads/accounts/structured-snippets")
 
     async def aget_ad_account_finance(
         self, account_id: str, ad_account_id: str

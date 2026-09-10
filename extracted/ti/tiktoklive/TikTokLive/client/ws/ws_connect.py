@@ -1,14 +1,14 @@
 import logging
-from typing import Any, AsyncIterator, Dict, Optional, Tuple, Type, TypeAlias, Union
+from typing import Any, AsyncIterator, Dict, Optional, Tuple, TypeAlias, Union
 
 import httpx
-from python_socks import ProxyType, parse_proxy_url
+from python_socks import parse_proxy_url
 from websockets.exceptions import InvalidStatusCode  # type: ignore[attr-defined]
 from websockets.legacy.client import Connect, WebSocketClientProtocol
 from websockets_proxy import websockets_proxy
 from websockets_proxy.websockets_proxy import ProxyConnect
 
-from TikTokLive.client.errors import WebcastBlocked200Error
+from TikTokLive.client.errors import WebcastBlockedError
 from TikTokLive.client.ws.ws_utils import extract_webcast_response_message, build_webcast_uri, extract_websocket_options
 from TikTokLive.proto import ProtoMessageFetchResult, WebcastPushFrame
 
@@ -116,15 +116,21 @@ class WebcastConnect(Connect):
                         continue
 
                     # If it is of type msg, we can extract the ProtoMessageFetchResult item within
-                    webcast_response: ProtoMessageFetchResult = extract_webcast_response_message(webcast_push_frame, logger=self._logger)
+                    webcast_response: ProtoMessageFetchResult = extract_webcast_response_message(webcast_push_frame,
+                                                                                                 logger=self._logger)
                     yield webcast_push_frame, webcast_response
 
         except InvalidStatusCode as ex:
+            if ex.status_code == 400:
+                raise WebcastBlockedError(
+                    f"WebSocket rejected by TikTok due to \"400 Bad Request\" with reason \"{ex.headers.get('Handshake-Msg', 'an unknown reason')}\""
+                ) from ex
+
             if ex.status_code == 200:
                 # Note from Isaac post-insanity...
                 # IF the WebSockets are >>SIGNED<< WITH A SESSION ID
                 # and you DO NOT pass a sessionid cookie in the header, it will reject for "illegal secret key"
-                raise WebcastBlocked200Error(
+                raise WebcastBlockedError(
                     f"WebSocket rejected by TikTok due to \"{ex.headers.get('Handshake-Msg', 'an unknown reason')}\"."
                 ) from ex
             raise

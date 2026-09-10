@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastai
-Version: 2.8.11
+Version: 2.8.12
 Summary: fastai simplifies training fast and accurate neural nets using modern best practices
 Author-email: "Jeremy Howard, Sylvain Gugger, and contributors" <info@fast.ai>
 License: Apache-2.0

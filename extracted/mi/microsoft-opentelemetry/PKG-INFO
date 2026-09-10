@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-opentelemetry
-Version: 1.3.8
+Version: 1.3.9
 Summary: Minimal template for the Microsoft OpenTelemetry distro for Python
 Project-URL: Homepage, https://github.com/microsoft/opentelemetry-distro-python
 Project-URL: Repository, https://github.com/microsoft/opentelemetry-distro-python
@@ -23,30 +23,30 @@ License-File: LICENSE
 License-File: NOTICE.md
 Requires-Dist: azure-core<2.0.0,>=1.28.0
 Requires-Dist: azure-core-tracing-opentelemetry~=1.0.0b11
-Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b56
-Requires-Dist: opentelemetry-sdk~=1.43.0
-Requires-Dist: opentelemetry-api~=1.43.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.43.0
-Requires-Dist: opentelemetry-instrumentation<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-django<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-fastapi<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-flask<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-httpx<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-psycopg2<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-requests<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-urllib<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-urllib3<0.65b0,>=0.64b0
-Requires-Dist: opentelemetry-instrumentation-logging<0.65b0,>=0.64b0
+Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b57
+Requires-Dist: opentelemetry-sdk~=1.44.0
+Requires-Dist: opentelemetry-api~=1.44.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.44.0
+Requires-Dist: opentelemetry-instrumentation<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-django<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-flask<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-httpx<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-psycopg2<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-requests<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-urllib<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-urllib3<0.66b0,>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-logging<0.66b0,>=0.65b0
 Requires-Dist: opentelemetry-instrumentation-openai-agents-v2==0.1.0
 Requires-Dist: opentelemetry-instrumentation-openai-v2==2.3b0
-Requires-Dist: opentelemetry-resource-detector-azure<1.0.0,>=0.1.5
+Requires-Dist: opentelemetry-resource-detector-azure<1.0.0,>=0.2.0
 Requires-Dist: wrapt<2.0.0,>=1.0.0
 Requires-Dist: opentelemetry-util-genai==0.3b0
 Requires-Dist: aiohttp>=3.8.0
 Requires-Dist: PyJWT
 Requires-Dist: requests
 Provides-Extra: langchain
-Requires-Dist: langchain-core>=0.2.0; extra == "langchain"
+Requires-Dist: langchain-core>=1.6.0; extra == "langchain"
 Provides-Extra: agent-framework
 Requires-Dist: agent-framework>=1.4.0; extra == "agent-framework"
 Provides-Extra: openai-agents
@@ -284,6 +284,7 @@ Microsoft OpenTelemetry automatically instruments the following libraries when i
 | `fastapi` | Web framework |
 | `flask` | Web framework |
 | `httpx` | HTTP client |
+| `httpx2` | HTTP client |
 | `psycopg2` | Database |
 | `requests` | HTTP client |
 | `urllib` | HTTP client |
@@ -319,6 +320,7 @@ following instrumentations by default** when `enable_a365=True`:
 | `fastapi` | disabled |
 | `flask` | disabled |
 | `httpx` | disabled |
+| `httpx2` | disabled |
 | `psycopg2` | disabled |
 | `requests` | disabled |
 | `urllib` | disabled |

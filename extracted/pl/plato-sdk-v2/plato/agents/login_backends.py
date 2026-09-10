@@ -2,7 +2,8 @@
 
 Each agent package image ships one specific login protocol:
 
-- ``claude-code``, ``gemini-cli``, ``codex`` ship the ``agent-browser`` CLI.
+- ``claude-code``, ``gemini-cli``, ``codex``, ``grok-build`` ship the
+  ``agent-browser`` CLI.
   Pre-agent login replays recorded flows through that CLI so cookies land in
   the per-env session stores the agent later reads from.
 - ``computer-use-agent`` (and any other visual CUA image) ships Chrome with
@@ -24,6 +25,7 @@ _PACKAGE_LOGIN_BACKENDS: dict[str, LoginBackend] = {
     "claude-code": "agent_browser",
     "gemini-cli": "agent_browser",
     "codex": "agent_browser",
+    "grok-build": "agent_browser",
     "computer-use-agent": "cdp",
 }
 

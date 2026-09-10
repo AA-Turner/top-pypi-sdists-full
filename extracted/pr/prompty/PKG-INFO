@@ -1,222 +1,400 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: prompty
-Version: 0.1.50
-Summary: Prompty is a new asset class and format for LLM prompts that aims to provide observability, understandability, and portability for developers. It includes spec, tooling, and a runtime. This Prompty runtime supports Python
-Author-Email: Seth Juarez <seth.juarez@microsoft.com>
-License: MIT
-Project-URL: Repository, https://github.com/Microsoft/prompty
-Project-URL: Documentation, https://prompty.ai/docs
-Project-URL: Issues, https://github.com/microsoft/prompty/issues
-Requires-Python: >=3.9
-Requires-Dist: pyyaml>=6.0.1
-Requires-Dist: jinja2>=3.1.4
-Requires-Dist: python-dotenv>=1.0.1
-Requires-Dist: click>=8.1.7
-Requires-Dist: aiofiles>=24.1.0
-Provides-Extra: azure
-Requires-Dist: azure-identity>=1.17.1; extra == "azure"
-Requires-Dist: openai>=1.43.0; extra == "azure"
-Provides-Extra: openai
-Requires-Dist: openai>=1.43.0; extra == "openai"
-Provides-Extra: serverless
-Requires-Dist: azure-identity>=1.17.1; extra == "serverless"
-Requires-Dist: azure-ai-inference>=1.0.0b3; extra == "serverless"
+Version: 2.0.0
+Summary: Prompty is an asset class and format for LLM prompts
+Author-email: Seth Juarez <seth.juarez@microsoft.com>
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Typing :: Typed
+License-File: LICENSE
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: aiofiles>=24.1.0
+Requires-Dist: jinja2 ; extra == "all"
+Requires-Dist: chevron ; extra == "all"
+Requires-Dist: openai ; extra == "all"
+Requires-Dist: azure-identity ; extra == "all"
+Requires-Dist: aiohttp ; extra == "all"
+Requires-Dist: anthropic ; extra == "all"
+Requires-Dist: opentelemetry-api>=1.20 ; extra == "all"
+Requires-Dist: anthropic ; extra == "anthropic"
+Requires-Dist: openai ; extra == "azure"
+Requires-Dist: azure-identity ; extra == "azure"
+Requires-Dist: aiohttp ; extra == "azure"
+Requires-Dist: pytest ; extra == "dev"
+Requires-Dist: pytest-cov ; extra == "dev"
+Requires-Dist: pytest-asyncio ; extra == "dev"
+Requires-Dist: python-dotenv>=1.0.1 ; extra == "dev"
+Requires-Dist: ruff ; extra == "dev"
+Requires-Dist: types-PyYAML ; extra == "dev"
+Requires-Dist: types-aiofiles ; extra == "dev"
+Requires-Dist: opentelemetry-api>=1.20 ; extra == "dev"
+Requires-Dist: opentelemetry-sdk>=1.20 ; extra == "dev"
+Requires-Dist: openai ; extra == "foundry"
+Requires-Dist: azure-identity ; extra == "foundry"
+Requires-Dist: aiohttp ; extra == "foundry"
+Requires-Dist: jinja2 ; extra == "jinja2"
+Requires-Dist: chevron ; extra == "mustache"
+Requires-Dist: openai ; extra == "openai"
+Requires-Dist: opentelemetry-api>=1.20 ; extra == "otel"
+Project-URL: Changelog, https://github.com/microsoft/prompty/releases
+Project-URL: Documentation, https://prompty.ai
+Project-URL: Homepage, https://prompty.ai
+Project-URL: Issues, https://github.com/microsoft/prompty/issues
+Project-URL: Repository, https://github.com/Microsoft/prompty
+Provides-Extra: all
+Provides-Extra: anthropic
+Provides-Extra: azure
+Provides-Extra: dev
+Provides-Extra: foundry
+Provides-Extra: jinja2
+Provides-Extra: mustache
+Provides-Extra: openai
+Provides-Extra: otel
+Import-Name: prompty
 
+# Prompty — Python Runtime
 
-Prompty is an asset class and format for LLM prompts designed to enhance observability, understandability, and portability for developers. The primary goal is to accelerate the developer inner loop of prompt engineering and prompt source management in a cross-language and cross-platform implementation.
+[![PyPI](https://img.shields.io/pypi/v/prompty)](https://pypi.org/project/prompty/)
+[![Python 3.11+](https://img.shields.io/pypi/pyversions/prompty)](https://pypi.org/project/prompty/)
 
-The file format has a supporting toolchain with a VS Code extension and runtimes in multiple programming languages to simplify and accelerate your AI application development.
+Prompty is a markdown file format (`.prompty`) for LLM
+prompts. The Python runtime loads, renders, parses, and
+executes these files. Every `.prompty` file becomes a typed
+`Prompty` object.
 
-The tooling comes together in three ways: the *prompty file asset*, the *VS Code extension tool*, and *runtimes* in multiple programming languages.
+## Installation
 
-## The Prompty File Format
-Prompty is a language agnostic prompt asset for creating prompts and engineering the responses. Learn more about the format [here](https://prompty.ai/docs/prompty-file-spec).
+```bash
+# Core + Jinja2 renderer + OpenAI provider
+pip install prompty[jinja2,openai]
 
-Examples prompty file:
-```markdown
+# Core + Microsoft Foundry provider
+pip install prompty[jinja2,foundry]
+
+# Core + Anthropic provider
+pip install prompty[jinja2,anthropic]
+
+# Everything (all renderers, providers, OpenTelemetry)
+pip install prompty[all]
+```
+
+### Extras
+
+| Extra | Packages | What it enables |
+|-------|----------|-----------------|
+| `[openai]` | `openai` | OpenAI provider |
+| `[foundry]` | `openai`, `azure-identity` | Microsoft Foundry provider |
+| `[anthropic]` | `anthropic` | Anthropic provider |
+| `[jinja2]` | `jinja2` | Jinja2 template rendering |
+| `[mustache]` | `chevron` | Mustache template rendering |
+| `[otel]` | `opentelemetry-api` | OpenTelemetry tracing |
+| `[all]` | All of the above | Everything |
+
+## Quick Start
+
+### 1. Write a `.prompty` File
+
+```prompty
 ---
-name: Basic Prompt
-description: A basic prompt that uses the gpt-3.5-turbo chat API to answer questions
-authors:
-  - sethjuarez
-  - jietong
+name: greeting
 model:
-  api: chat
-  configuration:
-    api_version: 2024-10-21
-    azure_endpoint: ${env:AZURE_OPENAI_ENDPOINT}
-    azure_deployment: ${env:AZURE_OPENAI_DEPLOYMENT:gpt-35-turbo}
-    type: azure_openai
-sample:
-  firstName: Jane
-  lastName: Doe
-  question: What is the meaning of life?
+  id: gpt-4o-mini
+  provider: openai
+  connection:
+    kind: key
+    apiKey: ${env:OPENAI_API_KEY}
+inputs:
+  - name: name
+    kind: string
+    default: World
+template:
+  format:
+    kind: jinja2
+  parser:
+    kind: prompty
 ---
 system:
-You are an AI assistant who helps people find information.
-As the assistant, you answer questions briefly, succinctly, 
-and in a personable manner using markdown and even add some personal flair with appropriate emojis.
+You are a friendly assistant.
 
-# Customer
-You are helping {{firstName}} {{lastName}} to find answers to their questions.
-Use their name to address them in your responses.
+user:
+Say hello to {{name}}.
+```
 
+### 2. Run It
+
+```python
+import prompty
+
+# One-shot: load + prepare + run
+result = prompty.invoke("greeting.prompty", inputs={"name": "Jane"})
+print(result)
+
+# Step-by-step
+agent = prompty.load("greeting.prompty")
+messages = prompty.prepare(agent, inputs={"name": "Jane"})
+result = prompty.run(agent, messages)
+```
+
+### 3. Async
+
+```python
+result = await prompty.invoke_async("greeting.prompty", inputs={"name": "Jane"})
+```
+
+## API Reference
+
+### Core Functions
+
+| Function | What it does |
+|----------|-------------|
+| `load(path)` | Parse `.prompty` → `Prompty` |
+| `render(agent, inputs)` | Template → rendered string |
+| `parse(agent, rendered)` | Rendered string → `list[Message]` |
+| `prepare(agent, inputs)` | Render + parse + threads → `list[Message]` |
+| `run(agent, msgs)` | Executor + process → clean result |
+| `process(agent, resp)` | Extract content → clean result |
+| `invoke(prompt, inputs)` | Full pipeline: load + prepare + run |
+| `turn(prompt, ...)` | Full pipeline with tool-call loop |
+| `validate_inputs(...)` | Check required inputs present |
+
+All functions have `_async` variants (e.g.,
+`invoke_async`, `run_async`, `turn_async`).
+
+### Agent Turns (Tool Calling)
+
+```python
+def get_weather(location: str) -> str:
+    return f"72°F and sunny in {location}"
+
+
+result = prompty.turn(
+    "my-agent.prompty",
+    inputs={"question": "Weather in Seattle?"},
+    tools={"get_weather": get_weather},
+    max_iterations=10,  # default
+)
+```
+
+The agent loop: calls the LLM, if it returns
+`tool_calls`, executes the matching functions, sends
+results back, repeats until the model returns a normal
+response or `max_iterations` is exceeded.
+
+Error handling:
+
+- **Bad JSON** in tool arguments → error sent back
+  to model for self-correction
+- **Tool exception** → error string sent back to model
+- **Missing tool** → error message sent back (no crash)
+- **Max iterations** → `ValueError` raised
+
+### Connection Registry
+
+For pre-configured SDK clients or token-based auth:
+
+```yaml
+# .prompty file — reference a named connection
+model:
+  id: gpt-4o
+  provider: foundry
+  connection:
+    kind: reference
+    name: my-foundry
+```
+
+```python
+from openai import AzureOpenAI
+from azure.identity import (
+    DefaultAzureCredential,
+    get_bearer_token_provider,
+)
+
+client = AzureOpenAI(
+    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+    azure_ad_token_provider=get_bearer_token_provider(
+        DefaultAzureCredential(),
+        "https://cognitiveservices.azure.com/.default",
+    ),
+)
+prompty.register_connection("my-foundry", client=client)
+
+# Now run — executor resolves the client by name
+result = prompty.invoke("my-prompt.prompty", inputs={...})
+```
+
+### Structured Output
+
+Define `outputs` in frontmatter to get
+JSON-parsed results:
+
+```yaml
+outputs:
+  - name: city
+    kind: string
+    description: The city name
+  - name: temperature
+    kind: integer
+    description: Temperature in Fahrenheit
+```
+
+The executor sends this as OpenAI's `response_format`
+with `json_schema`, and the processor automatically
+JSON-parses the result.
+
+### Streaming
+
+```python
+agent = prompty.load("chat.prompty")
+messages = prompty.prepare(agent, inputs={"question": "Tell me a story"})
+
+# Set stream option
+agent.model.options.additionalProperties = {
+    "stream": True,
+}
+response = prompty.run(agent, messages, raw=True)
+
+# response is a PromptyStream — iterate for chunks
+for chunk in prompty.process(agent, response):
+    print(chunk, end="", flush=True)
+```
+
+Streaming handles tool call deltas (accumulated
+across chunks), refusal detection, and empty
+heartbeat chunks.
+
+### Tracing
+
+```python
+from prompty import Tracer, PromptyTracer, trace
+
+# Register a tracer
+Tracer.add("console", prompty.console_tracer)
+Tracer.add("json", PromptyTracer("./traces").tracer)
+
+# All pipeline functions automatically emit traces
+result = prompty.invoke("my-prompt.prompty", inputs={...})
+
+
+# Custom functions
+@trace
+def my_function(): ...
+```
+
+OpenTelemetry integration:
+
+```python
+from prompty.tracing.otel import otel_tracer
+
+Tracer.add("otel", otel_tracer())
+```
+
+## `.prompty` File Format
+
+### Structure
+
+```text
+---
+# YAML frontmatter (Prompty schema)
+---
+# Markdown body (becomes `instructions`)
+# Uses role markers and template syntax
+```
+
+### Role Markers
+
+```text
+system:
+You are a helpful assistant.
+
+user:
+{{question}}
+
+assistant:
+I'd be happy to help.
+```
+
+### Thread Inputs
+
+Conversation history is passed via a `kind: thread`
+input property:
+
+```yaml
+inputs:
+  - name: conversation
+    kind: thread
+```
+
+Place `{{conversation}}` in the template where
+thread messages should be injected:
+
+```text
+system:
+You are a helpful assistant.
+{{conversation}}
 user:
 {{question}}
 ```
 
+The caller passes a list of messages as the thread
+input value.
 
-## The Prompty VS Code Extension
-Run Prompty files directly in VS Code. This Visual Studio Code extension offers an intuitive prompt playground within VS Code to streamline the prompt engineering process. You can find the Prompty extension in the Visual Studio Code Marketplace.
+### Variable References
 
-Download the [VS Code extension here](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.prompty).
+| Syntax | Purpose |
+|--------|---------|
+| `${env:VAR}` | Env variable (required) |
+| `${env:VAR:default}` | Env variable with fallback |
+| `${file:path.json}` | Load file content from the prompt directory tree |
 
+`${file:...}` references are scoped to the containing `.prompty` file's directory by default. Pass `allowed_file_roots` to `load()` / `load_async()` only when the host application explicitly trusts additional shared directories.
 
-## Using this Prompty Runtime
-The Python runtime is a simple way to run your prompts in Python. The runtime is available as a Python package and can be installed using pip. Depending on the type of prompt you are running, you may need to install additional dependencies. The runtime is designed to be extensible and can be customized to fit your needs.
+### Connection Kinds
 
-```bash
-pip install "prompty[azure]"
-```
+| Kind | When to use |
+|------|-------------|
+| `key` | API key auth (self-contained) |
+| `reference` | Pre-registered SDK client |
+| `anonymous` | Endpoint only, no credentials |
 
-Simple usage example:
+### Legacy Format Support
 
-```python
-import prompty
-# import invoker
-import prompty.azure
+Prompty v1 `.prompty` files are automatically
+migrated with deprecation warnings. Key changes:
 
-# execute the prompt
-response = prompty.execute("path/to/prompty/file")
+- `model.configuration` → `model.connection`
+- `model.parameters` → `model.options`
+- `inputs` (dict format) → `inputs` (list of Property)
+- older input schema fields → `inputs`
+- older output schema fields → `outputs`
+- `template: jinja2` → structured `template`
+  with `format` and `parser`
 
-print(response)
-```
-
-## Available Invokers
-The Prompty runtime comes with a set of built-in invokers that can be used to execute prompts. These include:
-
-- `azure`: Invokes the Azure OpenAI API
-- `openai`: Invokes the OpenAI API
-- `serverless`: Invokes serverless models (like the ones on GitHub) using the [Azure AI Inference client library](https://learn.microsoft.com/en-us/python/api/overview/azure/ai-inference-readme?view=azure-python-preview) (currently only key based authentication is supported with more managed identity support coming soon)
-
-
-## Using Tracing in Prompty
-Prompty supports tracing to help you understand the execution of your prompts. This functionality is customizable and can be used to trace the execution of your prompts in a way that makes sense to you. Prompty has two default traces built in: `console_tracer` and `PromptyTracer`. The `console_tracer` writes the trace to the console, and the `PromptyTracer` writes the trace to a JSON file. You can also create your own tracer by creating your own hook.
-
-```python
-import prompty
-# import invoker
-import prompty.azure
-from prompty.tracer import trace, Tracer, console_tracer, PromptyTracer
-
-# add console tracer
-Tracer.add("console", console_tracer)
-
-# add PromptyTracer
-json_tracer = PromptyTracer(output_dir="path/to/output")
-Tracer.add("console", json_tracer.tracer)
-
-# execute the prompt
-response = prompty.execute("path/to/prompty/file")
-
-print(response)
-```
-
-You can also bring your own tracer by your own tracing hook. The `console_tracer` is the simplest example of a tracer. It writes the trace to the console.
-This is what it looks like:
-
-```python
-@contextlib.contextmanager
-def console_tracer(name: str) -> Iterator[Callable[[str, Any], None]]:
-    try:
-        print(f"Starting {name}")
-        yield lambda key, value: print(f"{key}:\n{json.dumps(value, indent=4)}")
-    finally:
-        print(f"Ending {name}")
-
-```
-
-It uses a context manager to define the start and end of the trace so you can do whatever setup and teardown you need. The `yield` statement returns a function that you can use to write the trace. The `console_tracer` writes the trace to the console using the `print` function.
-
-The `PromptyTracer` is a more complex example of a tracer. This tracer manages its internal state using a full class. Here's an example of the class based approach that writes each function trace to a JSON file:
-
-```python
-class SimplePromptyTracer:
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
-        self.tracer = self._tracer
-
-    @contextlib.contextmanager
-    def tracer(self, name: str) -> Iterator[Callable[[str, Any], None]]:
-        trace = {}
-        try:
-            yield lambda key, value: trace.update({key: value})
-        finally:
-            with open(os.path.join(self.output_dir, f"{name}.json"), "w") as f:
-                json.dump(trace, f, indent=4)
-```
-
-The tracing mechanism is supported for all of the prompty runtime internals and can be used to trace the execution of the prompt along with all of the paramters. There is also a `@trace` decorator that can be used to trace the execution of any function external to the runtime. This is provided as a facility to trace the execution of the prompt and whatever supporting code you have.
-
-```python
-import prompty
-# import invoker
-import prompty.azure
-from prompty.tracer import trace, Tracer, PromptyTracer
-
-json_tracer = PromptyTracer(output_dir="path/to/output")
-Tracer.add("PromptyTracer", json_tracer.tracer)
-
-@trace
-def get_customer(customerId):
-    return {"id": customerId, "firstName": "Sally", "lastName": "Davis"}
-
-@trace
-def get_response(customerId, prompt):
-    customer = get_customer(customerId)
-
-    result = prompty.execute(
-        prompt,
-        inputs={"question": question, "customer": customer},
-    )
-    return {"question": question, "answer": result}
-
-```
-
-In this case, whenever this code is executed, a `.tracy` file will be created in the `path/to/output` directory. This file will contain the trace of the execution of the `get_response` function, the execution of the `get_customer` function, and the prompty internals that generated the response.
-
-## OpenTelemetry Tracing
-You can add OpenTelemetry tracing to your application using the same hook mechanism. In your application, you might create something like `trace_span` to trace the execution of your prompts:
-
-```python
-from opentelemetry import trace as oteltrace
-
-_tracer = "prompty"
-
-@contextlib.contextmanager
-def trace_span(name: str):
-    tracer = oteltrace.get_tracer(_tracer)
-    with tracer.start_as_current_span(name) as span:
-        yield lambda key, value: span.set_attribute(
-            key, json.dumps(value).replace("\n", "")
-        )
-
-# adding this hook to the prompty runtime
-Tracer.add("OpenTelemetry", trace_span)
-
-```
-
-This will produce spans during the execution of the prompt that can be sent to an OpenTelemetry collector for further analysis.
-
-## CLI
-The Prompty runtime also comes with a CLI tool that allows you to run prompts from the command line. The CLI tool is installed with the Python package.
+## Development
 
 ```bash
-prompty -s path/to/prompty/file -e .env
+# Install for development
+uv pip install -e ".[dev,all]"
+
+# Unit tests (excludes integration by default)
+uv run pytest tests/ -q
+
+# Lint
+uv run ruff check .
+uv run ruff format --check .
+
+# Integration tests (requires API keys in .env)
+uv run pytest tests/integration/ -v -o "addopts="
 ```
 
-This will execute the prompt and print the response to the console. If there are any environment variables the CLI should take into account, you can pass those in via the `-e` flag. It also has default tracing enabled.
+## License
 
-## Contributing
-We welcome contributions to the Prompty project! This community led project is open to all contributors. The project can be found on [GitHub](https://github.com/Microsoft/prompty).
+See [LICENSE](../../../LICENSE) in the repository root.
+

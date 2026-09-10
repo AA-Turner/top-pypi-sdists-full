@@ -15,13 +15,19 @@ replaces the ``content`` of any tool_result block that is BOTH:
 with a compact augmented preview that tells the model the original
 output is recoverable.
 
-Two tiers (matching the user's spec):
+Two tiers (Arman's ruling 2026-09-09, from the re-fetch measurements in
+``chat.vw_tool_refetch``; the 2026-06 defaults of 5/500 and 15/200 cleared a
+result about two tool calls after it arrived, and agents re-fetched it):
 
-  Tier 1 — at ``tier_1_min_positions_back`` (default 5) back: replace
-           anything over ``tier_1_min_output_chars`` (default 500).
-  Tier 2 — at ``tier_2_min_positions_back`` (default 15) back: replace
-           anything over ``tier_2_min_output_chars`` (default 200) —
+  Tier 1 — at ``tier_1_min_positions_back`` (default 12) back: replace
+           anything over ``tier_1_min_output_chars`` (default 8000).
+  Tier 2 — at ``tier_2_min_positions_back`` (default 24) back: replace
+           anything over ``tier_2_min_output_chars`` (default 2000) —
            same substitution, more aggressive threshold.
+
+These are opinions and therefore knobs: pass a ``TrimPolicy`` into
+``send_boundary.prepare_for_send`` to override per organization once an
+org-settings source exists; never hardcode taste elsewhere.
 
 What this function is NOT
 -------------------------
@@ -84,15 +90,15 @@ CHARS_PER_TOKEN_ESTIMATE = 4.0
 class TrimPolicy:
     """Tunable policy for ``trim_messages_context``.
 
-    Defaults match the user's stated rule:
-      * 5+ positions back AND > 500 chars  → replace
-      * 15+ positions back AND > 200 chars → replace
+    Defaults are Arman's 2026-09-09 ruling (see module docstring):
+      * 12+ positions back AND > 8000 chars → replace
+      * 24+ positions back AND > 2000 chars → replace
     """
 
-    tier_1_min_positions_back: int = 5
-    tier_1_min_output_chars: int = 500
-    tier_2_min_positions_back: int = 15
-    tier_2_min_output_chars: int = 200
+    tier_1_min_positions_back: int = 12
+    tier_1_min_output_chars: int = 8000
+    tier_2_min_positions_back: int = 24
+    tier_2_min_output_chars: int = 2000
 
     # Image/video/audio results carry a typed reference (file_id, ImageContent
     # block, etc.) that the model needs intact for re-display. We refuse to

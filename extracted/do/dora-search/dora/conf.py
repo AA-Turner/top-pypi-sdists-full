@@ -70,8 +70,14 @@ class SlurmConfig:
             per node, otherwise, will schedule one task per gpu (default is False).
         array_parallelism (int): when using job arrays, how many tasks can run
             in parallel.
-        qos: (str or None): qos param for slurm.
-        account: (str or None): account param for slurm.
+        qos (str or None): qos param for slurm.
+        account (str or None): account param for slurm.
+        dependents (int): if > 0, start a number of dependent jobs. Requeuing
+            will be deactivated and rely on dependent jobs instead.
+        container_chdir (bool): set to True when using a container image to chdir.
+        force_chdir (bool or None): same as container_chdir, kept for compat.
+        srun_args (list[str]): extra srun args, useful for using a container image.
+        python (str or None): indicate to submitit to use an alternative python.
 
     ..warning:: this assumes one task per GPU.
         Set `one_task_per_node` if you do not want that.
@@ -92,6 +98,12 @@ class SlurmConfig:
     exclude: tp.Optional[str] = None
     qos: tp.Optional[str] = None
     account: tp.Optional[str] = None
+    dependents: int = 0
+    container_chdir: bool = False
+    force_chdir: tp.Optional[bool] = None
+    srun_args: tp.List[str] = field(default_factory=list)
+    python: tp.Optional[str] = None
+    nodelist: list[str] | None = None
 
 
 @dataclass
@@ -122,6 +134,7 @@ class ShepConfig:
     There should be little reasons to change that.
     """
     job_file: str = "job.pkl"
+    json_job_file: str = "job.json"
     by_id: str = "by_id"
     orphans: str = "orphans"
     submitit_folder: str = "submitit"
@@ -143,6 +156,8 @@ class DoraConfig:
         git_save (bool): when True, experiments can only be scheduled from a clean repo.
             A shallow clone of the repo will be made and execution will happen from there.
             This does not impact `dora run` unless you pass the `--git_save` flag.
+        post_git_save_commands (list[str]): sequence of commands to run on a fresh git clone.
+        local_code (bool): if True, copies the git clone into /tmp before running.
         shared (Path or None): if provided, the path to a central repository of XPs.
             For the moment, this only supports sharing hyper-params, logs etc. will stay
             in the per user folder.
@@ -152,6 +167,8 @@ class DoraConfig:
     dir: Path = Path("./outputs")  # where everything will be stored
     exclude: tp.List[str] = field(default_factory=list)
     git_save: bool = False
+    post_git_save_commands: tp.List[str] = field(default_factory=list)
+    local_code: bool = False
     shared: tp.Optional[Path] = None  # Optional path for shared XPs.
     grid_package: tp.Optional[str] = None
 

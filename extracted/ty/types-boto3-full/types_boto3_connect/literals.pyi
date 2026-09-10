@@ -75,12 +75,14 @@ __all__ = (
     "EncryptionTypeType",
     "EndpointTypeType",
     "EntityTypeType",
+    "EvaluationFormAIVersionStatusType",
     "EvaluationFormItemEnablementActionType",
     "EvaluationFormItemEnablementOperatorType",
     "EvaluationFormItemEnablementSourceTypeType",
     "EvaluationFormItemEnablementSourceValueTypeType",
     "EvaluationFormItemSourceValuesComparatorType",
     "EvaluationFormLanguageCodeType",
+    "EvaluationFormMetricTypeType",
     "EvaluationFormMultiSelectQuestionDisplayModeType",
     "EvaluationFormQuestionAutomationAnswerSourceTypeType",
     "EvaluationFormQuestionTypeType",
@@ -459,6 +461,7 @@ EndpointTypeType = Literal[
     "CONNECT_PHONENUMBER_ARN", "CONTACT_FLOW", "EMAIL_ADDRESS", "TELEPHONE_NUMBER", "VOIP"
 ]
 EntityTypeType = Literal["AI_AGENT", "USER"]
+EvaluationFormAIVersionStatusType = Literal["ACTIVE", "DEPRECATED", "LATEST", "PREVIEW"]
 EvaluationFormItemEnablementActionType = Literal["DISABLE", "ENABLE"]
 EvaluationFormItemEnablementOperatorType = Literal["AND", "OR"]
 EvaluationFormItemEnablementSourceTypeType = Literal["QUESTION_REF_ID"]
@@ -467,6 +470,7 @@ EvaluationFormItemSourceValuesComparatorType = Literal["ALL_IN", "EXACT", "IN", 
 EvaluationFormLanguageCodeType = Literal[
     "de-DE", "en-US", "es-ES", "fr-FR", "it-IT", "ja-JP", "ko-KR", "ms-MY", "pt-BR", "zh-CN"
 ]
+EvaluationFormMetricTypeType = Literal["BUSINESS_OUTCOME"]
 EvaluationFormMultiSelectQuestionDisplayModeType = Literal["CHECKBOX", "DROPDOWN"]
 EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
 EvaluationFormQuestionTypeType = Literal[

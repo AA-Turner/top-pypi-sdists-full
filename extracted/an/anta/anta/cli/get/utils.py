@@ -26,6 +26,7 @@ import urllib3
 import yaml
 from typing_extensions import deprecated
 
+from anta._advisory.base import _AntaAdvisoryTest
 from anta.cli.console import console
 from anta.cli.utils import ExitCode
 from anta.inventory import AntaInventory
@@ -321,8 +322,8 @@ def find_tests_in_module(qname: str, test_name: str | None) -> list[type[AntaTes
         raise ValueError(msg) from e
 
     for _name, obj in inspect.getmembers(qname_module):
-        # Only retrieves the subclasses of AntaTest
-        if not inspect.isclass(obj) or not issubclass(obj, AntaTest) or obj == AntaTest:
+        # Only retrieve concrete subclasses of AntaTest.
+        if not inspect.isclass(obj) or not issubclass(obj, AntaTest) or obj == AntaTest or inspect.isabstract(obj):
             continue
         if test_name and not obj.name.startswith(test_name):
             continue
@@ -348,6 +349,11 @@ def _filter_tests_via_catalog(tests: list[type[AntaTest]], catalog: AntaCatalog)
     """
     catalog_test_names = {test.test.name for test in catalog.tests}
     return [test for test in tests if test.name in catalog_test_names]
+
+
+def _filter_catalog_examples(tests: list[type[AntaTest]]) -> list[type[AntaTest]]:
+    """Exclude security advisory tests from catalog-oriented output."""
+    return [test for test in tests if not issubclass(test, _AntaAdvisoryTest)]
 
 
 def print_tests(tests: list[type[AntaTest]], *, short: bool = False) -> None:
@@ -557,8 +563,8 @@ def find_tests_examples(qname: str, test_name: str | None, *, short: bool = Fals
     tests_found = 0
 
     for _name, obj in inspect.getmembers(qname_module):
-        # Only retrieves the subclasses of AntaTest
-        if not inspect.isclass(obj) or not issubclass(obj, AntaTest) or obj == AntaTest:
+        # Only retrieve concrete subclasses of AntaTest.
+        if not inspect.isclass(obj) or not issubclass(obj, AntaTest) or obj == AntaTest or inspect.isabstract(obj):
             continue
         if test_name and not obj.name.startswith(test_name):
             continue

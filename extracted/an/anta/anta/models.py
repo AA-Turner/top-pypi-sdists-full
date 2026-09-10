@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import logging
 import re
 from abc import ABC, abstractmethod
@@ -32,6 +33,15 @@ if TYPE_CHECKING:
 # https://stackoverflow.com/questions/74103528/type-hinting-an-instance-of-a-nested-class
 
 logger = logging.getLogger(__name__)
+
+
+def _description_from_docstring(docstring: str | None, class_name: str) -> str:
+    """Return a normalized class description from its docstring."""
+    cleaned_docstring = inspect.cleandoc(docstring or "")
+    if not cleaned_docstring:
+        msg = f"Cannot set the description for class {class_name}, either set it in the class definition or add a docstring to the class."
+        raise AttributeError(msg)
+    return cleaned_docstring.splitlines()[0]
 
 
 class AntaParamsBaseModel(BaseModel):
@@ -214,6 +224,11 @@ class AntaCommand(BaseModel):
         return len(self.errors) > 0
 
     @property
+    def errors_deferred(self) -> bool:
+        """Return whether error reporting is delegated to the test body."""
+        return False
+
+    @property
     def collected(self) -> bool:
         """Return True if the command has been collected, False otherwise.
 
@@ -360,8 +375,8 @@ class AntaTest(ABC):
 
     # Class variables to handle the progress bar of ANTA CLI
     progress: Progress | None = None
+    # TODO(ANTA 2.0): Rename `nrfu_task` to `_progress_task`.
     nrfu_task: TaskID | None = None
-
     # Instance attributes
     device: AntaDevice
     inputs: AntaTest.Input
@@ -460,7 +475,7 @@ class AntaTest(ABC):
         self.logger = logging.getLogger(f"{self.module}.{self.__class__.__name__}")
         self.device = device
         self.instance_commands = []
-        self.result = TestResult(name=device.name, test=self.name, categories=self.categories, description=self.description)
+        self.result = self._create_result()
         self._init_inputs(inputs)
         if hasattr(self, "inputs"):
             self._init_commands(eos_data)
@@ -472,20 +487,34 @@ class AntaTest(ABC):
                 if res_ow.custom_field:
                     self.result.custom_field = res_ow.custom_field
 
+    def _create_result(self) -> TestResult:
+        """Create the test result."""
+        return TestResult(name=self.device.name, test=self.name, categories=self.categories, description=self.description)
+
     def _init_inputs(self, inputs: dict[str, Any] | AntaTest.Input | None) -> None:
         """Instantiate the `inputs` instance attribute with an `AntaTest.Input` instance to validate test inputs using the model.
 
         Any input validation error will set this test result status as 'error'.
         """
-        try:
-            if inputs is None:
+        if inputs is None:
+            try:
                 self.inputs = self.Input()
-            elif isinstance(inputs, AntaTest.Input):
-                self.inputs = inputs
-            elif isinstance(inputs, dict):
+            except ValidationError as e:
+                message = f"{self.module}.{self.name}: Inputs are not valid\n{e}"
+                self.logger.error(message)
+                self.result.is_error(message=message)
+        elif isinstance(inputs, AntaTest.Input):
+            self.inputs = inputs
+        elif isinstance(inputs, dict):
+            try:
                 self.inputs = self.Input(**inputs)
-        except ValidationError as e:
-            message = f"{self.module}.{self.name}: Inputs are not valid\n{e}"
+            except ValidationError as e:
+                message = f"{self.module}.{self.name}: Inputs are not valid\n{e}"
+                self.logger.error(message)
+                self.result.is_error(message=message)
+        else:
+            msg = f"Input should be a dict, Input instance or None, not {type(inputs).__name__}"
+            message = f"{self.module}.{self.name}: Inputs are not valid\n{msg}"
             self.logger.error(message)
             self.result.is_error(message=message)
 
@@ -548,11 +577,7 @@ class AntaTest(ABC):
 
         cls.name = getattr(cls, "name", cls.__name__)
         if not hasattr(cls, "description"):
-            if not cls.__doc__ or cls.__doc__.strip() == "":
-                # No doctsring or empty doctsring - raise
-                msg = f"Cannot set the description for class {cls.name}, either set it in the class definition or add a docstring to the class."
-                raise AttributeError(msg)
-            cls.description = cls.__doc__.split(sep="\n", maxsplit=1)[0]
+            cls.description = _description_from_docstring(cls.__doc__, cls.name)
 
     @property
     def module(self) -> str:

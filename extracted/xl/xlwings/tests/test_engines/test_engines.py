@@ -1407,17 +1407,17 @@ def test_range_set_name(book):
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
 def test_book_names_add(book):
-    book.names.add("test1", "=Sheet1!$A$1:$B$3")
+    book.names.add("test1", "='Sheet 1'!$A$1:$B$3")
     assert book.json()["actions"][0]["func"] == "namesAdd"
-    assert book.json()["actions"][0]["args"] == ["test1", "=Sheet1!$A$1:$B$3"]
+    assert book.json()["actions"][0]["args"] == ["test1", "='Sheet 1'!$A$1:$B$3"]
     assert book.json()["actions"][0]["sheet_position"] is None
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
 def test_sheet_names_add(book):
-    book.sheets[0].names.add("test1", "=Sheet1!$A$1:$B$3")
+    book.sheets[0].names.add("test1", "='Sheet 1'!$A$1:$B$3")
     assert book.json()["actions"][0]["func"] == "namesAdd"
-    assert book.json()["actions"][0]["args"] == ["test1", "=Sheet1!$A$1:$B$3"]
+    assert book.json()["actions"][0]["args"] == ["test1", "='Sheet 1'!$A$1:$B$3"]
     assert book.json()["actions"][0]["sheet_position"] == 0
 
 
@@ -1481,8 +1481,8 @@ def test_name_refers_to_setter():
     action = book.json()["actions"][-1]
     assert action["func"] == "setNameRefersTo"
     assert action["args"] == [name.api["name"], True, None, "=Sheet2!$C$3"]
-    # refers_to is computed from sheet_index/address, so the setter updates
-    # those -- check it round-trips through the getter and refers_to_range
+    # The setter preserves the definition and updates resolved coordinates.
+    # Check both the getter and refers_to_range.
     assert name.refers_to == "=Sheet2!$C$3"
     assert name.refers_to_range.sheet.name == "Sheet2"
     assert name.refers_to_range.address == "$C$3"
@@ -1505,6 +1505,334 @@ def test_name_refers_to_setter_sheet_scope():
 def test_name_refers_to_setter_unknown_sheet(book):
     with pytest.raises(ValueError, match="doesn't exist"):
         book.names[0].refers_to = "=NoSuchSheet!$A$1"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+@pytest.mark.parametrize(
+    "formula",
+    [
+        "=LAMBDA(value,value*2)",
+        "=LAMBDA(value,value+'Sheet 1'!$A$1)",
+        "=42",
+        '="hello!world"',
+        "=SUM(Sheet2!$A$1:$A$3)",
+        "=-Sheet2!$A$1",
+        "=#REF!",
+        "=('Sheet 1'!$A$1,Sheet2!$B$2)",
+    ],
+)
+def test_named_formula_add_and_reload(sheet_scope, formula):
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    parent = book.sheets[0] if sheet_scope else book
+    before = len(parent.names)
+    name = parent.names.add("FormulaDemo", formula)
+    assert len(parent.names) == before + 1
+    assert name.refers_to == formula
+    assert name.api["sheet_index"] is None
+    assert name.api["address"] is None
+    with pytest.raises(ValueError, match="does not refer to a single range"):
+        name.refers_to_range
+    action = book.json()["actions"][-1]
+    assert action["func"] == "namesAdd"
+    assert action["args"] == ["FormulaDemo", formula]
+    assert action["sheet_position"] == (0 if sheet_scope else None)
+
+    # Simulate the next workbook snapshot with the new payload schema.
+    snapshot = json.loads(json.dumps(book.impl.api))
+    reloaded = xw.Book(json=snapshot)
+    parent = reloaded.sheets[0] if sheet_scope else reloaded
+    name = next(n for n in parent.names if n.api["name"] == "FormulaDemo")
+    assert name.refers_to == formula
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+def test_named_formula_lifecycle(sheet_scope):
+    reloaded = xw.Book(json=json.loads(json.dumps(data)))
+    parent = reloaded.sheets[0] if sheet_scope else reloaded
+    before = len(parent.names)
+    name = parent.names.add("FormulaDemo", "=LAMBDA(value,value*2)")
+    name.refers_to = "=Sheet2!$C$3"
+    assert name.refers_to_range == reloaded.sheets[1]["C3"]
+    name.refers_to = "=LAMBDA(value,value*3)"
+    assert name.refers_to == "=LAMBDA(value,value*3)"
+    with pytest.raises(ValueError, match="does not refer to a single range"):
+        name.refers_to_range
+    assert reloaded.json()["actions"][-1]["args"] == [
+        "FormulaDemo",
+        not sheet_scope,
+        0 if sheet_scope else None,
+        "=LAMBDA(value,value*3)",
+    ]
+    name.delete()
+    assert len(parent.names) == before
+    assert all(n.api["name"] != "FormulaDemo" for n in reloaded.names)
+    action = reloaded.json()["actions"][-1]
+    assert action["func"] == "nameDelete"
+    assert action["args"][1] == "=LAMBDA(value,value*3)"
+    assert action["args"][4:] == [not sheet_scope, 0 if sheet_scope else None]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_named_reference_preserves_formula_and_resolved_coordinates():
+    snapshot = json.loads(json.dumps(data))
+    snapshot["names"][0]["refers_to"] = "=OFFSET('Sheet 1'!$A$1,0,0)"
+    book = xw.Book(json=snapshot)
+    assert book.names[0].refers_to == "=OFFSET('Sheet 1'!$A$1,0,0)"
+    assert book.names[0].refers_to_range == book.sheets[0]["A1"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_name_reference_with_escaped_sheet_name():
+    snapshot = json.loads(json.dumps(data))
+    snapshot["sheets"][0]["name"] = "Sales'24!"
+    book = xw.Book(json=snapshot)
+    name = book.names.add("Escaped", "='Sales''24!'!$A$1:$B$2")
+    assert name.refers_to == "='Sales''24!'!$A$1:$B$2"
+    assert name.refers_to_range == book.sheets[0]["A1:B2"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "formula",
+    ["=LAMBDA(value,value*2)", "=42", "=(Sheet2!$A$1,Sheet2!$C$3)", "=Sheet2!$Z$10"],
+)
+def test_name_equality_without_resolving_a_range(formula):
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    name = book.names.add("EqualityDemo", formula)
+    assert name == book.names["EqualityDemo"]
+    assert name != book.names.add("DifferentName", formula)
+    assert name != "EqualityDemo"
+    changed = xw.Book(json=json.loads(json.dumps(book.impl.api)))
+    changed.names["EqualityDemo"].refers_to = "=43"
+    assert name != changed.names["EqualityDemo"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+@pytest.mark.parametrize("sheet_index,address", [(None, None), (None, "A1"), (0, None)])
+def test_legacy_name_without_coordinates_can_be_read_and_deleted(
+    sheet_scope, sheet_index, address
+):
+    snapshot = json.loads(json.dumps(data))
+    snapshot["names"] = [
+        {
+            "name": "LegacyAreas",
+            "sheet_index": sheet_index,
+            "address": address,
+            "book_scope": not sheet_scope,
+            "scope_sheet_name": "Sheet 1" if sheet_scope else None,
+            "scope_sheet_index": 0 if sheet_scope else None,
+        }
+    ]
+    book = xw.Book(json=snapshot)
+    parent = book.sheets[0] if sheet_scope else book
+    name = parent.names[0]
+    assert name.refers_to is None
+    assert "LegacyAreas" in repr(name)
+    with pytest.raises(ValueError, match="does not refer to a single range"):
+        name.refers_to_range
+    name.delete()
+    assert len(parent.names) == 0
+    assert len(book.names) == 0
+    action = book.json()["actions"][-1]
+    assert action["func"] == "nameDelete"
+    assert action["args"][1] is None
+    assert action["args"][2:] == [
+        "LegacyAreas",
+        sheet_index,
+        not sheet_scope,
+        0 if sheet_scope else None,
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+@pytest.mark.parametrize("operation", ["add", "set"])
+def test_lowercase_named_reference_resolves_range_name(sheet_scope, operation):
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    parent = book.sheets[0] if sheet_scope else book
+    definition = "=Sheet2!$z$10:$aa$12"
+    name = parent.names.add("Lowercase", definition if operation == "add" else "=42")
+    if operation == "set":
+        name.refers_to = definition
+    assert name.refers_to == definition
+    assert name.refers_to_range == book.sheets["Sheet2"]["Z10:AA12"]
+    assert book.sheets["Sheet2"]["Z10:AA12"].name.name == name.name
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+def test_names_add_rejects_unknown_sheet_without_queuing_action(sheet_scope):
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    parent = book.sheets[0] if sheet_scope else book
+    before = len(book.names)
+    with pytest.raises(ValueError, match="Sheet 'NoSuchSheet' doesn't exist"):
+        parent.names.add("Typo", "=NoSuchSheet!$A$1")
+    assert len(book.names) == before
+    assert book.json()["actions"] == []
+    # Formula syntax remains Excel's responsibility, even with sheet references.
+    name = parent.names.add("Deferred", "=SUM(NoSuchSheet!$A$1:$A$3)")
+    assert name.refers_to == "=SUM(NoSuchSheet!$A$1:$A$3)"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("scope", ["book", "renamed", "other"])
+@pytest.mark.parametrize(
+    "formula,expected",
+    [
+        ("=Sheet2!$A$1", "='Sales''26'!$A$1"),
+        ("='Sheet2'!$A$1", "='Sales''26'!$A$1"),
+        ("=sheet2!a1", "='Sales''26'!a1"),
+        (
+            "=LAMBDA(v,v+Sheet2!A1+OtherSheet2!A1)",
+            "=LAMBDA(v,v+'Sales''26'!A1+OtherSheet2!A1)",
+        ),
+        (
+            '=IF(Sheet2!A1="Sheet2!A1",INDIRECT("Sheet2!A1"),"a ""Sheet2!"" b")',
+            '=IF(\'Sales\'\'26\'!A1="Sheet2!A1",INDIRECT("Sheet2!A1"),"a ""Sheet2!"" b")',
+        ),
+        (
+            "=SUM('[Budget.xlsx]Sheet2'!A1,[Budget.xlsx]Sheet2!A1,Sheet2!A1)",
+            "=SUM('[Budget.xlsx]Sheet2'!A1,[Budget.xlsx]Sheet2!A1,'Sales''26'!A1)",
+        ),
+        (
+            "=SUM(Table1[Sheet2!x],Table1[[#Headers],[Sheet2!x]],Sheet2!A1)",
+            "=SUM(Table1[Sheet2!x],Table1[[#Headers],[Sheet2!x]],'Sales''26'!A1)",
+        ),
+        (
+            "=SUM(Sheet2:Last!A1,First:Sheet2!A1,'Sheet2:Last'!A1)",
+            "=SUM('Sales''26:Last'!A1,'First:Sales''26'!A1,'Sales''26:Last'!A1)",
+        ),
+        ("=42", "=42"),
+    ],
+)
+def test_named_formula_tracks_sheet_rename(scope, formula, expected):
+    snapshot = json.loads(json.dumps(data))
+    snapshot["names"] = []
+    book = xw.Book(json=snapshot)
+    sheet = book.sheets["Sheet2"]
+    parent = {"book": book, "renamed": sheet, "other": book.sheets[0]}[scope]
+    name = parent.names.add("RenameDemo", formula)
+    previous_actions = len(book.json()["actions"])
+    sheet.name = "Sales'26"
+    assert name.refers_to == expected
+    assert len(book.json()["actions"]) == previous_actions + 1
+    assert book.json()["actions"][-1]["func"] == "setSheetName"
+    if scope == "renamed":
+        assert name.name == "'Sales''26'!RenameDemo"
+        assert sheet.names[name.name].refers_to == expected
+    else:
+        assert name.name == (
+            "RenameDemo" if scope == "book" else "'Sheet 1'!RenameDemo"
+        )
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+def test_renamed_name_can_be_updated_and_deleted(sheet_scope):
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    sheet = book.sheets[0]
+    parent = sheet if sheet_scope else book
+    name = parent.names.add("RenamedLifecycle", "='Sheet 1'!$Z$10")
+    sheet.name = "Sales'26"
+    name.refers_to = "='Sales''26'!$Z$11"
+    assert name.refers_to_range == sheet["Z11"]
+    name.delete()
+    assert all(n.api["name"] != "RenamedLifecycle" for n in book.names)
+    assert book.json()["actions"][-1]["args"] == [
+        "'Sales''26'!RenamedLifecycle" if sheet_scope else "RenamedLifecycle",
+        "='Sales''26'!$Z$11",
+        "RenamedLifecycle",
+        0,
+        not sheet_scope,
+        0 if sheet_scope else None,
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("with_definition", [False, True])
+def test_named_reference_tracks_repeated_sheet_renames(with_definition):
+    snapshot = json.loads(json.dumps(data))
+    snapshot["names"] = [snapshot["names"][0]]
+    if with_definition:
+        snapshot["names"][0]["refers_to"] = "='Sheet 1'!$A$1"
+    book = xw.Book(json=snapshot)
+    name = book.names[0]
+    sheet = book.sheets[0]
+    for new_name, definition in [
+        ("Sales'24!", "='Sales''24!'!$A$1"),
+        ("日本", "=日本!$A$1"),
+        ("Final", "=Final!$A$1"),
+    ]:
+        sheet.name = new_name
+        assert name.refers_to == definition
+        assert name.refers_to_range == sheet["A1"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_prefixed_sheet_scope_name_tracks_sheet_rename():
+    snapshot = json.loads(json.dumps(data))
+    snapshot["names"] = [snapshot["names"][1]]
+    snapshot["names"][0]["name"] = "'Sheet 1'!two"
+    book = xw.Book(json=snapshot)
+    name = book.names[0]
+    book.sheets[0].name = "Sales'24"
+    assert name.name == "'Sales''24'!two"
+    assert book.sheets[0].names[name.name].refers_to == "='Sales''24'!$C$7:$D$8"
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+@pytest.mark.parametrize("formula", ["=LAMBDA(v,v*2)", "=42", "=(Sheet2!A1,Sheet2!C3)"])
+def test_range_of_formula_name_reports_non_range(sheet_scope, formula):
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    sheet = book.sheets[0]
+    parent = sheet if sheet_scope else book
+    parent.names.add("F", formula)
+    with pytest.raises(ValueError, match="does not refer to a single range"):
+        sheet.range("F")
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_range_name_respects_scope_and_resolved_sheet():
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    first, second = book.sheets[0], book.sheets[1]
+    book.names.add("ScopedDemo", "=42")
+    first.names.add("ScopedDemo", "=Sheet2!$Z$10")
+    assert first.range("ScopedDemo") == second["Z10"]
+    with pytest.raises(ValueError, match="does not refer to a single range"):
+        second.range("ScopedDemo")
+    first.names.add("OnlyLocal", "=42")
+    with pytest.raises(xw.NoSuchObjectError, match="doesn't exist"):
+        second.range("OnlyLocal")
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("sheet_scope", [False, True])
+def test_name_collection_filters_internal_names_from_native_payload(sheet_scope):
+    snapshot = json.loads(json.dumps(data))
+    snapshot["names"] = []
+    book = xw.Book(json=snapshot)
+    parent = book.sheets[0] if sheet_scope else book
+    internal = parent.names.add("_xlfn.LAMBDA", "=#NAME?")
+    parent.names.add("_xlpm.value", "=#NAME?")
+    user = parent.names.add("DOUBLE_VALUE", "=LAMBDA(value,value*2)")
+    user.api["visible"] = False
+    assert len(parent.names) == len(book.names) == 1
+    assert parent.names[0].name == user.name
+    assert parent.names(1).refers_to == user.refers_to
+    assert list(parent.names) == [user]
+    assert "_xlfn.LAMBDA" not in parent.names
+    assert internal.name not in parent.names
+    with pytest.raises(KeyError):
+        parent.names[internal.name]
+    # Filtering must not remove entries from the transport snapshot.
+    assert len(book.impl.api["names"]) == 3
+    del parent.names[0]
+    assert len(parent.names) == 0
+    assert len(book.impl.api["names"]) == 2
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
@@ -2412,7 +2740,7 @@ def test_font_setters(book, attribute, value):
         ((255, 0, 0), "#ff0000"),
         ("#FFA500", "#FFA500"),
         ("FFA500", "#FFA500"),  # a missing "#" is normalized
-        (255, "#ff0000"),  # Excel colour constant (little-endian int)
+        (255, "#ff0000"),  # Excel color constant (little-endian int)
     ],
 )
 def test_range_color_setter_accepts_every_form(value, expected):
@@ -2532,6 +2860,457 @@ def test_font_on_non_range_parent_raises(book):
         font.bold = True
     with pytest.raises(NotImplementedError, match="only supported on a Range"):
         asyncio.run(font.get_bold())
+
+
+# Borders
+
+BORDER_GRID_SIDES = list(base_classes.BORDER_GRID_SIDES)
+BORDER_SIDES = list(base_classes.BORDER_SIDES)
+
+
+def _border_actions(book):
+    """The queued setBorderProperty actions as (side, attribute, value)."""
+    return [
+        tuple(action["args"])
+        for action in book.json()["actions"]
+        if action["func"] == "setBorderProperty"
+    ]
+
+
+def _fake_borders(overrides=None):
+    """A fake _get_range_data("borders") payload: all eight sides uniform,
+    except for the given per-side overrides."""
+    borders = {
+        side: {"line_style": "continuous", "weight": "thin", "color": "#ff0000"}
+        for side in BORDER_SIDES
+    }
+    for side, values in (overrides or {}).items():
+        borders[side].update(values)
+
+    async def fake(self, key, method=None):
+        assert key == "borders"
+        return borders
+
+    return fake
+
+
+@pytest.mark.skipif(engine != "calamine", reason="requires calamine engine")
+def test_borders_not_supported_on_calamine(book):
+    with pytest.raises(NotImplementedError):
+        book.sheets[0].range("A1").borders
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("side", BORDER_SIDES)
+@pytest.mark.parametrize(
+    "attribute,value,expected",
+    [
+        ("line_style", "double", "double"),
+        ("weight", "thick", "thick"),
+        ("color", "#ff0000", "#ff0000"),
+    ],
+)
+def test_border_setters(book, side, attribute, value, expected):
+    setattr(book.sheets[0].range("A1").borders[side], attribute, value)
+    actions = book.json()["actions"]
+    assert len(actions) == 1
+    assert actions[0]["func"] == "setBorderProperty"
+    assert actions[0]["args"] == [str(side), attribute, expected]
+    # plain strings, JSON-serializable as-is
+    assert json.loads(json.dumps(actions[0]["args"])) == actions[0]["args"]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("value", [None, "none"])
+def test_border_line_style_removal_forms(book, value):
+    book.sheets[0].range("A1").borders["edge_top"].line_style = value
+    assert _border_actions(book) == [("edge_top", "line_style", None)]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ((255, 0, 0), "#ff0000"),
+        ([0, 255, 0], "#00ff00"),
+        ("#FFA500", "#ffa500"),
+        ("FFA500", "#ffa500"),  # a missing "#" is fine
+        (255, "#ff0000"),  # Excel color constant (little-endian int)
+    ],
+)
+def test_border_color_setter_accepts_every_form(book, value, expected):
+    book.sheets[0].range("A1").borders["edge_top"].color = value
+    assert _border_actions(book) == [("edge_top", "color", expected)]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "value", [(1, 2), (1, 2, 3, 4), (256, 0, 0), "#ff00", "red", True, object()]
+)
+def test_border_color_setter_rejects_invalid(book, value):
+    with pytest.raises(ValueError, match="Color must be an RGB tuple"):
+        book.sheets[0].range("A1").borders["edge_top"].color = value
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_border_color_none_is_rejected(book):
+    # Unlike a fill, there's no "no color": removal is line_style's job
+    borders = book.sheets[0].range("A1").borders
+    with pytest.raises(ValueError, match="line_style=None"):
+        borders["edge_top"].color = None
+    with pytest.raises(ValueError, match="line_style=None"):
+        borders.color = None
+    with pytest.raises(ValueError, match="line_style=None"):
+        borders.set("all", color=None)
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_border_weight_none_is_rejected(book):
+    borders = book.sheets[0].range("A1").borders
+    with pytest.raises(ValueError, match="line_style=None"):
+        borders["edge_top"].weight = None
+    with pytest.raises(ValueError, match="line_style=None"):
+        borders.weight = None
+    with pytest.raises(ValueError, match="line_style=None"):
+        borders.set("all", weight=None)
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "attribute,value,options",
+    [
+        ("line_style", "dashed", "'continuous', 'dash'"),
+        ("line_style", 1, "'continuous', 'dash'"),
+        ("weight", "bold", "'hairline', 'thin', 'medium', 'thick'"),
+        ("weight", 2, "'hairline', 'thin', 'medium', 'thick'"),
+    ],
+)
+def test_border_invalid_values_name_the_options(book, attribute, value, options):
+    with pytest.raises(ValueError, match=re.escape(options)):
+        setattr(book.sheets[0].range("A1").borders["edge_top"], attribute, value)
+    with pytest.raises(ValueError, match=re.escape(options)):
+        book.sheets[0].range("A1").borders.set("all", **{attribute: value})
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "key", ["outside", "inside", "all", "everything", "top", "EdgeTop", 8, None]
+)
+def test_borders_getitem_rejects_groups_and_invalid_sides(book, key):
+    # __getitem__ always returns a single Border, so groups aren't accepted
+    with pytest.raises(ValueError, match="'edge_top'"):
+        book.sheets[0].range("A1").borders[key]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_iteration(book):
+    borders = book.sheets[0].range("A1").borders
+    assert len(borders) == 8
+    assert [border.impl.side for border in borders] == BORDER_SIDES
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "attribute,value,expected",
+    [
+        ("line_style", "continuous", "continuous"),
+        ("line_style", None, None),
+        ("weight", "thin", "thin"),
+        ("color", (0, 0, 255), "#0000ff"),
+    ],
+)
+def test_borders_property_setter_is_set_all(book, attribute, value, expected):
+    # The collection property is a wrapper over set("all", ...): the six grid
+    # sides in table order, no diagonals
+    borders = book.sheets[0].range("A1:C3").borders
+    setattr(borders, attribute, value)
+    via_property = _border_actions(book)
+    book.impl._json = {"actions": []}
+    borders.set("all", **{attribute: value})
+    assert via_property == _border_actions(book)
+    assert via_property == [(side, attribute, expected) for side in BORDER_GRID_SIDES]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "which,expected_sides",
+    [
+        ("edge_top", ["edge_top"]),
+        ("diagonal_up", ["diagonal_up"]),
+        (["edge_left", "edge_right"], ["edge_left", "edge_right"]),
+        # lists keep the caller's order and drop duplicates
+        (["edge_right", "edge_left", "edge_right"], ["edge_right", "edge_left"]),
+        (("edge_top", "inside_vertical"), ["edge_top", "inside_vertical"]),
+        ("outside", ["edge_top", "edge_bottom", "edge_left", "edge_right"]),
+        ("inside", ["inside_vertical", "inside_horizontal"]),
+        ("all", BORDER_GRID_SIDES),
+        ("everything", BORDER_SIDES),
+    ],
+)
+def test_borders_set_selectors(book, which, expected_sides):
+    book.sheets[0].range("A1:C3").borders.set(which, weight="thin")
+    assert _border_actions(book) == [
+        (side, "weight", "thin") for side in expected_sides
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_set_defaults_to_all(book):
+    book.sheets[0].range("A1:C3").borders.set(weight="thin")
+    assert [side for side, _, _ in _border_actions(book)] == BORDER_GRID_SIDES
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "which", [None, "top", ["edge_top", "outside"], ["nope"], 8, ["edge_top", None]]
+)
+def test_borders_invalid_selector_queues_nothing(book, which):
+    borders = book.sheets[0].range("A1").borders
+    with pytest.raises(ValueError):
+        borders.set(which, weight="thin")
+    with pytest.raises(ValueError):
+        borders.clear(which)
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_set_attribute_order_is_fixed(book):
+    # color, weight, line style per side, whatever the keyword order
+    borders = book.sheets[0].range("A1:C3").borders
+    expected = []
+    for side in ["edge_top", "edge_bottom", "edge_left", "edge_right"]:
+        expected += [
+            (side, "color", "#ff0000"),
+            (side, "weight", "medium"),
+            (side, "line_style", "double"),
+        ]
+    borders.set("outside", line_style="double", color="#ff0000", weight="medium")
+    assert _border_actions(book) == expected
+    book.impl._json = {"actions": []}
+    borders.set("outside", weight="medium", color="#ff0000", line_style="double")
+    assert _border_actions(book) == expected
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_set_omitted_attributes_queue_nothing(book):
+    borders = book.sheets[0].range("A1").borders
+    borders.set("outside")
+    borders.set()
+    assert book.json()["actions"] == []
+    borders.set("edge_top", weight="thin")
+    assert _border_actions(book) == [("edge_top", "weight", "thin")]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_set_invalid_value_leaves_queue_unchanged(book):
+    borders = book.sheets[0].range("A1").borders
+    borders.set("edge_top", weight="thin")
+    before = book.json()["actions"]
+    with pytest.raises(ValueError):
+        borders.set("outside", color="#ff0000", weight="bold")
+    assert book.json()["actions"] == before
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_set_removal_comes_after_weight(book):
+    book.sheets[0].range("A1").borders.set("edge_top", weight="thin", line_style=None)
+    assert _border_actions(book) == [
+        ("edge_top", "weight", "thin"),
+        ("edge_top", "line_style", None),
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_set_never_serializes_unset(book):
+    book.sheets[0].range("A1").borders.set("everything", weight="hairline")
+    dumped = json.dumps(book.json())
+    assert "object object" not in dumped
+    assert all(value == "hairline" for _, _, value in _border_actions(book))
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "args,expected_sides",
+    [
+        ((), BORDER_SIDES),
+        (("everything",), BORDER_SIDES),
+        (("all",), BORDER_GRID_SIDES),
+        (("inside",), ["inside_vertical", "inside_horizontal"]),
+        ((["edge_top", "edge_bottom"],), ["edge_top", "edge_bottom"]),
+    ],
+)
+def test_borders_clear(book, args, expected_sides):
+    borders = book.sheets[0].range("A1:C3").borders
+    borders.clear(*args)
+    expected = [(side, "line_style", None) for side in expected_sides]
+    assert _border_actions(book) == expected
+    # clear() is exactly set(which, line_style=None)
+    book.impl._json = {"actions": []}
+    borders.set(*(args or ("everything",)), line_style=None)
+    assert _border_actions(book) == expected
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "getter,expected",
+    [
+        ("get_line_style", "continuous"),
+        ("get_weight", "thin"),
+        ("get_color", (255, 0, 0)),
+    ],
+)
+def test_border_async_getters(book, getter, expected):
+    border = book.sheets[0].range("A1").borders["edge_bottom"]
+    with mock.patch.object(xw.pro._xlremote.Range, "_get_range_data", _fake_borders()):
+        assert asyncio.run(getattr(border, getter)()) == expected
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_border_async_getters_slice_their_side(book):
+    # All eight sides come from one read; each Border picks its own
+    fake = _fake_borders(
+        {
+            "edge_left": {
+                "line_style": "double",
+                "weight": "thick",
+                "color": "#00ff00",
+            },
+            "diagonal_up": {"line_style": "none", "weight": None, "color": None},
+        }
+    )
+    borders = book.sheets[0].range("A1").borders
+    with mock.patch.object(xw.pro._xlremote.Range, "_get_range_data", fake):
+        assert asyncio.run(borders["edge_left"].get_line_style()) == "double"
+        assert asyncio.run(borders["edge_left"].get_weight()) == "thick"
+        assert asyncio.run(borders["edge_left"].get_color()) == (0, 255, 0)
+        assert asyncio.run(borders["edge_bottom"].get_weight()) == "thin"
+        assert asyncio.run(borders["diagonal_up"].get_line_style()) == "none"
+        assert asyncio.run(borders["diagonal_up"].get_weight()) is None
+        assert asyncio.run(borders["diagonal_up"].get_color()) is None
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "getter,expected",
+    [
+        ("get_line_style", "continuous"),
+        ("get_weight", "thin"),
+        ("get_color", (255, 0, 0)),
+    ],
+)
+def test_borders_async_getters_ignore_diagonals(book, getter, expected):
+    fake = _fake_borders(
+        {
+            "diagonal_down": {"line_style": "none", "weight": None, "color": None},
+            "diagonal_up": {
+                "line_style": "dash",
+                "weight": "thick",
+                "color": "#0000ff",
+            },
+        }
+    )
+    borders = book.sheets[0].range("A1:C3").borders
+    with mock.patch.object(xw.pro._xlremote.Range, "_get_range_data", fake):
+        assert asyncio.run(getattr(borders, getter)()) == expected
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "address,missing_sides",
+    [
+        ("A1", ["inside_vertical", "inside_horizontal"]),
+        ("A1:C1", ["inside_horizontal"]),
+        ("A1:A3", ["inside_vertical"]),
+    ],
+)
+@pytest.mark.parametrize(
+    "getter,expected",
+    [
+        ("get_line_style", "continuous"),
+        ("get_weight", "thin"),
+        ("get_color", (255, 0, 0)),
+    ],
+)
+def test_borders_async_getters_ignore_nonexistent_inside_borders(
+    book, address, missing_sides, getter, expected
+):
+    fake = _fake_borders(
+        {
+            side: {"line_style": "none", "weight": None, "color": None}
+            for side in missing_sides
+        }
+    )
+    borders = book.sheets[0].range(address).borders
+    with mock.patch.object(xw.pro._xlremote.Range, "_get_range_data", fake):
+        assert asyncio.run(getattr(borders, getter)()) == expected
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "getter,override",
+    [
+        ("get_line_style", {"line_style": "double"}),
+        ("get_weight", {"weight": "thick"}),
+        ("get_color", {"color": "#00ff00"}),
+    ],
+)
+@pytest.mark.parametrize("side", BORDER_GRID_SIDES)
+def test_borders_async_getters_none_when_grid_sides_differ(
+    book, getter, override, side
+):
+    fake = _fake_borders({side: override})
+    borders = book.sheets[0].range("A1:C3").borders
+    with mock.patch.object(xw.pro._xlremote.Range, "_get_range_data", fake):
+        assert asyncio.run(getattr(borders, getter)()) is None
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_borders_async_getters_none_when_unset(book):
+    # None is also what a range whose cells disagree reports
+    fake = _fake_borders(
+        {
+            side: {"line_style": None, "weight": None, "color": None}
+            for side in BORDER_SIDES
+        }
+    )
+    borders = book.sheets[0].range("A1:C3").borders
+    with mock.patch.object(xw.pro._xlremote.Range, "_get_range_data", fake):
+        assert asyncio.run(borders.get_line_style()) is None
+        assert asyncio.run(borders.get_weight()) is None
+        assert asyncio.run(borders.get_color()) is None
+        assert asyncio.run(borders["edge_top"].get_color()) is None
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "prop,hint",
+    [
+        ("line_style", "await myrange.borders['edge_top'].get_line_style()"),
+        ("weight", "await myrange.borders['edge_top'].get_weight()"),
+        ("color", "await myrange.borders['edge_top'].get_color()"),
+    ],
+)
+def test_border_sync_getters_point_at_async(book, prop, hint):
+    with pytest.raises(NotImplementedError, match=re.escape(hint)):
+        getattr(book.sheets[0].range("A1").borders["edge_top"], prop)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "prop,hint",
+    [
+        ("line_style", "await myrange.borders.get_line_style()"),
+        ("weight", "await myrange.borders.get_weight()"),
+        ("color", "await myrange.borders.get_color()"),
+    ],
+)
+def test_borders_sync_getters_point_at_async(book, prop, hint):
+    with pytest.raises(NotImplementedError, match=re.escape(hint)):
+        getattr(book.sheets[0].range("A1").borders, prop)
 
 
 def test_get_value_not_supported(book):

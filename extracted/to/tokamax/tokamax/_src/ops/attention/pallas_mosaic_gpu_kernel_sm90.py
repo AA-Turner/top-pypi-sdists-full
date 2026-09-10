@@ -273,6 +273,8 @@ def flash_attention_kernel(
           *residual_gmems,
       ) = gmems
       hi, qi = loop_info.index
+      if is_causal:
+        qi = num_q_tiles - 1 - qi
       prev_iters = carry
 
       def get_kv_ranges():
@@ -593,6 +595,7 @@ def flash_attention_kernel(
 
             @pl.when((warp_id == 1) & (loop_info.local_index > 0))
             def tma_q_load_warp():
+              plgpu.async_prefetch(q_gmem.at[qs, hi])
               mgpu_lib.bar_sync(q_consumed_barrier, num_threads=160)
               plgpu.copy_gmem_to_smem(q_gmem.at[qs, hi], q_smem, q_produced)
 
@@ -631,22 +634,14 @@ def flash_attention_kernel(
   if config.persistent:
     maybe_persistent_kernel = mgpu_lib.static_scheduling_persistent_kernel
   else:
-    grid_names = ("heads", "q_tiles")
-
-    def maybe_persistent_kernel(body, **kwargs):
-      def wrapped_body(*args, **kwargs):
-        idx = tuple(map(lax.axis_index, grid_names))
-        loop_info = plgpu.NDLoopInfo(idx, local_index=0, num_local_steps=1)
-        grid_loop = lambda init_carry: lambda f: f(args, loop_info, init_carry)
-        return body(grid_loop, **kwargs)
-
-      return plgpu.kernel(wrapped_body, grid_names=grid_names, **kwargs)
+    maybe_persistent_kernel = mgpu_lib.not_persistent_grid_loop_kernel
 
   out, *residuals = maybe_persistent_kernel(
       kernel,
       out_type=out_shape,
       scratch_types=scratch_types,
       grid=(num_q_heads, num_q_tiles),
+      grid_names=("heads", "q_tiles"),
       num_threads=_COMPUTE_WGS + 1,
       thread_name="wg",
       compiler_params=plgpu.CompilerParams(

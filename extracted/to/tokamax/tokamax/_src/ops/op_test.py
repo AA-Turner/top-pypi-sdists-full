@@ -21,7 +21,6 @@ from absl.testing import parameterized
 import jax
 from jax.extend import backend
 import jax.numpy as jnp
-import tokamax
 from tokamax._src import batching
 from tokamax._src import config as config_lib
 from tokamax._src import hlo_utils
@@ -34,9 +33,12 @@ from tokamax._src.ops.gated_linear_unit import arg_specs as glu_arg_specs
 from tokamax._src.ops.gated_linear_unit import base as glu_base
 from tokamax._src.ops.normalization import arg_specs as norm_arg_specs
 from tokamax._src.ops.normalization import base as norm_base
+from tokamax._src.ops.ragged_dot import api
 from tokamax._src.ops.ragged_dot import arg_specs as ragged_dot_arg_specs
 from tokamax._src.ops.ragged_dot import base as ragged_dot_base
 from tokamax._src.ops.ragged_dot import pallas_triton as pl_ragged_dot
+
+ragged_dot = api.ragged_dot
 
 _ATTN_ARG_SPECS = attn_arg_specs.ARG_SPECS
 _GLU_ARG_SPECS = glu_arg_specs.ARG_SPECS
@@ -96,12 +98,38 @@ class _FakeOp(op_lib.Op[Any, jax.Array, None, _FakeOpConfig, Any]):
     return {_AUTOTUNE_CONFIG}
 
 
+class _DeviceRestrictedOp(_FakeOp):
+
+  def supported_on(self, device: jax.Device) -> bool:
+    del device
+    return False
+
+
 class OpTest(parameterized.TestCase):
 
   def test_bind(self):
     x = jnp.zeros((1, 2))
     y = jnp.ones((1, 2))
     self.assertEqual(_FakeOp().bind(x, y).args, (x, y))
+
+  def test_device_restriction_raises_on_unsupported_device(self):
+    x = jnp.zeros((1, 2))
+    y = jnp.ones((1, 2))
+    with self.assertRaisesRegex(NotImplementedError, "Not supported on"):
+      _DeviceRestrictedOp()(x, y)
+
+  def test_bypass_device_check_bypasses_device_restriction(self):
+    x = jnp.zeros((1, 2))
+    y = jnp.ones((1, 2))
+    out = _DeviceRestrictedOp().replace(bypass_device_check=True)(x, y)
+    self.assertTrue(jnp.array_equal(out, x + y))
+
+  def test_cross_compile_config_bypasses_device_restriction(self):
+    x = jnp.zeros((1, 2))
+    y = jnp.ones((1, 2))
+    with config_lib.cross_compile(True):
+      out = _DeviceRestrictedOp()(x, y)
+    self.assertTrue(jnp.array_equal(out, x + y))
 
 
 class BoundArgumentsTest(parameterized.TestCase):
@@ -142,6 +170,31 @@ class BoundArgumentsTest(parameterized.TestCase):
     with config_lib.autotuning_cache_miss_fallback("error"):
       with self.assertRaisesRegex(ValueError, "No config found"):
         _ = ba.default_config
+
+  def test_cached_autotuning_data_cross_compile(self):
+    op = _FakeOp()
+    data = op_lib.AutotuningData({})
+    x = jnp.zeros((1, 2))
+    y = jnp.ones((1, 2))
+    ba = op.bind(x, y)
+    target_device = "mock_tpu"
+    op.get_autotuning_cache(target_device)[ba.autotuning_cache_key] = data
+
+    abstract_mesh = jax.sharding.AbstractMesh(
+        (),
+        (),
+        (),
+        abstract_device=jax.sharding.AbstractDevice(target_device, 1, "tpu"),
+    )
+    with jax.sharding.use_abstract_mesh(abstract_mesh):
+
+      def traced_fn(x, y):
+        ba_traced = op.bind(x, y)
+        self.assertEqual(op_lib.infer_device_kind(ba_traced), target_device)
+        self.assertIs(ba_traced.cached_autotuning_data, data)
+        return x + y
+
+      jax.jit(traced_fn)(x, y)
 
   def test_heuristics_config(self):
     ba = _FakeOp().bind(jnp.zeros((1, 2)), jnp.ones((1, 2)))

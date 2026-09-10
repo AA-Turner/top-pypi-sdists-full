@@ -31,6 +31,8 @@ from matrx_ai.providers.base_media import (
     GeneratedAsset,
 )
 from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
+
 
 class TogetherVideoGeneration(BaseMediaGeneration):
     provider = "together"
@@ -112,7 +114,9 @@ class TogetherVideoGeneration(BaseMediaGeneration):
         return "https://api.together.xyz/v1/videos/generations"
 
     async def _call_provider(self, kwargs: dict[str, Any]) -> Any:
-        return await self.client.videos.create(**kwargs)
+        return await self.client.videos.create(
+            **route_undeclared_params(self.client.videos.create, kwargs, provider="together")
+        )
 
     async def _poll_if_long_running(self, raw: Any) -> Any:
         # raw is a VideoJob with .id; poll until status=='completed'.

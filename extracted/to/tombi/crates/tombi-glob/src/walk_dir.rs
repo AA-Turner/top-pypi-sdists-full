@@ -1,5 +1,7 @@
 #[cfg(not(target_family = "wasm"))]
 use ignore::WalkBuilder;
+#[cfg(target_family = "wasm")]
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use std::path::{Path, PathBuf};
 #[cfg(not(target_family = "wasm"))]
 use std::sync::{Arc, Mutex};
@@ -152,6 +154,7 @@ impl WalkDir {
 
         let include_patterns = self.options.include.unwrap_or_default();
         let exclude_patterns = self.options.exclude.unwrap_or_default();
+        let respect_ignore_files = self.options.respect_ignore_files.value();
         let mut directories = vec![root_path.clone()];
         let mut results = Vec::new();
 
@@ -163,10 +166,14 @@ impl WalkDir {
                 })?;
             for entry in entries {
                 let path = entry.path().to_path_buf();
-                if entry.is_dir() {
-                    if !is_vcs_metadata_dir(&path) {
-                        directories.push(path);
-                    }
+                let is_dir = entry.is_dir();
+                if (is_dir && is_vcs_metadata_dir(&path))
+                    || (respect_ignore_files && is_path_ignored(&root_path, &path))
+                {
+                    continue;
+                }
+                if is_dir {
+                    directories.push(path);
                     continue;
                 }
 
@@ -188,6 +195,97 @@ impl WalkDir {
 
         Ok(results)
     }
+}
+
+/// Returns whether an existing path is excluded by repository ignore files.
+#[cfg(not(target_family = "wasm"))]
+pub fn is_path_ignored(root: &Path, path: &Path) -> bool {
+    let mut builder = WalkBuilder::new(root);
+    builder.hidden(false).git_global(false);
+    let Some(mut matcher) = builder.build_matchers().pop() else {
+        return false;
+    };
+    let Some(relative_path) = matcher.normalize(path) else {
+        return false;
+    };
+
+    matcher.matched(relative_path, path.is_dir()).is_ignore()
+}
+
+/// Returns whether an existing path is excluded by repository ignore files.
+#[cfg(target_family = "wasm")]
+pub fn is_path_ignored(root: &Path, path: &Path) -> bool {
+    let root = tombi_fs::normalize(root);
+    let path = tombi_fs::normalize(path);
+    if !path.starts_with(&root) || path == root {
+        return false;
+    }
+
+    let mut parents = path
+        .ancestors()
+        .skip(1)
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(Path::to_path_buf)
+        .collect::<Vec<_>>();
+    parents.reverse();
+
+    let repository = parents.iter().rev().find(|directory| {
+        tombi_fs::is_dir(&directory.join(".git")) || tombi_fs::is_dir(&directory.join(".jj"))
+    });
+
+    let build_matcher = |base: &Path, ignore_path: PathBuf| {
+        let content = tombi_fs::read_to_string(&ignore_path).ok()?;
+        let mut builder = GitignoreBuilder::new(base);
+        for (index, line) in content.lines().enumerate() {
+            let line = if index == 0 {
+                line.trim_start_matches('\u{feff}')
+            } else {
+                line
+            };
+            if let Err(error) = builder.add_line(Some(ignore_path.clone()), line) {
+                log::debug!("failed to parse {}: {error}", ignore_path.display());
+            }
+        }
+        builder.build().ok()
+    };
+
+    // Precedence: .ignore, .gitignore, then .git/info/exclude.
+    let mut matchers: [Vec<Gitignore>; 3] = Default::default();
+
+    for (index, directory) in parents.iter().enumerate() {
+        if let Some(matcher) = build_matcher(directory, directory.join(".ignore")) {
+            matchers[0].push(matcher);
+        }
+        if let Some(git_root) = repository
+            && directory.starts_with(git_root)
+        {
+            if let Some(matcher) = build_matcher(directory, directory.join(".gitignore")) {
+                matchers[1].push(matcher);
+            }
+            if directory == git_root
+                && let Some(matcher) = build_matcher(git_root, git_root.join(".git/info/exclude"))
+            {
+                matchers[2].push(matcher);
+            }
+        }
+
+        let entry_path = parents.get(index + 1).unwrap_or(&path);
+        let is_dir = entry_path != &path || tombi_fs::is_dir(&path);
+        let ignored = matchers.iter().find_map(|category| {
+            category.iter().rev().find_map(|matcher| {
+                let matched = matcher.matched(entry_path, is_dir);
+                matched
+                    .is_ignore()
+                    .then_some(true)
+                    .or_else(|| matched.is_whitelist().then_some(false))
+            })
+        });
+        if ignored.unwrap_or(false) {
+            return true;
+        }
+    }
+
+    false
 }
 
 #[cfg(test)]
@@ -488,12 +586,35 @@ mod tests {
         };
     }
 
+    macro_rules! test_single_path_ignore {
+        ($name:ident, $respect_ignore_files:literal, $expected:literal) => {
+            #[test]
+            fn $name() {
+                let tempdir = tempdir().unwrap();
+                let root = tempdir.path();
+                make_git_root(root);
+                write_file(&root.join(".gitignore"), "**/.terraform/*\n");
+                let path = root.join("module/.terraform/modules/child.toml");
+                write_file(&path, "invalid TOML\n");
+
+                let ignored = $respect_ignore_files && is_path_ignored(root, &path);
+                assert_eq!(ignored, $expected);
+            }
+        };
+    }
+
     test_walkdir_excludes_vcs_metadata_dirs!(
         test_walkdir_excludes_vcs_metadata_dirs_when_respecting_ignore_files,
         true
     );
     test_walkdir_excludes_vcs_metadata_dirs!(
         test_walkdir_excludes_vcs_metadata_dirs_when_ignoring_ignore_files,
+        false
+    );
+    test_single_path_ignore!(test_single_path_respects_gitignore_when_enabled, true, true);
+    test_single_path_ignore!(
+        test_single_path_ignores_gitignore_when_disabled,
+        false,
         false
     );
 

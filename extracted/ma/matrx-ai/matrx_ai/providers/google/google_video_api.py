@@ -20,6 +20,7 @@ from matrx_ai.providers.base_media import (
     GeneratedAsset,
 )
 from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 from .translator import GoogleTranslator
 
@@ -42,9 +43,7 @@ class GoogleVideoGeneration(BaseMediaGeneration):
     def __init__(self):
         self.translator = GoogleTranslator()
 
-    def _build_kwargs(
-        self, unified_config: UnifiedConfig, profile: Any
-    ) -> dict[str, Any]:
+    def _build_kwargs(self, unified_config: UnifiedConfig, profile: Any) -> dict[str, Any]:
         """Structural SDK-object nesting for Veo; every scalar param (aspect
         gate + 16:9 default, count clamp, resolution gate + 720p default,
         duration/audio/seed passthrough) comes from the catalog rules —
@@ -125,13 +124,12 @@ class GoogleVideoGeneration(BaseMediaGeneration):
 
     def _telemetry_url(self, unified_config: UnifiedConfig, kwargs: dict[str, Any]) -> str:
         model = kwargs.get("model") or unified_config.model or "unknown"
-        return (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{model}:generateVideos"
-        )
+        return f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateVideos"
 
     def _call_provider(self, kwargs: dict[str, Any]) -> Any:
-        return self.client.models.generate_videos(**kwargs)
+        return self.client.models.generate_videos(
+            **route_undeclared_params(self.client.models.generate_videos, kwargs, provider="google")
+        )
 
     def _poll_if_long_running(self, raw: Any) -> Any:
         import time

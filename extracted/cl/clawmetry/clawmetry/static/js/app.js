@@ -4900,6 +4900,7 @@ async function loadAll() {
     window._cmOverview = overview;
     try { renderOauthBanner(overview); } catch(e) {}
     try { _renderOverviewHero(); } catch(e) {}
+    try { renderFirstRunReport(overview); } catch(e) {}
 
     // Start only critical secondary panels immediately. Expensive/non-critical
     // cards are staggered below so the initial widget load does not stampede
@@ -5853,6 +5854,7 @@ var _Q_RUNTIME_NAMES = {
   kimi: 'Kimi CLI',
   devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands',
   openworker: 'OpenWorker', lovable: 'Lovable', replit: 'Replit Agent',
+  muse_code: 'Muse Code',
 };
 function _qRuntimeLabel(id) {
   return _Q_RUNTIME_NAMES[id] || id;
@@ -12112,6 +12114,7 @@ var _CM_RT_LABEL = {
   deepseek_harness: 'DeepSeek Harness', exo: 'Exo', kimi: 'Kimi CLI',
   devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands',
   openworker: 'OpenWorker', lovable: 'Lovable', replit: 'Replit Agent',
+  muse_code: 'Muse Code',
 };
 // The CLOSED session-prefix runtimes (the only keys that can ride a session_id
 // prefix). Foreign OTLP / OpenLLMetry apps are NOT in here — they have no
@@ -29068,7 +29071,7 @@ function clearSwimlaneLanes() {
 }
 
 // One-click preset: most-recent session per distinct runtime (cap 4). This is
-// the headline demo path — the 30 runtimes side by side. Respects the global
+// the headline demo path — the 31 runtimes side by side. Respects the global
 // runtime switcher: when scoped to one runtime, only that runtime is picked.
 function swimlanePresetPerRuntime() {
   var rtFilter = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
@@ -31183,6 +31186,14 @@ function loadGuardSessions() {
           guardEsc(ws.detail || '') + '">' +
           guardEsc(GUARD_KIND_LABEL[ws.kind] || ws.kind) + '</span>';
       }
+      // #5746 — this session's transcript is published to a read-only public
+      // link that anyone holding it can open, and which keeps receiving new
+      // conversation text. Strictly `=== true`: `null` means the daemon never
+      // got a verdict (no gateway to ask), and drawing anything for that would
+      // turn "we do not know" into a claim.
+      if (s.public_share === true) {
+        statusCell += ' <span class="pill pill-warn" title="This session is published to a read-only public link. Anyone with the link can read its conversation text, including messages sent from now on. Revoke it from the OpenClaw session menu.">Public link</span>';
+      }
       // Listed from the live process probe, so it can be stopped now, but the
       // sync daemon has not read its transcript yet. Say that rather than let
       // the blank cost and missing detector status read as "nothing to see".
@@ -32336,4 +32347,188 @@ function signalsDeleteBrief(id) {
     fetch('/api/briefs/' + encodeURIComponent(id), { method: 'DELETE' })
       .then(function (r) { return r.json().then(function (j) { j._status = r.status; return j; }); }),
     _sigT('signals.brief_delete_err', null, 'Could not delete the brief.'));
+}
+
+// ── First-run report (#5716) ────────────────────────────────────────────────
+// A dashboard with nothing on it reads as a broken install. When there is
+// genuinely nothing to show, say where we looked, what would change the
+// answer, and offer the sample: rather than rendering an empty shell.
+//
+// Deliberately conservative about WHEN it appears: only with zero sessions
+// AND zero events. A user whose agents are simply idle today has data, and
+// telling them "nothing detected" would be wrong.
+//
+// Two ways that conservatism was not conservative enough (#5766):
+//
+//   1. A MISSING key was read as zero. `/api/overview` does not have one
+//      canonical session-count field: OSS serves `sessions` + `sessionCount`,
+//      while the cloud node page builds the payload client-side out of the
+//      encrypted snapshot and ships `sessionCount` ONLY: no `sessions`, no
+//      events keys at all. So the probe fell off the end of its key list,
+//      returned 0, and declared a machine with 1,281 synced sessions empty,
+//      directly under a header reading "Claude Code · 1281 sessions".
+//      Absence of a count is "unknown", never "zero": with no count field
+//      present at all we say nothing rather than accuse the install.
+//   2. `sessionsToday` is legitimately 0 on a busy machine that has not run
+//      anything since midnight, so the answer is the MAX over the keys the
+//      payload actually carries, not the first one found.
+var _FRR_SESSION_KEYS = ['sessions', 'sessionCount', 'session_count',
+                         'total_sessions', 'sessionsToday'];
+var _FRR_EVENT_KEYS = ['events', 'event_count', 'total_events'];
+
+// Highest count across the keys the payload actually carries, or null when it
+// carries none of them (unknown, not empty).
+function _frrCount(overview, keys) {
+  var best = null;
+  for (var i = 0; i < keys.length; i++) {
+    var v = overview && overview[keys[i]];
+    var n = null;
+    if (typeof v === 'number' && isFinite(v)) n = v;
+    else if (Array.isArray(v)) n = v.length;
+    if (n !== null && (best === null || n > best)) best = n;
+  }
+  return best;
+}
+
+// Only a payload that positively reports zero earns the panel.
+function _frrLooksEmpty(overview) {
+  var sessions = _frrCount(overview, _FRR_SESSION_KEYS);
+  var events = _frrCount(overview, _FRR_EVENT_KEYS);
+  if (sessions === null && events === null) return false;
+  return (sessions || 0) <= 0 && (events || 0) <= 0;
+}
+
+async function renderFirstRunReport(overview) {
+  var el = document.getElementById('first-run-report');
+  if (!el) return;
+  // Every sentence in this panel is about the machine the reader is sitting
+  // at: it probes local runtime paths and prescribes `clawmetry connect` /
+  // `clawmetry --sample`. On a hosted node page the probe runs inside the
+  // cloud container, which has no runtimes and never will, so it reported
+  // "No supported runtime was detected ... checked 31 runtimes" about the
+  // server while the reader was looking at their own laptop's sessions.
+  // A local-machine diagnostic has no honest answer to give here.
+  if (window.CLOUD_MODE) { el.style.display = 'none'; return; }
+  if (!_frrLooksEmpty(overview)) { el.style.display = 'none'; return; }
+
+  var d = null;
+  try {
+    d = await fetch('/api/entitlement/runtime-detection', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); });
+  } catch (e) { d = null; }
+  var probes = (d && d.probes) || [];
+  var found = probes.filter(function (p) { return p.found; });
+
+  var h = '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">'
+        + '<span style="font-size:17px;" aria-hidden="true">&#128269;</span>'
+        + '<b style="font-size:15px;color:var(--text-primary);">No agent sessions on this machine yet</b></div>';
+
+  // Nothing is ingesting -> nothing will EVER appear, and no amount of
+  // agent activity changes that. Saying "run some work through the agent"
+  // here would send the user to do something that cannot help (#5740).
+  var noIngest = d && d.ingest_running === false;
+
+  if (noIngest) {
+    h += '<p style="margin:0 0 10px;font-size:13.5px;color:var(--text-secondary);">'
+       + (found.length
+          ? 'ClawMetry detected <b>' + found.map(function (p) { return escHtml(p.label || p.id); }).join(', ')
+            + '</b> on this machine, but '
+          : 'No sessions are being read, because ')
+       + '<b>nothing is reading ' + (found.length === 1 ? 'it' : 'them')
+       + ' into the local store yet.</b> '
+       + 'The dashboard displays what the sync daemon collects, and the daemon '
+       + 'is not running on this machine. Start it and this page fills in:</p>'
+       + '<pre style="margin:0 0 12px;padding:10px 12px;background:var(--bg-primary);'
+       + 'border:1px solid var(--border-secondary);border-radius:6px;overflow-x:auto;'
+       + 'font-size:12.5px;">clawmetry connect   <span style="color:var(--text-muted);">'
+       + '# or: python3 -m clawmetry.sync</span></pre>';
+  } else if (found.length) {
+    // Runtimes are here and ingest is running; their session stores are empty
+    // or not yet read. Say that, rather than implying nothing is installed.
+    var names = found.map(function (p) { return escHtml(p.label || p.id); }).join(', ');
+    h += '<p style="margin:0 0 10px;font-size:13.5px;color:var(--text-secondary);">'
+       + 'ClawMetry detected <b>' + names + '</b> on this machine, but has not read any '
+       + 'sessions from ' + (found.length === 1 ? 'it' : 'them') + ' yet. Run some work '
+       + 'through the agent and this fills in within a minute.</p>';
+    var locked = found.filter(function (p) { return !p.allowed; });
+    if (locked.length && d && !d.pending) {
+      h += '<p style="margin:0 0 10px;font-size:13.5px;color:var(--text-secondary);">'
+         + escHtml(locked.map(function (p) { return p.label || p.id; }).join(', '))
+         + ' need the ' + escHtml((d && d.actionable_tier_label) || 'Starter')
+         + ' plan\u2019s adapters before their sessions can be read.</p>';
+    }
+  } else if (!noIngest) {
+    h += '<p style="margin:0 0 10px;font-size:13.5px;color:var(--text-secondary);">'
+       + 'No supported runtime was detected. That is a real answer, not an error. '
+       + 'If you think it looked in the wrong place, the command below prints '
+       + 'every location it checked.</p>';
+  }
+
+  // How widely we looked, and where to get the detail.
+  //
+  // This used to render the expanded probe path for all 31 runtimes. Two
+  // problems with putting that on a screen. It carries the account name
+  // (`/Users/<name>/...`) into every screenshot, screen-share and pasted
+  // issue of an empty dashboard, which is the rule the detector surface
+  // already holds itself to (AC-OBS-RSO-030.7: no report carries a full
+  // filesystem path). And a complete, copy-pasteable map of where we look
+  // for every supported runtime is a different artefact from the same table
+  // sitting in a source file: it ships with every install and lands in every
+  // screenshot of a fresh machine.
+  //
+  // So the panel says HOW MANY runtimes were checked, which is what makes
+  // "nothing detected" trustworthy, and points at `clawmetry diagnose` for
+  // the list. That is a local command whose output a person runs and chooses
+  // to share.
+  if (probes.length) {
+    h += '<p style="margin:0 0 12px;font-size:12.5px;color:var(--text-muted);">'
+       + 'ClawMetry checked <b>' + probes.length + ' runtimes</b> in their default locations. '
+       + 'To see exactly where it looked, run '
+       + '<code style="background:var(--bg-primary);padding:2px 6px;border-radius:4px;">clawmetry diagnose</code>.'
+       + '<br>On macOS, reading some of them needs Full Disk Access for your terminal. '
+       + 'A runtime storing its sessions somewhere else can be pointed at ClawMetry '
+       + 'with the environment variables in docs/compatibility.md.</p>';
+  }
+
+  h += '<div style="border-top:1px solid var(--border-secondary);padding-top:11px;font-size:13.5px;color:var(--text-secondary);">'
+     + 'Want to see what this looks like with data? Restart with '
+     + '<code style="background:var(--bg-primary);padding:2px 6px;border-radius:4px;">clawmetry --sample</code>'
+     + ' for three labelled synthetic sessions, including one that is stuck.</div>';
+
+  // #4784: something on this machine already emits OpenTelemetry and does not
+  // send it here. That is the most actionable thing we can say to someone
+  // looking at an empty dashboard, because it needs no install and no signup:
+  // one environment variable and their existing traces arrive.
+  //
+  // Reads `suggestable`, never `apps`: the latter can include a port
+  // ClawMetry itself holds (it binds 4318), and telling someone to redirect
+  // their app to ClawMetry, from ClawMetry, is worse than saying nothing.
+  try {
+    var otel = (overview && overview.detectedOtelApps) || {};
+    var sugg = otel.suggestable || [];
+    if (sugg.length) {
+      var named = sugg.filter(function (a) { return a.identified; });
+      var lead = named.length
+        ? ('<b>' + escHtml(named[0].name) + '</b>'
+           + (sugg.length > 1 ? ' and ' + (sugg.length - 1) + ' other'
+              + (sugg.length > 2 ? 's' : '') : '')
+           + ' on this machine ' + (sugg.length > 1 ? 'are' : 'is')
+           + ' already emitting OpenTelemetry, to '
+           + '<code>' + escHtml(named[0].endpoint) + '</code>.')
+        : ('Something on this machine is already emitting OpenTelemetry.');
+      h += '<div style="border-top:1px solid var(--border-secondary);margin-top:11px;'
+         + 'padding-top:11px;font-size:13.5px;color:var(--text-secondary);">'
+         + lead
+         + ' Send a copy here and it shows up in these tabs, with nothing to install:'
+         + '<pre style="margin:8px 0 0;padding:10px 12px;background:var(--bg-primary);'
+         + 'border:1px solid var(--border-secondary);border-radius:6px;overflow-x:auto;'
+         + 'font-size:12.5px;">' + escHtml(otel.instruction || '') + '</pre>'
+         + '<div style="margin-top:6px;font-size:12px;color:var(--text-muted);">'
+         + 'ClawMetry never changes another application\'s configuration.</div>'
+         + '</div>';
+    }
+  } catch (e) { /* the panel is worth more than the prompt */ }
+
+  el.innerHTML = h;
+  el.style.display = 'block';
 }

@@ -19,8 +19,21 @@ from matrx_ai.tools.vfs.commands.runner import VfsCommandRunner
 
 
 def load_all() -> None:
-    import importlib
+    """Register every virtual command — idempotent, and valid after ``clear()``.
 
+    ``register`` runs at module import, so a plain ``import_module`` after a
+    ``clear()`` does nothing (Python has cached the module) and the caller is
+    left with an empty registry and no error. Reload in that case, so
+    ``load_all()`` always means what it says.
+    """
+    import importlib
+    import sys
+
+    from matrx_ai.tools.vfs.commands import registry
+
+    rebuild = registry.take_cleared()
+
+    # fmt: off
     modules = [
         "awk", "cat", "cd", "chmod", "chown", "cp", "cut", "df", "diff", "du",
         "echo", "env", "file", "find", "grep", "gzip", "head", "ln", "ls",
@@ -29,9 +42,15 @@ def load_all() -> None:
         "tail", "tar", "test_cmd", "touch", "tr", "tree", "type", "uniq",
         "unzip", "wc", "which", "xargs",
     ]
+    # fmt: on
     for mod in modules:
+        name = f"matrx_ai.tools.vfs.commands.{mod}"
         try:
-            importlib.import_module(f"matrx_ai.tools.vfs.commands.{mod}")
+            already_imported = sys.modules.get(name)
+            if rebuild and already_imported is not None:
+                importlib.reload(already_imported)
+            else:
+                importlib.import_module(name)
         except ImportError:
             pass
 

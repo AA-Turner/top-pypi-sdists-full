@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -19,9 +18,10 @@ from anta._runner import AntaRunContext, AntaRunFilters, AntaRunner
 from anta.cli.console import console
 from anta.cli.utils import ExitCode
 from anta.models import AntaTest
-from anta.reporter import ReportJinja, ReportTable
 from anta.reporter.csv_reporter import ReportCsv
+from anta.reporter.jinja_reporter import ReportJinja
 from anta.reporter.md_reporter import MDReportGenerator
+from anta.reporter.table_reporter import ReportTable
 
 if TYPE_CHECKING:
     import pathlib
@@ -37,15 +37,14 @@ logger = logging.getLogger(__name__)
 
 def run_tests(ctx: click.Context) -> AntaRunContext:
     """Run the tests."""
-    # Digging up the parameters from the parent context
+    # Report commands inherit the execution settings object from their parent group.
     if ctx.parent is None:
         ctx.exit()
-    nrfu_ctx_params = ctx.parent.params
-    tags = nrfu_ctx_params["tags"]
-    device = nrfu_ctx_params["device"] or None
-    test = nrfu_ctx_params["test"] or None
-    dry_run = nrfu_ctx_params["dry_run"]
-    disconnect = nrfu_ctx_params["disconnect"]
+    tags = ctx.obj["tags"]
+    device = ctx.obj["device"] or None
+    test = ctx.obj["test"] or None
+    dry_run = ctx.obj["dry_run"]
+    disconnect = ctx.obj["disconnect"]
 
     catalog: AntaCatalog = ctx.obj["catalog"]
     inventory: AntaInventory = ctx.obj["inventory"]
@@ -145,8 +144,7 @@ def print_jinja(results: ResultManager, template: pathlib.Path, output: pathlib.
     """Print result based on template."""
     console.print()
     reporter = ReportJinja(template_path=template)
-    json_data = json.loads(results.json)
-    report = reporter.render(json_data)
+    report = reporter.render(results.dump)
     console.print(report)
     if output is not None:
         with output.open(mode="w", encoding="utf-8") as file:

@@ -83,5 +83,10 @@ WHERE
             "penguins_linear_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
+
+
+@pytest.fixture()
+def llm_text_df(session, llm_text_pandas_df):
+    """Function-scoped fixture to prevent stale session tables in test_llm."""
+    return session.read_pandas(llm_text_pandas_df)

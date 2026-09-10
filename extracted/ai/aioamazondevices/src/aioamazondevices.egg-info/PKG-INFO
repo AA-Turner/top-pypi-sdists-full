@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioamazondevices
-Version: 15.1.0
+Version: 15.1.3
 Summary: Python library to control Amazon devices
 Author-email: Simone Chemelli <simone.chemelli@gmail.com>
 License-Expression: Apache-2.0
@@ -197,6 +197,13 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
                     <img src="https://avatars.githubusercontent.com/u/509560?v=4" width="100;" alt="maxmati"/>
                     <br />
                     <sub><b>Mateusz Nowotyński</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/stefan-schweiger">
+                    <img src="https://avatars.githubusercontent.com/u/3532342?v=4" width="100;" alt="stefan-schweiger"/>
+                    <br />
+                    <sub><b>Stefan Schweiger</b></sub>
                 </a>
             </td>
             <td align="center">

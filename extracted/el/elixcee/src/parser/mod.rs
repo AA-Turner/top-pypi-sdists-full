@@ -661,6 +661,7 @@ impl Parser {
 
     /// Parse a `Type Name ... End Type` block.
     fn parse_type_def(&mut self) -> Result<TypeDef, String> {
+        let start = self.peek_span().start;
         self.expect_ident("type")?;
         let name = self.consume_ident()?.to_lowercase();
         self.eat_stmt_end()?;
@@ -675,7 +676,7 @@ impl Parser {
                 let field_name = self.consume_ident()?.to_lowercase();
                 let vba_type = if self.is_ident("as") {
                     self.advance();
-                    self.consume_ident()?.to_lowercase()
+                    self.consume_qualified_type_name()?
                 } else {
                     "variant".into()
                 };
@@ -684,8 +685,28 @@ impl Parser {
             self.skip_to_eol();
         }
         self.consume_end_kw("type")?;
+        let end = self.peek_span().start;
         self.skip_nl();
-        Ok(TypeDef { name, fields })
+        Ok(TypeDef {
+            name,
+            fields,
+            span: SourceSpan { start, end },
+        })
+    }
+
+    /// Consume a case-insensitive VBA type name, including a module-qualified
+    /// form such as `Types.Point`. Keeping the dot inside the type token is
+    /// important: it lets the VM resolve qualified UDTs without confusing
+    /// them with member access in expressions.
+    fn consume_qualified_type_name(&mut self) -> Result<String, String> {
+        let mut name = self.consume_ident()?.to_lowercase();
+        if *self.peek() == Tok::Dot {
+            self.advance();
+            let member = self.consume_ident()?.to_lowercase();
+            name.push('.');
+            name.push_str(&member);
+        }
+        Ok(name)
     }
 
     fn parse_sub(&mut self, access: AccessModifier) -> Result<SubDef, String> {
@@ -700,6 +721,7 @@ impl Parser {
         self.skip_nl();
         Ok(SubDef {
             name,
+            module_name: None,
             params,
             param_types,
             access,
@@ -731,6 +753,7 @@ impl Parser {
         self.skip_nl();
         Ok(FuncDef {
             name,
+            module_name: None,
             params,
             param_types,
             return_type,
@@ -769,6 +792,7 @@ impl Parser {
         self.skip_nl();
         Ok(PropertyDef {
             name,
+            module_name: None,
             kind,
             params,
             param_types,
@@ -1743,7 +1767,7 @@ impl Parser {
             self.expect_tok(Tok::RParen)?;
             if self.is_ident("as") {
                 self.advance();
-                let type_name = self.consume_ident()?.to_lowercase();
+                let type_name = self.consume_qualified_type_name()?;
                 if type_name == "object" || !Self::is_vba_builtin_type(&type_name) {
                     return Ok(Stmt::DimArrayRecord {
                         name,
@@ -1764,7 +1788,7 @@ impl Parser {
                 } else {
                     false
                 };
-                let type_name = self.consume_ident()?.to_lowercase();
+                let type_name = self.consume_qualified_type_name()?;
                 if instantiate && type_name == "collection" {
                     return Ok(Stmt::DimObjectNew {
                         var,
@@ -1772,13 +1796,7 @@ impl Parser {
                         value: ObjectExpr::NewCollection,
                     });
                 }
-                if instantiate
-                    && type_name == "scripting"
-                    && *self.peek() == Tok::Dot
-                    && self.is_ident_at(1, "dictionary")
-                {
-                    self.advance();
-                    self.advance();
+                if instantiate && type_name == "scripting.dictionary" {
                     return Ok(Stmt::DimObjectNew {
                         var,
                         type_name: "scripting.dictionary".to_string(),
@@ -2980,7 +2998,11 @@ impl Parser {
             // p.field = val  /  p.a.b = val  /  p.method (noop)
             self.advance(); // consume first '.'
             let field = self.consume_ident()?.to_lowercase();
-            if matches!(field.as_str(), "activate" | "select" | "removeall") && self.is_stmt_end() {
+            if matches!(
+                field.as_str(),
+                "activate" | "select" | "removeall" | "clear" | "clearcontents"
+            ) && self.is_stmt_end()
+            {
                 return Ok(Stmt::ObjectMethodCall {
                     target: ObjectTarget::Variable(name),
                     method: field,
@@ -3952,10 +3974,21 @@ pub fn parse_with_span(input: &str) -> Result<Program, ParseErrorWithSpan> {
         });
     }
     let mut parser = Parser::new(tokens, spans);
-    parser.parse_program().map_err(|message| {
+    let mut program = parser.parse_program().map_err(|message| {
         let span = parser.peek_span();
         ParseErrorWithSpan { message, span }
-    })
+    })?;
+    let module_name = program.module_name.clone();
+    for sub in &mut program.subs {
+        sub.module_name = module_name.clone();
+    }
+    for func in &mut program.funcs {
+        func.module_name = module_name.clone();
+    }
+    for property in &mut program.properties {
+        property.module_name = module_name.clone();
+    }
+    Ok(program)
 }
 
 // ── Multi-module resolution (Milestone B2) ────────────────────────────────────
@@ -4052,6 +4085,47 @@ pub fn find_cross_module_func_collisions(
         .into_iter()
         .filter(|(_, mods)| mods.len() > 1)
         .collect()
+}
+
+/// Bare user-defined type names that appear in 2+ modules. This is retained
+/// as an informational project scan for callers that want to report possible
+/// scope overlap; the VM resolves bare names against the active module and no
+/// longer rejects this condition by itself.
+pub fn find_cross_module_type_collisions(
+    modules: &[(String, Program)],
+) -> Vec<(String, Vec<String>)> {
+    let mut by_name: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for (module_name, prog) in modules {
+        for type_def in &prog.type_defs {
+            by_name
+                .entry(type_def.name.clone())
+                .or_default()
+                .push(module_name.clone());
+        }
+    }
+    by_name
+        .into_iter()
+        .filter(|(_, mods)| mods.len() > 1)
+        .collect()
+}
+
+/// Duplicate UDT names within one module. VBA does not permit a second
+/// `Type` declaration with the same case-insensitive name; returning the
+/// names in sorted order keeps diagnostics independent of declaration/hash
+/// iteration details.
+pub fn find_type_collisions(program: &Program) -> Vec<String> {
+    let mut counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for type_def in &program.type_defs {
+        *counts.entry(type_def.name.as_str()).or_default() += 1;
+    }
+    let mut names: Vec<String> = counts
+        .into_iter()
+        .filter(|(_, count)| *count > 1)
+        .map(|(name, _)| name.to_string())
+        .collect();
+    names.sort();
+    names
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -4389,6 +4463,18 @@ mod tests {
                     type_name: "mytype".to_string()
                 },
             ])
+        );
+    }
+
+    #[test]
+    fn test_module_qualified_udt_name_is_preserved() {
+        let body = parse_body("Sub MySub()\n    Dim p As Types.Point\nEnd Sub\n");
+        assert_eq!(
+            body[0],
+            Stmt::DimRecord {
+                var: "p".to_string(),
+                type_name: "types.point".to_string(),
+            }
         );
     }
     #[test]
@@ -5571,6 +5657,26 @@ mod tests {
         ];
         assert!(find_cross_module_sub_collisions(&modules).is_empty());
         assert!(find_cross_module_func_collisions(&modules).is_empty());
+    }
+
+    #[test]
+    fn type_collisions_are_case_insensitive_across_modules() {
+        let left = module("left", "Type Point\n    X As Long\nEnd Type\n");
+        let right = module("right", "Type point\n    Y As Long\nEnd Type\n");
+        let collisions = find_cross_module_type_collisions(&[left, right]);
+        assert_eq!(collisions.len(), 1);
+        assert_eq!(collisions[0].0, "point");
+        let mut modules = collisions[0].1.clone();
+        modules.sort();
+        assert_eq!(modules, vec!["left".to_string(), "right".to_string()]);
+    }
+
+    #[test]
+    fn type_collisions_detect_duplicate_declarations_in_one_module() {
+        let program =
+            parse("Type Point\n    X As Long\nEnd Type\nType point\n    Y As Long\nEnd Type\n")
+                .unwrap();
+        assert_eq!(find_type_collisions(&program), vec!["point".to_string()]);
     }
 
     #[test]

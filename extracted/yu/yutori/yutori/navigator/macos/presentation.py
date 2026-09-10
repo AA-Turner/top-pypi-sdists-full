@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import functools
+import io
 import json
 import math
 import time
@@ -12,6 +13,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, TypeVar
+
+from PIL import Image
 
 from .overlay_build import OVERLAY_PROTOCOL_VERSION, PreparedMacOSOverlay, load_prepared_macos_overlay
 from .process_lifecycle import (
@@ -31,17 +34,22 @@ from .types import (
 _READY_TIMEOUT_SECONDS = 15
 _OPERATION_TIMEOUT_SECONDS = 5
 _ENCODE_TIMEOUT_SECONDS = 30
+# The host's own desktop capture: ScreenCaptureKit plus a PNG encode of a full Retina frame.
+_CAPTURE_TIMEOUT_SECONDS = 15
 _PROCESS_EXIT_TIMEOUT_SECONDS = 1
 _OVERLAY_LEAD_SECONDS = 0.15
 _SHELL_MINIMUM_DWELL_SECONDS = 0.9
 _SHELL_TERMINAL_HOLD_SECONDS = 0.9
-# The shell rail at the top-right keeps a finished command on screen long enough
-# to read: the capsule's 0.9s hold is tuned for a glance at the cursor, not for an
-# operator checking what just ran on their Mac.
+# The shell panel keeps a finished command on screen long enough to read: the
+# capsule's 0.9s hold is tuned for a glance at a status word, not for an operator
+# checking what just ran on their Mac.
 _SHELL_RAIL_TERMINAL_HOLD_SECONDS = 4.0
 _SHELL_RAIL_ROWS = 3
 _SHELL_TERMINAL_STATES = frozenset({"completed", "failed", "timed_out", "cancelled"})
 _NORMALIZED_SCALE = 1000
+# Capture exclusion: the host's probe is a 4x4 checkerboard; this many of its cells in the frame
+# means the probe was captured, so this macOS ignores `sharingType = .none`. See _probe_verdict.
+_PROBE_MATCH_THRESHOLD = 4
 
 _ACTION_STATUS = {
     "left_click": "Click",
@@ -153,7 +161,8 @@ def _positive_finite(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 0
 
 
-def _valid_stop_region(value: Any) -> "tuple[float, float, float, float] | None":
+def _valid_region(value: Any) -> "tuple[float, float, float, float] | None":
+    """A host region in the overlay's normalized 0-1000 space: the Stop item, the activity grip."""
     if not isinstance(value, dict):
         return None
     fields = tuple(value.get(key) for key in ("x", "y", "width", "height"))
@@ -163,6 +172,48 @@ def _valid_stop_region(value: Any) -> "tuple[float, float, float, float] | None"
     if x < 0 or y < 0 or width <= 0 or height <= 0 or x + width > 1000 or y + height > 1000:
         return None
     return x, y, width, height
+
+
+def _valid_probe(value: Any) -> "dict[str, float] | None":
+    """The host's probe frame: top-left origin in overlay page points, plus its cells per side."""
+    if not isinstance(value, dict):
+        return None
+    x, y, size, cells = value.get("x"), value.get("y"), value.get("size"), value.get("cells")
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in (x, y, size)):
+        return None
+    if x < 0 or y < 0 or size <= 0 or not isinstance(cells, int) or isinstance(cells, bool) or cells < 2:
+        return None
+    return {"x": float(x), "y": float(y), "size": float(size), "cells": float(cells)}
+
+
+def _probe_verdict(png_bytes: bytes, probe: dict[str, float], scale: "tuple[float, float]") -> "tuple[str, int]":
+    """Say whether the capture-exclusion probe is in the frame: ("leaked" | "excluded", cells matched).
+
+    The probe is a checkerboard of saturated magenta (top-left cell) and green; the centre of every
+    cell is sampled and compared with the pattern, with room for the display's colour profile.
+    Matching :data:`_PROBE_MATCH_THRESHOLD` cells or more counts as the probe being captured: chance
+    content in exactly that arrangement is far less likely than a partly covered probe, and a wrong
+    "excluded" is the costlier mistake, since it puts Yutori's drawing in every frame the model sees.
+    """
+    cells = int(probe["cells"])
+    cell = probe["size"] / cells
+    x_scale, y_scale = scale
+    matches = 0
+    with Image.open(io.BytesIO(png_bytes)) as image:
+        rgb = image.convert("RGB")
+        width, height = rgb.size
+        for row in range(cells):
+            for column in range(cells):
+                px = round((probe["x"] + (column + 0.5) * cell) * x_scale)
+                py = round((probe["y"] + (row + 0.5) * cell) * y_scale)
+                if not (0 <= px < width and 0 <= py < height):
+                    continue
+                r, g, b = rgb.getpixel((px, py))[:3]
+                if (row + column) % 2 == 0:
+                    matches += r > 170 and b > 170 and g < 120
+                else:
+                    matches += g > 170 and r < 130 and b < 130
+    return ("leaked" if matches >= _PROBE_MATCH_THRESHOLD else "excluded"), matches
 
 
 def _point(arguments: dict[str, Any], *keys: str) -> "tuple[float, float] | None":
@@ -408,6 +459,7 @@ class MacOSPresentationController:
         restore_native_cursor: "Callable[[], Awaitable[str]] | None" = None,
         mode: str = "overlay",
         title: "str | None" = None,
+        exclude_from_capture: bool = True,
     ) -> None:
         if mode not in {"overlay", "status"}:
             raise ValueError("mode must be 'overlay' or 'status'")
@@ -422,6 +474,16 @@ class MacOSPresentationController:
         # the model's frame is one window and the user keeps working next to it.
         self._mode = mode
         self._title = title
+        # Two ways to keep Yutori's drawing out of the model's frame without hiding it. True: the
+        # panels opt out of screen capture (`sharingType = .none`) and the frames come from the
+        # driver. False: the panels stay capturable, so screen recordings and screen shares of the
+        # run show them, and the desktop frames come from the host instead, which leaves its own
+        # windows out on the capturer's side (`capture_source == "overlay"`). Either way
+        # `verify_capture_exclusion` checks the mechanism on this Mac with a probe; until it says
+        # "excluded", every capture hides the overlay first (the old path).
+        self._exclude_from_capture = exclude_from_capture
+        self._capture_exclusion = "unverified"
+        self._capture_source = "driver"
         self._restore_native_cursor = restore_native_cursor
         self._status = MacOSPresentationStatus(requested, False, "unavailable", "current")
         self._process: "asyncio.subprocess.Process | None" = None
@@ -437,7 +499,6 @@ class MacOSPresentationController:
         self._last_render: dict[str, str] = {}
         self._reasoning = ""
         self._action_status = ""
-        self._terminal_command = ""
         self._active_keys: "list[str] | None" = None
         self._queue_active = False
         self._batch_is_last = False
@@ -451,6 +512,10 @@ class MacOSPresentationController:
         # the owner streams preview frames only while that is true.
         self._preview_demand = False
         self.on_preview_demand: "Callable[[bool], None] | None" = None
+        # The activity window's grip -- the one part of it that takes the mouse -- while the
+        # window is shown, in the same 0-1000 space as the Stop region. The host reports it on
+        # show, hide, and every move, so a model click on it is refused rather than swallowed.
+        self._activity_grip_region: "tuple[float, float, float, float] | None" = None
 
     @property
     def status(self) -> MacOSPresentationStatus:
@@ -459,6 +524,29 @@ class MacOSPresentationController:
     @property
     def mode(self) -> str:
         return self._mode
+
+    @property
+    def capture_exclusion(self) -> str:
+        """How Yutori's drawing stays out of the frames the model sees.
+
+        ``"excluded"``: the mechanism (the panels' capture opt-out, or the host's filtered capture
+        when the overlay is recordable) was verified on this Mac, so nothing is hidden for a
+        capture. ``"leaked"``: the probe showed up, so every capture hides the overlay first.
+        ``"unverified"`` (probe not run yet) and ``"unverifiable"`` (the probe or the host's
+        capture failed) also hide the overlay for every capture.
+        """
+        return self._capture_exclusion
+
+    @property
+    def capture_source(self) -> str:
+        """Where the model's desktop frames come from.
+
+        ``"driver"``: the driver's desktop capture. ``"overlay"``: the host's own capture with
+        its windows left out by the capturer, so the overlay stays in screen recordings and
+        screen shares of the run; set once ``exclude_from_capture=False`` passes the probe, and
+        handed back to the driver (with hiding) if a capture ever fails.
+        """
+        return self._capture_source
 
     @property
     def preview_demand(self) -> bool:
@@ -488,7 +576,12 @@ class MacOSPresentationController:
             return
         self._status = replace(self._status, state="starting")
         prepared = self._prepared or load_prepared_macos_overlay(self._cache_directory)
-        settings: dict[str, Any] = {"showStopButton": self._show_stop_button, "enableHotkey": True, "mode": self._mode}
+        settings: dict[str, Any] = {
+            "showStopButton": self._show_stop_button,
+            "enableHotkey": True,
+            "mode": self._mode,
+            "excludeFromCapture": self._exclude_from_capture,
+        }
         if self._title is not None:
             settings["title"] = self._title
         # The activity window's page. Both modes show the conversation with the model; only a
@@ -523,18 +616,14 @@ class MacOSPresentationController:
                         },
                     }
                 )
-            armed = await self._send_command({"op": "arm"})
-            if armed.get("state") != "armed":
-                raise MacOSPresentationError("Overlay did not arm.")
+            await self._send_command_expecting({"op": "arm"}, "armed", "Overlay did not arm.")
             self._status = replace(self._status, state="armed")
         except BaseException:
             await self._terminate_process()
             raise
 
     async def reveal(self) -> None:
-        reply = await self._send_command({"op": "reveal"})
-        if reply.get("state") != "visible":
-            raise MacOSPresentationError("Overlay did not reveal.")
+        await self._send_command_expecting({"op": "reveal"}, "visible", "Overlay did not reveal.")
         cursor = "hidden" if self._mode == "status" else "yutori"
         self._status = replace(self._status, available=True, state="active", cursor=cursor)
 
@@ -546,33 +635,42 @@ class MacOSPresentationController:
         command: dict[str, Any] = {"op": "thumbnail", "data": base64.b64encode(image_bytes).decode("ascii")}
         if caption is not None:
             command["caption"] = caption
-        reply = await self._send_command(command)
-        if reply.get("state") != "shown":
-            raise MacOSPresentationError("Status item did not show the thumbnail.")
+        await self._send_command_expecting(command, "shown", "Status item did not show the thumbnail.")
         if caption is not None:
             self._last_render["status"] = caption
         return True
 
-    def blocks_point(self, point: tuple[float, float]) -> bool:
+    def blocking_surface(self, point: tuple[float, float]) -> "str | None":
+        """Which Yutori control a model input at this point (0-1000 space) would land on.
+
+        ``"stop"`` for the menu bar Stop item, ``"activity"`` for the activity window's grip,
+        None when the point reaches the desktop. The activity window's body ignores the mouse,
+        so only its grip can swallow a click.
+        """
         if not self._status.available:
-            return False
+            return None
         capabilities = self._status.capabilities
-        region = capabilities.stop_region if capabilities else None
-        if region is None:
-            return False
+        stop_region = capabilities.stop_region if capabilities else None
         x, y = point
-        left, top, width, height = region
-        return left <= x <= left + width and top <= y <= top + height
+        for name, region in (("stop", stop_region), ("activity", self._activity_grip_region)):
+            if region is None:
+                continue
+            left, top, width, height = region
+            if left <= x <= left + width and top <= y <= top + height:
+                return name
+        return None
+
+    def blocks_point(self, point: tuple[float, float]) -> bool:
+        return self.blocking_surface(point) is not None
 
     def _clear_action_labels(self) -> None:
-        """Reset the capsule's action-status, terminal-command, and active-key labels.
+        """Reset the capsule's action-status and active-key labels.
 
         Shared by the ``reasoning``, ``action_done``, and ``final`` branches of
-        :meth:`present`, each of which clears these three fields immediately
-        before re-rendering the capsule.
+        :meth:`present`, each of which clears both fields immediately before
+        re-rendering the capsule.
         """
         self._action_status = ""
-        self._terminal_command = ""
         self._active_keys = None
 
     @_fail_soft_cancellable
@@ -644,9 +742,9 @@ class MacOSPresentationController:
         text = _status_line(event)
         if text is not None and self._last_render.get("status") != text:
             self._last_render["status"] = text
-            reply = await self._send_command({"op": "status", "text": text})
-            if reply.get("state") != "shown":
-                raise MacOSPresentationError("Status item did not accept the caption.")
+            await self._send_command_expecting(
+                {"op": "status", "text": text}, "shown", "Status item did not accept the caption."
+            )
 
     async def _present_transcript(self, event: dict[str, Any]) -> None:
         """Append this event to the activity window's conversation, if it has a row to show."""
@@ -656,16 +754,105 @@ class MacOSPresentationController:
         self._transcript_sequence += 1
         await self._send_command({"op": "transcript", "entry": entry})
 
+    async def verify_capture_exclusion(self, capture: "Callable[[], Awaitable[tuple[bytes, int, int]]]") -> str:
+        """Check on this Mac that the overlay's panels stay out of a desktop capture.
+
+        Shows the host's probe (a small checkerboard in a panel treated like the overlay), takes one
+        frame, and looks for the pattern. With ``exclude_from_capture=True`` the frame comes through
+        ``capture`` (the driver) and the probe opts out of capture like the panels; with ``False``
+        it comes from the host's own filtered capture, which then serves every later frame. Absent,
+        the overlay is left on screen for every later capture; present, or if anything goes wrong,
+        each capture keeps hiding the overlay first. Advisory: never degrades the presentation.
+        """
+        if not self._status.available or self._mode == "status" or self._stopping:
+            return self._capture_exclusion
+        mechanism = "sharing" if self._exclude_from_capture else "filter"
+        if not self._exclude_from_capture:
+            capture = self._capture_desktop_frame
+        state, matches, error_type = "unverifiable", None, None
+        try:
+            reply = await self._send_command({"op": "captureProbe", "phase": "show"})
+            try:
+                probe = _valid_probe(reply.get("probe"))
+                if reply.get("state") != "shown" or probe is None:
+                    raise MacOSPresentationError("Overlay did not show the capture probe.")
+                png_bytes, width, height = await capture()
+            finally:
+                # Whatever the host answered, the probe panel must not outlive the check.
+                await self._send_command({"op": "captureProbe", "phase": "hide"})
+            scale = self._validate_capture_geometry(width, height)
+            state, matches = _probe_verdict(png_bytes, probe, scale)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 - the probe is advisory; hiding stays the default
+            error_type = type(error).__name__
+        self._capture_exclusion = state
+        if mechanism == "filter" and state == "excluded":
+            self._capture_source = "overlay"
+        self._telemetry.append(
+            {
+                "type": "capture_exclusion",
+                "mechanism": mechanism,
+                "state": state,
+                "matches": matches,
+                "error_type": error_type,
+            }
+        )
+        return state
+
+    async def capture_desktop(self) -> "tuple[bytes, int, int] | None":
+        """The model's desktop frame from the host, or ``None`` when the driver has to take it.
+
+        Only while :attr:`capture_source` is ``"overlay"``. A failure hands the frames back to the
+        driver for the rest of the run, with the overlay hidden around each, rather than degrading
+        the presentation: the overlay keeps painting, and the run keeps going.
+        """
+        if self._capture_source != "overlay" or not self._status.available or self._stopping:
+            return None
+        try:
+            return await self._capture_desktop_frame()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 - the driver's capture (with hiding) is the fallback
+            self._capture_source = "driver"
+            self._capture_exclusion = "unverifiable"
+            self._telemetry.append({"type": "capture_source", "source": "driver", "error_type": type(error).__name__})
+            return None
+
+    async def _capture_desktop_frame(self) -> tuple[bytes, int, int]:
+        """One desktop frame from the host, checked to be the same shape as the driver's."""
+        reply = await self._send_command({"op": "captureDesktop"}, timeout=_CAPTURE_TIMEOUT_SECONDS)
+        frame = reply.get("frame")
+        if not isinstance(frame, dict):
+            raise MacOSPresentationError("Overlay desktop capture returned no frame.")
+        png_bytes = base64.b64decode(frame.get("data") or "", validate=True)
+        if not png_bytes:
+            raise MacOSPresentationError("Overlay desktop capture returned empty data.")
+        with Image.open(io.BytesIO(png_bytes)) as image:
+            width, height = image.size
+        if (width, height) != (frame.get("width"), frame.get("height")):
+            raise MacOSPresentationError("Overlay desktop capture reported a different size than its frame.")
+        if (width, height) != (self.native_width, self.native_height):
+            raise MacOSPresentationError(
+                f"Overlay desktop capture is {width}x{height}; the driver's frame is "
+                f"{self.native_width}x{self.native_height}."
+            )
+        return png_bytes, width, height
+
     @_fail_soft("capture_hide_failed", False)
     async def before_capture(self, capture_id: int) -> bool:
-        if not self._status.available or self._mode == "status":
+        if not self._status.available or self._mode == "status" or self._capture_exclusion == "excluded":
             return False
         if capture_id <= self._capture_id:
             raise MacOSPresentationError("Capture IDs must increase monotonically.")
         self._capture_id = capture_id
-        reply = await self._send_command({"op": "captureHide", "capture_id": capture_id})
-        if reply.get("capture_id") != capture_id or reply.get("state") != "hidden":
-            raise MacOSPresentationError("Overlay did not hide for capture.")
+        await self._send_command_expecting(
+            {"op": "captureHide", "capture_id": capture_id},
+            "hidden",
+            "Overlay did not hide for capture.",
+            echo_key="capture_id",
+            echo_value=capture_id,
+        )
         return True
 
     @_fail_soft("capture_reveal_failed", False)
@@ -673,9 +860,13 @@ class MacOSPresentationController:
         if not self._status.available or capture_id != self._capture_id:
             return False
         self._validate_capture_geometry(width, height)
-        reply = await self._send_command({"op": "captureReveal", "capture_id": capture_id})
-        if reply.get("capture_id") != capture_id or reply.get("state") != "visible":
-            raise MacOSPresentationError("Overlay did not reveal after capture.")
+        await self._send_command_expecting(
+            {"op": "captureReveal", "capture_id": capture_id},
+            "visible",
+            "Overlay did not reveal after capture.",
+            echo_key="capture_id",
+            echo_value=capture_id,
+        )
         return True
 
     @_fail_soft("encoder_failed", None)  # Pillow JPEG remains available
@@ -733,6 +924,9 @@ class MacOSPresentationController:
                     return
                 if reply.get("event") == "stop":
                     self.cancellation.request("operator_stop")
+                    continue
+                if reply.get("event") == "activityGrip":
+                    self._activity_grip_region = _valid_region(reply.get("region"))
                     continue
                 if reply.get("event") == "previewDemand":
                     self._preview_demand = bool(reply.get("menuOpen")) or bool(reply.get("activityOpen"))
@@ -834,18 +1028,33 @@ class MacOSPresentationController:
     ) -> dict[str, Any]:
         return await self._send_envelope({"command": command}, timeout=timeout, allow_stopping=allow_stopping)
 
+    async def _send_command_expecting(
+        self,
+        command: dict[str, Any],
+        expected_state: str,
+        error_message: str,
+        *,
+        echo_key: "str | None" = None,
+        echo_value: Any = None,
+        timeout: float = _OPERATION_TIMEOUT_SECONDS,
+        allow_stopping: bool = False,
+    ) -> dict[str, Any]:
+        """Send `command` and raise `error_message` unless the reply's `state` is `expected_state`.
+
+        If `echo_key` is given, the reply must also echo `echo_value` under that key (used by the
+        capture ops to confirm the reply matches the `capture_id` just sent, not a stale one).
+        """
+        reply = await self._send_command(command, timeout=timeout, allow_stopping=allow_stopping)
+        if reply.get("state") != expected_state or (echo_key is not None and reply.get(echo_key) != echo_value):
+            raise MacOSPresentationError(error_message)
+        return reply
+
     async def _render_capsule(self) -> None:
         if self._queue_active:
             return
-        text = " · ".join(
-            part
-            for part in (
-                self._action_status,
-                f"$ {self._terminal_command}" if self._terminal_command else "",
-                self._reasoning,
-            )
-            if part
-        )
+        # The command itself is in the shell panel hanging off the capsule, so the
+        # capsule only carries the status word and the reasoning.
+        text = " · ".join(part for part in (self._action_status, self._reasoning) if part)
         if not text and not self._active_keys:
             await self._send_operation({"op": "clearThought"})
             return
@@ -886,7 +1095,6 @@ class MacOSPresentationController:
         if batch:
             status = f"{int(batch.get('index') or 0) + 1} of {len(batch.get('members') or [])} · {status}"
         self._action_status = status
-        self._terminal_command = ""
         self._active_keys = visual.get("keys")
 
         viewport = self._viewport
@@ -944,7 +1152,6 @@ class MacOSPresentationController:
         if event.state in {"starting", "running"}:
             self._shell_started_at.setdefault(event.task_id, time.monotonic())
             self._action_status = "Run command"
-            self._terminal_command = event.command
             self._active_keys = None
             await self._render_capsule()
             await self._send_operation(
@@ -968,20 +1175,20 @@ class MacOSPresentationController:
         self._action_status = labels.get(event.state, "Command finished")
         if event.exit_code is not None:
             self._action_status = f"{self._action_status} · exit {event.exit_code}"
-        self._terminal_command = ""
         await self._render_capsule()
         await self._sleep(_SHELL_TERMINAL_HOLD_SECONDS)
-        self._action_status = ""
-        self._terminal_command = ""
+        self._clear_action_labels()
         await self._render_capsule()
 
     async def _track_shell_rail(self, event: ShellPresentationEvent) -> None:
         """Mirror every shell lifecycle event, foreground or background, into the rail.
 
-        The capsule by the cursor only shows a foreground command for the ~1s it
-        takes to run, which is too brief for an operator to read; the rail under
-        the menu bar keeps each command visible while it runs and for a hold
-        after it finishes, so the operator can see what was sent to their Mac.
+        The capsule only says "Run command" for the ~1s a foreground command takes,
+        which is too brief for an operator to read; the rail -- a stack of panels
+        hanging off the cursor in a foreground run, under the menu bar in a
+        background one -- keeps each command's full text visible while it runs and
+        for a hold after it finishes, so the operator can see what was sent to
+        their Mac.
         """
         self._shell_rail[event.task_id] = event
         await self._render_shell_rail()
@@ -991,7 +1198,7 @@ class MacOSPresentationController:
             task.add_done_callback(self._shell_rail_removals.discard)
 
     async def _render_shell_rail(self) -> None:
-        # Newest first: the most recent command lands at the top, just under the menu bar.
+        # Newest first: the most recent command lands at the top of the stack.
         events = list(reversed(self._shell_rail.values()))
         commands = [asdict(event) for event in events[:_SHELL_RAIL_ROWS]]
         overflow = max(0, len(events) - _SHELL_RAIL_ROWS)
@@ -1035,7 +1242,7 @@ class MacOSPresentationController:
         if reply.get("protocol_version") != OVERLAY_PROTOCOL_VERSION:
             raise MacOSPresentationError("Overlay returned an incompatible protocol version.")
         width, height, scale = reply.get("width"), reply.get("height"), reply.get("backing_scale")
-        stop_region = _valid_stop_region(reply.get("stop_region"))
+        stop_region = _valid_region(reply.get("stop_region"))
         if not _positive_finite(width) or not _positive_finite(height) or not _positive_finite(scale):
             raise MacOSPresentationError("Overlay returned invalid viewport capabilities.")
         # The Stop control is a menu bar status item. Its frame comes back as `stop_region` so
@@ -1054,14 +1261,16 @@ class MacOSPresentationController:
         self._validate_geometry(capabilities, self.native_width, self.native_height)
         return capabilities
 
-    def _validate_capture_geometry(self, width: int, height: int) -> None:
+    def _validate_capture_geometry(self, width: int, height: int) -> "tuple[float, float]":
         capabilities = self._status.capabilities
         if capabilities is None:
             raise MacOSPresentationError("Overlay capabilities are unavailable.")
-        self._validate_geometry(capabilities, width, height)
+        return self._validate_geometry(capabilities, width, height)
 
     @staticmethod
-    def _validate_geometry(capabilities: MacOSPresentationCapabilities, width: int, height: int) -> None:
+    def _validate_geometry(
+        capabilities: MacOSPresentationCapabilities, width: int, height: int
+    ) -> "tuple[float, float]":
         point_aspect = capabilities.viewport_width / capabilities.viewport_height
         pixel_aspect = width / height
         x_scale = width / capabilities.viewport_width
@@ -1075,6 +1284,7 @@ class MacOSPresentationController:
             raise MacOSPresentationError("Overlay display geometry does not match the captured desktop.")
         if abs(x_scale - capabilities.backing_scale) > 0.15:
             raise MacOSPresentationError("Overlay Retina scale does not match the captured desktop.")
+        return x_scale, y_scale
 
     async def _degrade(self, reason: str, error: "BaseException | None" = None) -> None:
         if self._fatal_error is not None or self._stopping:

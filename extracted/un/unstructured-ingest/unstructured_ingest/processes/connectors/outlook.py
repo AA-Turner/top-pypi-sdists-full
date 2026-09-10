@@ -29,15 +29,51 @@ from unstructured_ingest.processes.connector_registry import (
 )
 from unstructured_ingest.utils.dep_check import requires_dependencies
 
-MAX_EMAILS_PER_FOLDER = 1_000_000  # Maximum number of emails per folder
+# Graph accepts $top between 1 and 1000 for /messages and warns that large
+# full-message pages can 504; get_all() still follows @odata.nextLink to
+# fetch every message in the folder, this just bounds each individual page.
+MESSAGES_PAGE_SIZE = 100
+
+# $select projection for /messages, restricted to exactly what
+# _message_to_file_data (and _generate_fullpath) read off a message. Graph's
+# default projection includes the full HTML body; get_all() already pulls
+# every page into memory eagerly, and Microsoft recommends $select to reduce
+# the risk of a 504 on large pages, so this narrows the payload without
+# losing anything: the downloader fetches the full MIME message separately
+# via $value. Keep this list in sync with _message_to_file_data.
+MESSAGE_SELECT_FIELDS = [
+    "id",
+    "changeKey",
+    "lastModifiedDateTime",
+    "createdDateTime",
+    "from",
+    "toRecipients",
+    "subject",
+    "conversationId",
+    "isDraft",
+    "isRead",
+    "hasAttachments",
+    "importance",
+]
 
 if TYPE_CHECKING:
     from office365.graph_client import GraphClient
     from office365.outlook.mail.folders.folder import MailFolder
     from office365.outlook.mail.messages.message import Message
+    from office365.runtime.http.request_options import RequestOptions
 
 
 CONNECTOR_TYPE = "outlook"
+
+
+def _prefer_immutable_ids(request: "RequestOptions") -> None:
+    """Ask Graph to return immutable ids for mail resources.
+
+    Without this header, Outlook/Exchange can rotate a message's id when the
+    message is moved between folders, breaking downstream record identity
+    that keys off FileData.identifier.
+    """
+    request.set_header("Prefer", 'IdType="ImmutableId"')
 
 
 class OutlookAccessConfig(AccessConfig):
@@ -135,7 +171,16 @@ class OutlookConnectionConfig(ConnectionConfig):
     def get_client(self) -> "GraphClient":
         from office365.graph_client import GraphClient
 
-        return GraphClient(self._acquire_token)
+        client = GraphClient(self._acquire_token)
+        # Registered directly on the pending request's event handler rather
+        # than via client.before_execute(): on the pinned 2.6.2 that
+        # context-level helper defaults to once=True, unregistering after the
+        # first request, and on 3.0.0 it additionally no-ops on a fresh client
+        # (early-returns when no query has been queued yet) and scopes the hook
+        # to the last queued query's id. Registering here rides every request,
+        # including get_all() pagination continuations, on both versions.
+        client.pending_request().beforeExecute += _prefer_immutable_ids
+        return client
 
 
 class OutlookIndexerConfig(IndexerConfig):
@@ -182,20 +227,33 @@ class OutlookIndexer(Indexer):
 
     def _list_messages(self, recursive: bool) -> list["Message"]:
         mail_folders = self._get_selected_root_folders()
+        # Guards against a cycle in the child-folder graph. get_all() makes each
+        # spin of such a cycle far more expensive than the old single-page .get()
+        # (full pagination for messages and child folders on every repeat visit),
+        # so a folder id is only ever expanded once.
+        visited_folder_ids: set[str] = set()
         messages = []
 
         while mail_folders:
             mail_folder = mail_folders.pop()
-            messages += list(mail_folder.messages.get().top(MAX_EMAILS_PER_FOLDER).execute_query())
+            if mail_folder.id in visited_folder_ids:
+                continue
+            visited_folder_ids.add(mail_folder.id)
+
+            messages += list(
+                mail_folder.messages.select(MESSAGE_SELECT_FIELDS)
+                .get_all(page_size=MESSAGES_PAGE_SIZE)
+                .execute_query()
+            )
 
             if recursive:
-                mail_folders += list(mail_folder.child_folders.get().execute_query())
+                mail_folders += list(mail_folder.child_folders.get_all().execute_query())
 
         return messages
 
     def _get_selected_root_folders(self) -> list["MailFolder"]:
         client_user = self.connection_config.get_client().users[self.index_config.user_email]
-        root_mail_folders = client_user.mail_folders.get().execute_query()
+        root_mail_folders = client_user.mail_folders.get_all().execute_query()
 
         selected_names_normalized = [
             folder_name.lower() for folder_name in self.index_config.outlook_folders
@@ -224,7 +282,10 @@ class OutlookIndexer(Indexer):
             source_identifiers=source_identifiers,
             metadata=FileDataSourceMetadata(
                 url=message.resource_url,
-                version=message.change_key,
+                # An empty-string changeKey would otherwise compare equal to a
+                # stored empty-string version, defeating the platform's
+                # unchanged-record skip; normalize falsy to None.
+                version=message.get_property("changeKey") or None,
                 date_modified=str(
                     message.last_modified_datetime.replace(tzinfo=timezone.utc).timestamp()
                 ),

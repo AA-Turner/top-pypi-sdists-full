@@ -15,6 +15,8 @@ use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct TreeBuilder {
+    /// Maximum directly scored candidates per projection/feature. None preserves exhaustive search.
+    pub max_split_candidates: Option<usize>,
     pub max_depth: usize,
     pub min_samples_leaf: usize,
     pub min_gain: f64,
@@ -132,6 +134,22 @@ struct HistogramFeature {
 
 const MISSING_BIN: u16 = u16::MAX;
 const SPATIAL_SPLIT_RELATIVE_GAIN_MARGIN: f64 = 0.10;
+
+/// Select deterministic, evenly spaced candidate ranks, including both ends.
+fn bounded_candidate_positions(count: usize, limit: Option<usize>) -> impl Iterator<Item = usize> {
+    assert!(limit != Some(0), "max_split_candidates must be positive");
+    let selected = limit.map_or(count, |limit| count.min(limit));
+    // Keep exhaustive periodic searches lazy: their candidate count is quadratic.
+    (0..selected).map(move |rank| {
+        if selected == count {
+            rank
+        } else if selected == 1 {
+            count / 2
+        } else {
+            rank * (count - 1) / (selected - 1)
+        }
+    })
+}
 
 impl FitContext {
     fn new(x: &Dataset, splitters: &[SplitterKind]) -> Self {

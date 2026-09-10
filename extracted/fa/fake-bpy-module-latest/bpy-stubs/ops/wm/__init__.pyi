@@ -371,6 +371,7 @@ class batch_rename(bpy.ops._BPyOpsSubModOp):
             "SEQUENCE_STRIP",
             "ACTION_CLIP",
             "SCENE",
+            "MARKER",
             "BRUSH",
         ]
         | None = "OBJECT",

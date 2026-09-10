@@ -12,7 +12,7 @@ from .tool_execution_task_support import ToolExecutionTaskSupport
 
 class ToolExecution(UncheckedBaseModel):
     """
-    Execution-related properties for a tool.
+    Execution-related properties for a tool (2025-11-25 only).
     """
 
     task_support: typing_extensions.Annotated[

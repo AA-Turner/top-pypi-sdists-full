@@ -91,12 +91,41 @@ class FleetTransport(Transport):
         path: str,
         json_body: Any = None,
         headers: dict[str, str] | None = None,
+        timeout: float | None = None,
     ) -> httpx.Response:
         if name not in self._bound.services:
             raise ValueError(f"Fleet sandbox does not expose service {name!r}")
         return await self._request(
-            method, path, json_body=json_body, service_name=name, extra_headers=headers
+            method,
+            path,
+            json_body=json_body,
+            service_name=name,
+            extra_headers=headers,
+            timeout=timeout,
         )
+
+    async def create_signed_service_url(
+        self,
+        name: str,
+        *,
+        label: str | None,
+        expires_in_seconds: int,
+    ) -> Any:
+        assert self._connected, "Transport not connected"
+        return await self._sdk.create_signed_service_url(
+            self._bound,
+            name,
+            label=label,
+            expires_in_seconds=expires_in_seconds,
+        )
+
+    async def list_signed_service_urls(self) -> list[Any]:
+        assert self._connected, "Transport not connected"
+        return await self._sdk.list_signed_service_urls(self._bound)
+
+    async def revoke_signed_service_url(self, signed_service_url: Any) -> None:
+        assert self._connected, "Transport not connected"
+        await self._sdk.revoke_signed_service_url(signed_service_url)
 
     async def _request(
         self,
@@ -106,6 +135,7 @@ class FleetTransport(Transport):
         json_body: Any = None,
         service_name: str | None = None,
         extra_headers: dict[str, str] | None = None,
+        timeout: float | None = None,
     ) -> httpx.Response:
         assert self._connected, "Transport not connected"
         body = None if json_body is None else json.dumps(json_body).encode()
@@ -123,7 +153,7 @@ class FleetTransport(Transport):
                 url=f"https://service.invalid{path}",
                 headers=headers,
                 body=body,
-                timeout_secs=_whole_seconds(self._timeout),
+                timeout_secs=_whole_seconds(self._timeout if timeout is None else timeout),
             ),
         )
         request = httpx.Request(method, f"https://service.invalid{path}")

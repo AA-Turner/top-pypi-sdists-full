@@ -705,6 +705,8 @@ def _scaffold_parser() -> argparse.ArgumentParser:
                    help=i18n.t("cli.help.scaf.form-tree-max-depth"))
     p.add_argument("--no-properties", action="store_true",
                    help=i18n.t("cli.help.scaf.form-tree-no-properties"))
+    p.add_argument("--brief", action="store_true",
+                   help=i18n.t("cli.help.scaf.form-tree-brief"))
 
     p = sub.add_parser("form-edit", help=i18n.t("cli.help.scaf.form-edit"))
     p.add_argument("yaml_path", help=i18n.t("cli.help.scaf.arg.form-yaml"))
@@ -902,18 +904,24 @@ def _scaffold_main(argv: list[str]) -> int:
                     raise ValueError("Укажите только один из флагов --node и --name")
                 depth = args.max_depth if args.max_depth and args.max_depth > 0 else None
                 shape = {"max_depth": depth, "properties": not args.no_properties}
+
+                def as_dict(node):
+                    if args.brief:
+                        return formmodel.node_skeleton(node, max_depth=depth)
+                    return formmodel.node_dict(node, **shape)
+
                 if args.name:
                     found = formmodel.find_by_name(form.root, args.name)
                     if not found:
                         raise ValueError(
                             f"Компонент с именем \"{args.name}\" в форме не найден"
                         )
-                    payload = {"roots": [formmodel.node_dict(n, **shape) for n in found]}
+                    payload = {"roots": [as_dict(n) for n in found]}
                 elif args.node:
                     node = formmodel.get_node(form, args.node)
-                    payload = {"root": formmodel.node_dict(node, **shape)}
+                    payload = {"root": as_dict(node)}
                 else:
-                    payload = {"root": formmodel.node_dict(form.root, **shape)}
+                    payload = {"root": as_dict(form.root)}
             print(json.dumps(payload, ensure_ascii=False))
             return 0
         elif args.command == "form-edit":
@@ -1094,6 +1102,15 @@ def _check_main(argv: list[str]) -> int:
         # answers about one rule (an id, a group or a tier letter) instead of making the
         # reader carry the whole registry to find one line.
         listed = active_rules(select, ignore, enable) if select or ignore else list(RULES)
+        if args.format == "json":
+            # The same records the MCP `list_rules` answers with: a client that needs the
+            # parameters of a rule reads them instead of parsing the prose below, whose
+            # continuation lines are language-dependent and were simply dropped.
+            _emit_report(json.dumps(
+                [r.as_dict() for r in sorted(listed, key=lambda x: (x.tier, x.id))],
+                ensure_ascii=False,
+            ), args.out)
+            return 0
         for r in sorted(listed, key=lambda x: (x.tier, x.id)):
             mark = "   " if r.enabled_by_default else "off"
             print(f"{r.tier} {mark} {r.id:30} {r.severity.value:7} {r.title}")
@@ -1285,6 +1302,11 @@ def _check_main(argv: list[str]) -> int:
                 i18n.t("cli.baseline-summary", suppressed=suppressed, unused=len(stale)),
                 file=sys.stderr,
             )
+            # A count nobody can act on sends people to rewrite the baseline and diff it:
+            # the run names the keys that list and remove the entries it just counted.
+            # Not said when the run already listed them - the answer is above.
+            if stale and not (args.stale_baseline or args.prune_baseline):
+                print(i18n.t("cli.baseline-stale-hint"), file=sys.stderr)
             # Said out loud only when there is something to say: a full run has nothing
             # here, and a line of zeros in every report teaches nobody anything.
             if not_checked:

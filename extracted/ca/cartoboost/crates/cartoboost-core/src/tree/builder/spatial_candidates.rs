@@ -224,7 +224,15 @@ impl TreeBuilder {
             .collect::<Vec<_>>();
         pairs.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         let mut best = None;
-        for window in pairs.windows(2) {
+        let boundaries = pairs
+            .windows(2)
+            .enumerate()
+            .filter(|(_, window)| window[0].0 != window[1].0)
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        for position in bounded_candidate_positions(boundaries.len(), self.max_split_candidates) {
+            let index = boundaries[position];
+            let window = &pairs[index..index + 2];
             let threshold = (window[0].0 + window[1].0) / 2.0;
             if window[0].0 == window[1].0 {
                 continue;
@@ -457,7 +465,16 @@ impl TreeBuilder {
                 .filter(|(distance, _)| distance.is_finite())
                 .collect::<Vec<_>>();
             distances.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-            for window in distances.windows(2) {
+            let boundaries = distances
+                .windows(2)
+                .enumerate()
+                .filter(|(_, window)| window[0].0 != window[1].0)
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>();
+            for position in bounded_candidate_positions(boundaries.len(), self.max_split_candidates)
+            {
+                let index = boundaries[position];
+                let window = &distances[index..index + 2];
                 if window[0].0 == window[1].0 {
                     continue;
                 }

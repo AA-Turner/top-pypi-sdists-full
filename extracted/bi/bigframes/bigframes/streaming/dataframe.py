@@ -325,7 +325,16 @@ class StreamingDataFrame(StreamingBase):
         )
 
         appends_clause = f"APPENDS(TABLE `{original_table}`, {start_ts_str})"
-        sql_str = sql_str.replace(f"`{original_table}`", appends_clause)
+        # SQLGlot compiler wraps a pair of backticks around each part of the
+        # table name, while the Ibis compiler does that for the whole table
+        # name. So we need to check for both cases and replace the correct one.
+        individually_quoted = ".".join(
+            f"`{part}`" for part in original_table.split(".")
+        )
+        if individually_quoted in sql_str:
+            sql_str = sql_str.replace(individually_quoted, appends_clause)
+        else:
+            sql_str = sql_str.replace(f"`{original_table}`", appends_clause)
         return sql_str
 
     @property
@@ -449,14 +458,13 @@ def _to_bigtable(
 
     # override continuous http parameter
     job_config = bigquery.job.QueryJobConfig()
-
-    job_config_dict: dict = {"query": {"continuous": True}}
+    job_config_filled = job_config.from_api_repr({"query": {"continuous": True}})
     if service_account_email is not None:
-        job_config_dict["query"]["connectionProperties"] = {
-            "key": "service_account",
-            "value": service_account_email,
-        }
-    job_config_filled = job_config.from_api_repr(job_config_dict)
+        job_config_filled.connection_properties = [
+            bigquery.ConnectionProperty(
+                key="service_account", value=service_account_email
+            )
+        ]
     job_config_filled.labels = {"bigframes-api": "streaming_to_bigtable"}
 
     # begin the query job
@@ -547,17 +555,13 @@ def _to_pubsub(
 
     # override continuous http parameter
     job_config = bigquery.job.QueryJobConfig()
-    job_config_filled = job_config.from_api_repr(
-        {
-            "query": {
-                "continuous": True,
-                "connectionProperties": {
-                    "key": "service_account",
-                    "value": service_account_email,
-                },
-            }
-        }
-    )
+    job_config_filled = job_config.from_api_repr({"query": {"continuous": True}})
+    if service_account_email is not None:
+        job_config_filled.connection_properties = [
+            bigquery.ConnectionProperty(
+                key="service_account", value=service_account_email
+            )
+        ]
     job_config_filled.labels = {"bigframes-api": "streaming_to_pubsub"}
 
     # begin the query job

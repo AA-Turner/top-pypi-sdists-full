@@ -142,6 +142,15 @@ impl ast::Type {
     }
 }
 
+impl ast::Arg {
+    pub fn expr(&self) -> Option<ast::Expr> {
+        match self.func_arg_expr()? {
+            ast::FuncArgExpr::Expr(expr) => Some(expr),
+            ast::FuncArgExpr::NamedArg(_) => None,
+        }
+    }
+}
+
 impl ast::CastExpr {
     pub fn kind(&self) -> Option<CastKind> {
         if self.cast_token().is_some() {
@@ -224,6 +233,24 @@ impl ast::CreateSchema {
     }
 }
 
+impl ast::AlterSetStatistics {
+    pub fn literal(&self) -> Option<ast::Literal> {
+        match self.expr()? {
+            ast::Expr::Literal(literal) => Some(literal),
+            _ => None,
+        }
+    }
+}
+
+impl ast::Restart {
+    pub fn literal(&self) -> Option<ast::Literal> {
+        match self.expr()? {
+            ast::Expr::Literal(literal) => Some(literal),
+            _ => None,
+        }
+    }
+}
+
 impl ast::FromItem {
     pub fn alias(&self) -> Option<ast::FromAlias> {
         match self {
@@ -244,6 +271,38 @@ impl ast::FromItem {
             ast::FromItem::RowsFromItem(it) => it.with_ordinality(),
             _ => None,
         }
+    }
+}
+
+impl ast::RowList {
+    pub fn trailing_comma_token(&self) -> Option<SyntaxToken> {
+        self.syntax()
+            .last_token()
+            .filter(|token| token.kind() == SyntaxKind::COMMA)
+    }
+}
+
+impl ast::TableAndColumnsList {
+    pub fn trailing_comma_token(&self) -> Option<SyntaxToken> {
+        self.syntax()
+            .last_token()
+            .filter(|token| token.kind() == SyntaxKind::COMMA)
+    }
+}
+
+impl ast::GroupByList {
+    pub fn trailing_comma_token(&self) -> Option<SyntaxToken> {
+        self.syntax()
+            .last_token()
+            .filter(|token| token.kind() == SyntaxKind::COMMA)
+    }
+}
+
+impl ast::SortByList {
+    pub fn trailing_comma_token(&self) -> Option<SyntaxToken> {
+        self.syntax()
+            .last_token()
+            .filter(|token| token.kind() == SyntaxKind::COMMA)
     }
 }
 
@@ -741,7 +800,7 @@ impl ast::NameRef {
 
     #[inline]
     pub fn is_quoted(&self) -> bool {
-        is_quoted(self.syntax())
+        is_quoted_name_node(self.syntax())
     }
 }
 
@@ -753,7 +812,7 @@ impl ast::ColumnName {
 
     #[inline]
     pub fn is_quoted(&self) -> bool {
-        is_quoted(self.syntax())
+        is_quoted_name_node(self.syntax())
     }
 }
 
@@ -765,7 +824,7 @@ impl ast::PathSegment {
 
     #[inline]
     pub fn is_quoted(&self) -> bool {
-        is_quoted(self.syntax())
+        is_quoted_name_node(self.syntax())
     }
 }
 
@@ -777,11 +836,11 @@ impl ast::PathSegmentRef {
 
     #[inline]
     pub fn is_quoted(&self) -> bool {
-        is_quoted(self.syntax())
+        is_quoted_name_node(self.syntax())
     }
 }
 
-fn is_quoted(node: &SyntaxNode) -> bool {
+pub fn is_quoted_name_node(node: &SyntaxNode) -> bool {
     let text = node.text();
     let first = text.char_at(0.into());
     let second = text.char_at(1.into());
@@ -803,9 +862,7 @@ pub fn normalize_name_node(node: &SyntaxNode) -> String {
     };
     // Support some deprecated syntax where you can plop a `group` keyword
     // before a role name.
-    if matches!(node.kind(), SyntaxKind::ROLE | SyntaxKind::ROLE_REF)
-        && ident_token.kind() == SyntaxKind::GROUP_KW
-    {
+    if node.kind() == SyntaxKind::ROLE_REF && ident_token.kind() == SyntaxKind::GROUP_KW {
         let Some(role_name) = tokens.next() else {
             return String::new();
         };
@@ -1396,7 +1453,7 @@ where
 
     #[inline]
     fn is_quoted(&self) -> bool {
-        is_quoted(self.syntax())
+        is_quoted_name_node(self.syntax())
     }
 }
 

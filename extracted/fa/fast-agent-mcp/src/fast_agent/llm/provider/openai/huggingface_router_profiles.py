@@ -225,6 +225,7 @@ class HuggingFaceRouteProfile:
     reasoning: HuggingFaceReasoningProfile | None = None
     structured_json_mode: Literal["schema", "object"] | None = None
     omit_default_max_tokens: bool = False
+    max_output_tokens: int | None = None
     prompt_context_window: int | None = None
 
 
@@ -273,13 +274,22 @@ HUGGINGFACE_ROUTE_PROFILES = RouterProfileRegistry(
     (
         RouterProfileRule(
             model=_DEEPSEEK_V4_FLASH,
-            backends=frozenset(
-                {
-                    "baseten",
-                    "deepinfra",
-                    HUGGINGFACE_CUSTOM_ENDPOINT_BACKEND,
-                }
+            backends=frozenset({"baseten"}),
+            profile=HuggingFaceRouteProfile(
+                reasoning=_DEEPSEEK_REASONING,
+                max_output_tokens=384_000,
             ),
+        ),
+        RouterProfileRule(
+            model=_DEEPSEEK_V4_FLASH,
+            backends=frozenset({"scaleway"}),
+            profile=HuggingFaceRouteProfile(
+                reasoning=_DEEPSEEK_REASONING,
+                max_output_tokens=32_768,
+            ),
+        ),
+        RouterProfileRule(
+            model=_DEEPSEEK_V4_FLASH,
             profile=HuggingFaceRouteProfile(reasoning=_DEEPSEEK_REASONING),
         ),
         RouterProfileRule(
@@ -295,6 +305,14 @@ HUGGINGFACE_ROUTE_PROFILES = RouterProfileRegistry(
         RouterProfileRule(
             model=_GLM_52,
             profile=HuggingFaceRouteProfile(reasoning=_GLM_52_REASONING),
+        ),
+        RouterProfileRule(
+            model="zai-org/glm-5.3",
+            profile=HuggingFaceRouteProfile(reasoning=ThinkingWithReasoningEffort()),
+        ),
+        RouterProfileRule(
+            model="zai-org/glm-5.3-flash",
+            profile=HuggingFaceRouteProfile(reasoning=ThinkingWithReasoningEffort()),
         ),
         RouterProfileRule(
             model=_KIMI_K3,

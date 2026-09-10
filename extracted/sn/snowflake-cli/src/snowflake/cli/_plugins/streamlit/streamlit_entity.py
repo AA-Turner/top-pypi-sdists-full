@@ -11,6 +11,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
+    WAREHOUSE_RUNTIME_NAME,
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
@@ -25,6 +26,7 @@ from snowflake.cli.api.project.util import (
     to_identifier,
     to_string_literal,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -33,6 +35,8 @@ log = logging.getLogger(__name__)
 # Snowflake errno / SQLSTATE for "live version already exists" (same codes as
 # SnowflakeAppManager.ensure_workspace_live_version).
 _LIVE_VERSION_EXISTS_ERRNO = 99106
+_SPCS_CONTAINER_RUNTIME_PREFIX = "SYSTEM$ST_CONTAINER_RUNTIME"
+_RESTART_STREAMLIT_FUNCTION = "SYSTEM$RESTART_STREAMLIT"
 
 
 def _is_live_version_already_exists_error(exc: ProgrammingError) -> bool:
@@ -47,6 +51,19 @@ def _is_live_version_already_exists_error(exc: ProgrammingError) -> bool:
     ):
         return True
     return "There is already a live version" in error_text
+
+
+def _describe_row_is_spcs_v2(current: Dict[str, Any]) -> bool:
+    """True when DESCRIBE says the live object is an SPCS container runtime.
+
+    Uses the live row, not snowflake.yml: a content-only project file can omit
+    ``runtime_name`` while the object already runs on
+    ``SYSTEM$ST_CONTAINER_RUNTIME_*``. Prefix-match so later Python runtimes
+    still restart. Warehouse runtimes copy source per viewer and do not keep a
+    process-global ``ScriptCache``, so they do not need a restart.
+    """
+    runtime = (current.get("runtime_name") or "").strip().upper()
+    return runtime.startswith(_SPCS_CONTAINER_RUNTIME_PREFIX)
 
 
 class _TagRef(NamedTuple):
@@ -143,10 +160,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
-    def _is_spcs_runtime_v2_mode(self) -> bool:
-        """Check if SPCS runtime v2 mode is enabled."""
+    def _compute_pool_applies(self) -> bool:
+        """Whether COMPUTE_POOL is meaningful for the configured runtime.
+
+        Snowflake ignores COMPUTE_POOL when RUNTIME_NAME is the warehouse runtime,
+        so the clause is left out rather than sent and discarded.
+        """
         return (
-            self.model.runtime_name == SPCS_RUNTIME_V2_NAME and self.model.compute_pool
+            bool(self.model.compute_pool)
+            and self.model.runtime_name != WAREHOUSE_RUNTIME_NAME
         )
 
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
@@ -193,11 +215,32 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
-        if legacy and self._is_spcs_runtime_v2_mode():
+        if legacy and self.model.runtime_name == SPCS_RUNTIME_V2_NAME:
+            # A legacy ROOT_LOCATION deployment cannot carry RUNTIME_NAME at all, so
+            # this would silently produce a warehouse-backed app. That is a materially
+            # different app from the one requested, hence an error rather than a warning.
             raise CliError(
-                "runtime_name and compute_pool are not compatible with --legacy flag. "
-                "Please remove the --legacy flag to use versioned deployment, or remove "
-                "runtime_name and compute_pool from your snowflake.yml to use legacy deployment."
+                f"runtime_name {SPCS_RUNTIME_V2_NAME} is not compatible with the "
+                "--legacy flag, which cannot set RUNTIME_NAME. Remove --legacy to use "
+                "versioned deployment, or remove runtime_name and compute_pool from "
+                "your snowflake.yml to use legacy deployment."
+            )
+        elif legacy and self.model.runtime_name:
+            # Dropping the warehouse runtime is closer to a no-op, since a legacy app
+            # is warehouse-backed anyway, so this warns instead of failing. Staying
+            # silent is the failure this deploy path is otherwise fixing.
+            console.warning(
+                f"runtime_name {self.model.runtime_name} is ignored for --legacy "
+                "deployments, which cannot set RUNTIME_NAME. Remove --legacy to deploy "
+                "on the requested runtime."
+            )
+
+        if self.model.compute_pool and not self._compute_pool_applies():
+            console.warning(
+                f"compute_pool {sanitize_for_terminal(self.model.compute_pool)} is "
+                f"ignored because runtime_name is {self.model.runtime_name}, which does "
+                "not run on a compute pool. Remove compute_pool, or set runtime_name "
+                f"to {SPCS_RUNTIME_V2_NAME}."
             )
 
         # Warn if replacing with a different deployment style
@@ -246,6 +289,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     ):
         # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
         return f"ALTER STREAMLIT {self._get_identifier(schema, database)} ADD LIVE VERSION FROM LAST;"
+
+    def get_restart_sql(self) -> str:
+        """Return the restart CALL with the identifier left as a bind placeholder.
+
+        The identifier is bound rather than quoted into the SQL text, matching
+        ``SYSTEM$GET_APPLICATION_SERVICE_LOGS`` in apps/manager.py and
+        ``SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN`` in log_streaming.py. Qmark
+        style because :meth:`SqlExecutor.execute_query_with_params` forces it.
+        """
+        return f"CALL {_RESTART_STREAMLIT_FUNCTION}(?);"
 
     def get_alter_sql(
         self,
@@ -323,15 +376,32 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             if desired_secrets and (not current or cur_secrets != desired_secrets):
                 clauses.append(self.model.get_secrets_sql())
 
-        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            if not current or _id(cur.get("runtime_name")) != _id(
-                self.model.runtime_name
-            ):
+        if not from_stage_name and not legacy:
+            runtime_changing = bool(self.model.runtime_name) and (
+                not current
+                or _id(cur.get("runtime_name")) != _id(self.model.runtime_name)
+            )
+            if runtime_changing:
                 clauses.append(
                     f"RUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
                 )
-            if not current or _id(cur.get("compute_pool")) != _id(
-                self.model.compute_pool
+                live_runtime = cur.get("runtime_name")
+                if live_runtime:
+                    # Moving a running app between runtimes changes how it executes,
+                    # which is a bigger deal than the rest of this property diff. Name
+                    # it when it happens; the release note is not in front of the user
+                    # at the moment of the deploy.
+                    self._workspace_ctx.console.warning(
+                        f"Moving Streamlit {self.model.fqn.sql_identifier} from runtime "
+                        f"{sanitize_for_terminal(str(live_runtime))} to "
+                        f"{self.model.runtime_name}. This changes how the app runs."
+                    )
+            # A pool left attached to an app moved onto the warehouse runtime needs no
+            # handling here: there is no UNSET path for COMPUTE_POOL, but Snowflake
+            # ignores the property for that runtime, so the leftover is inert.
+            if self._compute_pool_applies() and (
+                not current
+                or _id(cur.get("compute_pool")) != _id(self.model.compute_pool)
             ):
                 clauses.append(
                     f"COMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
@@ -445,11 +515,18 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
 
-        # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
+        # Runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
         # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
-        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            query += f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
-            query += f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
+        # Each field is gated on itself so neither can be dropped because of the other.
+        if not from_stage_name and not legacy:
+            if self.model.runtime_name:
+                query += (
+                    f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
+                )
+            if self._compute_pool_applies():
+                query += (
+                    f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
+                )
 
         if self.model.tags:
             query += f"\n{Tag.to_sql_clause(self.model.tags)}"
@@ -570,6 +647,24 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
         return stage_root
 
+    def _restart_running_app(self) -> None:
+        """Bounce the SPCS service so uploaded files replace cached bytecode.
+
+        A content-only ``--replace`` no longer issues ``CREATE OR REPLACE``, so
+        the SPCS process survives. Streamlit's ``ScriptCache`` is process-global
+        and is only cleared by a live browser watcher; without a restart the
+        container keeps serving what it already compiled. First create and
+        ``CREATE OR REPLACE`` conversion skip this — they start a new process.
+        """
+        console = self._workspace_ctx.console
+        identifier = self._get_identifier()
+        restart_sql = self.get_restart_sql()
+        console.step(
+            f"Restarting Streamlit app {sanitize_for_terminal(identifier)} "
+            "so the new files take effect"
+        )
+        self._sql_executor.execute_query_with_params(restart_sql, (identifier,))
+
     def _deploy_versioned(
         self,
         bundle_map: BundleMap,
@@ -577,6 +672,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         prune: bool = False,
         object_exists: bool = False,
     ):
+        restart_after_upload = False
         if object_exists:
             current = self.describe().fetchone() or {}
             stage_root = current.get("live_version_location_uri")
@@ -598,6 +694,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 if alter_sql:
                     self._execute_query(alter_sql)
                 self._sync_tags()
+                # DESCRIBE, not snowflake.yml: a content-only project can omit
+                # runtime_name while the live object is already SPCS v2.
+                restart_after_upload = _describe_row_is_spcs_v2(current)
         else:
             self._execute_query(
                 self.get_deploy_sql(
@@ -609,7 +708,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             stage_root = self._ensure_live_version_location_uri()
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
-        sync_deploy_root_with_stage(
+        diff = sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
             deploy_root=bundle_map.deploy_root(),
             bundle_map=bundle_map,
@@ -621,3 +720,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
+        # Property-only ALTER does not clear ScriptCache. Skip when the stage
+        # already matches (no-op --replace / CI with unchanged artifacts).
+        if restart_after_upload and diff.has_changes():
+            self._restart_running_app()

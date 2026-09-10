@@ -14,6 +14,7 @@
 # under the License.
 
 import binascii
+import errno
 import logging
 import socket
 import struct
@@ -107,14 +108,19 @@ class KmipSession(threading.Thread):
             while True:
                 try:
                     self._handle_message_loop()
-                except exceptions.ConnectionClosed as e:
+                except exceptions.ConnectionClosed:
                     break
                 except Exception as e:
                     self._logger.info("Failure handling message loop")
                     self._logger.exception(e)
 
-        self._connection.shutdown(socket.SHUT_RDWR)
-        self._connection.close()
+        try:
+            self._connection.shutdown(socket.SHUT_RDWR)
+        except OSError as e:
+            if e.errno != errno.ENOTCONN:
+                raise
+        finally:
+            self._connection.close()
         self._logger.info("Stopping session: {0}".format(self.name))
 
     def _handle_message_loop(self):
@@ -127,7 +133,8 @@ class KmipSession(threading.Thread):
         )
 
         try:
-            if hasattr(self._connection, 'shared_ciphers'):
+            if (hasattr(self._connection, 'shared_ciphers')
+                    and self._connection.shared_ciphers() is not None):
                 shared_ciphers = self._connection.shared_ciphers()
                 self._logger.debug(
                     "Possible session ciphers: {0}".format(len(shared_ciphers))

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: elasticsearch9
-Version: 9.5.0
+Version: 9.5.1
 Summary: Python client for Elasticsearch
 Project-URL: Documentation, https://elasticsearch9-py.readthedocs.io/
 Project-URL: Homepage, https://github.com/elastic/elasticsearch9-py

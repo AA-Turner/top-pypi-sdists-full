@@ -14,6 +14,19 @@ Public API:
 """
 
 from agentic_devtools.cli.ci.ado_provider import AzureDevOpsProvider
+from agentic_devtools.cli.ci.dispatch_state import (
+    MAX_DISPATCHES_PER_SHA,
+    DispatchIdentity,
+    DispatchKey,
+    DispatchRecord,
+    DispatchState,
+    create_intent,
+    load_dispatch_record,
+    save_dispatch_record_atomic,
+    transition_dispatch,
+    transition_record,
+    validate_dispatch_record,
+)
 from agentic_devtools.cli.ci.exceptions import (
     MalformedEventError,
     ProviderRateLimitError,
@@ -42,6 +55,10 @@ __all__ = [
     "AzureDevOpsProvider",
     "CIPlatformProvider",
     "CheckRunStatus",
+    "DispatchIdentity",
+    "DispatchKey",
+    "DispatchRecord",
+    "DispatchState",
     "EventPayload",
     "GitHubActionsProvider",
     "MalformedEventError",
@@ -56,6 +73,13 @@ __all__ = [
     "check_exclusion_labels",
     "check_fork_pr",
     "check_privileged_paths",
+    "create_intent",
+    "load_dispatch_record",
+    "MAX_DISPATCHES_PER_SHA",
     "retry_with_backoff",
     "run_ai_pr_loop_v2",
+    "save_dispatch_record_atomic",
+    "transition_dispatch",
+    "transition_record",
+    "validate_dispatch_record",
 ]

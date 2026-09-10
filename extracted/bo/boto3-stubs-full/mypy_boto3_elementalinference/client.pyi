@@ -36,6 +36,7 @@ from .type_defs import (
     CreateFeedResponseTypeDef,
     DeleteDictionaryRequestTypeDef,
     DeleteDictionaryResponseTypeDef,
+    DeleteFeedPolicyRequestTypeDef,
     DeleteFeedRequestTypeDef,
     DeleteFeedResponseTypeDef,
     DisassociateFeedRequestTypeDef,
@@ -45,6 +46,8 @@ from .type_defs import (
     ExportDictionaryEntriesResponseTypeDef,
     GetDictionaryRequestTypeDef,
     GetDictionaryResponseTypeDef,
+    GetFeedPolicyRequestTypeDef,
+    GetFeedPolicyResponseTypeDef,
     GetFeedRequestTypeDef,
     GetFeedResponseTypeDef,
     GetFixtureRequestTypeDef,
@@ -55,6 +58,7 @@ from .type_defs import (
     ListFeedsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutFeedPolicyRequestTypeDef,
     SearchFixturesRequestTypeDef,
     SearchFixturesResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -166,6 +170,16 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#delete_feed)
         """
 
+    def delete_feed_policy(
+        self, **kwargs: Unpack[DeleteFeedPolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the resource-based policy attached to the specified feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_feed_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#delete_feed_policy)
+        """
+
     def disassociate_feed(
         self, **kwargs: Unpack[DisassociateFeedRequestTypeDef]
     ) -> DisassociateFeedResponseTypeDef:
@@ -204,6 +218,16 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_feed)
         """
 
+    def get_feed_policy(
+        self, **kwargs: Unpack[GetFeedPolicyRequestTypeDef]
+    ) -> GetFeedPolicyResponseTypeDef:
+        """
+        Retrieves the resource-based policy attached to the specified feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_feed_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_feed_policy)
+        """
+
     def get_fixture(self, **kwargs: Unpack[GetFixtureRequestTypeDef]) -> GetFixtureResponseTypeDef:
         """
         Retrieves information about the specified fixture (a sports event, such as a
@@ -239,6 +263,14 @@ class ElementalInferenceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_tags_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#list_tags_for_resource)
+        """
+
+    def put_feed_policy(self, **kwargs: Unpack[PutFeedPolicyRequestTypeDef]) -> dict[str, Any]:
+        """
+        Attaches or replaces a resource-based policy on the specified feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/put_feed_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#put_feed_policy)
         """
 
     def search_fixtures(

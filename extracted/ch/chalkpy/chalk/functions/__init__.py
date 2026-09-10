@@ -2396,7 +2396,6 @@ def json_value(expr: Underscore, path: Union[str, Underscore]):
     ...    content: str
     ...    sender: str
     ...    comments: List[str]
-    ...
     >>> @features
     ... class User:
     ...    id: str
@@ -2488,6 +2487,91 @@ def jsonify(expr: Underscore):
     """
 
     return UnderscoreFunction("jsonify", expr)
+
+
+def json_parse(expr: Underscore) -> Underscore:
+    """
+    Converts a string-valued expression into a json-valued expression by parsing it.
+    Missing string inputs (`null`) become missing JSON outputs; this is different from
+    holding the `null` JSON value.
+
+    This function raises a fatal exception if the input is a string containing invalid JSON.
+
+    To convert a JSON value back into a string, use `json_stringify`.
+
+    Parameters
+    ----------
+    expr
+        The expression containing a string value to parse.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    profile_stats_encoded: str
+    ...    profile_stats: JSON = F.json_parse(_.profile_stats_encoded)
+    """
+    return UnderscoreFunction("json_parse", expr)
+
+
+def json_stringify(expr: Underscore) -> Underscore:
+    """
+    Converts a JSON-valued expression into the corresponding encoded string.
+
+    To parse the returned string value back into a JSON value, use `json_parse`.
+
+    A null input will produce a null output.
+    An input containing the `null` JSON value will produce the string `"null"` as output.
+
+    Parameters
+    ----------
+    expr
+        The expression containing a JSON value to be converted back to a string.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    profile_stats: JSON
+    ...    profile_stats_encoded: str = F.json_stringify(_.profile_stats_encoded)
+    """
+
+    return UnderscoreFunction("json_stringify", expr)
+
+
+def json_format(expr: Underscore) -> Underscore:
+    """
+    Converts a JSON-valued expression into the corresponding encoded string.
+    This is an alias for `json_stringify`.
+
+    To parse the returned string value back into a JSON value, use `json_parse`.
+
+    A null input will produce a null output.
+    An input containing the `null` JSON value will produce the string `"null"` as output.
+
+    Parameters
+    ----------
+    expr
+        The expression containing a JSON value to be converted back to a string.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    profile_stats: JSON
+    ...    profile_stats_encoded: str = F.json_stringify(_.profile_stats_encoded)
+    """
+
+    return json_stringify(expr)
 
 
 def gunzip(expr: Underscore):
@@ -8827,6 +8911,9 @@ __all__ = (
     "json_value",
     "json_value_strict",
     "jsonify",
+    "json_parse",
+    "json_format",
+    "json_stringify",
     "last_day_of_month",
     "least",
     "length",

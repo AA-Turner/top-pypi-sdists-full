@@ -140,8 +140,8 @@ class CancelationCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 class MountMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     MOUNT_MODE_UNSPECIFIED: _ClassVar[MountMode]
-    MOUNT_MODE_READ: _ClassVar[MountMode]
-    MOUNT_MODE_WRITE: _ClassVar[MountMode]
+    MOUNT_MODE_READ_ONLY: _ClassVar[MountMode]
+    MOUNT_MODE_READ_WRITE: _ClassVar[MountMode]
 
 class JobPlacementConstraintType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -291,8 +291,8 @@ CANCELATION_CODE_HEALTHCHECK_FAILED: CancelationCode
 CANCELATION_CODE_SIBLING_TASK_RETRY: CancelationCode
 CANCELATION_CODE_NODE_UNHEALTHY: CancelationCode
 MOUNT_MODE_UNSPECIFIED: MountMode
-MOUNT_MODE_READ: MountMode
-MOUNT_MODE_WRITE: MountMode
+MOUNT_MODE_READ_ONLY: MountMode
+MOUNT_MODE_READ_WRITE: MountMode
 JOB_PLACEMENT_CONSTRAINT_TYPE_UNSPECIFIED: JobPlacementConstraintType
 JOB_PLACEMENT_CONSTRAINT_TYPE_CLUSTER: JobPlacementConstraintType
 JOB_PLACEMENT_CONSTRAINT_TYPE_HOSTNAME: JobPlacementConstraintType
@@ -536,7 +536,7 @@ class CloudClusterDetails(_message.Message):
     def __init__(self, status: _Optional[_Union[CloudClusterStatus, str]] = ..., validated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status_message: _Optional[str] = ..., capacity: _Optional[int] = ..., node_cost: _Optional[float] = ..., preemptible_nodes: bool = ..., compute_source: _Optional[str] = ..., node_request: _Optional[_Union[NodeRequest, _Mapping]] = ...) -> None: ...
 
 class ClusterSchedulerPolicy(_message.Message):
-    __slots__ = ("admission_policy", "max_session_timeout", "max_task_timeout", "allow_unallocated_restriction_exceptions", "min_runtime_lower_bound", "min_runtime_upper_bound", "enforce_allocation_slot_limits", "sort", "backfill", "interruptible_after_min_runtime", "usage_window", "require_covering_allocation")
+    __slots__ = ("admission_policy", "max_session_timeout", "max_task_timeout", "allow_unallocated_restriction_exceptions", "min_runtime_lower_bound", "min_runtime_upper_bound", "enforce_allocation_slot_limits", "sort", "backfill", "interruptible_after_min_runtime", "usage_window", "require_covering_allocation", "require_resource_request")
     class Backfill(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         BACKFILL_UNSPECIFIED: _ClassVar[ClusterSchedulerPolicy.Backfill]
@@ -636,6 +636,7 @@ class ClusterSchedulerPolicy(_message.Message):
     INTERRUPTIBLE_AFTER_MIN_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     USAGE_WINDOW_FIELD_NUMBER: _ClassVar[int]
     REQUIRE_COVERING_ALLOCATION_FIELD_NUMBER: _ClassVar[int]
+    REQUIRE_RESOURCE_REQUEST_FIELD_NUMBER: _ClassVar[int]
     admission_policy: ClusterSchedulingPolicy
     max_session_timeout: _duration_pb2.Duration
     max_task_timeout: _duration_pb2.Duration
@@ -648,7 +649,8 @@ class ClusterSchedulerPolicy(_message.Message):
     interruptible_after_min_runtime: bool
     usage_window: ClusterSchedulerPolicy.UsageWindow
     require_covering_allocation: bool
-    def __init__(self, admission_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., allow_unallocated_restriction_exceptions: bool = ..., min_runtime_lower_bound: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., min_runtime_upper_bound: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., enforce_allocation_slot_limits: bool = ..., sort: _Optional[_Union[ClusterSchedulerPolicy.Sort, _Mapping]] = ..., backfill: _Optional[_Union[ClusterSchedulerPolicy.Backfill, str]] = ..., interruptible_after_min_runtime: bool = ..., usage_window: _Optional[_Union[ClusterSchedulerPolicy.UsageWindow, _Mapping]] = ..., require_covering_allocation: bool = ...) -> None: ...
+    require_resource_request: bool
+    def __init__(self, admission_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., allow_unallocated_restriction_exceptions: bool = ..., min_runtime_lower_bound: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., min_runtime_upper_bound: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., enforce_allocation_slot_limits: bool = ..., sort: _Optional[_Union[ClusterSchedulerPolicy.Sort, _Mapping]] = ..., backfill: _Optional[_Union[ClusterSchedulerPolicy.Backfill, str]] = ..., interruptible_after_min_runtime: bool = ..., usage_window: _Optional[_Union[ClusterSchedulerPolicy.UsageWindow, _Mapping]] = ..., require_covering_allocation: bool = ..., require_resource_request: bool = ...) -> None: ...
 
 class Cluster(_message.Message):
     __slots__ = ("id", "created", "name", "organization_id", "on_premise_details", "cloud_details", "node_shape", "max_session_timeout", "user_restrictions", "allow_preemptible_restriction_exceptions", "organization_name", "cluster_occupancy", "node_count", "scheduling_policy", "max_task_timeout", "cluster_job_queue_size", "aliases", "tags", "budget_restrictions", "expected_node_count", "tenant_orgs", "scheduler_policy")
@@ -965,20 +967,24 @@ class EnvironmentVariable(_message.Message):
     def __init__(self, name: _Optional[str] = ..., literal: _Optional[str] = ..., secret_reference: _Optional[str] = ...) -> None: ...
 
 class Mount(_message.Message):
-    __slots__ = ("mount_path", "sub_path", "dataset_id", "host_path", "secret_reference", "weka")
+    __slots__ = ("mount_path", "sub_path", "dataset_id", "host_path", "secret_reference", "weka", "volume_id", "mode")
     MOUNT_PATH_FIELD_NUMBER: _ClassVar[int]
     SUB_PATH_FIELD_NUMBER: _ClassVar[int]
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     HOST_PATH_FIELD_NUMBER: _ClassVar[int]
     SECRET_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     WEKA_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
     mount_path: str
     sub_path: str
     dataset_id: str
     host_path: str
     secret_reference: str
     weka: str
-    def __init__(self, mount_path: _Optional[str] = ..., sub_path: _Optional[str] = ..., dataset_id: _Optional[str] = ..., host_path: _Optional[str] = ..., secret_reference: _Optional[str] = ..., weka: _Optional[str] = ...) -> None: ...
+    volume_id: str
+    mode: MountMode
+    def __init__(self, mount_path: _Optional[str] = ..., sub_path: _Optional[str] = ..., dataset_id: _Optional[str] = ..., host_path: _Optional[str] = ..., secret_reference: _Optional[str] = ..., weka: _Optional[str] = ..., volume_id: _Optional[str] = ..., mode: _Optional[_Union[MountMode, str]] = ...) -> None: ...
 
 class JobPlacementConstraint(_message.Message):
     __slots__ = ("type", "values")
@@ -1309,18 +1315,18 @@ class Secret(_message.Message):
     def __init__(self, name: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., updated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., author_id: _Optional[str] = ...) -> None: ...
 
 class VolumeClaim(_message.Message):
-    __slots__ = ("workspace_id", "volume", "created", "author_id", "mode")
+    __slots__ = ("workspace_id", "volume", "created", "author", "mode")
     WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
     VOLUME_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
-    AUTHOR_ID_FIELD_NUMBER: _ClassVar[int]
+    AUTHOR_FIELD_NUMBER: _ClassVar[int]
     MODE_FIELD_NUMBER: _ClassVar[int]
     workspace_id: str
-    volume: str
+    volume: Reference
     created: _timestamp_pb2.Timestamp
-    author_id: str
+    author: Reference
     mode: MountMode
-    def __init__(self, workspace_id: _Optional[str] = ..., volume: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., author_id: _Optional[str] = ..., mode: _Optional[_Union[MountMode, str]] = ...) -> None: ...
+    def __init__(self, workspace_id: _Optional[str] = ..., volume: _Optional[_Union[Reference, _Mapping]] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., author: _Optional[_Union[Reference, _Mapping]] = ..., mode: _Optional[_Union[MountMode, str]] = ...) -> None: ...
 
 class Dataset(_message.Message):
     __slots__ = ("id", "name", "full_name", "author_id", "workspace_id", "created", "committed", "description", "source_execution", "budget_id")
@@ -2823,16 +2829,28 @@ class ScheduleJobsResponse(_message.Message):
 class ListClusterUsageRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class Opts(_message.Message):
-        __slots__ = ("organization_id", "window", "page_size", "bucket_hours")
-        ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+        __slots__ = ("cluster_owner_organization_id", "cluster_id", "window", "page_size", "bucket_hours", "organization_id", "budget_id", "workspace_group_id", "workspace_id", "allocated")
+        CLUSTER_OWNER_ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+        CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
         WINDOW_FIELD_NUMBER: _ClassVar[int]
         PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
         BUCKET_HOURS_FIELD_NUMBER: _ClassVar[int]
-        organization_id: str
+        ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+        BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+        ALLOCATED_FIELD_NUMBER: _ClassVar[int]
+        cluster_owner_organization_id: str
+        cluster_id: str
         window: Interval
         page_size: int
         bucket_hours: int
-        def __init__(self, organization_id: _Optional[str] = ..., window: _Optional[_Union[Interval, _Mapping]] = ..., page_size: _Optional[int] = ..., bucket_hours: _Optional[int] = ...) -> None: ...
+        organization_id: str
+        budget_id: str
+        workspace_group_id: str
+        workspace_id: str
+        allocated: bool
+        def __init__(self, cluster_owner_organization_id: _Optional[str] = ..., cluster_id: _Optional[str] = ..., window: _Optional[_Union[Interval, _Mapping]] = ..., page_size: _Optional[int] = ..., bucket_hours: _Optional[int] = ..., organization_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., allocated: bool = ...) -> None: ...
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     next_page_token: str
@@ -2840,7 +2858,7 @@ class ListClusterUsageRequest(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListClusterUsageRequest.Opts, _Mapping]] = ...) -> None: ...
 
 class ClusterUsageBucket(_message.Message):
-    __slots__ = ("bucket_start", "bucket_end", "cluster_id", "budget_id", "workspace_group_id", "workspace_id", "allocated", "gpu_seconds", "cpu_seconds", "interruptible")
+    __slots__ = ("bucket_start", "bucket_end", "cluster_id", "budget_id", "workspace_group_id", "workspace_id", "allocated", "gpu_seconds", "cpu_seconds", "interruptible", "organization_id")
     BUCKET_START_FIELD_NUMBER: _ClassVar[int]
     BUCKET_END_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -2851,6 +2869,7 @@ class ClusterUsageBucket(_message.Message):
     GPU_SECONDS_FIELD_NUMBER: _ClassVar[int]
     CPU_SECONDS_FIELD_NUMBER: _ClassVar[int]
     INTERRUPTIBLE_FIELD_NUMBER: _ClassVar[int]
+    ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
     bucket_start: _timestamp_pb2.Timestamp
     bucket_end: _timestamp_pb2.Timestamp
     cluster_id: str
@@ -2861,7 +2880,8 @@ class ClusterUsageBucket(_message.Message):
     gpu_seconds: int
     cpu_seconds: float
     interruptible: bool
-    def __init__(self, bucket_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., bucket_end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cluster_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., allocated: bool = ..., gpu_seconds: _Optional[int] = ..., cpu_seconds: _Optional[float] = ..., interruptible: bool = ...) -> None: ...
+    organization_id: str
+    def __init__(self, bucket_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., bucket_end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cluster_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., allocated: bool = ..., gpu_seconds: _Optional[int] = ..., cpu_seconds: _Optional[float] = ..., interruptible: bool = ..., organization_id: _Optional[str] = ...) -> None: ...
 
 class ListClusterUsageResponse(_message.Message):
     __slots__ = ("buckets", "next_page_token")
@@ -3210,12 +3230,12 @@ class ListSecretsResponse(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., secrets: _Optional[_Iterable[_Union[Secret, _Mapping]]] = ...) -> None: ...
 
 class GetVolumeClaimRequest(_message.Message):
-    __slots__ = ("workspace_id", "volume")
+    __slots__ = ("workspace_id", "volume_id")
     WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
-    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
     workspace_id: str
-    volume: str
-    def __init__(self, workspace_id: _Optional[str] = ..., volume: _Optional[str] = ...) -> None: ...
+    volume_id: str
+    def __init__(self, workspace_id: _Optional[str] = ..., volume_id: _Optional[str] = ...) -> None: ...
 
 class GetVolumeClaimResponse(_message.Message):
     __slots__ = ("volume_claim",)
@@ -3256,14 +3276,14 @@ class ListVolumeClaimsResponse(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., volume_claims: _Optional[_Iterable[_Union[VolumeClaim, _Mapping]]] = ...) -> None: ...
 
 class CreateVolumeClaimRequest(_message.Message):
-    __slots__ = ("workspace_id", "volume", "mode")
+    __slots__ = ("workspace_id", "volume_id", "mode")
     WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
-    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
     MODE_FIELD_NUMBER: _ClassVar[int]
     workspace_id: str
-    volume: str
+    volume_id: str
     mode: MountMode
-    def __init__(self, workspace_id: _Optional[str] = ..., volume: _Optional[str] = ..., mode: _Optional[_Union[MountMode, str]] = ...) -> None: ...
+    def __init__(self, workspace_id: _Optional[str] = ..., volume_id: _Optional[str] = ..., mode: _Optional[_Union[MountMode, str]] = ...) -> None: ...
 
 class CreateVolumeClaimResponse(_message.Message):
     __slots__ = ("volume_claim",)
@@ -3272,12 +3292,12 @@ class CreateVolumeClaimResponse(_message.Message):
     def __init__(self, volume_claim: _Optional[_Union[VolumeClaim, _Mapping]] = ...) -> None: ...
 
 class DeleteVolumeClaimRequest(_message.Message):
-    __slots__ = ("workspace_id", "volume")
+    __slots__ = ("workspace_id", "volume_id")
     WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
-    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
     workspace_id: str
-    volume: str
-    def __init__(self, workspace_id: _Optional[str] = ..., volume: _Optional[str] = ...) -> None: ...
+    volume_id: str
+    def __init__(self, workspace_id: _Optional[str] = ..., volume_id: _Optional[str] = ...) -> None: ...
 
 class DeleteVolumeClaimResponse(_message.Message):
     __slots__ = ()

@@ -3,12 +3,22 @@
 import datetime
 import json
 import time
+import warnings
+from collections.abc import Sequence
+from copy import deepcopy
 from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
 
-from aws_durable_execution_sdk_python.config import StepConfig, StepSemantics
+from aws_durable_execution_sdk_python.config import (
+    ChildConfig,
+    MapConfig,
+    NestingType,
+    ParallelConfig,
+    StepConfig,
+    StepSemantics,
+)
 from aws_durable_execution_sdk_python.context import DurableContext
 from aws_durable_execution_sdk_python.exceptions import (
     BotoClientError,
@@ -27,6 +37,7 @@ from aws_durable_execution_sdk_python.execution import (
     InvocationStatus,
     durable_execution,
 )
+from aws_durable_execution_sdk_python.identifier import OperationIdNamespace
 
 # LambdaContext no longer needed - using duck typing
 from aws_durable_execution_sdk_python.lambda_service import (
@@ -41,6 +52,7 @@ from aws_durable_execution_sdk_python.lambda_service import (
     Operation,
     OperationAction,
     OperationStatus,
+    OperationSubType,
     OperationType,
     OperationUpdate,
     StateOutput,
@@ -736,7 +748,10 @@ def test_durable_execution_execution_error_handling():
     error_data = result["Error"]
 
     assert error_data["ErrorMessage"] == "Retriable invocation error occurred"
-    assert error_data["ErrorType"] == "ExecutionError"
+    assert (
+        error_data["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.ExecutionError"
+    )
 
 
 def test_durable_execution_client_selection_default():
@@ -1038,7 +1053,10 @@ def test_durable_execution_checkpoint_error_in_background_thread():
 
     response = test_handler(invocation_input, lambda_context)
     assert response["Status"] == InvocationStatus.FAILED.value
-    assert response["Error"]["ErrorType"] == "CheckpointError"
+    assert (
+        response["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.CheckpointError"
+    )
 
 
 # endregion durable_execution
@@ -1093,7 +1111,10 @@ def test_durable_execution_checkpoint_execution_error_stops_background():
     ):
         response = test_handler(invocation_input, lambda_context)
         assert response["Status"] == InvocationStatus.FAILED.value
-        assert response["Error"]["ErrorType"] == "CheckpointError"
+        assert (
+            response["Error"]["ErrorType"]
+            == "aws_durable_execution_sdk_python.exceptions.CheckpointError"
+        )
 
 
 def test_durable_execution_checkpoint_invocation_error_retries():
@@ -1184,7 +1205,10 @@ def test_durable_execution_background_thread_execution_error_returns_failed():
 
     response = test_handler(invocation_input, lambda_context)
     assert response["Status"] == InvocationStatus.FAILED.value
-    assert response["Error"]["ErrorType"] == "CheckpointError"
+    assert (
+        response["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.CheckpointError"
+    )
 
 
 def test_durable_execution_background_thread_invocation_error_retries():
@@ -1272,7 +1296,10 @@ def test_durable_execution_final_success_checkpoint_execution_error_returns_fail
 
     response = test_handler(invocation_input, lambda_context)
     assert response["Status"] == InvocationStatus.FAILED.value
-    assert response["Error"]["ErrorType"] == "CheckpointError"
+    assert (
+        response["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.CheckpointError"
+    )
 
 
 def test_durable_execution_final_success_checkpoint_invocation_error_retries():
@@ -1364,7 +1391,10 @@ def test_durable_execution_final_failure_checkpoint_execution_error_returns_fail
 
     response = test_handler(invocation_input, lambda_context)
     assert response["Status"] == InvocationStatus.FAILED.value
-    assert response["Error"]["ErrorType"] == "CheckpointError"
+    assert (
+        response["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.CheckpointError"
+    )
 
 
 def test_durable_execution_final_failure_checkpoint_invocation_error_retries():
@@ -1776,7 +1806,10 @@ def test_durable_execution_logs_checkpoint_error_extras_from_background_thread()
     with patch("aws_durable_execution_sdk_python.execution.logger", mock_logger):
         response = test_handler(invocation_input, lambda_context)
         assert response["Status"] == InvocationStatus.FAILED.value
-        assert response["Error"]["ErrorType"] == "CheckpointError"
+        assert (
+            response["Error"]["ErrorType"]
+            == "aws_durable_execution_sdk_python.exceptions.CheckpointError"
+        )
 
     mock_logger.exception.assert_called()
     # First call: "Checkpoint processing failed" with error extras
@@ -1891,7 +1924,10 @@ def test_durable_execution_logs_checkpoint_error_extras_from_user_code():
     with patch("aws_durable_execution_sdk_python.execution.logger", mock_logger):
         response = test_handler(invocation_input, lambda_context)
         assert response["Status"] == InvocationStatus.FAILED.value
-        assert response["Error"]["ErrorType"] == "CheckpointError"
+        assert (
+            response["Error"]["ErrorType"]
+            == "aws_durable_execution_sdk_python.exceptions.CheckpointError"
+        )
 
     mock_logger.exception.assert_called_once()
     call_args = mock_logger.exception.call_args
@@ -2674,13 +2710,13 @@ def test_from_dict_leaves_timestamps_as_integers():
 # =============================================================================
 
 
-def _make_invocation_input(mock_client, next_marker=""):
+def _make_invocation_input(mock_client, next_marker="", input_payload="{}"):
     """Helper to create a standard test invocation input."""
     operation = Operation(
         operation_id="exec1",
         operation_type=OperationType.EXECUTION,
         status=OperationStatus.STARTED,
-        execution_details=ExecutionDetails(input_payload="{}"),
+        execution_details=ExecutionDetails(input_payload=input_payload),
     )
     return DurableExecutionInvocationInputWithClient(
         durable_execution_arn="arn:test:execution/exec1",
@@ -2734,6 +2770,525 @@ def test_durable_execution_replays_when_paginated_state_has_prior_operations():
     )
 
 
+@pytest.mark.parametrize(
+    ("checkpoint_type", "checkpoint_sub_type", "checkpoint_name", "mismatch"),
+    [
+        (
+            OperationType.WAIT,
+            OperationSubType.WAIT,
+            "current-name",
+            "type",
+        ),
+        (
+            OperationType.STEP,
+            OperationSubType.WAIT_FOR_CONDITION,
+            "current-name",
+            "subtype",
+        ),
+        (
+            OperationType.STEP,
+            OperationSubType.STEP,
+            "checkpoint-name",
+            "name",
+        ),
+    ],
+)
+def test_durable_execution_fails_replay_operation_identity_mismatch(
+    checkpoint_type: OperationType,
+    checkpoint_sub_type: OperationSubType,
+    checkpoint_name: str,
+    mismatch: str,
+):
+    """Mismatched replay history must fail instead of skipping current work."""
+    mock_client = Mock(spec=DurableServiceClient)
+    operation_id = OperationIdNamespace().create_id_for_step(1)
+    execution_operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=ExecutionDetails(input_payload="{}"),
+    )
+    checkpoint_operation = Operation(
+        operation_id=operation_id,
+        operation_type=checkpoint_type,
+        status=OperationStatus.SUCCEEDED,
+        sub_type=checkpoint_sub_type,
+        name=checkpoint_name,
+        step_details=StepDetails(result=json.dumps("checkpoint-result")),
+    )
+    invocation_input = DurableExecutionInvocationInputWithClient(
+        durable_execution_arn="arn:test:execution/exec1",
+        checkpoint_token="token123",  # noqa: S106
+        initial_execution_state=InitialExecutionState(
+            operations=[execution_operation, checkpoint_operation],
+            next_marker="",
+        ),
+        service_client=mock_client,
+    )
+    step_body_calls: list[bool] = []
+
+    def step_body(_step_context) -> str:
+        step_body_calls.append(True)
+        return "executed"
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> str:
+        return context.step(step_body, name="current-name")
+
+    result = test_handler(invocation_input, _make_lambda_context())
+
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.NonDeterministicExecutionError"
+    )
+    assert mismatch in result["Error"]["ErrorMessage"]
+    assert step_body_calls == []
+    mock_client.checkpoint.assert_not_called()
+
+
+def test_durable_execution_preserves_nested_nondeterminism_error():
+    """A nested mismatch fails directly without checkpointing child failure."""
+    mock_client = Mock(spec=DurableServiceClient)
+    outer_id = OperationIdNamespace().create_id_for_step(1)
+    inner_id = OperationIdNamespace(outer_id).create_id_for_step(1)
+    execution_operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=ExecutionDetails(input_payload="{}"),
+    )
+    outer_operation = Operation(
+        operation_id=outer_id,
+        operation_type=OperationType.CONTEXT,
+        status=OperationStatus.STARTED,
+        sub_type=OperationSubType.RUN_IN_CHILD_CONTEXT,
+        name="outer",
+    )
+    mismatched_inner_operation = Operation(
+        operation_id=inner_id,
+        operation_type=OperationType.WAIT,
+        status=OperationStatus.SUCCEEDED,
+        parent_id=outer_id,
+        sub_type=OperationSubType.WAIT,
+        name="inner-step",
+    )
+    invocation_input = DurableExecutionInvocationInputWithClient(
+        durable_execution_arn="arn:test:execution/exec1",
+        checkpoint_token="token123",  # noqa: S106
+        initial_execution_state=InitialExecutionState(
+            operations=[
+                execution_operation,
+                outer_operation,
+                mismatched_inner_operation,
+            ],
+            next_marker="",
+        ),
+        service_client=mock_client,
+    )
+    step_body_calls: list[bool] = []
+
+    def step_body(_step_context) -> str:
+        step_body_calls.append(True)
+        return "executed"
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> str:
+        return context.run_in_child_context(
+            lambda child: child.step(step_body, name="inner-step"),
+            name="outer",
+        )
+
+    result = test_handler(invocation_input, _make_lambda_context())
+
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.NonDeterministicExecutionError"
+    )
+    assert step_body_calls == []
+    mock_client.checkpoint.assert_not_called()
+
+
+def test_durable_execution_replays_child_context_with_step_subtype():
+    """A CONTEXT/Step checkpoint remains valid for an unchanged child replay."""
+    mock_client = Mock(spec=DurableServiceClient)
+    child_id = OperationIdNamespace().create_id_for_step(1)
+    execution_operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=ExecutionDetails(input_payload="{}"),
+    )
+    child_operation = Operation(
+        operation_id=child_id,
+        operation_type=OperationType.CONTEXT,
+        status=OperationStatus.SUCCEEDED,
+        sub_type=OperationSubType.STEP,
+        name="child",
+        context_details=ContextDetails(result=json.dumps("cached")),
+    )
+    invocation_input = DurableExecutionInvocationInputWithClient(
+        durable_execution_arn="arn:test:execution/exec1",
+        checkpoint_token="token123",  # noqa: S106
+        initial_execution_state=InitialExecutionState(
+            operations=[execution_operation, child_operation],
+            next_marker="",
+        ),
+        service_client=mock_client,
+    )
+    child_body_calls: list[bool] = []
+
+    def child_body(_child: DurableContext) -> str:
+        child_body_calls.append(True)
+        return "executed"
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> str:
+        return context.run_in_child_context(
+            child_body,
+            name="child",
+            config=ChildConfig(sub_type=OperationSubType.STEP),
+        )
+
+    result = test_handler(invocation_input, _make_lambda_context())
+
+    assert result["Status"] == InvocationStatus.SUCCEEDED.value
+    assert child_body_calls == []
+
+
+@pytest.mark.parametrize("operation_kind", ["map", "parallel"])
+@pytest.mark.parametrize("parent_replay_children", [False, True])
+@pytest.mark.parametrize(
+    "branch_status",
+    [OperationStatus.SUCCEEDED, OperationStatus.FAILED],
+)
+def test_durable_execution_rejects_nested_branch_checkpoint_in_flat_replay(
+    operation_kind: str,
+    parent_replay_children: bool,
+    branch_status: OperationStatus,
+):
+    """Real STARTED and ReplayChildren replays reject NESTED-to-FLAT drift."""
+    mock_client = Mock(spec=DurableServiceClient)
+    parent_id = OperationIdNamespace().create_id_for_step(1)
+    branch_id = OperationIdNamespace(parent_id).create_id_for_step(0)
+    is_map = operation_kind == "map"
+    parent_sub_type = OperationSubType.MAP if is_map else OperationSubType.PARALLEL
+    branch_sub_type = (
+        OperationSubType.MAP_ITERATION if is_map else OperationSubType.PARALLEL_BRANCH
+    )
+    branch_name = "map-item-0" if is_map else "parallel-branch-0"
+    execution_operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=ExecutionDetails(input_payload="{}"),
+    )
+    parent_operation = Operation(
+        operation_id=parent_id,
+        operation_type=OperationType.CONTEXT,
+        status=(
+            OperationStatus.SUCCEEDED
+            if parent_replay_children
+            else OperationStatus.STARTED
+        ),
+        sub_type=parent_sub_type,
+        name="batch",
+        context_details=(
+            ContextDetails(
+                replay_children=True,
+                result=json.dumps(
+                    {
+                        "totalCount": 1,
+                        "completionReason": "ALL_COMPLETED",
+                        "startedIndexes": [],
+                    }
+                ),
+            )
+            if parent_replay_children
+            else None
+        ),
+    )
+    nested_branch_operation = Operation(
+        operation_id=branch_id,
+        operation_type=OperationType.CONTEXT,
+        status=branch_status,
+        parent_id=parent_id,
+        sub_type=branch_sub_type,
+        name=branch_name,
+        context_details=ContextDetails(
+            result=(
+                json.dumps("cached")
+                if branch_status is OperationStatus.SUCCEEDED
+                else None
+            ),
+            error=(
+                ErrorObject(
+                    message="branch failed",
+                    type="ValueError",
+                    data=None,
+                    stack_trace=None,
+                )
+                if branch_status is OperationStatus.FAILED
+                else None
+            ),
+        ),
+    )
+    invocation_input = DurableExecutionInvocationInputWithClient(
+        durable_execution_arn="arn:test:execution/exec1",
+        checkpoint_token="token123",  # noqa: S106
+        initial_execution_state=InitialExecutionState(
+            operations=[
+                execution_operation,
+                parent_operation,
+                nested_branch_operation,
+            ],
+            next_marker="",
+        ),
+        service_client=mock_client,
+    )
+    branch_body_calls: list[bool] = []
+
+    def map_body(
+        _child: DurableContext,
+        _item: int,
+        _index: int,
+        _items: Sequence[int],
+    ) -> str:
+        branch_body_calls.append(True)
+        return "executed"
+
+    def parallel_body(_child: DurableContext) -> str:
+        branch_body_calls.append(True)
+        return "executed"
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> Any:
+        if is_map:
+            return context.map(
+                [1],
+                map_body,
+                name="batch",
+                config=MapConfig(nesting_type=NestingType.FLAT),
+            )
+        return context.parallel(
+            [parallel_body],
+            name="batch",
+            config=ParallelConfig(nesting_type=NestingType.FLAT),
+        )
+
+    result = test_handler(invocation_input, _make_lambda_context())
+
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.NonDeterministicExecutionError"
+    )
+    assert "nesting is FLAT" in result["Error"]["ErrorMessage"]
+    assert branch_body_calls == []
+    mock_client.checkpoint.assert_not_called()
+
+
+@pytest.mark.parametrize("operation_kind", ["map", "parallel"])
+@pytest.mark.parametrize("drift", ["nested-to-flat", "name"])
+def test_durable_execution_validates_started_replaychildren_branch(
+    operation_kind: str,
+    drift: str,
+):
+    """ReplayChildren STARTED entries validate existing branch checkpoints."""
+    mock_client = Mock(spec=DurableServiceClient)
+    parent_id = OperationIdNamespace().create_id_for_step(1)
+    branch_id = OperationIdNamespace(parent_id).create_id_for_step(0)
+    is_map = operation_kind == "map"
+    parent_sub_type = OperationSubType.MAP if is_map else OperationSubType.PARALLEL
+    branch_sub_type = (
+        OperationSubType.MAP_ITERATION if is_map else OperationSubType.PARALLEL_BRANCH
+    )
+    branch_name = "map-item-0" if is_map else "parallel-branch-0"
+    nesting_type = NestingType.FLAT if drift == "nested-to-flat" else NestingType.NESTED
+    checkpoint_name = "old-branch-name" if drift == "name" else branch_name
+    execution_operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=ExecutionDetails(input_payload="{}"),
+    )
+    parent_operation = Operation(
+        operation_id=parent_id,
+        operation_type=OperationType.CONTEXT,
+        status=OperationStatus.SUCCEEDED,
+        sub_type=parent_sub_type,
+        name="batch",
+        context_details=ContextDetails(
+            replay_children=True,
+            result=json.dumps(
+                {
+                    "totalCount": 1,
+                    "completionReason": "ALL_COMPLETED",
+                    "startedIndexes": [0],
+                }
+            ),
+        ),
+    )
+    branch_operation = Operation(
+        operation_id=branch_id,
+        operation_type=OperationType.CONTEXT,
+        status=OperationStatus.STARTED,
+        parent_id=parent_id,
+        sub_type=branch_sub_type,
+        name=checkpoint_name,
+    )
+    invocation_input = DurableExecutionInvocationInputWithClient(
+        durable_execution_arn="arn:test:execution/exec1",
+        checkpoint_token="token123",  # noqa: S106
+        initial_execution_state=InitialExecutionState(
+            operations=[execution_operation, parent_operation, branch_operation],
+            next_marker="",
+        ),
+        service_client=mock_client,
+    )
+    branch_body_calls: list[bool] = []
+
+    def map_body(
+        _child: DurableContext,
+        _item: int,
+        _index: int,
+        _items: Sequence[int],
+    ) -> str:
+        branch_body_calls.append(True)
+        return "executed"
+
+    def parallel_body(_child: DurableContext) -> str:
+        branch_body_calls.append(True)
+        return "executed"
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> Any:
+        if is_map:
+            return context.map(
+                [1],
+                map_body,
+                name="batch",
+                config=MapConfig(nesting_type=nesting_type),
+            )
+        return context.parallel(
+            [parallel_body],
+            name="batch",
+            config=ParallelConfig(nesting_type=nesting_type),
+        )
+
+    result = test_handler(invocation_input, _make_lambda_context())
+
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.NonDeterministicExecutionError"
+    )
+    expected_detail = "nesting is FLAT" if drift == "nested-to-flat" else "name"
+    assert expected_detail in result["Error"]["ErrorMessage"]
+    assert branch_body_calls == []
+    mock_client.checkpoint.assert_not_called()
+
+
+@pytest.mark.parametrize("operation_kind", ["map", "parallel"])
+def test_durable_execution_rejects_flat_terminal_branch_in_nested_replay(
+    operation_kind: str,
+):
+    """ReplayChildren reconstruction rejects FLAT-to-NESTED branch drift."""
+    mock_client = Mock(spec=DurableServiceClient)
+    parent_id = OperationIdNamespace().create_id_for_step(1)
+    branch_id = OperationIdNamespace(parent_id).create_id_for_step(0)
+    inner_step_id = OperationIdNamespace(branch_id).create_id_for_step(1)
+    is_map = operation_kind == "map"
+    parent_sub_type = OperationSubType.MAP if is_map else OperationSubType.PARALLEL
+    execution_operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=ExecutionDetails(input_payload="{}"),
+    )
+    parent_operation = Operation(
+        operation_id=parent_id,
+        operation_type=OperationType.CONTEXT,
+        status=OperationStatus.SUCCEEDED,
+        sub_type=parent_sub_type,
+        name="batch",
+        context_details=ContextDetails(
+            replay_children=True,
+            result=json.dumps(
+                {
+                    "totalCount": 1,
+                    "completionReason": "ALL_COMPLETED",
+                    "startedIndexes": [],
+                }
+            ),
+        ),
+    )
+    flat_inner_step = Operation(
+        operation_id=inner_step_id,
+        operation_type=OperationType.STEP,
+        status=OperationStatus.SUCCEEDED,
+        parent_id=parent_id,
+        sub_type=OperationSubType.STEP,
+        name="inner-step",
+        step_details=StepDetails(result=json.dumps("cached")),
+    )
+    invocation_input = DurableExecutionInvocationInputWithClient(
+        durable_execution_arn="arn:test:execution/exec1",
+        checkpoint_token="token123",  # noqa: S106
+        initial_execution_state=InitialExecutionState(
+            operations=[
+                execution_operation,
+                parent_operation,
+                flat_inner_step,
+            ],
+            next_marker="",
+        ),
+        service_client=mock_client,
+    )
+    branch_body_calls: list[bool] = []
+
+    def branch_result(child: DurableContext) -> str:
+        branch_body_calls.append(True)
+        return child.step(lambda _step_context: "executed", name="inner-step")
+
+    def map_body(
+        child: DurableContext,
+        _item: int,
+        _index: int,
+        _items: Sequence[int],
+    ) -> str:
+        return branch_result(child)
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> Any:
+        if is_map:
+            return context.map(
+                [1],
+                map_body,
+                name="batch",
+                config=MapConfig(nesting_type=NestingType.NESTED),
+            )
+        return context.parallel(
+            [branch_result],
+            name="batch",
+            config=ParallelConfig(nesting_type=NestingType.NESTED),
+        )
+
+    result = test_handler(invocation_input, _make_lambda_context())
+
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.NonDeterministicExecutionError"
+    )
+    assert (
+        "terminal NESTED branch context checkpoint" in result["Error"]["ErrorMessage"]
+    )
+    assert branch_body_calls == []
+    mock_client.checkpoint.assert_not_called()
+
+
 def test_durable_execution_non_retryable_invocation_error_returns_failed():
     """Test that non-retryable InvocationError returns FAILED instead of retrying."""
     mock_client = Mock(spec=DurableServiceClient)
@@ -2750,7 +3305,10 @@ def test_durable_execution_non_retryable_invocation_error_returns_failed():
 
     result = test_handler(_make_invocation_input(mock_client), _make_lambda_context())
     assert result["Status"] == InvocationStatus.FAILED.value
-    assert result["Error"]["ErrorType"] == "GetExecutionStateError"
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.GetExecutionStateError"
+    )
 
 
 def test_durable_execution_retryable_invocation_error_raises():
@@ -2790,7 +3348,10 @@ def test_durable_execution_non_retryable_background_thread_error_returns_failed(
 
     result = test_handler(_make_invocation_input(mock_client), _make_lambda_context())
     assert result["Status"] == InvocationStatus.FAILED.value
-    assert result["Error"]["ErrorType"] == "GetExecutionStateError"
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.GetExecutionStateError"
+    )
 
 
 @pytest.mark.parametrize(
@@ -2822,7 +3383,10 @@ def test_durable_execution_non_retryable_initial_pagination_error_returns_failed
         _make_lambda_context(),
     )
     assert result["Status"] == InvocationStatus.FAILED.value
-    assert result["Error"]["ErrorType"] == "GetExecutionStateError"
+    assert (
+        result["Error"]["ErrorType"]
+        == "aws_durable_execution_sdk_python.exceptions.GetExecutionStateError"
+    )
 
 
 def test_durable_execution_retryable_initial_pagination_error_raises():
@@ -2854,6 +3418,12 @@ class _RecordingPlugin(DurableInstrumentationPlugin):
 
     def __init__(self) -> None:
         self.calls: list[str] = []
+        # Payload surfaces observed on the invocation hooks, so tests can assert
+        # durable_execution() actually forwards them (not just that the
+        # dataclasses can hold them).
+        self.start_execution_inputs: list[Any] = []
+        self.end_execution_inputs: list[Any] = []
+        self.end_execution_results: list[str | None] = []
 
     def on_execution_start(self, info):
         self.calls.append("execution_start")
@@ -2863,9 +3433,12 @@ class _RecordingPlugin(DurableInstrumentationPlugin):
 
     def on_invocation_start(self, info):
         self.calls.append("invocation_start")
+        self.start_execution_inputs.append(info.execution_input)
 
     def on_invocation_end(self, info):
         self.calls.append(f"invocation_end:{info.status.value}")
+        self.end_execution_inputs.append(info.execution_input)
+        self.end_execution_results.append(info.execution_result)
 
     def on_operation_start(self, info):
         self.calls.append(f"operation_start:{info.operation_id}")
@@ -2908,6 +3481,28 @@ class _FailingPlugin(DurableInstrumentationPlugin):
         raise RuntimeError("plugin boom")
 
 
+def test_durable_execution_loads_plugins_when_handler_is_initialized():
+    """Configured plugins are resolved once while the decorator initializes."""
+    explicit_plugin = _RecordingPlugin()
+    resolved_plugin = _RecordingPlugin()
+
+    with (
+        warnings.catch_warnings(),
+        patch(
+            "aws_durable_execution_sdk_python.execution.load_configured_plugins",
+            return_value=[explicit_plugin, resolved_plugin],
+        ) as load_plugins,
+    ):
+        warnings.simplefilter("error", FutureWarning)
+
+        @durable_execution(plugins=[explicit_plugin])
+        def test_handler(event: Any, context: DurableContext) -> dict:
+            return {"result": "success"}
+
+    load_plugins.assert_called_once_with([explicit_plugin])
+    assert callable(test_handler)
+
+
 def test_durable_execution_with_plugins_success():
     """Test that plugins receive invocation start/end and execution end on success."""
     mock_client = Mock(spec=DurableServiceClient)
@@ -2932,6 +3527,134 @@ def test_durable_execution_with_plugins_success():
     # ExecutionStartInfo dispatches to on_invocation_start in the match block
     assert "invocation_start" in plugin.calls
     assert "invocation_end:SUCCEEDED" in plugin.calls
+
+
+def test_durable_execution_forwards_execution_input_to_plugins():
+    """durable_execution() must hand the deserialized input to both hooks.
+
+    Guards the one production line that surfaces real input
+    (`execution_input=input_event`). A non-empty payload is used deliberately:
+    the field's own default is None and an empty payload deserializes to {}, so
+    only a populated payload distinguishes real forwarding from either.
+    """
+    mock_client = Mock(spec=DurableServiceClient)
+    mock_client.checkpoint.return_value = CheckpointOutput(
+        checkpoint_token="new_token",  # noqa: S106
+        new_execution_state=CheckpointUpdatedExecutionState(),
+    )
+
+    plugin = _RecordingPlugin()
+
+    @durable_execution(plugins=[plugin])
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        return {"echoed": event["name"]}
+
+    result = test_handler(
+        _make_invocation_input(mock_client, input_payload='{"name": "World"}'),
+        _make_lambda_context(),
+    )
+
+    assert result["Status"] == InvocationStatus.SUCCEEDED.value
+    # The invocation-start hook sees the deserialized input, not the raw payload.
+    assert plugin.start_execution_inputs == [{"name": "World"}]
+    # The end info inherits the same input from the start info.
+    assert plugin.end_execution_inputs == [{"name": "World"}]
+    # And the end hook carries the serialized result.
+    assert plugin.end_execution_results == ['{"echoed": "World"}']
+
+
+def test_durable_execution_surfaces_empty_input_as_empty_mapping():
+    """An empty payload reaches plugins as {}, never None."""
+    mock_client = Mock(spec=DurableServiceClient)
+    mock_client.checkpoint.return_value = CheckpointOutput(
+        checkpoint_token="new_token",  # noqa: S106
+        new_execution_state=CheckpointUpdatedExecutionState(),
+    )
+
+    plugin = _RecordingPlugin()
+
+    @durable_execution(plugins=[plugin])
+    def test_handler(event: Any, context: DurableContext) -> str:
+        return "ok"
+
+    test_handler(
+        _make_invocation_input(mock_client, input_payload=""),
+        _make_lambda_context(),
+    )
+
+    assert plugin.start_execution_inputs == [{}]
+
+
+def test_durable_execution_isolates_execution_input_from_handler():
+    """Plugin and handler must not observe each other's input mutations.
+
+    durable_execution() hands one mutable object to both, so the plugin view is
+    deep-copied. Without that, a plugin could alter execution behaviour and a
+    handler could retroactively change what the frozen hook info reports.
+    """
+    mock_client = Mock(spec=DurableServiceClient)
+    mock_client.checkpoint.return_value = CheckpointOutput(
+        checkpoint_token="new_token",  # noqa: S106
+        new_execution_state=CheckpointUpdatedExecutionState(),
+    )
+
+    observed: dict[str, Any] = {}
+
+    class _MutatingPlugin(DurableInstrumentationPlugin):
+        def on_invocation_start(self, info):
+            # Direction A: plugin mutates its view before the handler runs.
+            info.execution_input["injected_by_plugin"] = True
+
+        def on_invocation_end(self, info):
+            observed["end_input"] = dict(info.execution_input)
+
+    @durable_execution(plugins=[_MutatingPlugin()])
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        observed["handler_saw"] = dict(event)
+        # Direction B: handler mutates its event after the start hook fired.
+        event["injected_by_handler"] = True
+        return {"ok": True}
+
+    test_handler(
+        _make_invocation_input(mock_client, input_payload='{"name": "World"}'),
+        _make_lambda_context(),
+    )
+
+    # Direction A: the plugin's mutation must not reach the handler.
+    assert observed["handler_saw"] == {"name": "World"}
+    # Direction B: the handler's mutation must not reach the end hook, which
+    # still reports the plugin-side snapshot taken at invocation-start.
+    assert "injected_by_handler" not in observed["end_input"]
+    assert observed["end_input"] == {"name": "World", "injected_by_plugin": True}
+
+
+def test_durable_execution_isolates_nested_execution_input():
+    """Isolation must be deep, not just a top-level copy."""
+    mock_client = Mock(spec=DurableServiceClient)
+    mock_client.checkpoint.return_value = CheckpointOutput(
+        checkpoint_token="new_token",  # noqa: S106
+        new_execution_state=CheckpointUpdatedExecutionState(),
+    )
+
+    observed: dict[str, Any] = {}
+
+    class _NestedMutatingPlugin(DurableInstrumentationPlugin):
+        def on_invocation_start(self, info):
+            info.execution_input["outer"]["inner"].append("from_plugin")
+
+    @durable_execution(plugins=[_NestedMutatingPlugin()])
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        observed["handler_saw"] = deepcopy(event)
+        return {"ok": True}
+
+    test_handler(
+        _make_invocation_input(
+            mock_client, input_payload='{"outer": {"inner": ["original"]}}'
+        ),
+        _make_lambda_context(),
+    )
+
+    assert observed["handler_saw"] == {"outer": {"inner": ["original"]}}
 
 
 def test_durable_execution_with_plugins_failure():

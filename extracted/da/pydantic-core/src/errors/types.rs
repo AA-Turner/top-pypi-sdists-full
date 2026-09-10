@@ -267,12 +267,16 @@ error_types! {
     // ---------------------
     // dict errors
     DictType {},
+    FrozenDictType {},
     MappingType {
         error: {ctx_type: Cow<'static, str>, ctx_fn: cow_field_from_context<String, _>},
     },
     // ---------------------
     // list errors
     ListType {},
+    // ---------------------
+    // deque errors
+    DequeType {},
     // ---------------------
     // tuple errors
     TupleType {},
@@ -539,8 +543,10 @@ impl ErrorType {
             Self::StringNotAscii { .. } => "String should contain only ASCII characters",
             Self::Enum { .. } => "Input should be {expected}",
             Self::DictType { .. } => "Input should be a valid dictionary",
+            Self::FrozenDictType { .. } => "Input should be a valid frozendict",
             Self::MappingType { .. } => "Input should be a valid mapping, error: {error}",
             Self::ListType { .. } => "Input should be a valid list",
+            Self::DequeType { .. } => "Input should be a valid deque",
             Self::TupleType { .. } => "Input should be a valid tuple",
             Self::SetType { .. } => "Input should be a valid set",
             Self::SetItemNotHashable { .. } => "Set items should be hashable",
@@ -632,6 +638,7 @@ impl ErrorType {
         match self {
             Self::NoneRequired { .. } => "Input should be null",
             Self::ListType { .. }
+            | Self::DequeType { .. }
             | Self::TupleType { .. }
             | Self::IterableType { .. }
             | Self::SetType { .. }
@@ -639,6 +646,7 @@ impl ErrorType {
             Self::ModelType { .. }
             | Self::ModelAttributesType { .. }
             | Self::DictType { .. }
+            | Self::FrozenDictType { .. }
             | Self::DataclassType { .. } => "Input should be an object",
             Self::NamedTupleType { .. } => "Input should be an array or an object",
             Self::TimeDeltaType { .. } => "Input should be a valid duration",

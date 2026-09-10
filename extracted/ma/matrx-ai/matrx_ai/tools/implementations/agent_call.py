@@ -451,7 +451,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     source_conversation_id=source_conversation_id,
                     user_id=str(app_ctx.user_id),
                     up_to_position=parsed.history_up_to_position,
-                    parent_conversation_id=getattr(app_ctx, "conversation_id", None) or None,
+                    parent_conversation_id=app_ctx.conversation_id_for_lineage,
                     conversation_type="subagent",
                     title=None,
                 )

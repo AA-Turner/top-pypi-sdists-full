@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set, Any, Dict, List
 from typing_extensions import Self
 
-from dataforseo_client.models.content_rating_info import ContentRatingInfo
+from dataforseo_client.models.contentent_rating_info import ContententRatingInfo
 from dataforseo_client.models.social_metrics_info import SocialMetricsInfo
 from dataforseo_client.models.analysis_content_info import AnalysisContentInfo
 
@@ -31,7 +31,7 @@ class ContentAnalysisSearchLiveItem(BaseModel):
     score: Optional[StrictFloat] = Field(default=None, description=r"*citation prominence score*. this value is based on `url_rank`, `domain_rank`, `keyword` presence in `title`, `main_title`, `url`, `snippet`. the higher the `score`, the more value the related citation has")
     page_category: Optional[List[Optional[StrictInt]]] = Field(default=None, description=r"*contains all relevant page categories*. product and service categories relevant for the page. to obtain a full list of available categories, refer to the [Categories](/v3/content_analysis/categories/) endpoint")
     page_types: Optional[List[Optional[StrictStr]]] = Field(default=None, description=r"*page types*")
-    ratings: Optional[List[Optional[ContentRatingInfo]]] = Field(default=None, description=r"*ratings found on the page*. all ratings found on the page based on microdata")
+    ratings: Optional[List[Optional[ContententRatingInfo]]] = Field(default=None, description=r"*ratings found on the page*. all ratings found on the page based on microdata")
     social_metrics: Optional[List[Optional[SocialMetricsInfo]]] = Field(default=None, description=r"*social media engagement metrics*. data on social media interactions associated with the content based on website embeds developed and supported by social media platforms")
     content_info: Optional[AnalysisContentInfo] = Field(default=None, description=r"*contains data on citations from the given `url`*")
     __properties: ClassVar[List[str]] = [
@@ -128,7 +128,7 @@ class ContentAnalysisSearchLiveItem(BaseModel):
             "score": obj.get("score"),
             "page_category": obj.get("page_category"),
             "page_types": obj.get("page_types"),
-            "ratings": [ContentRatingInfo.from_dict(_item) for _item in obj["ratings"]] if obj.get("ratings") is not None else None,
+            "ratings": [ContententRatingInfo.from_dict(_item) for _item in obj["ratings"]] if obj.get("ratings") is not None else None,
             "social_metrics": [SocialMetricsInfo.from_dict(_item) for _item in obj["social_metrics"]] if obj.get("social_metrics") is not None else None,
             "content_info": AnalysisContentInfo.from_dict(obj["content_info"]) if obj.get("content_info") is not None else None,
         })

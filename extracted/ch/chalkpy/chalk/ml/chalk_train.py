@@ -92,6 +92,7 @@ class Checkpointer(Protocol):
         additional_files: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         run_name: Optional[str] = None,
+        path: Optional[str] = None,
     ) -> RegisterModelArtifactResponse: ...
 
     def last_checkpoint_path(self, run_id: Optional[str] = None) -> Optional[str]: ...
@@ -125,6 +126,7 @@ class ClientCheckpointer:
         additional_files: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         run_name: Optional[str] = None,
+        path: Optional[str] = None,
     ) -> RegisterModelArtifactResponse:
         client = self._get_client()
 
@@ -141,14 +143,24 @@ class ClientCheckpointer:
             model=model,
             additional_files=additional_files,
             metadata=metadata,
+            path=path,
         )
 
     def last_checkpoint_path(self, run_id: Optional[str] = None) -> Optional[str]:
-        training_run_id = run_id or get_model_training_run_id_from_env()
         checkpoint_dir = os.getenv(CHALK_CHECKPOINT_DIR_ENV_VAR)
-        if not training_run_id or not checkpoint_dir:
+        if not checkpoint_dir:
             return None
 
+        latest_pointer = os.path.join(checkpoint_dir, "latest")
+        if os.path.exists(latest_pointer):
+            with open(latest_pointer) as f:
+                artifact_path = f.read().strip()
+            if artifact_path:
+                return os.path.join(checkpoint_dir, artifact_path)
+
+        training_run_id = run_id or get_model_training_run_id_from_env()
+        if not training_run_id:
+            return None
         artifact = self._get_client().get_latest_checkpoint(training_run_id=training_run_id)
         if artifact is None or artifact.path == "":
             return None
@@ -187,9 +199,10 @@ def checkpoint(
     additional_files: Optional[List[str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     run_name: Optional[str] = None,
+    path: Optional[str] = None,
 ) -> RegisterModelArtifactResponse:
     return CheckpointClass.checkpoint(
-        model=model, additional_files=additional_files, metadata=metadata, run_name=run_name
+        model=model, additional_files=additional_files, metadata=metadata, run_name=run_name, path=path
     )
 
 

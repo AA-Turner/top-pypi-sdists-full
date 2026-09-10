@@ -27,6 +27,7 @@ from matrx_ai.providers.base_media import (
     GeneratedAsset,
 )
 from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 from .translator import GoogleTranslator
 
@@ -160,8 +161,12 @@ class GoogleImageGeneration(BaseMediaGeneration):
 
     def _call_provider(self, kwargs: dict[str, Any]) -> Any:
         if self._is_imagen_call:
-            return self.client.models.generate_images(**kwargs)
-        return self.client.models.generate_content(**kwargs)
+            return self.client.models.generate_images(
+                **route_undeclared_params(self.client.models.generate_images, kwargs, provider="google")
+            )
+        return self.client.models.generate_content(
+            **route_undeclared_params(self.client.models.generate_content, kwargs, provider="google")
+        )
 
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:
         if self._is_imagen_call:

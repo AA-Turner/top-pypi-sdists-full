@@ -141,18 +141,21 @@ class CompilerApplication:
         umbrella_header = header_files[0]
         processed_header_files = {umbrella_header}
         ingest_header(umbrella_header, header_files, processed_header_files, devkit_header_lines)
-        if kit in {"frida-gum", "frida-gumjs"} and machine.os == "none":
+        if kit in {"frida-gum", "frida-gumjs"} and machine.is_freestanding:
             gum_dir = umbrella_header_path.parent
             if kit == "frida-gumjs":
                 gum_dir = gum_dir.parent.parent / "gum"
             barebone_header = gum_dir / "backend-barebone" / "include" / "gum" / "gumbarebone.h"
             ingest_header(barebone_header, header_files, processed_header_files, devkit_header_lines)
-        if kit == "frida-gumjs" and machine.os != "none":
+        if kit == "frida-gumjs" and not machine.is_freestanding:
             inspector_server_header = umbrella_header_path.parent / "guminspectorserver.h"
             ingest_header(inspector_server_header, header_files, processed_header_files, devkit_header_lines)
         if kit == "frida-core" and machine.os == "android":
             selinux_header = umbrella_header_path.parent / "frida-selinux.h"
             ingest_header(selinux_header, header_files, processed_header_files, devkit_header_lines)
+        if kit == "frida-core" and machine.os not in {"windows", "none"}:
+            for header in query_gio_unix_headers(meson_config):
+                ingest_header(header, header_files, processed_header_files, devkit_header_lines)
         devkit_header = u"".join(devkit_header_lines)
 
         if package.startswith("frida-gum"):
@@ -464,6 +467,13 @@ def is_os_library(path, machine):
 
 def is_meson_build_root(path):
     return (path / "meson-info").is_dir()
+
+
+def query_gio_unix_headers(meson_config):
+    include_dirs = [Path(flag[2:]) for flag in query_pkgconfig_cflags("gio-unix-2.0", meson_config)
+                    if flag.startswith("-I")]
+    candidates = [d / "gio" / "gunixfdmessage.h" for d in include_dirs]
+    return [c for c in candidates if c.exists()]
 
 
 def query_pkgconfig_cflags(package, meson_config):

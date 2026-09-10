@@ -866,6 +866,7 @@ async def _flush_assistant_message_mid_loop(
                 if hasattr(user_role, "value"):
                     user_role = user_role.value
                 user_content = user_storage.get("content", [])
+                pristine_user_content = user_storage.get("user_content")
                 # This mid-loop flush bypasses persist_completed_request, so it
                 # must itself lift the per-turn call-record keys (model_context /
                 # tools_on_call) out of the stamped metadata into their columns —
@@ -877,6 +878,8 @@ async def _flush_assistant_message_mid_loop(
                 _extra = dict(_promoted)
                 if _clean_meta:
                     _extra["metadata"] = _clean_meta
+                if pristine_user_content is not None:
+                    _extra["user_content"] = pristine_user_content
                 if user_reserved_id:
                     queue_message_update(
                         user_reserved_id,
@@ -3254,6 +3257,7 @@ async def _execute_until_complete_inner(
         # evidence: conversation 417e64ce-74ff-4fcd-b976-df1f0df56671,
         # positions 24-27, 2026-06-09).
         _trigger_user_content: list[Any] = []
+        _trigger_pristine_user_content: list[Any] | None = None
         _trigger_user_status: str = "pending"
         # Empty message list (internal callers) keeps the legacy empty/pending
         # reservation so later code that appends a user message can finalize
@@ -3270,6 +3274,7 @@ async def _execute_until_complete_inner(
                     _reserve_user_row = True
                     _trigger_storage = _trigger_msg.to_storage_dict()
                     _trigger_user_content = _trigger_storage.get("content") or []
+                    _trigger_pristine_user_content = _trigger_storage.get("user_content")
                     # Only flip to 'active' when we actually have content blocks
                     # to write. An empty list would leave the row equivalent to
                     # the legacy placeholder; let the downstream UPDATE finalize
@@ -3286,6 +3291,11 @@ async def _execute_until_complete_inner(
                 position=APPEND_MESSAGE_POSITION,
                 status=_trigger_user_status,
                 content=_trigger_user_content,
+                **(
+                    {"user_content": _trigger_pristine_user_content}
+                    if _trigger_pristine_user_content is not None
+                    else {}
+                ),
                 created_by=exec_ctx.user_id or None,
             )
             reserved_messages[trigger_position] = user_msg_id
@@ -3587,79 +3597,31 @@ async def _execute_until_complete_inner(
                 # successful response (parsing, tool dispatch, persistence) is
                 # captured here. See _write_request_snapshot_on_failure's
                 # BOUNDARY CONTRACT for the full in/out-of-scope list.
-                # Host reference-fence staging (per-send). Resolves the host's
-                # in-content reference fences into the wire swaps EVERY
-                # iteration, in THIS task — the only placement that covers
-                # continue turns, current-turn user input, programmatic child
-                # agents, /resume, and injection drains alike (the pre-2026-07
-                # defect staged only in turn-1 HTTP prep). Best-effort: a
-                # staging failure never breaks the send.
-                _fence_stager = None
-                try:
-                    from matrx_ai._ext import get_reference_fence_stager
+                # ── THE SEND BOUNDARY ─────────────────────────────────────
+                # ONE call owns every prompt-shaping mutation applied between
+                # here and the provider: host reference-fence staging, the
+                # cache-gated context trim, the prompt-cache routing key, and
+                # the clone-at-send wire config (picklist / fence values swapped
+                # into a throwaway clone so the canonical current_request keeps
+                # placeholders and the secret never reaches persistence,
+                # snapshots, or the conversation labeler).
+                #
+                # The trim is gated EXACTLY like the resolver's: an in-loop trim
+                # that would rebuild a live cached prefix for a few thousand
+                # tokens is skipped (`cache_protect`). Never call
+                # trim_messages_context — or add a new shaping step — anywhere
+                # but config/send_boundary.py; the guard test enforces it.
+                from matrx_ai.config.send_boundary import STAGE_LOOP, prepare_for_send
 
-                    _fence_stager = get_reference_fence_stager()
-                except Exception:  # noqa: BLE001 — optional seam, never fatal
-                    _fence_stager = None
-                if _fence_stager is not None:
-                    try:
-                        await _fence_stager(current_request.config)
-                    except Exception as _stager_exc:  # noqa: BLE001
-                        vcprint(
-                            f"[executor] reference fence stager failed (ignored): "
-                            f"{type(_stager_exc).__name__}: {_stager_exc}",
-                            color="yellow",
-                        )
-
-                # Tool loops grow after ConversationResolver's one-time trim.
-                # Re-apply the idempotent in-memory trim at the actual send
-                # boundary so older results created during this same run cannot
-                # accumulate until the provider rejects the prompt. Originals
-                # remain durable and retrievable; only the wire-facing config is
-                # compacted.
-                try:
-                    from matrx_ai.config.context_trim import trim_messages_context
-
-                    _loop_trim_report = trim_messages_context(
-                        list(current_request.config.messages)
-                        if not isinstance(current_request.config.messages, list)
-                        else current_request.config.messages
-                    )
-                    if _loop_trim_report.blocks_rewritten:
-                        _app_ctx = try_get_app_context()
-                        if _app_ctx is not None:
-                            # Keyed by the iteration whose prompt this trim
-                            # compacted, so persistence lands each report on
-                            # its own cx_request row. It used to overwrite
-                            # ``last_trim_report`` (the resolver's pre-run
-                            # report, attached to iteration 1 only) — so
-                            # every in-loop trim was audited into nowhere
-                            # (0 of ~1,400 iteration≥2 rows carried one).
-                            _app_ctx.metadata.setdefault("trim_reports_by_iteration", {})[
-                                iteration
-                            ] = _loop_trim_report.to_dict()
-                except Exception as _trim_exc:  # noqa: BLE001 -- send remains available
-                    vcprint(
-                        f"[executor] per-iteration context trim failed (ignored): "
-                        f"{type(_trim_exc).__name__}: {_trim_exc}",
-                        color="yellow",
-                    )
-
-                # Picklist secret injection (clone-at-send). Swap placeholder tokens for the
-                # real descriptions into a throwaway clone of the config used ONLY for this
-                # provider call; the canonical current_request keeps placeholders so the secret
-                # never reaches persistence / snapshots / the conversation labeler. When secrets
-                # are materialized we also drop the captured wire payload so cx_request_snapshot
-                # never stores the description.
-                from matrx_ai.config.picklist_runtime import build_wire_config
-                from matrx_ai.providers.cache_guard import provider_prompt_cache_key
-
-                current_request.config.prompt_cache_key = provider_prompt_cache_key(
-                    current_request.conversation_id,
-                    current_request.request_id,
+                _send_prep = await prepare_for_send(
+                    current_request.config,
+                    stage=STAGE_LOOP,
+                    conversation_id=current_request.conversation_id,
+                    request_id=current_request.request_id,
+                    iteration=iteration,
                 )
 
-                _wire_config = build_wire_config(current_request.config)
+                _wire_config = _send_prep.wire_config
                 _orig_config = current_request.config
                 if _wire_config is not None:
                     current_request.config = _wire_config

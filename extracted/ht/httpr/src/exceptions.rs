@@ -1,6 +1,8 @@
 use pyo3::create_exception;
-use pyo3::exceptions::PyException;
+use pyo3::exceptions::{PyException, PyRuntimeError};
 use pyo3::prelude::*;
+
+use crate::timeout::TimedOut;
 
 // Base exception - HTTPError
 create_exception!(
@@ -177,6 +179,14 @@ create_exception!(
     "Attempted to read or stream response content, but the request has been closed."
 );
 
+// Client lifecycle exceptions
+create_exception!(
+    httpr,
+    ClientClosed,
+    PyRuntimeError,
+    "Attempted to use a client after `close()` was called. Subclasses RuntimeError, matching httpx."
+);
+
 // Other exceptions
 create_exception!(
     httpr,
@@ -239,6 +249,11 @@ pub fn map_reqwest_error(err: reqwest::Error) -> PyErr {
 
 /// Helper function to convert anyhow errors to appropriate httpr exceptions
 pub fn map_anyhow_error(err: anyhow::Error) -> PyErr {
+    // httpr's own timeouts (`timeout.rs`): waiting for the headers or for
+    // the next body chunk. Both are a stalled server, hence `ReadTimeout`.
+    if err.is::<TimedOut>() {
+        return ReadTimeout::new_err(err.to_string());
+    }
     // First, try to downcast to reqwest::Error if possible
     if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
         return map_reqwest_error_ref(reqwest_err);
@@ -387,6 +402,9 @@ pub fn register_exceptions(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("ResponseNotRead", m.py().get_type::<ResponseNotRead>())?;
     m.add("RequestNotRead", m.py().get_type::<RequestNotRead>())?;
     m.add("StreamClosed", m.py().get_type::<StreamClosed>())?;
+
+    // Client lifecycle exceptions
+    m.add("ClientClosed", m.py().get_type::<ClientClosed>())?;
 
     // Other exceptions
     m.add("InvalidURL", m.py().get_type::<InvalidURL>())?;

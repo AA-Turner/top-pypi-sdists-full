@@ -29,11 +29,12 @@ from taktile_auth.schemas.session import (
     SessionState,
     parse_session_prefix,
 )
-from taktile_auth.schemas.token import TaktileIdToken
+from taktile_auth.schemas.token import Actor, RequestableActor, TaktileIdToken
 
 __all__ = [
     "NULL_RESOURCE_ARG",
     "RECURSION_CACHE_REALM",
+    "Actor",
     "AuthClient",
     "DynamoDBSharedCounter",
     "InsufficientRightsException",
@@ -42,6 +43,7 @@ __all__ = [
     "RecursionDecision",
     "RecursionGate",
     "RecursionMode",
+    "RequestableActor",
     "SessionState",
     "SharedCounter",
     "TaktileAuthException",

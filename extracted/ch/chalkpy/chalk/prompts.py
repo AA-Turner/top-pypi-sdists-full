@@ -144,7 +144,6 @@ def completion(
     >>> from pydantic import BaseModel
     >>> class EstimatedAge(BaseModel):
     ...     age: float
-    ...
     >>> @features
     ... class User:
     ...    id: str

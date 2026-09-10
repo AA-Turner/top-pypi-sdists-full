@@ -320,7 +320,7 @@ class TestX509Certificate(testtools.TestCase):
         masks = [enums.CryptographicUsageMask.ENCRYPT,
                  enums.CryptographicUsageMask.WRAP_KEY]
         cert = X509Certificate(self.bytes_a, masks=masks, name=test_name)
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, expire_on_commit=False)
         session = Session()
         session.add(cert)
         session.commit()
@@ -348,13 +348,13 @@ class TestX509Certificate(testtools.TestCase):
         cert = X509Certificate(self.bytes_a, name=expected_names[0])
         cert.names.append(expected_names[1])
         cert.names.append(expected_names[2])
-        self.assertEquals(3, cert.name_index)
+        self.assertEqual(3, cert.name_index)
         expected_mo_names = list()
         for i, name in enumerate(expected_names):
             expected_mo_names.append(sqltypes.ManagedObjectName(name, i))
-        self.assertEquals(expected_mo_names, cert._names)
+        self.assertEqual(expected_mo_names, cert._names)
 
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, expire_on_commit=False)
         session = Session()
         session.add(cert)
         session.commit()
@@ -364,7 +364,7 @@ class TestX509Certificate(testtools.TestCase):
             ManagedObject.unique_identifier == cert.unique_identifier
             ).one()
         session.commit()
-        self.assertEquals(expected_mo_names, get_obj._names)
+        self.assertEqual(expected_mo_names, get_obj._names)
 
     def test_remove_name(self):
         """
@@ -378,7 +378,7 @@ class TestX509Certificate(testtools.TestCase):
         cert.names.append(names[1])
         cert.names.append(names[2])
         cert.names.pop(remove_index)
-        self.assertEquals(3, cert.name_index)
+        self.assertEqual(3, cert.name_index)
 
         expected_names = list()
         expected_mo_names = list()
@@ -386,10 +386,10 @@ class TestX509Certificate(testtools.TestCase):
             if i != remove_index:
                 expected_names.append(name)
                 expected_mo_names.append(sqltypes.ManagedObjectName(name, i))
-        self.assertEquals(expected_names, cert.names)
-        self.assertEquals(expected_mo_names, cert._names)
+        self.assertEqual(expected_names, cert.names)
+        self.assertEqual(expected_mo_names, cert._names)
 
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, expire_on_commit=False)
         session = Session()
         session.add(cert)
         session.commit()
@@ -399,8 +399,8 @@ class TestX509Certificate(testtools.TestCase):
             ManagedObject.unique_identifier == cert.unique_identifier
             ).one()
         session.commit()
-        self.assertEquals(expected_names, get_obj.names)
-        self.assertEquals(expected_mo_names, get_obj._names)
+        self.assertEqual(expected_names, get_obj.names)
+        self.assertEqual(expected_mo_names, get_obj._names)
 
     def test_remove_and_add_name(self):
         """
@@ -416,7 +416,7 @@ class TestX509Certificate(testtools.TestCase):
         cert.names.pop()
         cert.names.pop()
         cert.names.append('dog')
-        self.assertEquals(4, cert.name_index)
+        self.assertEqual(4, cert.name_index)
 
         expected_names = ['bowser', 'dog']
         expected_mo_names = list()
@@ -424,10 +424,10 @@ class TestX509Certificate(testtools.TestCase):
                                                             0))
         expected_mo_names.append(sqltypes.ManagedObjectName(expected_names[1],
                                                             3))
-        self.assertEquals(expected_names, cert.names)
-        self.assertEquals(expected_mo_names, cert._names)
+        self.assertEqual(expected_names, cert.names)
+        self.assertEqual(expected_mo_names, cert._names)
 
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, expire_on_commit=False)
         session = Session()
         session.add(cert)
         session.commit()
@@ -437,8 +437,8 @@ class TestX509Certificate(testtools.TestCase):
             ManagedObject.unique_identifier == cert.unique_identifier
             ).one()
         session.commit()
-        self.assertEquals(expected_names, get_obj.names)
-        self.assertEquals(expected_mo_names, get_obj._names)
+        self.assertEqual(expected_names, get_obj.names)
+        self.assertEqual(expected_mo_names, get_obj._names)
 
     def test_update_with_add_name(self):
         """
@@ -454,7 +454,7 @@ class TestX509Certificate(testtools.TestCase):
         """
         first_name = 'bowser'
         cert = X509Certificate(self.bytes_a, name=first_name)
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, expire_on_commit=False)
         session = Session()
         session.add(cert)
         session.commit()
@@ -477,8 +477,8 @@ class TestX509Certificate(testtools.TestCase):
             ManagedObject.unique_identifier == cert.unique_identifier
             ).one()
         session.commit()
-        self.assertEquals(expected_names, get_obj.names)
-        self.assertEquals(expected_mo_names, get_obj._names)
+        self.assertEqual(expected_names, get_obj.names)
+        self.assertEqual(expected_mo_names, get_obj._names)
 
     def test_update_with_remove_name(self):
         """
@@ -493,7 +493,7 @@ class TestX509Certificate(testtools.TestCase):
         cert.names.append(names[1])
         cert.names.append(names[2])
 
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, expire_on_commit=False)
         session = Session()
         session.add(cert)
         session.commit()
@@ -517,8 +517,8 @@ class TestX509Certificate(testtools.TestCase):
             ManagedObject.unique_identifier == cert.unique_identifier
             ).one()
         session.commit()
-        self.assertEquals(expected_names, get_obj.names)
-        self.assertEquals(expected_mo_names, get_obj._names)
+        self.assertEqual(expected_names, get_obj.names)
+        self.assertEqual(expected_mo_names, get_obj._names)
 
     def test_update_with_remove_and_add_name(self):
         """
@@ -534,7 +534,7 @@ class TestX509Certificate(testtools.TestCase):
         cert.names.append(names[1])
         cert.names.append(names[2])
 
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, expire_on_commit=False)
         session = Session()
         session.add(cert)
         session.commit()
@@ -560,5 +560,5 @@ class TestX509Certificate(testtools.TestCase):
             ManagedObject.unique_identifier == cert.unique_identifier
             ).one()
         session.commit()
-        self.assertEquals(expected_names, get_obj.names)
-        self.assertEquals(expected_mo_names, get_obj._names)
+        self.assertEqual(expected_names, get_obj.names)
+        self.assertEqual(expected_mo_names, get_obj._names)

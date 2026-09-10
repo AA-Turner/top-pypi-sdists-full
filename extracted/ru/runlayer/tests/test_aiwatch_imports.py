@@ -200,6 +200,25 @@ def test_aiwatch_module_top_is_stdlib_only():
     )
 
 
+def test_credential_helper_closure_is_light():
+    result = _run_import_probe(
+        "import runlayer_cli.aiwatch_credential",
+        ("typer", "httpx", "truststore", "anyio", "structlog"),
+    )
+    assert result.returncode == 0, (
+        f"credential helper pulled in a heavy dependency:\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+    result = _run_import_probe("import runlayer_cli.aiwatch_credential")
+    assert result.returncode == 0, (
+        f"credential helper pulled in a bundle-excluded module:\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
 def test_daemon_served_hook_path_never_imports_typer_httpx_or_anyio():
     probe = "\n        ".join(
         [

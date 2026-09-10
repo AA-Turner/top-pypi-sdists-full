@@ -679,16 +679,36 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
             )
 
         # --- summary mode ---
-        # Always succeeds. Prefer the configured AI summary agent; otherwise
-        # fall back to the first page so the model still gets content (a
-        # rejected summary call wastes a paid turn for nothing).
+        # Prefer the configured AI summary agent; otherwise fall back to the
+        # first page so the model still gets content (a rejected summary call
+        # wastes a paid turn for nothing). A FAILED summary agent call is a
+        # FAILED tool call — never a success whose "summary" text is an
+        # apology (the exact class of the 2026-09-08 `web summarize=true`
+        # incident: `NamedAgent._check_definition` refusing a class that
+        # declared both `mandate_key` and `source` was returned as a
+        # successful "[Summarization failed: ...]" string for weeks).
         if mode == "summary":
             if obj.summary_agent_id:
-                summary = await _run_summary_agent(
+                summary, summary_error = await _run_summary_agent(
                     agent_id=obj.summary_agent_id,
                     content=content_str,
                     ctx=ctx,
                 )
+                if summary_error is not None:
+                    return ToolResult(
+                        success=False,
+                        error=ToolError(
+                            error_type="execution",
+                            message=summary_error,
+                            is_retryable=True,
+                            suggested_action=(
+                                "Re-read the object with mode='full' or "
+                                "mode='page' (raw content, no summarization) — "
+                                "the object itself loaded fine; only the "
+                                "summary agent call failed."
+                            ),
+                        ),
+                    )
                 return ToolResult(
                     success=True,
                     output={
@@ -791,7 +811,12 @@ async def _run_summary_agent(
     agent_id: str,
     content: str,
     ctx: ToolContext,
-) -> str:
+) -> tuple[str | None, str | None]:
+    """Returns ``(summary, error)`` — exactly one is not ``None``. Never
+    embeds a failure inside the summary string: the caller (``ctx_get``
+    mode='summary') turns a non-``None`` error into a failed ``ToolResult``,
+    never a successful one whose ``summary`` field happens to read like an
+    apology."""
     from matrx_ai.agents.definition import Agent
     from matrx_ai.agents.executor import run_agent
 
@@ -804,10 +829,10 @@ async def _run_summary_agent(
             source_feature="context_summary",
         )
         if not result.success:
-            return f"[Summary failed: {result.error}]"
-        return result.output
+            return None, f"Summary agent failed: {result.error}"
+        return result.output, None
     except Exception as e:
-        return f"[Summary failed: {e}]"
+        return None, f"Summary agent failed: {e}"
 
 
 async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:

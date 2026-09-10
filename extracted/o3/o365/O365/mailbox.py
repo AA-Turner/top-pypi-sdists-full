@@ -159,7 +159,7 @@ class AutomaticRepliesSettings(ApiComponent):
 
         :getter: get the external audience of auto reply
         :setter: set the external audience of auto reply
-        :type: autoreplystatus
+        :type: externalaudience
         """
         return self.__external_audience
 

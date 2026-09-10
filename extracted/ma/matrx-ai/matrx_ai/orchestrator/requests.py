@@ -454,6 +454,8 @@ class CompletedRequest:
                 "position": position,
                 "content": msg_dict["content"],
             }
+            if "user_content" in msg_dict:
+                msg_row["user_content"] = msg_dict["user_content"]
             # Carry message-level metadata through. Without this the per-turn
             # call-record stamp (model_context / tools_on_call, plus any other
             # cx_message.metadata) is silently dropped before the persist layer —

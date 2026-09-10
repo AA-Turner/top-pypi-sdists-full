@@ -25,21 +25,21 @@ class ModelSerializationConfig(NamedTuple):
 
 MODEL_SERIALIZERS = {
     ModelType.PYTORCH: ModelSerializationConfig(
-        filename="model.pth",
-        encoding=ModelEncoding.PICKLE,
+        filename="model.safetensors",
+        encoding=ModelEncoding.SAFETENSOR,
         serialize_fn=lambda model, path: ModelSerializer.with_import(
-            "torch",
-            lambda torch: torch.jit.save(torch.jit.script(model.eval()), path),
-            "Please install PyTorch to save PyTorch models.",
+            "safetensors.torch",
+            lambda safetensors: safetensors.torch.save_model(model, path),
+            "Please install safetensors to save PyTorch models: pip install safetensors",
         ),
         schema_fn=lambda model: ModelAttributeExtractor.infer_pytorch_schemas(model),
         dependency_fn=lambda: ModelSerializer.with_import(
             "torch", lambda torch: [f"torch=={torch.__version__}"], "Please install PyTorch to save PyTorch models."
         ),
         load_fn=lambda path: ModelSerializer.with_import(
-            "torch",
-            lambda torch: torch.jit.load(path),
-            "Please install PyTorch to load PyTorch models.",
+            "safetensors.torch",
+            lambda safetensors: safetensors.torch.load_file(path),
+            "Please install safetensors to load PyTorch models: pip install safetensors",
         ),
     ),
     ModelType.SKLEARN: ModelSerializationConfig(

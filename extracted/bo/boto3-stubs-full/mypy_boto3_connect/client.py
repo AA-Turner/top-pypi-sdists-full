@@ -459,6 +459,8 @@ from .type_defs import (
     ListDefaultVocabulariesResponseTypeDef,
     ListEntitySecurityProfilesRequestTypeDef,
     ListEntitySecurityProfilesResponseTypeDef,
+    ListEvaluationFormAIVersionsRequestTypeDef,
+    ListEvaluationFormAIVersionsResponseTypeDef,
     ListEvaluationFormsRequestTypeDef,
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestTypeDef,
@@ -2964,6 +2966,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_entity_security_profiles.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_entity_security_profiles)
+        """
+
+    def list_evaluation_form_ai_versions(
+        self, **kwargs: Unpack[ListEvaluationFormAIVersionsRequestTypeDef]
+    ) -> ListEvaluationFormAIVersionsResponseTypeDef:
+        """
+        Lists the available AI versions for evaluation forms in the specified Connect
+        Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_evaluation_form_ai_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_evaluation_form_ai_versions)
         """
 
     def list_evaluation_form_versions(

@@ -106,6 +106,31 @@ def load_obj(obj_path: str, default_obj_path: str = "") -> Any:
     return getattr(module_obj, obj_name)
 
 
+def _is_module_allowed(
+    module_path: str, allowed_prefixes: Iterable[str | None]
+) -> bool:
+    """Check a module path against an allowlist of module prefixes.
+
+    This is the shared pre-flight check for components that import a module
+    named by user input. A prefix matches when it is the module path itself or
+    a parent package of it, so ``pkg`` allows ``pkg`` and ``pkg.sub`` but not
+    ``pkgsub``. ``None`` prefixes are ignored, so callers can pass optional
+    values such as a project package name without filtering them out first.
+
+    Args:
+        module_path: Dotted path of the module about to be imported.
+        allowed_prefixes: Module prefixes that are permitted.
+
+    Returns:
+        True when ``module_path`` is covered by one of ``allowed_prefixes``.
+    """
+    return any(
+        prefix is not None
+        and (module_path == prefix or module_path.startswith(prefix + "."))
+        for prefix in allowed_prefixes
+    )
+
+
 def _is_databricks() -> bool:
     """Evaluate if the current run environment is Databricks or not.
 
@@ -279,19 +304,24 @@ def get_close_matches(
     Returns:
         List of close matches or empty list if no matches are found.
     """
-    _init_matches = []
-    if isinstance(input, str):
-        matches = difflib.get_close_matches(
-            input, list(targets), n=max_suggestions, cutoff=cutoff
-        )
-        _init_matches.extend(matches)
-    else:
-        for source_str in input:
-            _matches = difflib.get_close_matches(
-                source_str, list(targets), n=max_suggestions, cutoff=cutoff
-            )
-            _init_matches.extend(_matches)
-    return _init_matches[:max_suggestions]
+    # Materialize once: `targets` may be a one-shot iterable, and it is reused
+    # for every input string below.
+    targets = list(targets)
+    inputs = [input] if isinstance(input, str) else input
+
+    matches: list[str] = []
+    seen: set[str] = set()
+    for source_str in inputs:
+        for match in difflib.get_close_matches(
+            source_str, targets, n=max_suggestions, cutoff=cutoff
+        ):
+            # Deduplicate while preserving order: different inputs can match the
+            # same target, which would otherwise repeat it in the suggestions.
+            # A `seen` set keeps the membership check O(1).
+            if match not in seen:
+                seen.add(match)
+                matches.append(match)
+    return matches[:max_suggestions]
 
 
 def find_config_file(

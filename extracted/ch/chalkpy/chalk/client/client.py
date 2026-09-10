@@ -1090,14 +1090,12 @@ class ChalkClient:
         >>> dataset = ChalkClient().get_dataset(
         ...     dataset_name='my_dataset_name'
         ... )
-        ...
 
         or
 
         >>> dataset = ChalkClient().get_dataset(
         ...     job_id='00000000-0000-0000-0000-000000000000'
         ... )
-        ...
 
         If memory allows:
 

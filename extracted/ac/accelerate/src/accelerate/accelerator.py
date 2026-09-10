@@ -34,7 +34,7 @@ import torch.utils.hooks as hooks
 
 from accelerate.utils.dataclasses import FP8BackendType
 
-from .big_modeling import _attach_context_parallel_hooks
+from .big_modeling import _attach_context_parallel_hooks, _refuse_recurrent_layers_under_sequence_parallelism
 from .checkpointing import load_accelerator_state, load_custom_state, save_accelerator_state, save_custom_state
 from .data_loader import DataLoaderDispatcher, prepare_data_loader, skip_first_batches
 from .logging import get_logger
@@ -92,6 +92,7 @@ from .utils import (
     get_fsdp2_grad_scaler,
     get_grad_scaler,
     get_mixed_precision_context_manager,
+    get_model_tp_size,
     get_pretty_name,
     has_offloaded_params,
     is_bf16_available,
@@ -532,7 +533,7 @@ class Accelerator:
         if (
             (mixed_precision != "bf16")
             and getattr(self.state, "downcast_bfloat", False)
-            and (self.state.distributedType != DistributedType.XLA)
+            and (self.state.distributed_type != DistributedType.XLA)
         ):
             raise ValueError("Can only use `downcast_bf16` when using `mixed_precision='bf16'` and on a TPU")
 
@@ -1794,7 +1795,12 @@ class Accelerator:
         ```
         """
         if device_placement is None:
-            device_placement = self.device_placement and self.distributed_type != DistributedType.FSDP
+            # DTensor-sharded models manage their own placement; `.to()` on FSDP2-managed or CPU-offloaded params raises `_apply(): Couldn't swap ...`
+            device_placement = (
+                self.device_placement
+                and self.distributed_type != DistributedType.FSDP
+                and not model_has_dtensor(model)
+            )
 
         # Ensure we can't double wrap a model
         if getattr(model, "_is_accelerate_prepared", False):
@@ -1895,14 +1901,15 @@ class Accelerator:
                     if self.ddp_handler is not None:
                         self.ddp_handler.register_comm_hook(model)
             elif self.parallelism_config and self.parallelism_config.tp_enabled:
-                if not hasattr(model, "tp_size"):
+                model_tp_size = get_model_tp_size(model)
+                if model_tp_size is None:
                     raise NotImplementedError(
                         "Model should undergo tensor parallel before passing it to accelerate."
                         "You can use .from_pretrained(..., tp_plan='auto') if the model supports"
                     )
-                if model.tp_size != self.parallelism_config.tp_size:
+                if model_tp_size != self.parallelism_config.tp_size:
                     raise ValueError(
-                        f"tp_size in the plugin {self.parallelism_config.tp_size} should be same as model's tp size {model.tp_size}"
+                        f"tp_size in the plugin {self.parallelism_config.tp_size} should be same as model's tp size {model_tp_size}"
                     )
             elif self.is_fsdp2:
                 raise ValueError(
@@ -2333,7 +2340,9 @@ class Accelerator:
                     {
                         "scheduler.params.warmup_min_lr": 0,
                         "scheduler.params.warmup_max_lr": max_lr,
-                        "scheduler.params.warmup_num_steps": scheduler.warmup_num_steps,
+                        # `DummyScheduler` defaults to 0, which `deepspeed>=0.19.6` rejects outright.
+                        # Older versions silently clamped it to 2, so keep the value positive.
+                        "scheduler.params.warmup_num_steps": max(1, scheduler.warmup_num_steps),
                     }
                 )
                 if scheduler.total_num_steps is not None:
@@ -2404,6 +2413,8 @@ class Accelerator:
                     raise ValueError(
                         "UlyssesSPAttentionHF currently works with HF Transformers and expects the model object to have a config attribute but this model doesn't have one."
                     )
+
+                _refuse_recurrent_layers_under_sequence_parallelism(model)
 
                 kwagrs = {}
                 signature = inspect.signature(UlyssesSPAttentionHF.register_with_transformers)
@@ -2943,6 +2954,38 @@ class Accelerator:
                     opt = opt.optimizer
                 self.scaler.unscale_(opt)
 
+    def _clip_grad_norm_dtensor_aware(self, parameters, max_norm, norm_type=2):
+        is_dtensor_available = torch.distributed.is_available() and is_torch_version(">=", DTENSOR_PYTORCH_VERSION)
+        if not is_dtensor_available:
+            return torch.nn.utils.clip_grad_norm_(parameters, max_norm, norm_type=norm_type)
+
+        from torch.distributed.tensor import DTensor
+
+        # `DTensor` is a subclass of `torch.Tensor`, so a plain gradient is anything that is not a `DTensor`.
+        mesh_groups = {}
+        plain_params = []
+        for p in parameters:
+            if p.grad is None:
+                continue
+            if isinstance(p.grad, DTensor):
+                mesh_groups.setdefault(p.grad.device_mesh, []).append(p)
+            else:
+                plain_params.append(p)
+
+        if len(mesh_groups) + bool(plain_params) <= 1:
+            return torch.nn.utils.clip_grad_norm_(parameters, max_norm, norm_type=norm_type)
+
+        norm_groups = list(mesh_groups.values()) + ([plain_params] if plain_params else [])
+        group_norms = [torch.nn.utils.get_total_norm([p.grad for p in group], norm_type) for group in norm_groups]
+        # `full_tensor()` gathers each group norm on its own mesh, so the group norms can be combined as plain tensors.
+        group_norms = [norm.full_tensor() if isinstance(norm, DTensor) else norm for norm in group_norms]
+        total_norm = torch.linalg.vector_norm(torch.stack(group_norms), norm_type)
+        for mesh, group in mesh_groups.items():
+            d_total_norm = DTensor.from_local(total_norm, mesh)
+            torch.nn.utils.clip_grads_with_norm_(group, max_norm, d_total_norm)
+        torch.nn.utils.clip_grads_with_norm_(plain_params, max_norm, total_norm)
+        return total_norm
+
     def clip_grad_norm_(self, parameters, max_norm, norm_type=2):
         """
         Should be used in place of `torch.nn.utils.clip_grad_norm_`.
@@ -2976,9 +3019,7 @@ class Accelerator:
                     if not self.is_fsdp2:
                         return model.clip_grad_norm_(max_norm, norm_type)
                     else:
-                        return torch.nn.utils.clip_grad_norm_(
-                            parameters, max_norm, norm_type=norm_type
-                        )  # viz: https://github.com/pytorch/torchtitan/blob/main/docs/fsdp.md
+                        return self._clip_grad_norm_dtensor_aware(parameters, max_norm, norm_type=norm_type)
         elif self.distributed_type == DistributedType.DEEPSPEED:
             # DeepSpeed handles gradient clipping internally, but we can retrieve the gradient norm
             if self.deepspeed_engine_wrapped is not None:
@@ -3004,7 +3045,7 @@ class Accelerator:
                     if parameters == [p for p in model.parameters()]:
                         return model.clip_grad_norm_(max_norm, norm_type)
         self.unscale_gradients()
-        return torch.nn.utils.clip_grad_norm_(parameters, max_norm, norm_type=norm_type)
+        return self._clip_grad_norm_dtensor_aware(list(parameters), max_norm, norm_type=norm_type)
 
     def clip_grad_value_(self, parameters, clip_value):
         """
@@ -3071,7 +3112,7 @@ class Accelerator:
         used for gathering the inputs and targets for metric calculation.
 
         Args:
-            input (`torch.Tensor`, `object`, a nested tuple/list/dictionary of `torch.Tensor`, or a nested tuple/list/dictionary of `object`):
+            input_data (`torch.Tensor`, `object`, a nested tuple/list/dictionary of `torch.Tensor`, or a nested tuple/list/dictionary of `object`):
                 The tensors or objects for calculating metrics across all processes
             use_gather_object(`bool`):
                 Whether to forcibly use gather_object instead of gather (which is already done if all objects passed do

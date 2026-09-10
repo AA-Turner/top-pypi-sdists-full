@@ -10,6 +10,7 @@ pub mod provider;
 pub mod role;
 pub mod screenshot;
 pub mod selector;
+pub mod shell;
 pub mod text;
 
 /// Shared in-memory mock Provider. Gated behind `test-support` so only the
@@ -23,7 +24,13 @@ pub mod mock;
 pub use app::App;
 pub use config::{default_timeout, set_default_timeout, DEFAULT_TIMEOUT_ENV_VAR};
 pub use element::{Element, ElementData, RawPlatformData, Rect, StateSet, Toggled, TreeNode};
+// `#[doc(hidden)]`: the provider-side construction contract, re-exported so
+// the backend crates can reach it. Not public API — see its docs.
+#[doc(hidden)]
+pub use element::{ElementParts, StateParts};
 pub use error::{Diagnosis, Error, Result};
+#[doc(hidden)]
+pub use event::EventParts;
 pub use event::{ElementState, Event, EventKind, StateFlag};
 pub use event_provider::{CancelHandle, EventReceiver, RecvStatus, Subscription, SubscriptionIter};
 pub use input::{
@@ -35,6 +42,7 @@ pub use provider::Provider;
 pub use role::{unknown_role, Role};
 pub use screenshot::{Screenshot, ScreenshotProvider};
 pub use selector::{Selector, SelectorGroup};
+pub use shell::{ShellSurface, ShellSurfaceKind};
 pub use text::{is_bidi_control, strip_bidi, strip_bidi_opt};
 
 /// Maximum tree traversal depth for providers. Prevents stack overflow from

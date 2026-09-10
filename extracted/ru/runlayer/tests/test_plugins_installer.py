@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 from pathlib import Path
 
 import httpx
@@ -23,8 +24,8 @@ from runlayer_cli.api import (
 )
 from runlayer_cli.metrics import InstallationAnalyticsEvent
 from runlayer_cli.plugins import installer as plugin_installer
+from runlayer_cli.plugins import layouts as plugin_layouts
 from runlayer_cli.plugins.installer import (
-    CODEX_NATIVE_INSTALL_MODE,
     PluginLockEntry,
     _rewrite_plugin_skill_content,
     _write_plugin_lockfile,
@@ -32,37 +33,16 @@ from runlayer_cli.plugins.installer import (
     _write_plugin_mcp_json,
     install_plugins,
     read_plugin_lockfile,
+    resolve_plugin_dirs,
     uninstall_plugin,
     update_plugins,
 )
-
-
-def _plugin(
-    *,
-    id: str = "p1",
-    name: str = "my-plugin",
-    install_name: str | None = None,
-    namespace: str | None = "org/repo",
-    servers: list[dict] | None = None,
-    skills: list[PluginSkillRef] | None = None,
-    use_dynamic_tools: bool = False,
-    updated_at: datetime.datetime | None = None,
-) -> PluginDetail:
-    return PluginDetail(
-        id=id,
-        name=name,
-        install_name=install_name,
-        namespace=namespace,
-        servers=(
-            servers
-            if servers is not None
-            else [{"server_id": "srv-1", "name": "My Server"}]
-        ),
-        skills=skills if skills is not None else [],
-        use_dynamic_tools=use_dynamic_tools,
-        updated_at=updated_at
-        or datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
-    )
+from runlayer_cli.plugins.layouts import CODEX_NATIVE_INSTALL_MODE
+from tests.plugin_installer_helpers import (
+    FakeClientSinglePlugin,
+    lock_entry,
+    plugin,
+)
 
 
 @pytest.mark.parametrize("use_dynamic_tools", [True, False])
@@ -79,7 +59,7 @@ def test_plugin_mcp_fallback_carries_dynamic_mode_to_codex(
     )
 
     plugin_installer._install_plugin_mcp_fallback(
-        _plugin(use_dynamic_tools=use_dynamic_tools),
+        plugin(use_dynamic_tools=use_dynamic_tools),
         "codex",
         "https://example.com",
     )
@@ -89,25 +69,6 @@ def test_plugin_mcp_fallback_carries_dynamic_mode_to_codex(
     entry = config["mcp_servers"]["my-plugin"]
     expected = ["deferred"] if use_dynamic_tools else None
     assert entry.get("omit_tools_from") == expected
-
-
-def _lock_entry(
-    name: str = "my-plugin",
-    *,
-    client: str = "claude_code",
-    install_mode: str = "native",
-    use_dynamic_tools: bool = False,
-) -> PluginLockEntry:
-    return PluginLockEntry(
-        name=name,
-        id="p1",
-        namespace="org/repo",
-        updated_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
-        use_dynamic_tools=use_dynamic_tools,
-        client=client,
-        install_mode=install_mode,
-        server_ids=["srv-1"],
-    )
 
 
 # -- Lockfile tests --
@@ -120,7 +81,7 @@ def test_read_plugin_lockfile_empty(tmp_path: Path):
 
 def test_read_write_plugin_lockfile_roundtrip(tmp_path: Path):
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
-    entries = [_lock_entry()]
+    entries = [lock_entry()]
     _write_plugin_lockfile(lockfile, entries)
     loaded = read_plugin_lockfile(lockfile)
     assert len(loaded) == 1
@@ -162,9 +123,9 @@ def test_read_plugin_lockfile_invalid_format(tmp_path: Path):
 
 
 def test_write_plugin_manifest(tmp_path: Path):
-    plugin = _plugin()
+    detail = plugin()
     _write_plugin_manifest(
-        tmp_path, "my-plugin", plugin, "claude_code", "https://example.com"
+        tmp_path, "my-plugin", detail, "claude_code", "https://example.com"
     )
     manifest_path = tmp_path / "my-plugin" / ".claude-plugin" / "plugin.json"
     assert manifest_path.exists()
@@ -180,19 +141,74 @@ def test_write_plugin_manifest(tmp_path: Path):
     }
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_write_plugin_manifest_is_owner_only(tmp_path: Path):
+    """The Claude Code manifest embeds the key header on global installs."""
+    _write_plugin_manifest(
+        tmp_path,
+        "my-plugin",
+        plugin(),
+        "claude_code",
+        "https://example.com",
+        secret="rl_test",
+    )
+
+    manifest_path = tmp_path / "my-plugin" / ".claude-plugin" / "plugin.json"
+    assert "rl_test" in manifest_path.read_text()
+    assert manifest_path.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_write_plugin_manifest_rehardens_existing_file(tmp_path: Path):
+    """A rewrite keeps the old mode, so hardening has to be explicit."""
+    manifest_path = tmp_path / "my-plugin" / ".claude-plugin" / "plugin.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text("{}", encoding="utf-8")
+    manifest_path.chmod(0o644)
+
+    _write_plugin_manifest(
+        tmp_path, "my-plugin", plugin(), "claude_code", "https://example.com"
+    )
+
+    assert manifest_path.stat().st_mode & 0o777 == 0o600
+
+
 def test_write_plugin_manifest_cursor(tmp_path: Path):
-    plugin = _plugin()
-    _write_plugin_manifest(tmp_path, "my-plugin", plugin, "cursor")
+    detail = plugin()
+    _write_plugin_manifest(tmp_path, "my-plugin", detail, "cursor")
     manifest_path = tmp_path / "my-plugin" / ".cursor-plugin" / "plugin.json"
     assert manifest_path.exists()
     data = json.loads(manifest_path.read_text())
     assert data["id"] == "p1"
     assert data["name"] == "my-plugin"
+    assert data["version"] == "1.0.0"
+
+
+def test_write_plugin_manifest_cursor_slugs_display_name(tmp_path: Path):
+    """Cursor requires kebab-case `name`; the display name must not leak in."""
+    detail = plugin(name="Runlayer Plugin")
+    _write_plugin_manifest(tmp_path, "runlayer-plugin", detail, "cursor")
+    manifest_path = tmp_path / "runlayer-plugin" / ".cursor-plugin" / "plugin.json"
+    data = json.loads(manifest_path.read_text())
+    assert data["name"] == "runlayer-plugin"
+    assert data["version"] == "1.0.0"
+    # id/namespace are carried through untouched as provenance.
+    assert data["id"] == "p1"
+    assert data["namespace"] == "org/repo"
+
+
+def test_write_plugin_manifest_cursor_slugs_unnormalized_install_name(tmp_path: Path):
+    """install_name falls back to the raw display name for Cursor, so slug it."""
+    detail = plugin(name="Runlayer Plugin")
+    _write_plugin_manifest(tmp_path, "Runlayer Plugin", detail, "cursor")
+    manifest_path = tmp_path / "Runlayer Plugin" / ".cursor-plugin" / "plugin.json"
+    data = json.loads(manifest_path.read_text())
+    assert data["name"] == "runlayer-plugin"
 
 
 def test_write_plugin_manifest_vscode(tmp_path: Path):
-    plugin = _plugin()
-    _write_plugin_manifest(tmp_path, "my-plugin", plugin, "vscode")
+    detail = plugin()
+    _write_plugin_manifest(tmp_path, "my-plugin", detail, "vscode")
     manifest_path = tmp_path / "my-plugin" / ".vscode-plugin" / "plugin.json"
     assert manifest_path.exists()
     data = json.loads(manifest_path.read_text())
@@ -201,9 +217,9 @@ def test_write_plugin_manifest_vscode(tmp_path: Path):
 
 
 def test_write_plugin_manifest_codex(tmp_path: Path):
-    plugin = _plugin(skills=[PluginSkillRef(id="sk1", name="skill-one")])
+    detail = plugin(skills=[PluginSkillRef(id="sk1", name="skill-one")])
     _write_plugin_manifest(
-        tmp_path, "my-plugin", plugin, "codex", "https://example.com"
+        tmp_path, "my-plugin", detail, "codex", "https://example.com"
     )
     manifest_path = tmp_path / "my-plugin" / ".codex-plugin" / "plugin.json"
     assert manifest_path.exists()
@@ -215,10 +231,28 @@ def test_write_plugin_manifest_codex(tmp_path: Path):
     assert "id" not in data
 
 
+@pytest.mark.parametrize(
+    ("client_name", "expected_rel"),
+    [
+        ("claude_code", ".claude/plugins"),
+        ("vscode", ".vscode/plugins"),
+    ],
+)
+def test_resolve_plugin_dirs_other_clients_unchanged(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    client_name: str,
+    expected_rel: str,
+):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    _, editor, _ = resolve_plugin_dirs(client_name, True, tmp_path)
+    assert editor == tmp_path / expected_rel
+
+
 def test_write_plugin_manifest_codex_preserves_display_name(tmp_path: Path):
-    plugin = _plugin(name="My Plugin Name")
+    detail = plugin(name="My Plugin Name")
     _write_plugin_manifest(
-        tmp_path, "my-plugin-name", plugin, "codex", "https://example.com"
+        tmp_path, "my-plugin-name", detail, "codex", "https://example.com"
     )
     manifest_path = tmp_path / "my-plugin-name" / ".codex-plugin" / "plugin.json"
     assert manifest_path.exists()
@@ -240,7 +274,7 @@ def test_dynamic_plugin_manifest_has_mcp_content_without_servers(
     client_name: str,
     manifest_dir: str,
 ) -> None:
-    plugin = _plugin(
+    detail = plugin(
         servers=[],
         skills=[PluginSkillRef(id="sk1", name="skill-one")],
         use_dynamic_tools=True,
@@ -249,7 +283,7 @@ def test_dynamic_plugin_manifest_has_mcp_content_without_servers(
     _write_plugin_manifest(
         tmp_path,
         "my-plugin",
-        plugin,
+        detail,
         client_name,
         "https://example.com",
     )
@@ -287,9 +321,9 @@ def test_rewrite_plugin_skill_content_injects_frontmatter_when_missing() -> None
 
 
 def test_write_plugin_mcp_json(tmp_path: Path):
-    plugin = _plugin()
+    detail = plugin()
     _write_plugin_mcp_json(
-        tmp_path, "my-plugin", plugin, "https://example.com", "claude_code"
+        tmp_path, "my-plugin", detail, "https://example.com", "claude_code"
     )
     mcp_path = tmp_path / "my-plugin" / ".mcp.json"
     assert mcp_path.exists()
@@ -303,9 +337,9 @@ def test_write_plugin_mcp_json(tmp_path: Path):
 
 
 def test_write_plugin_mcp_json_vscode(tmp_path: Path):
-    plugin = _plugin()
+    detail = plugin()
     _write_plugin_mcp_json(
-        tmp_path, "my-plugin", plugin, "https://example.com", "vscode"
+        tmp_path, "my-plugin", detail, "https://example.com", "vscode"
     )
     mcp_path = tmp_path / "my-plugin" / ".mcp.json"
     assert mcp_path.exists()
@@ -320,9 +354,9 @@ def test_write_plugin_mcp_json_vscode(tmp_path: Path):
 
 
 def test_write_plugin_mcp_json_cursor(tmp_path: Path):
-    plugin = _plugin()
+    detail = plugin()
     _write_plugin_mcp_json(
-        tmp_path, "my-plugin", plugin, "https://example.com", "cursor"
+        tmp_path, "my-plugin", detail, "https://example.com", "cursor"
     )
     mcp_path = tmp_path / "my-plugin" / ".mcp.json"
     assert mcp_path.exists()
@@ -337,9 +371,9 @@ def test_write_plugin_mcp_json_cursor(tmp_path: Path):
 
 
 def test_write_plugin_mcp_json_codex(tmp_path: Path):
-    plugin = _plugin()
+    detail = plugin()
     _write_plugin_mcp_json(
-        tmp_path, "my-plugin", plugin, "https://example.com", "codex"
+        tmp_path, "my-plugin", detail, "https://example.com", "codex"
     )
     mcp_path = tmp_path / "my-plugin" / ".mcp.json"
     assert mcp_path.exists()
@@ -351,6 +385,40 @@ def test_write_plugin_mcp_json_codex(tmp_path: Path):
     key = list(servers.keys())[0]
     assert "proxy/srv-1/mcp" in servers[key]["url"]
     assert "type" not in servers[key]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+@pytest.mark.parametrize("client_name", ["claude_code", "cursor", "vscode", "codex"])
+def test_write_plugin_mcp_json_is_owner_only(tmp_path: Path, client_name: str):
+    """The file carries the API key on global installs, for every client."""
+    _write_plugin_mcp_json(
+        tmp_path,
+        "my-plugin",
+        plugin(),
+        "https://example.com",
+        client_name,
+        secret="rl_test",
+    )
+
+    mcp_path = tmp_path / "my-plugin" / ".mcp.json"
+    assert "rl_test" in mcp_path.read_text()
+    assert mcp_path.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_write_plugin_mcp_json_rehardens_existing_file(tmp_path: Path):
+    """A rewrite keeps the old mode, so hardening has to be explicit."""
+    plugin_dir = tmp_path / "my-plugin"
+    plugin_dir.mkdir()
+    mcp_path = plugin_dir / ".mcp.json"
+    mcp_path.write_text("{}", encoding="utf-8")
+    mcp_path.chmod(0o644)
+
+    _write_plugin_mcp_json(
+        tmp_path, "my-plugin", plugin(), "https://example.com", "cursor"
+    )
+
+    assert mcp_path.stat().st_mode & 0o777 == 0o600
 
 
 @pytest.mark.parametrize(
@@ -406,12 +474,12 @@ def test_dynamic_plugin_mcp_json_uses_one_live_plugin_proxy(
     expected_entry: dict[str, object],
     servers: list[dict[str, str]],
 ) -> None:
-    plugin = _plugin(servers=servers, use_dynamic_tools=True)
+    detail = plugin(servers=servers, use_dynamic_tools=True)
 
     _write_plugin_mcp_json(
         tmp_path,
         "my-plugin",
-        plugin,
+        detail,
         "https://example.com",
         client_name,
     )
@@ -433,54 +501,7 @@ class _FakeClient404:
     get_plugin = staticmethod(_raise_404)
 
 
-class _FakeClientSinglePlugin:
-    def __init__(self) -> None:
-        self.installation_events: list[InstallationAnalyticsEvent] = []
-
-    def list_plugins_detailed(
-        self,
-        namespace: str | None = None,
-        *,
-        filter: str = "created_by_me",
-        query: str | None = None,
-    ):
-        return [_plugin()]
-
-    def get_plugin(self, plugin_id: str) -> PluginDetail:
-        return _plugin(id=plugin_id)
-
-    def get_skill(self, skill_id: str) -> SkillDetail:
-        return SkillDetail(
-            id=skill_id,
-            name="test-skill",
-            files=[
-                SkillFileMetadata(
-                    id="f1",
-                    skill_id=skill_id,
-                    title="SKILL.md",
-                    updated_at=datetime.datetime(
-                        2024, 1, 1, tzinfo=datetime.timezone.utc
-                    ),
-                )
-            ],
-        )
-
-    def get_skill_file(self, skill_id: str, file_id: str) -> SkillFileDetail:
-        return SkillFileDetail(
-            id=file_id,
-            skill_id=skill_id,
-            title="SKILL.md",
-            content=f"# {skill_id}",
-        )
-
-    def track_installation_events(
-        self, events: list[InstallationAnalyticsEvent]
-    ) -> dict[str, int]:
-        self.installation_events = events
-        return {"recorded": len(events)}
-
-
-class _FakeClientTrackingFails(_FakeClientSinglePlugin):
+class _FakeClientTrackingFails(FakeClientSinglePlugin):
     def track_installation_events(
         self, events: list[InstallationAnalyticsEvent]
     ) -> dict[str, int]:
@@ -491,7 +512,7 @@ class _FakeClientTrackingFails(_FakeClientSinglePlugin):
         raise httpx.ReadTimeout("timeout", request=request)
 
 
-class _FakeClientWithSkills(_FakeClientSinglePlugin):
+class _FakeClientWithSkills(FakeClientSinglePlugin):
     def list_plugins_detailed(
         self,
         namespace: str | None = None,
@@ -500,7 +521,7 @@ class _FakeClientWithSkills(_FakeClientSinglePlugin):
         query: str | None = None,
     ):
         return [
-            _plugin(
+            plugin(
                 skills=[
                     PluginSkillRef(id="sk1", name="skill-one"),
                 ]
@@ -508,7 +529,7 @@ class _FakeClientWithSkills(_FakeClientSinglePlugin):
         ]
 
 
-class _FakeClientDynamicWithSkills(_FakeClientSinglePlugin):
+class _FakeClientDynamicWithSkills(FakeClientSinglePlugin):
     def list_plugins_detailed(
         self,
         namespace: str | None = None,
@@ -517,7 +538,7 @@ class _FakeClientDynamicWithSkills(_FakeClientSinglePlugin):
         query: str | None = None,
     ):
         return [
-            _plugin(
+            plugin(
                 servers=[],
                 skills=[PluginSkillRef(id="sk1", name="skill-one")],
                 use_dynamic_tools=True,
@@ -528,7 +549,7 @@ class _FakeClientDynamicWithSkills(_FakeClientSinglePlugin):
         raise AssertionError(f"dynamic plugin skill fetched: {skill_id}")
 
 
-class _FakeClientCodexNamesWithSpaces(_FakeClientSinglePlugin):
+class _FakeClientCodexNamesWithSpaces(FakeClientSinglePlugin):
     def list_plugins_detailed(
         self,
         namespace: str | None = None,
@@ -537,7 +558,7 @@ class _FakeClientCodexNamesWithSpaces(_FakeClientSinglePlugin):
         query: str | None = None,
     ):
         return [
-            _plugin(
+            plugin(
                 name="My Plugin Name",
                 skills=[
                     PluginSkillRef(id="sk1", name="Skill Name With Spaces"),
@@ -577,7 +598,7 @@ class _FakeClientCodexNamesWithSpaces(_FakeClientSinglePlugin):
         )
 
 
-class _FakeClientWithApiInstallName(_FakeClientSinglePlugin):
+class _FakeClientWithApiInstallName(FakeClientSinglePlugin):
     def list_plugins_detailed(
         self,
         namespace: str | None = None,
@@ -586,7 +607,7 @@ class _FakeClientWithApiInstallName(_FakeClientSinglePlugin):
         query: str | None = None,
     ):
         return [
-            _plugin(
+            plugin(
                 name="Display Plugin Name",
                 install_name="api-plugin-name",
                 skills=[
@@ -642,12 +663,12 @@ class _FakeClientAllAccessible:
     ):
         assert filter == "all"
         return [
-            _plugin(id="p1", name="plugin-one", namespace="org/a"),
-            _plugin(id="p2", name="plugin-two", namespace="org/b"),
+            plugin(id="p1", name="plugin-one", namespace="org/a"),
+            plugin(id="p2", name="plugin-two", namespace="org/b"),
         ]
 
     def get_plugin(self, plugin_id: str) -> PluginDetail:
-        return _plugin(id=plugin_id)
+        return plugin(id=plugin_id)
 
     def get_skill(self, skill_id: str) -> SkillDetail:
         return SkillDetail(id=skill_id, name="test-skill", files=[])
@@ -672,12 +693,12 @@ class _FakeClientDuplicateNames:
         query: str | None = None,
     ):
         return [
-            _plugin(id="p1", name="dup-plugin", namespace="org/a"),
-            _plugin(id="p2", name="dup-plugin", namespace="org/a"),
+            plugin(id="p1", name="dup-plugin", namespace="org/a"),
+            plugin(id="p2", name="dup-plugin", namespace="org/a"),
         ]
 
 
-class _FakeClientCodexSlugCollision(_FakeClientSinglePlugin):
+class _FakeClientCodexSlugCollision(FakeClientSinglePlugin):
     def list_plugins_detailed(
         self,
         namespace: str | None = None,
@@ -686,12 +707,12 @@ class _FakeClientCodexSlugCollision(_FakeClientSinglePlugin):
         query: str | None = None,
     ):
         return [
-            _plugin(id="p1", name="My Plugin", namespace="org/a"),
-            _plugin(id="p2", name="my_plugin", namespace="org/a"),
+            plugin(id="p1", name="My Plugin", namespace="org/a"),
+            plugin(id="p2", name="my_plugin", namespace="org/a"),
         ]
 
 
-class _FakeClientCodexSlugCollisionWithInstalled(_FakeClientSinglePlugin):
+class _FakeClientCodexSlugCollisionWithInstalled(FakeClientSinglePlugin):
     def list_plugins_detailed(
         self,
         namespace: str | None = None,
@@ -699,10 +720,10 @@ class _FakeClientCodexSlugCollisionWithInstalled(_FakeClientSinglePlugin):
         filter: str = "created_by_me",
         query: str | None = None,
     ):
-        return [_plugin(id="p2", name="my_plugin", namespace="org/repo")]
+        return [plugin(id="p2", name="my_plugin", namespace="org/repo")]
 
 
-class _FakeClientApiInstallNameCollisionWithInstalled(_FakeClientSinglePlugin):
+class _FakeClientApiInstallNameCollisionWithInstalled(FakeClientSinglePlugin):
     def list_plugins_detailed(
         self,
         namespace: str | None = None,
@@ -711,7 +732,7 @@ class _FakeClientApiInstallNameCollisionWithInstalled(_FakeClientSinglePlugin):
         query: str | None = None,
     ):
         return [
-            _plugin(
+            plugin(
                 id="p2",
                 name="my_plugin",
                 install_name="my-plugin",
@@ -722,7 +743,7 @@ class _FakeClientApiInstallNameCollisionWithInstalled(_FakeClientSinglePlugin):
 
 class _FakeClientUpdateNewer:
     def get_plugin(self, plugin_id: str) -> PluginDetail:
-        return _plugin(
+        return plugin(
             id=plugin_id,
             updated_at=datetime.datetime(2024, 2, 1, tzinfo=datetime.timezone.utc),
         )
@@ -733,7 +754,7 @@ class _FakeClientUpdateNewer:
 
 class _FakeClientUpdateNewerWithApiInstallName(_FakeClientUpdateNewer):
     def get_plugin(self, plugin_id: str) -> PluginDetail:
-        return _plugin(
+        return plugin(
             id=plugin_id,
             name="Display Plugin Name",
             install_name="api-plugin-name",
@@ -741,9 +762,9 @@ class _FakeClientUpdateNewerWithApiInstallName(_FakeClientUpdateNewer):
         )
 
 
-class _FakeClientUpdateSameDynamic(_FakeClientSinglePlugin):
+class _FakeClientUpdateSameDynamic(FakeClientSinglePlugin):
     def get_plugin(self, plugin_id: str) -> PluginDetail:
-        return _plugin(
+        return plugin(
             id=plugin_id,
             servers=[],
             skills=[PluginSkillRef(id="sk1", name="skill-one")],
@@ -765,7 +786,7 @@ async def test_install_native_creates_file_structure(tmp_path: Path):
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
 
     result = await install_plugins(
-        client=_FakeClientSinglePlugin(),  # type: ignore
+        client=FakeClientSinglePlugin(),  # type: ignore
         source="org/repo",
         install_all=False,
         plugin_name=None,
@@ -774,6 +795,7 @@ async def test_install_native_creates_file_structure(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -820,6 +842,7 @@ async def test_install_vscode_mcp_json_and_skill_passthrough(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="vscode",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -851,6 +874,7 @@ async def test_install_cursor_mcp_json_and_skill_passthrough(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="cursor",
         host="https://example.com",
+        install_scope="global",
     )
 
     assert result.errors == []
@@ -881,6 +905,7 @@ async def test_install_dynamic_plugin_keeps_skills_live(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="codex",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -909,7 +934,7 @@ async def test_install_plugins_tracks_successful_installs(tmp_path: Path) -> Non
     canonical = tmp_path / "canonical"
     editor = tmp_path / "editor"
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
-    client = _FakeClientSinglePlugin()
+    client = FakeClientSinglePlugin()
 
     result = await install_plugins(
         client=client,
@@ -921,6 +946,7 @@ async def test_install_plugins_tracks_successful_installs(tmp_path: Path) -> Non
         lockfile_path=lockfile,
         client_name="cursor",
         host="https://example.com",
+        install_scope="global",
     )
 
     assert result.installed == ["my-plugin"]
@@ -929,8 +955,8 @@ async def test_install_plugins_tracks_successful_installs(tmp_path: Path) -> Non
             "resource_type": "plugin",
             "resource_id": "p1",
             "client_name": "cursor",
-            "install_scope": "project",
-            "install_mode": "native",
+            "install_scope": "global",
+            "install_mode": "native_copy",
         }
     ]
 
@@ -951,6 +977,7 @@ async def test_install_plugins_ignores_tracking_failure(tmp_path: Path) -> None:
         lockfile_path=lockfile,
         client_name="cursor",
         host="https://example.com",
+        install_scope="global",
     )
 
     assert result.installed == ["my-plugin"]
@@ -972,6 +999,7 @@ async def test_install_native_with_skills_downloads_files(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1000,6 +1028,7 @@ async def test_install_claude_code_slugifies_plugin_and_skill_names(tmp_path: Pa
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1030,6 +1059,7 @@ async def test_install_native_uses_api_plugin_install_name(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1130,6 +1160,7 @@ async def test_install_codex_creates_project_marketplace_and_manifest(
         lockfile_path=lockfile,
         client_name="codex",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1204,6 +1235,7 @@ async def test_install_codex_creates_global_marketplace_entry(
         lockfile_path=lockfile,
         client_name="codex",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1242,6 +1274,7 @@ async def test_install_codex_normalizes_plugin_and_skill_names(
         lockfile_path=lockfile,
         client_name="codex",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1318,7 +1351,7 @@ async def test_install_codex_preserves_unrelated_marketplace_entries(
     )
 
     result = await install_plugins(
-        client=_FakeClientSinglePlugin(),  # type: ignore
+        client=FakeClientSinglePlugin(),  # type: ignore
         source="org/repo",
         install_all=False,
         plugin_name=None,
@@ -1327,6 +1360,7 @@ async def test_install_codex_preserves_unrelated_marketplace_entries(
         lockfile_path=lockfile,
         client_name="codex",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1378,6 +1412,7 @@ async def test_install_all_accessible(tmp_path: Path, dry_run: bool):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
         dry_run=dry_run,
     )
 
@@ -1396,10 +1431,10 @@ async def test_install_skips_already_locked(tmp_path: Path):
     canonical = tmp_path / "canonical"
     editor = tmp_path / "editor"
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
-    _write_plugin_lockfile(lockfile, [_lock_entry()])
+    _write_plugin_lockfile(lockfile, [lock_entry()])
 
     result = await install_plugins(
-        client=_FakeClientSinglePlugin(),  # type: ignore
+        client=FakeClientSinglePlugin(),  # type: ignore
         source="org/repo",
         install_all=False,
         plugin_name=None,
@@ -1408,10 +1443,255 @@ async def test_install_skips_already_locked(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.skipped == ["my-plugin"]
     assert result.installed == []
+
+
+@pytest.mark.parametrize(
+    ("client", "install_scope"),
+    [
+        ("cursor", "global"),
+        ("claude_code", "project"),
+        ("windsurf", "project"),
+    ],
+)
+def test_ensure_scope_supported_allows(client: str, install_scope: str):
+    assert plugin_installer.ensure_scope_supported(client, install_scope) is None  # type: ignore[arg-type]
+
+
+def test_ensure_scope_supported_refuses_cursor_project_scope():
+    with pytest.raises(plugin_installer.UnsupportedInstallScopeError) as excinfo:
+        plugin_installer.ensure_scope_supported("cursor", "project")
+    message = str(excinfo.value)
+    assert "~/.cursor/plugins/local" in message
+    assert "would never appear in Cursor" in message
+    assert "plugins remove --client cursor" in message
+
+
+@pytest.mark.asyncio
+async def test_install_refuses_cursor_project_scope_before_any_io(tmp_path: Path):
+    canonical = tmp_path / ".agents" / "plugins"
+    editor = tmp_path / ".cursor" / "plugins" / "local"
+    lockfile = tmp_path / ".runlayer" / "plugin-lock.yml"
+
+    with pytest.raises(plugin_installer.UnsupportedInstallScopeError):
+        await install_plugins(
+            client=FakeClientSinglePlugin(),  # type: ignore
+            source="org/repo",
+            install_all=False,
+            plugin_name=None,
+            canonical_dir=canonical,
+            editor_dir=editor,
+            lockfile_path=lockfile,
+            client_name="cursor",
+            host="https://example.com",
+            install_scope="project",
+        )
+
+    assert not lockfile.exists()
+    assert not canonical.exists()
+    assert not editor.exists()
+
+
+@pytest.mark.asyncio
+async def test_update_refuses_cursor_project_scope_before_any_io(tmp_path: Path):
+    canonical = tmp_path / ".agents" / "plugins"
+    editor = tmp_path / ".cursor" / "plugins" / "local"
+    lockfile = tmp_path / ".runlayer" / "plugin-lock.yml"
+
+    with pytest.raises(plugin_installer.UnsupportedInstallScopeError):
+        await update_plugins(
+            client=FakeClientSinglePlugin(),  # type: ignore
+            plugin_name=None,
+            canonical_dir=canonical,
+            editor_dir=editor,
+            lockfile_path=lockfile,
+            client_name="cursor",
+            host="https://example.com",
+            install_scope="project",
+        )
+
+    assert not lockfile.exists()
+    assert not canonical.exists()
+    assert not editor.exists()
+
+
+@pytest.mark.parametrize(
+    ("others", "expected"),
+    [
+        ("none", False),
+        ("other_client", True),
+        ("same_entry", False),
+        ("same_client_other_id", True),
+    ],
+)
+def test_canonical_name_claimed_by_another_entry(others: str, expected: bool):
+    entry = lock_entry(client="cursor", install_mode="native")
+    lock_entries = {
+        "none": [],
+        "other_client": [entry, lock_entry(client="claude_code")],
+        "same_entry": [entry],
+        "same_client_other_id": [entry, entry.model_copy(update={"id": "p2"})],
+    }[others]
+
+    shared = plugin_installer._canonical_name_claimed_by_another_entry(
+        entry, lock_entries
+    )
+
+    assert shared is expected
+
+
+def _seed_claude_code_registration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, installed_at: str
+) -> tuple[Path, Path, Path]:
+    """A globally registered Claude Code install, plus its registry path."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    canonical = home / ".agents" / "plugins"
+    editor = plugin_layouts.claude_code_plugins_root()
+    (canonical / "my-plugin").mkdir(parents=True)
+    editor.mkdir(parents=True)
+    (editor / "my-plugin").symlink_to(canonical / "my-plugin")
+
+    registry_path = editor / "installed_plugins.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "plugins": {
+                    "my-plugin@runlayer": [
+                        {"scope": "user", "installedAt": installed_at}
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return canonical, editor, registry_path
+
+
+@pytest.mark.parametrize(
+    ("client", "install_scope", "expects_unregister"),
+    [
+        ("claude_code", "global", True),
+        ("claude_code", "project", False),
+        ("cursor", "global", False),
+    ],
+)
+def test_remove_native_entry_unregisters_on_the_scope_that_registers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    client: str,
+    install_scope: str,
+    expects_unregister: bool,
+):
+    """Removal mirrors materialize: Claude Code, global scope, and nothing else."""
+    canonical, editor, registry_path = _seed_claude_code_registration(
+        tmp_path, monkeypatch, "2024-01-01T00:00:00Z"
+    )
+    entry = lock_entry(client=client, install_mode="native")
+
+    plugin_installer._remove_native_entry(
+        entry,
+        [entry],
+        canonical,
+        editor,
+        install_scope=install_scope,  # type: ignore[arg-type]
+        reinstalling=False,
+    )
+
+    registry = json.loads(registry_path.read_text())
+    assert ("my-plugin@runlayer" not in registry["plugins"]) is expects_unregister
+
+
+def test_remove_native_entry_keeps_the_registration_being_reinstalled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Unregistering the name about to be re-registered would lose installedAt."""
+    installed_at = "2024-01-01T00:00:00Z"
+    canonical, editor, registry_path = _seed_claude_code_registration(
+        tmp_path, monkeypatch, installed_at
+    )
+    entry = lock_entry(install_mode="native")
+
+    plugin_installer._remove_native_entry(
+        entry,
+        [entry],
+        canonical,
+        editor,
+        install_scope="global",
+        reinstalling=True,
+        keep_install_name="my-plugin",
+    )
+
+    registry = json.loads(registry_path.read_text())
+    assert registry["plugins"]["my-plugin@runlayer"][0]["installedAt"] == installed_at
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client_name", ["claude_code", "vscode", "codex", "cursor"])
+async def test_install_global_keeps_canonical_mcp_json_owner_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, client_name: str
+):
+    """Every native client reads the canonical `.mcp.json`, key and all.
+
+    The per-client manifest is hardened too: Claude Code's embeds the key
+    header itself, and the rest share one writer.
+    """
+    # Keeps Claude Code's global registration inside tmp_path.
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    canonical = tmp_path / ".agents" / "plugins"
+    editor = {
+        "claude_code": tmp_path / ".claude" / "plugins",
+        "vscode": tmp_path / ".vscode" / "plugins",
+        "codex": canonical,
+        "cursor": tmp_path / ".cursor" / "plugins" / "local",
+    }[client_name]
+
+    result = await install_plugins(
+        client=FakeClientSinglePlugin(),  # type: ignore
+        source="org/repo",
+        install_all=False,
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=editor,
+        lockfile_path=tmp_path / ".runlayer" / "plugin-lock.yml",
+        client_name=client_name,
+        host="https://example.com",
+        install_scope="global",
+        secret="rl_secret",
+    )
+
+    assert result.installed == ["my-plugin"]
+    canonical_mcp = canonical / "my-plugin" / ".mcp.json"
+    assert "rl_secret" in canonical_mcp.read_text()
+    assert canonical_mcp.stat().st_mode & 0o777 == 0o600
+
+    manifest_dir = {
+        "claude_code": ".claude-plugin",
+        "vscode": ".vscode-plugin",
+        "codex": ".codex-plugin",
+        "cursor": ".cursor-plugin",
+    }[client_name]
+    manifest = canonical / "my-plugin" / manifest_dir / "plugin.json"
+    assert manifest.stat().st_mode & 0o777 == 0o600
+    # Claude Code is the one client whose manifest embeds the key header.
+    assert ("rl_secret" in manifest.read_text()) is (client_name == "claude_code")
+
+    if client_name == "codex":
+        assert (canonical / "marketplace.json").is_file()
+    elif client_name == "cursor":
+        installed = editor / "my-plugin"
+        assert installed.is_dir() and not installed.is_symlink()
+        assert (installed / ".mcp.json").stat().st_mode & 0o777 == 0o600
+    else:
+        link = editor / "my-plugin"
+        assert link.is_symlink()
+        assert link.resolve() == (canonical / "my-plugin").resolve()
 
 
 @pytest.mark.asyncio
@@ -1430,6 +1710,7 @@ async def test_install_collision_error(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.installed == []
@@ -1453,6 +1734,7 @@ async def test_install_codex_slug_collision_error(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="codex",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.installed == []
@@ -1491,6 +1773,7 @@ async def test_install_codex_slug_conflict_with_existing_lock_entry(tmp_path: Pa
         lockfile_path=lockfile,
         client_name="codex",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.installed == []
@@ -1530,6 +1813,7 @@ async def test_install_detects_api_install_name_conflict_with_legacy_lock_entry(
         lockfile_path=lockfile,
         client_name="cursor",
         host="https://example.com",
+        install_scope="global",
     )
 
     assert result.installed == []
@@ -1553,7 +1837,7 @@ def _setup_installed_plugin(
     link = editor / "my-plugin"
     link.parent.mkdir(parents=True)
     link.symlink_to(plugin_dir)
-    _write_plugin_lockfile(lockfile, [_lock_entry()])
+    _write_plugin_lockfile(lockfile, [lock_entry()])
 
     return canonical, editor, lockfile
 
@@ -1597,7 +1881,9 @@ def _setup_installed_plugin_with_invalid_display_name(
 async def test_uninstall_removes_files_and_lockfile_entry(tmp_path: Path):
     canonical, editor, lockfile = _setup_installed_plugin(tmp_path)
 
-    await uninstall_plugin("my-plugin", canonical, editor, lockfile, "claude_code")
+    await uninstall_plugin(
+        "my-plugin", canonical, editor, lockfile, "claude_code", install_scope="project"
+    )
 
     assert not (canonical / "my-plugin").exists()
     assert not (editor / "my-plugin").exists()
@@ -1625,7 +1911,7 @@ async def test_uninstall_by_uuid_removes_files_and_lockfile_entry(tmp_path: Path
     )
 
     removed_name = await uninstall_plugin(
-        uuid_id, canonical, editor, lockfile, "claude_code"
+        uuid_id, canonical, editor, lockfile, "claude_code", install_scope="project"
     )
 
     assert removed_name == "my-plugin"
@@ -1677,7 +1963,7 @@ async def test_uninstall_codex_uses_normalized_install_name(tmp_path: Path):
     )
 
     removed_name = await uninstall_plugin(
-        "My Plugin Name", canonical, editor, lockfile, "codex"
+        "My Plugin Name", canonical, editor, lockfile, "codex", install_scope="project"
     )
 
     assert removed_name == "My Plugin Name"
@@ -1696,7 +1982,7 @@ async def test_uninstall_handles_invalid_display_name_with_api_install_name(
     )
 
     removed_name = await uninstall_plugin(
-        "!!!", canonical, editor, lockfile, "claude_code"
+        "!!!", canonical, editor, lockfile, "claude_code", install_scope="project"
     )
 
     assert removed_name == "!!!"
@@ -1710,11 +1996,16 @@ async def test_uninstall_not_found_raises(tmp_path: Path):
     canonical = tmp_path / "canonical"
     editor = tmp_path / "editor"
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
-    _write_plugin_lockfile(lockfile, [_lock_entry()])
+    _write_plugin_lockfile(lockfile, [lock_entry()])
 
     with pytest.raises(ValueError, match="not found in lockfile"):
         await uninstall_plugin(
-            "nonexistent", canonical, editor, lockfile, "claude_code"
+            "nonexistent",
+            canonical,
+            editor,
+            lockfile,
+            "claude_code",
+            install_scope="project",
         )
 
 
@@ -1735,6 +2026,7 @@ async def test_update_404_removes(tmp_path: Path, dry_run: bool):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
         dry_run=dry_run,
     )
 
@@ -1743,6 +2035,193 @@ async def test_update_404_removes(tmp_path: Path, dry_run: bool):
         assert plugin_dir.exists()
     else:
         assert not plugin_dir.exists()
+
+
+def _setup_shared_installed_plugin(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    """A Claude Code install whose canonical tree a Cursor entry also claims."""
+    canonical, editor, lockfile = _setup_installed_plugin(tmp_path)
+    cursor_manifest = canonical / "my-plugin" / ".cursor-plugin" / "plugin.json"
+    cursor_manifest.parent.mkdir(parents=True)
+    cursor_manifest.write_text('{"name": "my-plugin"}', encoding="utf-8")
+    _write_plugin_lockfile(
+        lockfile,
+        [
+            lock_entry(),
+            lock_entry(
+                client="cursor",
+                install_mode=plugin_layouts.CURSOR_NATIVE_INSTALL_MODE,
+            ),
+        ],
+    )
+    return canonical, editor, lockfile, cursor_manifest
+
+
+@pytest.mark.asyncio
+async def test_update_keeps_canonical_shared_with_another_client(tmp_path: Path):
+    """Updating one client no longer wipes the tree another client links to."""
+    canonical, editor, lockfile, cursor_manifest = _setup_shared_installed_plugin(
+        tmp_path
+    )
+    stale_skill = canonical / "my-plugin" / "skills" / "old-skill" / "SKILL.md"
+    stale_skill.parent.mkdir(parents=True)
+    stale_skill.write_text("# old", encoding="utf-8")
+
+    result = await update_plugins(
+        client=_FakeClientUpdateNewer(),  # type: ignore
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=editor,
+        lockfile_path=lockfile,
+        client_name="claude_code",
+        host="https://example.com",
+        install_scope="project",
+    )
+
+    assert result.updated == ["my-plugin"]
+    assert cursor_manifest.is_file()
+    # Keeping the tree must not keep content this update owns: a skill removed
+    # upstream would otherwise keep loading in both clients.
+    assert not (canonical / "my-plugin" / "skills").exists()
+    link = editor / "my-plugin"
+    assert link.is_symlink()
+    assert link.resolve() == (canonical / "my-plugin").resolve()
+    assert (canonical / "my-plugin" / ".claude-plugin" / "plugin.json").is_file()
+
+
+@pytest.mark.asyncio
+async def test_update_purges_unshared_canonical(tmp_path: Path):
+    """Nothing else claims the name, so the tree is rebuilt from scratch."""
+    canonical, editor, lockfile = _setup_installed_plugin(tmp_path)
+    stale_skill = canonical / "my-plugin" / "skills" / "old-skill" / "SKILL.md"
+    stale_skill.parent.mkdir(parents=True)
+    stale_skill.write_text("# old", encoding="utf-8")
+
+    result = await update_plugins(
+        client=_FakeClientUpdateNewer(),  # type: ignore
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=editor,
+        lockfile_path=lockfile,
+        client_name="claude_code",
+        host="https://example.com",
+        install_scope="project",
+    )
+
+    assert result.updated == ["my-plugin"]
+    assert not stale_skill.parent.exists()
+    assert (canonical / "my-plugin" / ".claude-plugin" / "plugin.json").is_file()
+
+
+@pytest.mark.asyncio
+async def test_update_404_keeps_canonical_shared_with_another_client(tmp_path: Path):
+    canonical, editor, lockfile, cursor_manifest = _setup_shared_installed_plugin(
+        tmp_path
+    )
+
+    result = await update_plugins(
+        client=_FakeClient404(),  # type: ignore
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=editor,
+        lockfile_path=lockfile,
+        client_name="claude_code",
+        host="https://example.com",
+        install_scope="project",
+    )
+
+    assert result.removed == ["my-plugin"]
+    assert cursor_manifest.is_file()
+    assert (canonical / "my-plugin").is_dir()
+    link = editor / "my-plugin"
+    assert not link.is_symlink() and not link.exists()
+    entries = read_plugin_lockfile(lockfile)
+    assert [(e.client, e.name) for e in entries] == [("cursor", "my-plugin")]
+
+
+def _seed_shared_skill(canonical: Path) -> Path:
+    skill = canonical / "my-plugin" / "skills" / "s1" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# s1", encoding="utf-8")
+    return skill
+
+
+@pytest.mark.asyncio
+async def test_uninstall_keeps_shared_tree_skills_for_the_other_client(
+    tmp_path: Path,
+) -> None:
+    """Uninstall re-materializes nothing, so it must not strip shared skills."""
+    canonical, editor, lockfile, cursor_manifest = _setup_shared_installed_plugin(
+        tmp_path
+    )
+    skill = _seed_shared_skill(canonical)
+
+    removed_name = await uninstall_plugin(
+        "my-plugin",
+        canonical,
+        editor,
+        lockfile,
+        "claude_code",
+        install_scope="project",
+    )
+
+    assert removed_name == "my-plugin"
+    assert skill.is_file()
+    assert cursor_manifest.is_file()
+    link = editor / "my-plugin"
+    assert not link.is_symlink() and not link.exists()
+    entries = read_plugin_lockfile(lockfile)
+    assert [(e.client, e.name) for e in entries] == [("cursor", "my-plugin")]
+
+
+@pytest.mark.asyncio
+async def test_update_404_keeps_shared_tree_skills_for_the_other_client(
+    tmp_path: Path,
+) -> None:
+    """The 404 path removes without a reinstall, so the skills stay too."""
+    canonical, editor, lockfile, cursor_manifest = _setup_shared_installed_plugin(
+        tmp_path
+    )
+    skill = _seed_shared_skill(canonical)
+
+    result = await update_plugins(
+        client=_FakeClient404(),  # type: ignore
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=editor,
+        lockfile_path=lockfile,
+        client_name="claude_code",
+        host="https://example.com",
+        install_scope="project",
+    )
+
+    assert result.removed == ["my-plugin"]
+    assert skill.is_file()
+    assert cursor_manifest.is_file()
+    link = editor / "my-plugin"
+    assert not link.is_symlink() and not link.exists()
+    entries = read_plugin_lockfile(lockfile)
+    assert [(e.client, e.name) for e in entries] == [("cursor", "my-plugin")]
+
+
+@pytest.mark.parametrize("reinstalling", [False, True])
+def test_remove_native_entry_purges_shared_tree_only_when_reinstalling(
+    tmp_path: Path, reinstalling: bool
+) -> None:
+    canonical, editor, lockfile, _ = _setup_shared_installed_plugin(tmp_path)
+    skill = _seed_shared_skill(canonical)
+
+    plugin_installer._remove_native_entry(
+        lock_entry(),
+        read_plugin_lockfile(lockfile),
+        canonical,
+        editor,
+        install_scope="project",
+        reinstalling=reinstalling,
+    )
+
+    assert (canonical / "my-plugin").is_dir()
+    assert (canonical / "my-plugin" / "skills").exists() is not reinstalling
+    assert skill.is_file() is not reinstalling
 
 
 @pytest.mark.asyncio
@@ -1761,6 +2240,7 @@ async def test_update_404_handles_invalid_display_name_with_api_install_name(
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors == []
@@ -1795,6 +2275,7 @@ async def test_update_up_to_date(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.up_to_date == ["my-plugin"]
@@ -1818,6 +2299,7 @@ async def test_update_migrates_legacy_dynamic_install_with_same_timestamp(
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.updated == ["my-plugin"]
@@ -1843,6 +2325,7 @@ async def test_update_migrates_legacy_dynamic_install_with_same_timestamp(
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert second_result.updated == []
@@ -1854,16 +2337,17 @@ async def test_update_migrates_tracked_dynamic_native_install_to_static(
     tmp_path: Path,
 ):
     canonical, editor, lockfile = _setup_installed_plugin(tmp_path)
-    _write_plugin_lockfile(lockfile, [_lock_entry(use_dynamic_tools=True)])
+    _write_plugin_lockfile(lockfile, [lock_entry(use_dynamic_tools=True)])
 
     result = await update_plugins(
-        client=_FakeClientSinglePlugin(),  # type: ignore
+        client=FakeClientSinglePlugin(),  # type: ignore
         plugin_name=None,
         canonical_dir=canonical,
         editor_dir=editor,
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.updated == ["my-plugin"]
@@ -1887,7 +2371,7 @@ async def test_update_does_not_resync_config_neutral_mcp_fallback(
     )
     _write_plugin_lockfile(
         lockfile,
-        [_lock_entry(client="windsurf", install_mode="mcp_fallback")],
+        [lock_entry(client="windsurf", install_mode="mcp_fallback")],
     )
 
     result = await update_plugins(
@@ -1898,6 +2382,7 @@ async def test_update_does_not_resync_config_neutral_mcp_fallback(
         lockfile_path=lockfile,
         client_name="windsurf",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.updated == []
@@ -1910,7 +2395,7 @@ async def test_update_newer_refreshes(tmp_path: Path):
     canonical = tmp_path / "canonical"
     editor = tmp_path / "editor"
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
-    _write_plugin_lockfile(lockfile, [_lock_entry()])
+    _write_plugin_lockfile(lockfile, [lock_entry()])
 
     result = await update_plugins(
         client=_FakeClientUpdateNewer(),  # type: ignore
@@ -1920,6 +2405,7 @@ async def test_update_newer_refreshes(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.updated == ["my-plugin"]
@@ -1934,7 +2420,7 @@ async def test_update_newer_refreshes_install_name_from_api(tmp_path: Path):
     canonical = tmp_path / "canonical"
     editor = tmp_path / "editor"
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
-    _write_plugin_lockfile(lockfile, [_lock_entry("Display Plugin Name")])
+    _write_plugin_lockfile(lockfile, [lock_entry("Display Plugin Name")])
 
     result = await update_plugins(
         client=_FakeClientUpdateNewerWithApiInstallName(),  # type: ignore
@@ -1944,6 +2430,7 @@ async def test_update_newer_refreshes_install_name_from_api(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.updated == ["Display Plugin Name"]
@@ -1962,7 +2449,7 @@ async def test_update_claude_code_global_preserves_installed_at(
     canonical = home / ".agents" / "plugins"
     editor = home / ".claude" / "plugins"
     lockfile = home / ".runlayer" / "plugin-lock.yml"
-    _write_plugin_lockfile(lockfile, [_lock_entry()])
+    _write_plugin_lockfile(lockfile, [lock_entry()])
 
     installed_at = "2024-01-01T00:00:00Z"
     registry_path = home / ".claude" / "plugins" / "installed_plugins.json"
@@ -2017,7 +2504,7 @@ async def test_update_traversal_name_rejected(tmp_path: Path):
     target.mkdir()
     (target / "data.txt").write_text("important")
 
-    _write_plugin_lockfile(lockfile, [_lock_entry("../../precious")])
+    _write_plugin_lockfile(lockfile, [lock_entry("../../precious")])
     result = await update_plugins(
         client=_FakeClient404(),  # type: ignore
         plugin_name=None,
@@ -2026,6 +2513,7 @@ async def test_update_traversal_name_rejected(tmp_path: Path):
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="project",
     )
 
     assert result.errors

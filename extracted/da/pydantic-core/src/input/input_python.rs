@@ -14,6 +14,8 @@ use pyo3::PyTypeInfo;
 use speedate::MicrosecondsPrecisionOverflowBehavior;
 
 use crate::ArgsKwargs;
+use crate::common::deque::{deque_maxlen, get_deque_type};
+use crate::common::frozendict::get_frozendict_type;
 use crate::errors::{ErrorType, ErrorTypeDefaults, InputValue, LocItem, ValError, ValResult};
 use crate::lookup_key::LookupPath;
 use crate::tools::safe_repr;
@@ -430,6 +432,34 @@ impl<'py> Input<'py> for Bound<'py, PyAny> {
         }
     }
 
+    fn strict_frozendict<'a>(&'a self) -> ValMatch<GenericPyMapping<'a, 'py>> {
+        if let Ok(frozendict_type) = get_frozendict_type(self.py())
+            && self.is_instance(frozendict_type)?
+        {
+            Ok(ValidationMatch::exact(GenericPyMapping::Mapping(
+                self.cast::<PyMapping>()?,
+            )))
+        } else {
+            Err(ValError::new(ErrorTypeDefaults::FrozenDictType, self))
+        }
+    }
+
+    fn lax_frozendict<'a>(&'a self) -> ValMatch<GenericPyMapping<'a, 'py>> {
+        if let Ok(frozendict_type) = get_frozendict_type(self.py())
+            && self.is_instance(frozendict_type)?
+        {
+            Ok(ValidationMatch::exact(GenericPyMapping::Mapping(
+                self.cast::<PyMapping>()?,
+            )))
+        } else if let Ok(dict) = self.cast_exact::<PyDict>() {
+            Ok(ValidationMatch::lax(GenericPyMapping::Dict(dict)))
+        } else if let Ok(mapping) = self.cast::<PyMapping>() {
+            Ok(ValidationMatch::lax(GenericPyMapping::Mapping(mapping)))
+        } else {
+            Err(ValError::new(ErrorTypeDefaults::FrozenDictType, self))
+        }
+    }
+
     fn validate_model_fields<'a>(
         &'a self,
         strict: bool,
@@ -475,6 +505,19 @@ impl<'py> Input<'py> for Bound<'py, PyAny> {
         }
 
         Err(ValError::new(ErrorTypeDefaults::ListType, self))
+    }
+
+    fn validate_deque<'a>(&'a self, strict: bool) -> ValMatch<(PySequenceIterable<'a, 'py>, Option<usize>)> {
+        if self.is_instance(get_deque_type(self.py())?)? {
+            return Ok(ValidationMatch::exact((
+                PySequenceIterable::Deque(self),
+                deque_maxlen(self)?,
+            )));
+        } else if !strict && let Ok(other) = extract_sequence_iterable(self) {
+            return Ok(ValidationMatch::lax((other, None)));
+        }
+
+        Err(ValError::new(ErrorTypeDefaults::DequeType, self))
     }
 
     type Tuple<'a>
@@ -917,6 +960,7 @@ pub enum PySequenceIterable<'a, 'py> {
     Tuple(&'a Bound<'py, PyTuple>),
     Set(&'a Bound<'py, PySet>),
     FrozenSet(&'a Bound<'py, PyFrozenSet>),
+    Deque(&'a Bound<'py, PyAny>),
     Iterator(Bound<'py, PyIterator>),
 }
 
@@ -955,6 +999,7 @@ impl<'py> PySequenceIterable<'_, 'py> {
             PySequenceIterable::Tuple(iter) => Some(iter.len()),
             PySequenceIterable::Set(iter) => Some(iter.len()),
             PySequenceIterable::FrozenSet(iter) => Some(iter.len()),
+            PySequenceIterable::Deque(iter) => iter.len().ok(),
             PySequenceIterable::Iterator(iter) => iter.len().ok(),
         }
     }
@@ -964,6 +1009,7 @@ impl<'py> PySequenceIterable<'_, 'py> {
             PySequenceIterable::Tuple(iter) => iter.iter().map(Ok).try_for_each(f),
             PySequenceIterable::Set(iter) => iter.iter().map(Ok).try_for_each(f),
             PySequenceIterable::FrozenSet(iter) => iter.iter().map(Ok).try_for_each(f),
+            PySequenceIterable::Deque(iter) => iter.try_iter()?.try_for_each(f),
             PySequenceIterable::Iterator(mut iter) => iter.try_for_each(f),
         }
     }
@@ -976,6 +1022,7 @@ impl<'py> PySequenceIterable<'_, 'py> {
             PySequenceIterable::Tuple(iter) => Ok(consumer.consume_iterator(iter.iter().map(Ok))),
             PySequenceIterable::Set(iter) => Ok(consumer.consume_iterator(iter.iter().map(Ok))),
             PySequenceIterable::FrozenSet(iter) => Ok(consumer.consume_iterator(iter.iter().map(Ok))),
+            PySequenceIterable::Deque(iter) => Ok(consumer.consume_iterator(iter.try_iter()?)),
             PySequenceIterable::Iterator(iter) => Ok(consumer.consume_iterator(iter.try_iter()?)),
         }
     }

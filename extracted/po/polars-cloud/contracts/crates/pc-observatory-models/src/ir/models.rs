@@ -274,6 +274,7 @@ pub enum IRNodeProperties {
         num_inputs: usize,
         operation: String,
     },
+    RemoveOverlap,
 }
 
 #[derive(
@@ -298,4 +299,5 @@ pub enum PartitioningModel {
         by: String,
     },
     Range,
+    Overlapped,
 }

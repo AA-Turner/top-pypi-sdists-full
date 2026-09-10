@@ -28,7 +28,10 @@ class CommandError(Exception):
 def run_command(command, **kwargs):
     proc = sp.run(command, stdout=sp.PIPE, stderr=sp.STDOUT, **kwargs)
     if proc.returncode:
-        command_str = " ".join(shlex.quote(c) for c in command)
+        if isinstance(command, str):
+            command_str = command
+        else:
+            command_str = " ".join(shlex.quote(c) for c in command)
         raise CommandError(
             f"Command {command_str} failed ({proc.returncode}): \n" + proc.stdout.decode())
     return proc.stdout.decode().strip()
@@ -107,8 +110,21 @@ def get_new_clone(main: DecoratedMain) -> Path:
     codes = main.dora.dir / main.dora._codes
     codes.mkdir(parents=True, exist_ok=True)
     target = codes / commit
+    tar_file = Path(str(target) + ".tar")
     if not target.exists():
         target = shallow_clone(source, target)
+        for command in main.dora.post_git_save_commands:
+            run_command(command, shell=True, cwd=target)
+        if main.dora.local_code:
+            assert not tar_file.exists()
+            run_command(["tar", "cf", tar_file, target.name], cwd=target.parent)
+            assert tar_file.exists()
+    elif main.dora.local_code:
+        if not tar_file.exists():
+            raise RuntimeError(
+                f'Repository clone {target} already exists, but tar file {tar_file} does not. '
+                'This could happen if you interrupted a previous dora command before it completed. '
+                'To resolve the issue, please delete {target} and retry.')
     assert target.exists()
     return target
 

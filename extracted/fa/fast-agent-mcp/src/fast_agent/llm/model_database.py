@@ -616,6 +616,7 @@ class ModelDatabase:
             "context_window": 400_000,
             "codex_responses_lite": True,
             "shell_tool_profile": "luna_exec",
+            "shell_edit_tool": "write_text_file",
         }
     )
 
@@ -1408,6 +1409,10 @@ class ModelDatabase:
         ),
         "zai-org/glm-5.2": _with_fast(
             GLM_5_2.model_copy(update={"structured_tool_policy": "no_tools"})
+        ),
+        "zai-org/glm-5.3": GLM_5_3.model_copy(update={"default_provider": Provider.HUGGINGFACE}),
+        "zai-org/glm-5.3-flash": GLM_5_3_FLASH.model_copy(
+            update={"default_provider": Provider.HUGGINGFACE}
         ),
         "minimaxai/minimax-m2": GLM_46,
         "minimaxai/minimax-m2.1": MINIMAX_21,

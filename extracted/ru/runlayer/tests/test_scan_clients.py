@@ -1084,11 +1084,16 @@ class TestCursorClientDefinition:
         client = get_client_by_name("cursor")
         assert client is not None
         assert client.plugin_paths is not None
-        assert len(client.plugin_paths) == 3
-        macos = next(p for p in client.plugin_paths if p.platform == "macos")
-        assert "plugins/cache/cursor-public" in macos.path
-        linux = next(p for p in client.plugin_paths if p.platform == "linux")
-        assert "plugins/cache/cursor-public" in linux.path
+        # Marketplace cache and user-local install roots, per platform.
+        assert len(client.plugin_paths) == 6
+        paths = [p.path for p in client.plugin_paths]
+        for platform_name in ("macos", "linux", "windows"):
+            per_platform = [
+                p.path for p in client.plugin_paths if p.platform == platform_name
+            ]
+            assert any("plugins/cache/cursor-public" in p for p in per_platform)
+            assert any(p.endswith("plugins/local") for p in per_platform)
+        assert any(p.startswith("%USERPROFILE%") for p in paths)
 
     def test_cursor_has_project_config(self):
         client = get_client_by_name("cursor")

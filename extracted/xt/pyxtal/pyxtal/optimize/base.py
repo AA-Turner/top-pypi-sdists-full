@@ -30,6 +30,29 @@ from pyxtal.lattice import Lattice
 from pyxtal.symmetry import Group
 
 
+ION_SMILES_MAP = {
+    "Cl-": "[Cl-]",
+    "F-": "[F-]",
+    "Br-": "[Br-]",
+    "I-": "[I-]",
+    "Li+": "[Li+]",
+    "Na+": "[Na+]",
+    "Cs+": "[Cs+]",
+    "Rb+": "[Rb+]",
+}
+
+
+def _normalize_smiles_for_forcefield(smiles: list[str]) -> list[str]:
+    """Convert short ionic labels to valid bracketed SMILES for FF builders."""
+    return [ION_SMILES_MAP.get(smi.strip(), smi.strip()) for smi in smiles]
+
+
+def _contains_simple_ions(smiles: list[str]) -> bool:
+    """Return True if any component is a supported monoatomic ion token."""
+    ionic_tokens = set(ION_SMILES_MAP.keys()) | set(ION_SMILES_MAP.values())
+    return any(smi.strip() in ionic_tokens for smi in smiles)
+
+
 
 def setup_worker_logger(log_file):
     """
@@ -113,6 +136,8 @@ class GlobalOptimize:
         matcher : structurematcher from pymatgen
         early_quit: whether quit the program early when the target is found
         pre_opt: whether pre_optimize the structure or not
+        N_min_matches (int): quit when this many matches are found if
+            ``early_quit`` is False (default: 10)
     """
 
     def __init__(
@@ -150,6 +175,8 @@ class GlobalOptimize:
         check_stable: bool = False,
         use_mpi: bool = False,
         pre_opt: bool = False,
+        N_min_matches: int = 10,
+        xyz_only: bool = False,
     ):
 
         self.ncpu = N_cpu
@@ -172,6 +199,7 @@ class GlobalOptimize:
         # Molecular information
         self.smile = smiles
         self.smiles = self.smile.split(".")  # list
+        self.xyz_only = xyz_only
         self.torsions = torsions
         self.molecules = molecules
         self.block = block
@@ -179,9 +207,15 @@ class GlobalOptimize:
         self.composition = [
             1] * len(self.smiles) if composition is None else composition
         self.N_torsion = 0
-        for smi, comp in zip(self.smiles, self.composition):
-            self.N_torsion += len(find_rotor_from_smile(smi)
-                                  ) * int(max([comp, 1]))
+        if self.xyz_only and self.molecules is not None:
+            for pool, comp in zip(self.molecules, self.composition):
+                molecule = pool[0] if isinstance(pool, (list, tuple)) else pool
+                torsionlist = getattr(molecule, "torsionlist", None) or []
+                self.N_torsion += len(torsionlist) * int(max([comp, 1]))
+        else:
+            for smi, comp in zip(self.smiles, self.composition):
+                self.N_torsion += len(find_rotor_from_smile(smi)
+                                      ) * int(max([comp, 1]))
 
         # Crystal information
         self.pre_opt = pre_opt
@@ -213,8 +247,6 @@ class GlobalOptimize:
         self.skip_mlp = skip_mlp
         self.output_mlp = output_mlp
         self.check_stable = check_stable
-        if not self.opt_lat:
-            self.check_stable = False
 
         # setup timeout for each optimization call
         self.max_time = max_time
@@ -235,7 +267,15 @@ class GlobalOptimize:
                             filename=self.log_file, level=logging.INFO)
         self.logging = logging
 
-        if info is not None:
+        if self.xyz_only:
+            if self.skip_mlp:
+                raise ValueError("xyz_only requires skip_mlp=False")
+            if self.molecules is None:
+                raise ValueError("xyz_only requires pre-built molecular geometries")
+            self.atom_info = {}
+            self.parameters = None
+            self.ff_opt = False
+        elif info is not None:
             self.atom_info = info
             self.parameters = None
             self.ff_opt = False
@@ -248,9 +288,41 @@ class GlobalOptimize:
             atom_info = None
             if self.rank == 0:
                 from pyocse.parameters import ForceFieldParameters
-                self.parameters = ForceFieldParameters(self.smiles,
-                                                       style=ff_style,
-                                                       ncpu=self.ncpu)
+                ff_smiles = _normalize_smiles_for_forcefield(self.smiles)
+                force_gasteiger = _contains_simple_ions(self.smiles)
+                try:
+                    kwargs = {
+                        "style": ff_style,
+                        "ncpu": self.ncpu,
+                    }
+                    if force_gasteiger:
+                        self.print(
+                            "Detected ionic components; using gasteiger charges for force-field setup"
+                        )
+                        kwargs["chargemethod"] = "gasteiger"
+                    self.parameters = ForceFieldParameters(
+                        ff_smiles,
+                        **kwargs,
+                    )
+                except Exception as exc:
+                    msg = str(exc)
+                    if (
+                        "assign_partial_charges" in msg
+                        or "No registered toolkits" in msg
+                        or "Unable to parse the SMILES string" in msg
+                        or "Failed parsing SMILES" in msg
+                    ):
+                        self.print(
+                            "Force-field setup failed with default charge workflow; retry with gasteiger charges"
+                        )
+                        self.parameters = ForceFieldParameters(
+                            ff_smiles,
+                            style=ff_style,
+                            chargemethod="gasteiger",
+                            ncpu=self.ncpu,
+                        )
+                    else:
+                        raise
                 if self.ff_opt:
                     self.parameters.set_ref_evaluator('mace')
 
@@ -296,7 +368,7 @@ class GlobalOptimize:
 
         # I/O stuff
         self.early_quit = early_quit
-        self.N_min_matches = 10  # The min_num_matches for early termination
+        self.N_min_matches = int(N_min_matches)
         self.E_max = E_max
         self.tag = tag.lower()
         self.suffix = f"{self.workdir}/{self.name}-{self.ff_style}"
@@ -330,9 +402,14 @@ class GlobalOptimize:
         s += f"\nsmile     : {self.smile:s}"
         s += f"\nZprime    : {self.composition!s:s}"
         s += f"\nN_torsion : {self.N_torsion:d}"
+        if self.molecules is not None:
+            n_confs = [len(pool) for pool in self.molecules]
+            s += f"\nN_conformers: {n_confs!s} (total {sum(n_confs):d})"
+        else:
+            s += "\nN_conformers: None"
         s += f"\nsg        : {self.sg!s:s}"
         s += f"\nncpu      : {self.size:d}"
-        s += f"\ndiretory  : {self.workdir:s}"
+        s += f"\ndirectory : {self.workdir:s}"
         s += f"\nopt_lat   : {self.opt_lat!s:s}"
         s += f"\nusp_mpi   : {self.use_mpi!s:s}\n"
         s += f"\nmlp       : {self.mlp!s:s}\n"
@@ -365,13 +442,15 @@ class GlobalOptimize:
     def new_struc(self, xtal, xtals):
         return new_struc(xtal, xtals)
 
-    def run(self, ref_pmg=None, ref_pxrd=None):
+    def run(self, ref_pmg=None, ref_pxrd=None, max_rmsd=None):
         """
         The main code to run Sampling
 
         Args:
             ref_pmg: reference pmg structure
             ref_pxrd: reference pxrd profile in 2D array
+            max_rmsd: RMSD cutoff for matching (default 0.5, or keep
+                ``self.max_rmsd`` if already set)
 
         Returns:
             success_rate or None
@@ -381,6 +460,10 @@ class GlobalOptimize:
         if ref_pmg is not None: ref_pmg.remove_species("H")
         self.ref_pmg = ref_pmg
         self.ref_pxrd = ref_pxrd
+        if max_rmsd is not None:
+            self.max_rmsd = max_rmsd
+        elif not hasattr(self, "max_rmsd"):
+            self.max_rmsd = 0.5
 
         if self.ncpu > 1:
             ctx = get_context("spawn")  # safer than fork
@@ -394,14 +477,16 @@ class GlobalOptimize:
             results = self._run(pool)
         except (EOFError, OSError) as e:
             print(f"Error in running the optimizer: {e}")
-            pool.terminate()
-            pool.join()
+            if pool is not None:
+                pool.terminate()
+                pool.join()
             return None
 
         if self.rank == 0:
             t = (time() - t0)/60
+            n_struc = getattr(self, "N_struc", 0)
             strs = f"{self.name:s} {self.workdir} COMPLETED "
-            strs += f"in {t:.1f} mins {self.N_struc:d} strucs."
+            strs += f"in {t:.1f} mins {n_struc:d} strucs."
             print(strs)
 
         if self.use_mpi: self.comm.Barrier()
@@ -491,8 +576,12 @@ class GlobalOptimize:
                 self.logging.info(msg)
                 return True
 
-            elif success_rate > 2.5 or len(self.matches) >= self.N_min_matches:
-                msg = f"Early termination with a high success rate"
+            #elif success_rate > 2.5 or len(self.matches) >= self.N_min_matches:
+            elif len(self.matches) >= self.N_min_matches:
+                msg = (
+                    f"Early termination after {len(self.matches)} matches "
+                    f"(N_min_matches={self.N_min_matches})"
+                )
                 print(msg)
                 self.logging.info(msg)
                 return True
@@ -724,11 +813,22 @@ class GlobalOptimize:
                         g1 = h1 * np.exp(-0.5 * diff1)  # cell
                     # Torsion
                     g2 = 0
-                    if len(tor1) > 0:
+                    # Relaxation may discover higher symmetry, so a Z'>1
+                    # candidate and a saved Z'=1 structure can have different
+                    # numbers (or layouts) of molecular-site records.  Their
+                    # torsion vectors are not directly comparable.  Keep the
+                    # lattice Gaussian, but only compare torsions when the
+                    # representation layouts match.
+                    same_layout = (
+                        len(ref) == len(rep)
+                        and all(len(ref[j]) == len(rep[j])
+                                for j in range(1, len(rep)))
+                    )
+                    if len(tor1) > 0 and same_layout:
                         tor2 = np.zeros(self.N_torsion)
                         count = 0
-                        for j in range(1, len(rep)):
-                            if len(rep[j]) > N_id:  # for Cl-
+                        for j in range(1, len(ref)):
+                            if len(ref[j]) > N_id:  # for Cl-
                                 tor2[count: count +
                                      len(ref[j]) - N_id - 1] = ref[j][N_id:-1]
                                 count += len(ref[j]) - N_id
@@ -789,7 +889,7 @@ class GlobalOptimize:
                     xtal.to_file(filename, header=header, permission="a+")
                     strs = rep0.to_string(eng=eng1)
                     rmsd = self.matcher.get_rms_dist(pmg0, pmg_s1)
-                    if rmsd is not None:
+                    if rmsd is not None and rmsd[1] < self.max_rmsd:
                         strs += f"{rmsd[0]:6.3f}{rmsd[1]:6.3f} True"
                         print(strs)
                         return True
@@ -817,6 +917,7 @@ class GlobalOptimize:
             self.sites,
             self.ref_pmg,
             self.matcher,
+            self.max_rmsd,
             self.ref_pxrd,
             self.use_hall,
             self.mlp,
@@ -824,6 +925,10 @@ class GlobalOptimize:
             self.output_mlp,
             self.check_stable,
             self.pre_opt,
+            self.opt_lat,
+            getattr(self, 'delta_length', 1.0),
+            getattr(self, 'delta_angle', 15.0),
+            self.xyz_only,
         ]
         return args
 
@@ -856,16 +961,19 @@ class GlobalOptimize:
         gen_results = [(None, None, None)] * len(xtals)
         for pop in range(len(xtals)):
             xtal = xtals[pop][0]
+            orig_tag = xtals[pop][1]
             job_tag = self.tag + "-g" + str(gen) + "-p" + str(pop)
             if qrs:
                 mutated = False
+                label = orig_tag if orig_tag != "Random" else None
             else:
-                if xtals[pop][1] == "Mutation":
+                label = None
+                if orig_tag == "Mutation":
                     mutated = True
                 else:
                     mutated = False
             my_args = [xtal, pop, mutated, job_tag, *args]
-            xtal, match, stable = optimizer_single(*tuple(my_args))
+            xtal, match, stable = optimizer_single(*tuple(my_args), label=label)
             gen_results[pop] = (pop, xtal, match, stable)
         return gen_results
 
@@ -932,35 +1040,33 @@ class GlobalOptimize:
         if ids is None:
             ids = range(len(xtals))
 
-        N_cycle = int(np.ceil(len(xtals) / ncpu))
-        # Generator to create arg_lists for multiprocessing tasks
+        # Interleaved assignment: worker i handles indices i, i+ncpu, i+2*ncpu, …
+        # so all workers stay busy and results can be sorted to 0,1,2,3… order.
         def generate_args_lists():
             for i in range(ncpu):
-                id1 = i * N_cycle
-                id2 = min([id1 + N_cycle, len(xtals)])
-                _ids = ids[id1: id2]
+                _indices = list(range(i, len(xtals), ncpu))
+                _ids = [ids[j] for j in _indices]
                 job_tags = [self.tag + "-g" + str(gen)
                             + "-p" + str(id) for id in _ids]
-                _xtals = [xtals[id][0] for id in range(id1, id2)]
+                _xtals = [xtals[j][0] for j in _indices]
                 mutates = []
-                for i in range(id1, id2):
+                labels = []
+                for j in _indices:
+                    orig_tag = xtals[j][1]
                     if qrs:
                         mutates.append(False)
+                        labels.append(orig_tag if orig_tag != "Random" else None)
                     else:
-                        if xtals[i][1] == "Mutation":
-                            mutates.append(True)
-                        else:
-                            mutates.append(False)
-                #mutates = [False if qrs else xtal is not None for xtal in _xtals]
-                my_args = [_xtals, _ids, mutates, job_tags, *args, self.rank, self.timeout]
-                yield tuple(my_args)  # Yield args instead of appending to a list
+                        mutates.append(orig_tag == "Mutation")
+                        labels.append(None)
+                my_args = [_xtals, _ids, mutates, job_tags, labels, *args, self.rank, self.timeout]
+                yield tuple(my_args)
 
         gen_results = []
         for result in pool.imap_unordered(process_task, generate_args_lists()):
             if result is not None:
                 for _res in result:
                     gen_results.append(_res)
-
         return gen_results
 
     def gen_summary(self, t0, gen_results, xtals):
@@ -1029,8 +1135,17 @@ class GlobalOptimize:
         # Store the best structures
         count = 0
         ref_xtals = []
+        if len(new_xtals) == 0:
+            t2 = time()
+            gen_out = f"Gen{gen:3d} time usage: "
+            gen_out += f"{t1 - t0:5.1f}[Calc] {t2 - t1:5.1f}[Proc]"
+            print(gen_out)
+            return new_xtals, matches, engs
+
         ids = np.argsort(engs)
         for id in ids:
+            if id >= len(new_xtals):
+                continue
             (xtal, tag) = new_xtals[id]
             rep, eng = reps[id], eng0s[id]
             if self.new_struc(xtal, ref_xtals):

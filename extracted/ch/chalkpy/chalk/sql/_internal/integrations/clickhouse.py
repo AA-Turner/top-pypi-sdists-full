@@ -22,6 +22,7 @@ _CLICKHOUSE_USE_TLS = "CLICKHOUSE_USE_TLS"
 _CLICKHOUSE_UNLOAD_PATH_NAME = "CLICKHOUSE_UNLOAD_PATH"
 _CLICKHOUSE_UNLOAD_AWS_ROLE_ARN_NAME = "CLICKHOUSE_UNLOAD_AWS_ROLE_ARN"
 _CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN_NAME = "CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN"
+_CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_NAME = "CLICKHOUSE_PARQUET_ROW_GROUP_SIZE"
 
 # For parsing the USE_TLS flag
 _TRUTHY_VALUES = {"1", "true", "yes", "t", "y"}
@@ -40,6 +41,7 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         unload_path: Optional[str] = None,
         unload_aws_role_arn: Optional[str] = None,
         unload_chalk_aws_role_arn: Optional[str] = None,
+        parquet_row_group_size: Optional[Union[int, str]] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
@@ -116,6 +118,19 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
                 override=integration_variable_override,
             )
         )
+        # Rows per Parquet row group when unloading. ClickHouse's default (1,000,000) buffers a full
+        # row group in memory per writer; for very wide tables that is multiple GB and can OOM the
+        # server on large unloads. Lowering it bounds the buffer. None leaves the ClickHouse default.
+        self.parquet_row_group_size = (
+            int(parquet_row_group_size)
+            if parquet_row_group_size is not None
+            else load_integration_variable(
+                name=_CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_NAME,
+                integration_name=name,
+                parser=int,
+                override=integration_variable_override,
+            )
+        )
         self.ingested_tables: Dict[str, Any] = {}
         if engine_args is None:
             engine_args = {}
@@ -183,6 +198,11 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
                     _CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN_NAME,
                     self.name,
                     self.unload_chalk_aws_role_arn,
+                ),
+                create_integration_variable(
+                    _CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_NAME,
+                    self.name,
+                    self.parquet_row_group_size,
                 ),
             ]
             if v is not None

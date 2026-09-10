@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::bead::validate_model_value;
 use crate::model_completion::{
     filter_model_completion_entries, ModelCompletionEntryWire,
 };
@@ -11,6 +12,31 @@ use super::token::DocumentSnapshot;
 use super::wire::{EditorPosition, EditorRange, EditorTextEdit};
 
 pub const MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION: u32 = 1;
+pub const MODEL_SHORTCUT_WIRE_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelShortcutKind {
+    Alias,
+    Model,
+}
+
+/// Detected `*alias` or `**model` shortcut context.
+///
+/// `caret`, `token_range`, and `replacement_range` use [`EditorPosition`],
+/// whose `character` field is an LSP-compatible UTF-16 code-unit column.
+/// Internal trigger scans use UTF-8 byte offsets only after converting through
+/// [`DocumentSnapshot`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelShortcutContextWire {
+    pub schema_version: u32,
+    pub kind: ModelShortcutKind,
+    pub query: String,
+    pub token: String,
+    pub caret: EditorPosition,
+    pub token_range: EditorRange,
+    pub replacement_range: EditorRange,
+}
 
 /// Detected `*alias` model shortcut context.
 ///
@@ -28,10 +54,33 @@ pub struct ModelAliasShortcutContextWire {
     pub replacement_range: EditorRange,
 }
 
+/// One validated edit that expands a star shortcut to an inline `%m:` directive.
+///
+/// `value` is the selected canonical alias (`@alias`) or concrete model value.
+/// `replacement` matches `edit.new_text`, including any spacer. The
+/// `edit.range` uses the original document's UTF-16 editor positions and may
+/// consume one following ASCII space, mirroring [`ModelAliasShortcutEditWire`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelShortcutEditWire {
+    pub schema_version: u32,
+    pub kind: ModelShortcutKind,
+    pub value: String,
+    pub replacement: String,
+    pub edit: EditorTextEdit,
+    pub caret: EditorPosition,
+}
+
 /// One validated edit that expands a `*alias` shortcut to `%m:@alias`.
 ///
 /// The `edit.range` uses the original document's UTF-16 editor positions.
-/// `caret` uses the post-edit document's UTF-16 editor position.
+/// It usually equals the detected context's `replacement_range`, but when
+/// the star token is immediately followed by one ASCII space, the range
+/// deliberately extends one character beyond it to consume that space (a
+/// space is then reinserted at the end of `edit.new_text`). This keeps the
+/// edit self-contained: applying `edit` alone reproduces the same final
+/// document a naive whitespace-preserving expansion would, and `caret`
+/// (the post-edit document's UTF-16 editor position) is always exactly the
+/// position at the end of the applied `edit`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelAliasShortcutEditWire {
     pub schema_version: u32,
@@ -43,18 +92,100 @@ pub struct ModelAliasShortcutEditWire {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct DetectedShortcut {
-    wire: ModelAliasShortcutContextWire,
+    wire: ModelShortcutContextWire,
     start: usize,
     end: usize,
+}
+
+pub fn model_shortcut_context(
+    text: &str,
+    position: EditorPosition,
+) -> Option<ModelShortcutContextWire> {
+    let document = DocumentSnapshot::new(text);
+    detect_model_shortcut_in_document(&document, position)
+        .map(|detected| detected.wire)
 }
 
 pub fn detect_model_alias_shortcut_context(
     text: &str,
     position: EditorPosition,
 ) -> Option<ModelAliasShortcutContextWire> {
+    model_shortcut_context(text, position).and_then(alias_context_from_shortcut)
+}
+
+/// Filter a model catalog down to the effective alias rows a `*query`
+/// shortcut may expand to, in canonical catalog order.
+///
+/// Reuses [`filter_model_completion_entries`] with a synthesized `@query`
+/// partial so alias prefix matching (including matching on a row's
+/// `aliases`) stays identical to `%model:@` completion, then restricts the
+/// result to `implicit_alias`/`user_alias` rows. [`plan_model_alias_shortcut_edit`]
+/// uses this same helper to validate a selected alias against the current
+/// catalog.
+pub fn filter_model_alias_shortcut_entries(
+    entries: &[ModelCompletionEntryWire],
+    query: &str,
+) -> Vec<ModelCompletionEntryWire> {
+    let partial = format!("@{query}");
+    filter_model_completion_entries(entries, &partial)
+        .into_iter()
+        .filter(|entry| is_model_alias_kind(&entry.kind))
+        .collect()
+}
+
+/// Filter a model catalog down to concrete model rows a `**query` shortcut may
+/// expand to, in canonical catalog order.
+///
+/// The complete catalog is passed through [`filter_model_completion_entries`]
+/// before provider rows are removed, because provider-scoped queries such as
+/// `**codex/gpt` need provider rows to decide the scope.
+pub fn filter_explicit_model_shortcut_entries(
+    entries: &[ModelCompletionEntryWire],
+    query: &str,
+) -> Vec<ModelCompletionEntryWire> {
+    filter_model_completion_entries(entries, query)
+        .into_iter()
+        .filter(|entry| entry.kind == "model")
+        .collect()
+}
+
+pub fn model_shortcut_edit(
+    text: &str,
+    position: EditorPosition,
+    entries: &[ModelCompletionEntryWire],
+    selected_value: &str,
+) -> Option<ModelShortcutEditWire> {
     let document = DocumentSnapshot::new(text);
-    detect_model_alias_shortcut_in_document(&document, position)
-        .map(|detected| detected.wire)
+    let detected = detect_model_shortcut_in_document(&document, position)?;
+    let value = selected_canonical_shortcut_value(
+        entries,
+        detected.wire.kind,
+        &detected.wire.query,
+        selected_value,
+    )?;
+    let replacement = model_directive_replacement(&value);
+    let (new_text, edit_text, edit_end, caret_byte) =
+        apply_replacement_preview(
+            text,
+            detected.start,
+            detected.end,
+            &replacement,
+        )?;
+    let caret =
+        DocumentSnapshot::new(new_text).byte_offset_to_position(caret_byte)?;
+    let edit_range = document.byte_range_to_range(detected.start, edit_end)?;
+
+    Some(ModelShortcutEditWire {
+        schema_version: MODEL_SHORTCUT_WIRE_SCHEMA_VERSION,
+        kind: detected.wire.kind,
+        value,
+        replacement: edit_text.clone(),
+        edit: EditorTextEdit {
+            range: edit_range,
+            new_text: edit_text,
+        },
+        caret,
+    })
 }
 
 pub fn plan_model_alias_shortcut_edit(
@@ -63,37 +194,20 @@ pub fn plan_model_alias_shortcut_edit(
     entries: &[ModelCompletionEntryWire],
     selected_alias: &str,
 ) -> Option<ModelAliasShortcutEditWire> {
-    let document = DocumentSnapshot::new(text);
-    let detected =
-        detect_model_alias_shortcut_in_document(&document, position)?;
-    let alias = selected_canonical_alias(
-        entries,
-        &detected.wire.query,
-        selected_alias,
-    )?;
-    let replacement = model_alias_replacement(&alias);
-    let (new_text, edit_text, caret_byte) = apply_replacement_preview(
-        text,
-        detected.start,
-        detected.end,
-        &replacement,
-    )?;
-    let caret =
-        DocumentSnapshot::new(new_text).byte_offset_to_position(caret_byte)?;
-
+    let edit = model_shortcut_edit(text, position, entries, selected_alias)?;
+    if edit.kind != ModelShortcutKind::Alias {
+        return None;
+    }
     Some(ModelAliasShortcutEditWire {
         schema_version: MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
-        alias,
-        replacement: edit_text.clone(),
-        edit: EditorTextEdit {
-            range: detected.wire.replacement_range,
-            new_text: edit_text,
-        },
-        caret,
+        alias: edit.value,
+        replacement: edit.replacement,
+        edit: edit.edit,
+        caret: edit.caret,
     })
 }
 
-fn detect_model_alias_shortcut_in_document(
+fn detect_model_shortcut_in_document(
     document: &DocumentSnapshot,
     position: EditorPosition,
 ) -> Option<DetectedShortcut> {
@@ -103,8 +217,7 @@ fn detect_model_alias_shortcut_in_document(
         return None;
     }
     let (start, end) = whitespace_token_bounds(text, cursor)?;
-    if cursor < start + 1
-        || !text.get(start..)?.starts_with('*')
+    if !text.get(start..)?.starts_with('*')
         || !shortcut_left_boundary(text, start)
         || excluded_position(document, position, start)
     {
@@ -112,15 +225,30 @@ fn detect_model_alias_shortcut_in_document(
     }
 
     let token = text.get(start..end)?;
-    let query = text.get(start + 1..cursor)?;
-    if query.starts_with('@') || token.get(1..)?.contains('*') {
+    let leading_stars = leading_ascii_star_count(token);
+    let kind = match leading_stars {
+        1 => ModelShortcutKind::Alias,
+        2 => ModelShortcutKind::Model,
+        _ => return None,
+    };
+    let trigger_end = start + leading_stars;
+    if cursor < trigger_end {
+        return None;
+    }
+    let suffix = text.get(trigger_end..end)?;
+    if suffix.contains('*') {
+        return None;
+    }
+    let query = text.get(trigger_end..cursor)?;
+    if kind == ModelShortcutKind::Alias && query.starts_with('@') {
         return None;
     }
 
     let range = document.byte_range_to_range(start, end)?;
     Some(DetectedShortcut {
-        wire: ModelAliasShortcutContextWire {
-            schema_version: MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
+        wire: ModelShortcutContextWire {
+            schema_version: MODEL_SHORTCUT_WIRE_SCHEMA_VERSION,
+            kind,
             query: query.to_string(),
             token: token.to_string(),
             caret: position,
@@ -132,40 +260,107 @@ fn detect_model_alias_shortcut_in_document(
     })
 }
 
+fn alias_context_from_shortcut(
+    context: ModelShortcutContextWire,
+) -> Option<ModelAliasShortcutContextWire> {
+    if context.kind != ModelShortcutKind::Alias {
+        return None;
+    }
+    Some(ModelAliasShortcutContextWire {
+        schema_version: MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
+        query: context.query,
+        token: context.token,
+        caret: context.caret,
+        token_range: context.token_range,
+        replacement_range: context.replacement_range,
+    })
+}
+
+fn leading_ascii_star_count(token: &str) -> usize {
+    token.bytes().take_while(|byte| *byte == b'*').count()
+}
+
+fn selected_canonical_shortcut_value(
+    entries: &[ModelCompletionEntryWire],
+    kind: ModelShortcutKind,
+    query: &str,
+    selected_value: &str,
+) -> Option<String> {
+    match kind {
+        ModelShortcutKind::Alias => {
+            selected_canonical_alias(entries, query, selected_value)
+        }
+        ModelShortcutKind::Model => {
+            selected_canonical_model(entries, query, selected_value)
+        }
+    }
+}
+
 fn selected_canonical_alias(
     entries: &[ModelCompletionEntryWire],
     query: &str,
     selected_alias: &str,
 ) -> Option<String> {
-    let partial = format!("@{query}");
-    filter_model_completion_entries(entries, &partial)
+    filter_model_alias_shortcut_entries(entries, query)
         .into_iter()
-        .find(|entry| {
-            entry.value == selected_alias && is_model_alias_kind(&entry.kind)
-        })
+        .find(|entry| entry.value == selected_alias)
         .and_then(|entry| canonical_alias_value(&entry.value))
 }
 
 fn canonical_alias_value(value: &str) -> Option<String> {
     let alias = value.strip_prefix('@')?;
-    (!alias.is_empty() && !alias.chars().any(char::is_whitespace))
-        .then(|| format!("@{alias}"))
+    safe_inline_model_directive_value(alias).then(|| format!("@{alias}"))
 }
 
-fn model_alias_replacement(alias: &str) -> String {
-    format!("%m:{alias}")
+fn selected_canonical_model(
+    entries: &[ModelCompletionEntryWire],
+    query: &str,
+    selected_value: &str,
+) -> Option<String> {
+    filter_explicit_model_shortcut_entries(entries, query)
+        .into_iter()
+        .find(|entry| entry.value == selected_value)
+        .and_then(|entry| canonical_model_value(&entry.value))
 }
 
+fn canonical_model_value(value: &str) -> Option<String> {
+    (safe_inline_model_directive_value(value) && !value.starts_with('@'))
+        .then(|| value.to_string())
+}
+
+fn safe_inline_model_directive_value(value: &str) -> bool {
+    !value.is_empty()
+        && !value.chars().any(char::is_whitespace)
+        && validate_model_value(value).is_ok()
+}
+
+fn model_directive_replacement(value: &str) -> String {
+    format!("%m:{value}")
+}
+
+/// Build the expansion preview, the edit's `new_text`, the edit range's end
+/// byte offset, and the post-edit caret byte offset.
+///
+/// `edit_end` normally equals `end` (the edit touches only the star token),
+/// except when the token is immediately followed by one ASCII space: that
+/// space is consumed into the edit range and one space is reinserted at the
+/// end of `new_text`, so the edit stays self-contained and the caret is
+/// always exactly the end of the applied edit.
 fn apply_replacement_preview(
     text: &str,
     start: usize,
     end: usize,
     replacement: &str,
-) -> Option<(String, String, usize)> {
+) -> Option<(String, String, usize, usize)> {
     let mut edit_text = replacement.to_string();
+    let mut edit_end = end;
     let caret_after_edit =
         match text.get(end..).and_then(|tail| tail.chars().next()) {
-            Some(' ') => start + replacement.len() + 1,
+            Some(' ') => {
+                edit_text.push(' ');
+                edit_end = end + 1;
+                start + edit_text.len()
+            }
             Some('\t') => start + replacement.len(),
             Some('\n') | Some('\r') | None => {
                 edit_text.push(' ');
@@ -174,12 +369,13 @@ fn apply_replacement_preview(
             Some(_) => start + replacement.len(),
         };
 
-    let mut preview =
-        String::with_capacity(text.len() - (end - start) + edit_text.len());
+    let mut preview = String::with_capacity(
+        text.len() - (edit_end - start) + edit_text.len(),
+    );
     preview.push_str(text.get(..start)?);
     preview.push_str(&edit_text);
-    preview.push_str(text.get(end..)?);
-    Some((preview, edit_text, caret_after_edit))
+    preview.push_str(text.get(edit_end..)?);
+    Some((preview, edit_text, edit_end, caret_after_edit))
 }
 
 fn whitespace_token_bounds(
@@ -317,6 +513,7 @@ mod tests {
             description: String::new(),
             kind: kind.to_string(),
             provider: String::new(),
+            provider_display: String::new(),
             aliases: Vec::new(),
             alias_kind: String::new(),
             target_provider: String::new(),
@@ -336,12 +533,47 @@ mod tests {
         }
     }
 
+    fn model_entry(
+        value: &str,
+        provider: &str,
+        aliases: &[&str],
+    ) -> ModelCompletionEntryWire {
+        ModelCompletionEntryWire {
+            value: value.to_string(),
+            display: value.to_string(),
+            description: String::new(),
+            kind: "model".to_string(),
+            provider: provider.to_string(),
+            aliases: aliases.iter().map(|alias| alias.to_string()).collect(),
+            ..ModelCompletionEntryWire::default()
+        }
+    }
+
+    fn provider_entry(value: &str, provider: &str) -> ModelCompletionEntryWire {
+        ModelCompletionEntryWire {
+            value: value.to_string(),
+            display: value.to_string(),
+            description: String::new(),
+            kind: "provider".to_string(),
+            provider: provider.to_string(),
+            ..ModelCompletionEntryWire::default()
+        }
+    }
+
     fn context(
         text: &str,
         line: u32,
         character: u32,
     ) -> ModelAliasShortcutContextWire {
         detect_model_alias_shortcut_context(text, pos(line, character)).unwrap()
+    }
+
+    fn shortcut_context(
+        text: &str,
+        line: u32,
+        character: u32,
+    ) -> ModelShortcutContextWire {
+        model_shortcut_context(text, pos(line, character)).unwrap()
     }
 
     fn plan(
@@ -384,6 +616,29 @@ mod tests {
     }
 
     #[test]
+    fn detects_model_shortcut_context_without_alias_wrapper_fallback() {
+        let model = shortcut_context("Review **gpt", 0, 12);
+        assert_eq!(model.kind, ModelShortcutKind::Model);
+        assert_eq!(model.query, "gpt");
+        assert_eq!(model.token, "**gpt");
+        assert_eq!(model.caret, pos(0, 12));
+        assert_eq!(model.replacement_range.start, pos(0, 7));
+        assert_eq!(model.replacement_range.end, pos(0, 12));
+        assert_eq!(
+            detect_model_alias_shortcut_context("Review **gpt", pos(0, 12)),
+            None
+        );
+
+        let alias = shortcut_context("Review *la", 0, 10);
+        assert_eq!(alias.kind, ModelShortcutKind::Alias);
+        assert_eq!(alias.query, "la");
+
+        let crlf = shortcut_context("one\r\n  **gpt", 1, 7);
+        assert_eq!(crlf.kind, ModelShortcutKind::Model);
+        assert_eq!(crlf.query, "gpt");
+    }
+
+    #[test]
     fn rejects_embedded_escaped_tabs_and_completed_emphasis() {
         for (text, position) in [
             ("a*b", pos(0, 3)),
@@ -402,9 +657,25 @@ mod tests {
     }
 
     #[test]
+    fn rejects_literal_model_star_tokens() {
+        for (text, position) in [
+            ("**", pos(0, 1)),
+            ("***", pos(0, 3)),
+            ("**bold**", pos(0, 4)),
+            ("**gpt**", pos(0, 5)),
+            ("a**b", pos(0, 4)),
+            ("path/**", pos(0, 7)),
+            (r"\**", pos(0, 3)),
+            ("one\t**gpt", pos(0, 9)),
+        ] {
+            assert_eq!(model_shortcut_context(text, position), None);
+        }
+    }
+
+    #[test]
     fn plans_full_token_replacement_from_mid_token_caret() {
         let planned = plan("Explain *laX later", 0, 11, "@large");
-        assert_eq!(planned.edit.new_text, "%m:@large");
+        assert_eq!(planned.edit.new_text, "%m:@large ");
         assert_eq!(
             apply("Explain *laX later", &planned.edit),
             "Explain %m:@large later"
@@ -419,8 +690,16 @@ mod tests {
         assert_eq!(apply("Use *la", &at_end.edit), "Use %m:@large ");
         assert_eq!(at_end.caret, pos(0, 14));
 
+        let before_one_space = plan("Use *la now", 0, 7, "@large");
+        assert_eq!(before_one_space.edit.new_text, "%m:@large ");
+        assert_eq!(
+            apply("Use *la now", &before_one_space.edit),
+            "Use %m:@large now"
+        );
+        assert_eq!(before_one_space.caret, pos(0, 14));
+
         let before_space = plan("Use *la   now", 0, 7, "@large");
-        assert_eq!(before_space.edit.new_text, "%m:@large");
+        assert_eq!(before_space.edit.new_text, "%m:@large ");
         assert_eq!(
             apply("Use *la   now", &before_space.edit),
             "Use %m:@large   now"
@@ -509,6 +788,197 @@ mod tests {
     }
 
     #[test]
+    fn filter_explicit_model_shortcut_entries_keeps_models_only() {
+        let entries = vec![
+            model_entry("claude-fable-5", "claude", &["fable"]),
+            entry("@large", "user_alias"),
+            provider_entry("claude/", "claude"),
+            model_entry("gpt-5.6-sol", "codex", &["gpt56sol"]),
+            provider_entry("codex/", "codex"),
+            model_entry("anthropic/claude-sonnet-4-5", "opencode", &[]),
+            provider_entry("opencode/", "opencode"),
+        ];
+
+        assert_eq!(
+            values(filter_explicit_model_shortcut_entries(&entries, "")),
+            vec![
+                "claude-fable-5",
+                "gpt-5.6-sol",
+                "anthropic/claude-sonnet-4-5"
+            ]
+        );
+        assert_eq!(
+            values(filter_explicit_model_shortcut_entries(&entries, "fa")),
+            vec!["claude-fable-5"]
+        );
+        assert_eq!(
+            values(filter_explicit_model_shortcut_entries(
+                &entries,
+                "claude/fa"
+            )),
+            vec!["claude/claude-fable-5"]
+        );
+        assert_eq!(
+            values(filter_explicit_model_shortcut_entries(
+                &entries,
+                "opencode/anthropic/"
+            )),
+            vec!["opencode/anthropic/claude-sonnet-4-5"]
+        );
+        assert_eq!(
+            values(filter_explicit_model_shortcut_entries(&entries, "@")),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn plans_explicit_model_replacement_and_validates_selection() {
+        let entries = vec![
+            model_entry("claude-fable-5", "claude", &["fable"]),
+            model_entry("gpt-5.6-sol", "codex", &["gpt56sol"]),
+            entry("@large", "user_alias"),
+            provider_entry("claude/", "claude"),
+        ];
+
+        let planned = model_shortcut_edit(
+            "Use **faX later",
+            pos(0, 8),
+            &entries,
+            "claude-fable-5",
+        )
+        .unwrap();
+        assert_eq!(planned.kind, ModelShortcutKind::Model);
+        assert_eq!(planned.value, "claude-fable-5");
+        assert_eq!(planned.edit.new_text, "%m:claude-fable-5 ");
+        assert_eq!(
+            apply("Use **faX later", &planned.edit),
+            "Use %m:claude-fable-5 later"
+        );
+        assert_eq!(planned.caret, pos(0, 22));
+
+        let scoped = model_shortcut_edit(
+            "Use **claude/fa",
+            pos(0, 15),
+            &entries,
+            "claude/claude-fable-5",
+        )
+        .unwrap();
+        assert_eq!(scoped.value, "claude/claude-fable-5");
+        assert_eq!(scoped.edit.new_text, "%m:claude/claude-fable-5 ");
+
+        assert_eq!(
+            model_shortcut_edit(
+                "Use **claude/fa",
+                pos(0, 15),
+                &entries,
+                "claude-fable-5",
+            ),
+            None
+        );
+        assert_eq!(
+            model_shortcut_edit("Use **fa", pos(0, 8), &entries, "@large"),
+            None
+        );
+        assert_eq!(
+            model_shortcut_edit(
+                "Use **claude",
+                pos(0, 12),
+                &entries,
+                "claude/"
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn rejects_unsafe_shortcut_values_before_emitting_model_directive() {
+        for unsafe_value in [
+            "gpt bad",
+            "gpt\tbad",
+            "gpt\nbad",
+            "gpt\0bad",
+            "gpt\u{001f}bad",
+            "gpt\u{007f}bad",
+        ] {
+            let unsafe_entries = vec![model_entry(unsafe_value, "codex", &[])];
+            assert_eq!(
+                values(filter_explicit_model_shortcut_entries(
+                    &unsafe_entries,
+                    "gpt"
+                )),
+                vec![unsafe_value],
+                "the candidate may match filtering before edit validation"
+            );
+            assert_eq!(
+                model_shortcut_edit(
+                    "Use **gpt",
+                    pos(0, 9),
+                    &unsafe_entries,
+                    unsafe_value
+                ),
+                None,
+                "unsafe selected model value {unsafe_value:?}"
+            );
+        }
+
+        let alias_entries = vec![entry("@large", "user_alias")];
+        let planned = plan_model_alias_shortcut_edit(
+            "Use *la",
+            pos(0, 7),
+            &alias_entries,
+            "@large",
+        )
+        .unwrap();
+        assert_eq!(planned.edit.new_text, "%m:@large ");
+
+        let unsafe_alias_entries = vec![entry("@bad\0alias", "user_alias")];
+        assert_eq!(
+            plan_model_alias_shortcut_edit(
+                "Use *bad",
+                pos(0, 8),
+                &unsafe_alias_entries,
+                "@bad\0alias",
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn accepts_safe_model_punctuation_and_nested_provider_values() {
+        let entries = vec![
+            model_entry("gpt-5.6_sol.alpha+preview", "codex", &["gpt56"]),
+            model_entry("anthropic/claude-sonnet-4-5", "opencode", &[]),
+            provider_entry("opencode/", "opencode"),
+        ];
+
+        let punctuation = model_shortcut_edit(
+            "Use **gptX later",
+            pos(0, 9),
+            &entries,
+            "gpt-5.6_sol.alpha+preview",
+        )
+        .unwrap();
+        assert_eq!(punctuation.value, "gpt-5.6_sol.alpha+preview");
+        assert_eq!(
+            apply("Use **gptX later", &punctuation.edit),
+            "Use %m:gpt-5.6_sol.alpha+preview later"
+        );
+
+        let nested = model_shortcut_edit(
+            "Use **opencode/anthropic/",
+            pos(0, 25),
+            &entries,
+            "opencode/anthropic/claude-sonnet-4-5",
+        )
+        .unwrap();
+        assert_eq!(nested.value, "opencode/anthropic/claude-sonnet-4-5");
+        assert_eq!(
+            nested.edit.new_text,
+            "%m:opencode/anthropic/claude-sonnet-4-5 "
+        );
+    }
+
+    #[test]
     fn utf16_positions_survive_unicode_and_crlf() {
         let text = "🙂 *la\r\nnext";
         let detected = context(text, 0, 6);
@@ -518,5 +988,80 @@ mod tests {
         let planned = plan(text, 0, 6, "@large");
         assert_eq!(apply(text, &planned.edit), "🙂 %m:@large \r\nnext");
         assert_eq!(planned.caret, pos(0, 13));
+    }
+
+    #[test]
+    fn filter_model_alias_shortcut_entries_restricts_to_alias_kinds_in_catalog_order(
+    ) {
+        let entries = vec![
+            entry("@large", "user_alias"),
+            entry("@launch", "implicit_alias"),
+            entry("large-model", "model"),
+            entry("@scout", "user_alias"),
+        ];
+        assert_eq!(
+            filter_model_alias_shortcut_entries(&entries, ""),
+            vec![
+                entry("@large", "user_alias"),
+                entry("@launch", "implicit_alias"),
+                entry("@scout", "user_alias"),
+            ]
+        );
+        assert_eq!(
+            filter_model_alias_shortcut_entries(&entries, "la"),
+            vec![
+                entry("@large", "user_alias"),
+                entry("@launch", "implicit_alias"),
+            ]
+        );
+        assert_eq!(
+            filter_model_alias_shortcut_entries(&entries, "LA"),
+            vec![
+                entry("@large", "user_alias"),
+                entry("@launch", "implicit_alias"),
+            ]
+        );
+        assert_eq!(
+            filter_model_alias_shortcut_entries(&entries, "nope"),
+            Vec::new()
+        );
+    }
+
+    /// The [`ModelAliasShortcutEditWire`] doc invariant: `caret` is always
+    /// exactly the UTF-16 position at the end of the applied `edit`, for
+    /// every trailing-whitespace and Unicode case the planner handles.
+    #[test]
+    fn planned_caret_always_equals_end_of_applied_edit() {
+        for (text, character) in [
+            ("Use *la", 7),
+            ("Use *la now", 7),
+            ("Use *la   now", 7),
+            ("Use *la\tnow", 7),
+            ("Use *la\nnow", 7),
+            ("Explain *laX later", 11),
+            ("🙂 *la\r\nnext", 6),
+        ] {
+            let planned = plan(text, 0, character, "@large");
+            assert_eq!(
+                planned.caret,
+                end_of_edit(&planned.edit),
+                "text={text:?}"
+            );
+        }
+    }
+
+    /// `new_text` never contains a newline, so the end of an applied edit is
+    /// always on the same line as its start, offset by the UTF-16 length of
+    /// `new_text`.
+    fn end_of_edit(edit: &EditorTextEdit) -> EditorPosition {
+        let utf16_len = edit.new_text.encode_utf16().count() as u32;
+        pos(
+            edit.range.start.line,
+            edit.range.start.character + utf16_len,
+        )
+    }
+
+    fn values(entries: Vec<ModelCompletionEntryWire>) -> Vec<String> {
+        entries.into_iter().map(|entry| entry.value).collect()
     }
 }

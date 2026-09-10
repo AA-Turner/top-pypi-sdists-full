@@ -21,10 +21,12 @@ import jax
 from jax.experimental import pallas as pl
 from jax.experimental.pallas import tpu as pltpu
 import jax.numpy as jnp
+from tokamax._src import config
 from tokamax._src import mosaic_tpu
 from tokamax._src import test_utils
 from tokamax._src.ops.experimental.gmm_v2 import gmm_v2
 from tokamax._src.ops.experimental.gmm_v2 import tgmm_v2
+from tokamax._src.ops.experimental.gmm_v2 import util
 
 import pytest
 
@@ -35,40 +37,8 @@ _GroupConfig = collections.namedtuple(
     "_GroupConfig", ["num_groups", "group_offset", "num_local_groups"]
 )
 
-
-def get_group_sizes(batch_size: int, num_groups: int) -> jax.Array:
-  distribution = jax.random.uniform(
-      jax.random.key(0), (num_groups - 1,), dtype=jnp.float32
-  )
-  distribution = distribution / jnp.sum(distribution)
-  group_sizes = jnp.floor(distribution * batch_size).astype(jnp.int32)
-  return jnp.append(group_sizes, batch_size - jnp.sum(group_sizes))
-
-
-def quantize_tensor(
-    x: jax.Array, dtype: jnp.dtype, axis: int = -1, block_size: int = 256
-):
-  if jnp.issubdtype(dtype, jnp.integer):
-    dtype_info = jnp.iinfo(dtype)
-    max_val = int(dtype_info.max)
-    min_val = int(dtype_info.min)
-  else:
-    dtype_info = jnp.finfo(dtype)
-    max_val = float(dtype_info.max)
-    min_val = float(dtype_info.min)
-
-  orig_shape = x.shape
-  blocked_shape = orig_shape[:axis] + (-1, block_size) + orig_shape[axis + 1 :]
-  x_blocked = x.reshape(blocked_shape)
-
-  x_blocked_abs_max = jnp.max(jnp.abs(x_blocked), axis=axis + 1, keepdims=True)
-  scale = x_blocked_abs_max / max_val
-  x_blocked_q = jnp.clip(x_blocked / scale, min_val, max_val).astype(dtype)
-
-  x_q = x_blocked_q.reshape(orig_shape)
-  x_q = jnp.nan_to_num(x_q)
-  scale = scale.squeeze(axis=axis + 1).astype(jnp.float32)
-  return x_q, scale
+get_group_sizes = util.get_group_sizes
+quantize_tensor = util.quantize_tensor
 
 
 def reference_gmm(
@@ -192,6 +162,7 @@ def reference_tgmm(
 # dtype is introduced into a default-tolerance assertion.
 _DTYPE_TOL = {
     jnp.dtype(jnp.bfloat16): 1e-1,
+    jnp.dtype(jnp.float32): 5e-1,
 }
 
 
@@ -299,6 +270,70 @@ class GmmTest(parameterized.TestCase):
         group_sizes,
         group_offset=group_offset_arr,
         transpose_rhs=True,
+    )
+
+    assert_arrays_all_close(actual, expected)
+
+  @pytest.mark.long
+  @parameterized.product(
+      batch_size=[128],
+      in_size=[1024],
+      out_size=[512],
+      num_groups=[8],
+      tile_k=[256],
+      transpose_rhs=[False, True],
+      group_offset=[0],
+      dtype=[jnp.bfloat16, jnp.float32],
+  )
+  def test_gmm_multi_k_partial_bucket(
+      self,
+      batch_size,
+      in_size,
+      out_size,
+      num_groups,
+      tile_k,
+      transpose_rhs,
+      group_offset,
+      dtype,
+  ):
+    """Tests multi-K contraction (num_k > 1) with partial M-buckets."""
+    num_local_groups = num_groups - group_offset
+    key = jax.random.key(0)
+    k0, k1 = jax.random.split(key, 2)
+
+    lhs = jax.random.normal(k0, (batch_size, in_size), dtype=dtype)
+    if transpose_rhs:
+      rhs = jax.random.normal(
+          k1, (num_local_groups, out_size, in_size), dtype=dtype
+      )
+      rhs_ref = jnp.swapaxes(rhs, 1, 2)
+    else:
+      rhs = jax.random.normal(
+          k1, (num_local_groups, in_size, out_size), dtype=dtype
+      )
+      rhs_ref = rhs
+
+    group_sizes = get_group_sizes(batch_size, num_groups)
+    group_offset_arr = jnp.array(group_offset, dtype=jnp.int32)
+
+    expected = reference_gmm(
+        lhs, rhs_ref, group_sizes, group_offset=group_offset_arr
+    )
+
+    tile_info = gmm_v2.TileSizes(
+        tile_m=256,
+        tile_k=tile_k,
+        tile_n=min(out_size, 512),
+        bucket_base=64,
+    )
+
+    actual = gmm_v2.gmm_v2(
+        lhs,
+        rhs,
+        group_sizes,
+        group_offset=group_offset_arr,
+        tile_info=tile_info,
+        transpose_rhs=transpose_rhs,
     )
 
     assert_arrays_all_close(actual, expected)
@@ -889,7 +924,13 @@ class GmmTest(parameterized.TestCase):
       in_size=[1024],
       out_size=[1024],
       num_groups=[16, 32],
-      weight_dtype=[jnp.int4, jnp.int8],
+      weight_dtype=[jnp.int4, jnp.int8, jnp.float8_e4m3fn],
+      activation_dtype=[
+          None,
+          jnp.int8,
+          jnp.float8_e4m3fn,
+          jnp.float8_e5m2
+      ],
       block_size=[1024],
       group_offset=[0],
   )
@@ -900,6 +941,7 @@ class GmmTest(parameterized.TestCase):
       out_size,
       num_groups,
       weight_dtype,
+      activation_dtype,
       block_size,
       group_offset,
   ):
@@ -907,6 +949,17 @@ class GmmTest(parameterized.TestCase):
       self.skipTest("Expect TPUv7+")
     if block_size > in_size:
       self.skipTest("block_size must be <= in_size")
+    if activation_dtype is not None:
+      tpu_info = pltpu.get_tpu_info()
+      if not (
+          tpu_info.is_matmul_supported(activation_dtype, weight_dtype)
+      ) and not gmm_v2.is_manually_cast_matmul_dtype_combo(
+          activation_dtype, weight_dtype
+      ):
+        self.skipTest(
+            f"Combination {activation_dtype} and {weight_dtype} not supported"
+            " by the kernel."
+        )
     num_local_groups = num_groups - group_offset
     key = jax.random.key(0)
 
@@ -936,9 +989,16 @@ class GmmTest(parameterized.TestCase):
         rhs_scale=rhs_scale,
         group_offset=group_offset,
         maybe_quantize_lhs=True,
+        lhs_quant_dtype=activation_dtype,
     ).astype(lhs.dtype)
 
-    chex.assert_trees_all_close(actual, expected, atol=1.1, rtol=1.1)
+    # e5m2 introduces increased rounding error compared to e4m3
+    if activation_dtype == jnp.float8_e5m2:
+      atol, rtol = 2.25, 1.1
+    else:
+      atol, rtol = 1.1, 1.1
+
+    chex.assert_trees_all_close(actual, expected, atol=atol, rtol=rtol)
 
   @pytest.mark.long
   @parameterized.product(
@@ -1304,6 +1364,179 @@ class GmmTest(parameterized.TestCase):
       atol, rtol = 5e-2, 5e-2  # Unquantized Path (bfloat16 precision diffs)
 
     chex.assert_trees_all_close(actual, expected, atol=atol, rtol=rtol)
+
+
+class GmmV2VmemStressTest(parameterized.TestCase):
+  """AOT compilation and VMEM stress tests for GMM v2.
+
+  Verifies that large model shapes and DLHS transpose_rhs configurations compile
+  ahead-of-time and fit within TPU VMEM capacity without triggering
+  RESOURCE_EXHAUSTED errors.
+  """
+
+  def setUp(self):
+    if jax.default_backend() != "tpu":
+      self.skipTest("Only supported on TPUs.")
+    if pltpu.get_tpu_info().generation < 5:
+      self.skipTest("Only supported on TPU gen 5+.")
+    super().setUp()
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name="vmem_stress_transpose_rhs",
+          batch_size=65536,
+          num_groups=128,
+          in_size=3072,
+          out_size=2048,
+          transpose_rhs=True,
+          tile_info=gmm_v2.TileSizes(
+              tile_m=512, tile_k=3072, tile_n=2048, bucket_base=256
+          ),
+      ),
+      dict(
+          testcase_name="vmem_stress_normal_rhs",
+          batch_size=65536,
+          num_groups=128,
+          in_size=3072,
+          out_size=2048,
+          transpose_rhs=False,
+      ),
+      dict(
+          testcase_name="megablox_yt_moe_dlhs",
+          batch_size=65536,
+          num_groups=64,
+          in_size=1536,
+          out_size=1280,
+          transpose_rhs=True,
+      ),
+  )
+  def test_aot_compile_vmem_stress(
+      self,
+      batch_size,
+      num_groups,
+      in_size,
+      out_size,
+      transpose_rhs,
+      tile_info=gmm_v2.calculate_tiling,
+  ):
+    group_sizes = get_group_sizes(batch_size, num_groups)
+    lhs_spec = jax.ShapeDtypeStruct((batch_size, in_size), jnp.bfloat16)
+    if transpose_rhs:
+      rhs_spec = jax.ShapeDtypeStruct(
+          (num_groups, out_size, in_size), jnp.bfloat16
+      )
+    else:
+      rhs_spec = jax.ShapeDtypeStruct(
+          (num_groups, in_size, out_size), jnp.bfloat16
+      )
+
+    def gmm_fn(lhs, rhs, sizes):
+      return gmm_v2.gmm_v2(
+          lhs, rhs, sizes, transpose_rhs=transpose_rhs, tile_info=tile_info
+      )
+
+    lowered = jax.jit(gmm_fn).lower(lhs_spec, rhs_spec, group_sizes)
+    compiled = lowered.compile()
+    self.assertIsNotNone(compiled)
+
+
+class GmmV2VmapTest(parameterized.TestCase):
+  """Tests verifying jax.vmap compatibility for GMM and TGMM v2."""
+
+  def setUp(self):
+    if jax.default_backend() != "tpu":
+      self.skipTest("Only supported on TPUs.")
+    if pltpu.get_tpu_info().generation < 5:
+      self.skipTest("Only supported on TPU gen 5+.")
+    super().setUp()
+
+  # TODO: Re-enable ("multi_core_mode", False) once JAX loop-based
+  # fallback for batched scalar prefetch lands in Pallas.
+  @parameterized.named_parameters(
+      ("single_core_fallback", True),
+  )
+  def test_gmm_vmap(self, disable_multi_core_mode: bool):
+    # Tests jax.vmap on gmm_v2 with batched LHS and group_sizes.
+    batch_size = 128
+    in_size = 256
+    out_size = 256
+    num_groups = 4
+    vmap_size = 2
+
+    key = jax.random.key(42)
+    k0, k1 = jax.random.split(key, 2)
+    lhs = jax.random.normal(
+        k0, (vmap_size, batch_size, in_size), dtype=jnp.bfloat16
+    )
+    rhs = jax.random.normal(
+        k1, (num_groups, in_size, out_size), dtype=jnp.bfloat16
+    )
+    group_sizes_list = [
+        get_group_sizes(batch_size, num_groups) for _ in range(vmap_size)
+    ]
+    group_sizes = jnp.stack(group_sizes_list)
+
+    def gmm_fn(x, w, gs):
+      return gmm_v2.gmm_v2(x, w, gs)
+
+    with config.disable_multi_core_mode(disable_multi_core_mode):
+      vmapped_fn = jax.jit(jax.vmap(gmm_fn, in_axes=(0, None, 0)))
+      actual = vmapped_fn(lhs, rhs, group_sizes)
+
+    # Verify numerical equivalence with batched reference.
+    expected = jnp.stack([
+        reference_gmm(lhs[i], rhs, group_sizes_list[i])
+        for i in range(vmap_size)
+    ])
+    assert_arrays_all_close(actual, expected)
+
+  # TODO: Re-enable ("multi_core_mode", False) once JAX loop-based
+  # fallback for batched scalar prefetch lands in Pallas.
+  @parameterized.named_parameters(
+      ("single_core_fallback", True),
+  )
+  def test_tgmm_vmap(self, disable_multi_core_mode: bool):
+    # Tests jax.vmap on tgmm_v2 with batched LHS, RHS, and group_sizes.
+    batch_size = 128
+    in_size = 256
+    out_size = 256
+    num_groups = 4
+    vmap_size = 2
+
+    key = jax.random.key(42)
+    k0, k1 = jax.random.split(key, 2)
+    lhs = jax.random.normal(
+        k0, (vmap_size, batch_size, in_size), dtype=jnp.bfloat16
+    )
+    rhs = jax.random.normal(
+        k1, (vmap_size, batch_size, out_size), dtype=jnp.bfloat16
+    )
+    group_sizes_list = [
+        get_group_sizes(batch_size, num_groups) for _ in range(vmap_size)
+    ]
+    group_sizes = jnp.stack(group_sizes_list)
+
+    def tgmm_fn(x, y, gs):
+      return tgmm_v2.tgmm_v2(
+          x,
+          y,
+          gs,
+          num_actual_groups=num_groups,
+          preferred_element_type=jnp.bfloat16,
+      )
+
+    with config.disable_multi_core_mode(disable_multi_core_mode):
+      vmapped_fn = jax.jit(jax.vmap(tgmm_fn, in_axes=(0, 0, 0)))
+      actual = vmapped_fn(lhs, rhs, group_sizes)
+
+    # Verify numerical equivalence with batched reference.
+    expected = jnp.stack([
+        reference_tgmm(
+            lhs[i].swapaxes(0, 1), rhs[i], group_sizes_list[i], num_groups
+        )
+        for i in range(vmap_size)
+    ])
+    assert_arrays_all_close(actual, expected)
 
 
 if __name__ == "__main__":

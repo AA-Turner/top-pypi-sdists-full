@@ -87,6 +87,7 @@ class CartoBoostClassifier(ClassifierMixin, BaseEstimator):
         tensorboard_log_dir: str | Path | None = None,
         tensorboard_run_name: str | None = None,
         backend: Backend | str = Backend.CPU,
+        max_split_candidates: int | None = None,
     ) -> None:
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
@@ -105,6 +106,7 @@ class CartoBoostClassifier(ClassifierMixin, BaseEstimator):
         self.constant_l2_regularization = constant_l2_regularization
         self.random_state = random_state
         self.n_threads = n_threads
+        self.max_split_candidates = max_split_candidates
         self.graph_indptr = graph_indptr
         self.graph_indices = graph_indices
         self.graph_weights = graph_weights
@@ -140,6 +142,7 @@ class CartoBoostClassifier(ClassifierMixin, BaseEstimator):
             "constant_l2_regularization": self.constant_l2_regularization,
             "random_state": self.random_state,
             "n_threads": self.n_threads,
+            "max_split_candidates": self.max_split_candidates,
             "graph_indptr": self.graph_indptr,
             "graph_indices": self.graph_indices,
             "graph_weights": self.graph_weights,
@@ -251,6 +254,7 @@ class CartoBoostClassifier(ClassifierMixin, BaseEstimator):
             fuzzy_bandwidth=float(self.fuzzy_bandwidth),
             fuzzy_kernel=str(self.fuzzy_kernel),
             n_threads=None if self.n_threads is None else int(self.n_threads),
+            max_split_candidates=self.max_split_candidates,
             graph_indptr=self.graph_indptr,
             graph_indices=self.graph_indices,
             graph_weights=self.graph_weights,
@@ -495,6 +499,7 @@ class CartoBoostClassifier(ClassifierMixin, BaseEstimator):
     @classmethod
     def _from_native_model(cls, native_model: Any) -> CartoBoostClassifier:
         estimator = cls(
+            max_split_candidates=getattr(native_model, "max_split_candidates", None),
             n_estimators=native_model.n_estimators,
             learning_rate=native_model.learning_rate,
             max_depth=native_model.max_depth,

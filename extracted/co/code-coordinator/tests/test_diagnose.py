@@ -628,25 +628,137 @@ def test_review_stage_prefers_newer_real_review_over_wedged_test_author(
     assert calls["recover"] == []  # healthy path — no transcript recovery needed
 
 
-# ── stale-but-live → needs reset ─────────────────────────────────────────────
+# ── stale-but-live → needs reset (#3222: judged on the OUTPUT gap) ─────────
 
 
 def test_stale_live_work_session_needs_reset(monkeypatch, config) -> None:
+    """#3222: a session dispatched only seconds ago but SILENT past the
+    threshold is stale — dispatch age must not save it."""
+    from coord.network import StatusResult
+
     _stub(monkeypatch, session="live")
-    old = time.time() - 3 * 24 * 3600  # 3 days ago
-    a = _assign(aid="w1", typ="work", status="running", dispatched_at=old)
+    now = time.time()
+    a = _assign(aid="w1", typ="work", status="running", dispatched_at=now - 4.0)
+    monkeypatch.setattr(
+        "coord.network.fetch_status",
+        lambda machine, timeout=None: StatusResult(
+            data={"active": [{"id": "w1", "last_output_at": now - 51 * 60.0}]}
+        ),
+    )
     board = Board(active=[a])
     res = diagnose.diagnose_stage(board, config, "api", 42, "work")
     assert res.needs_reset is True
 
 
 def test_recent_live_work_session_is_left_running(monkeypatch, config) -> None:
+    """#3222: a session dispatched 13h ago but still emitting output every
+    few seconds must NOT be flagged stale — the old `dispatched_at`-only
+    check would have called this stale past its 12h default for no reason."""
+    from coord.network import StatusResult
+
     _stub(monkeypatch, session="live")
-    a = _assign(aid="w1", typ="work", status="running", dispatched_at=time.time())
+    now = time.time()
+    a = _assign(aid="w1", typ="work", status="running", dispatched_at=now - 13 * 3600.0)
+    monkeypatch.setattr(
+        "coord.network.fetch_status",
+        lambda machine, timeout=None: StatusResult(
+            data={"active": [{"id": "w1", "last_output_at": now - 4.0}]}
+        ),
+    )
     board = Board(active=[a])
     res = diagnose.diagnose_stage(board, config, "api", 42, "work")
     assert res.needs_reset is False
     assert res.recovered is True
+
+
+def test_stale_live_review_session_needs_reset_not_healthy(monkeypatch, config) -> None:
+    """coord-tui#81 repro: a review dispatched 4 seconds before it wedged —
+    51 minutes of silence, board still `running` — must be reported stale,
+    not fall through to the 'review stage looks healthy' catch-all."""
+    from coord.network import StatusResult
+
+    _stub(monkeypatch, session="live")
+    now = time.time()
+    a = _assign(aid="rv1", typ="review", status="running", dispatched_at=now - 4.0)
+    monkeypatch.setattr(
+        "coord.network.fetch_status",
+        lambda machine, timeout=None: StatusResult(
+            data={"active": [{"id": "rv1", "last_output_at": now - 51 * 60.0}]}
+        ),
+    )
+    board = Board(active=[a])
+    res = diagnose.diagnose_stage(board, config, "api", 42, "review")
+    assert res.needs_reset is True
+    assert not any("looks healthy" in f for f in res.findings)
+
+
+def test_is_stale_falls_back_to_dispatched_at_when_output_unknown(monkeypatch, config) -> None:
+    """When the agent can't be asked at all (unreachable, or no machine to
+    resolve), `_is_stale` falls back to dispatch age rather than silently
+    reporting "not stale" forever."""
+    from coord.network import StatusResult
+
+    now = time.time()
+    monkeypatch.setattr(
+        "coord.network.fetch_status",
+        lambda machine, timeout=None: StatusResult(error="connection error"),
+    )
+    fresh = _assign(aid="w1", typ="work", status="running", dispatched_at=now - 4.0)
+    assert diagnose._is_stale(fresh, config) is False
+
+    old = _assign(aid="w2", typ="work", status="running", dispatched_at=now - 3 * 24 * 3600.0)
+    assert diagnose._is_stale(old, config) is True
+
+
+def test_is_stale_reachable_agent_missing_id_uses_conservative_fallback(
+    monkeypatch, config,
+) -> None:
+    """#3222 review iteration 1: a REACHABLE agent whose own `/status`
+    `active` list simply doesn't carry this id — the everyday shape of an
+    interactive `--review-of`/`--fix-of`/`--rework-of` tmux pane
+    (coord/interactive.py), which never goes through `AgentServer.assign()`
+    and so can NEVER appear there — must not be judged against the tight
+    45-minute review silence threshold the way a confirmed-unreachable probe
+    or a fresh dispatch is. It falls back to the old, conservative
+    dispatched-at bound instead, so a human actively working such a pane for
+    under 12h is not told it is stale."""
+    from coord.network import StatusResult
+
+    now = time.time()
+    monkeypatch.setattr(
+        "coord.network.fetch_status",
+        lambda machine, timeout=None: StatusResult(data={"active": []}),
+    )
+
+    fifty_min_old = _assign(aid="interactive-1", dispatched_at=now - 50 * 60.0)
+    assert diagnose._is_stale(fifty_min_old, config) is False
+
+    thirteen_hours_old = _assign(aid="interactive-2", dispatched_at=now - 13 * 3600.0)
+    assert diagnose._is_stale(thirteen_hours_old, config) is True
+
+
+def test_stale_check_healthy_for_reachable_agent_without_this_id(monkeypatch, config) -> None:
+    """Integration-level version of the above through `diagnose_stage`:
+    tmux (or the stubbed `_session_state`) says the review session is live,
+    the assignment's own agent answers `/status` fine, but its `active`
+    list never lists this id at all (the interactive-pane shape). Dispatched
+    50 minutes ago must be reported healthy, not stale — before #3222 review
+    iteration 1 this false-positived at the tight 45-minute threshold."""
+    from coord.network import StatusResult
+
+    _stub(monkeypatch, session="live")
+    now = time.time()
+    a = _assign(
+        aid="rv-interactive", typ="review", status="running", dispatched_at=now - 50 * 60.0,
+    )
+    monkeypatch.setattr(
+        "coord.network.fetch_status",
+        lambda machine, timeout=None: StatusResult(data={"active": []}),
+    )
+    board = Board(active=[a])
+    res = diagnose.diagnose_stage(board, config, "api", 42, "review")
+    assert res.needs_reset is False
+    assert any("looks healthy" in f for f in res.findings)
 
 
 # ── merge reconcile ──────────────────────────────────────────────────────────
@@ -882,6 +994,212 @@ def test_reset_review_wipes_rows_state_and_context(monkeypatch, config) -> None:
     assert calls["delete"] == ("api", 42, ("review",), "w1")
     assert calls["reset_state"] == ("api", 42, "w1")
     assert calls["purge"] == ("api", 42, "review")
+
+
+# ── #3223: review-reset must stop a live/headless leg BEFORE deleting its
+# row — never fire tmux-only, never delete a row it couldn't confirm dead ──
+
+
+def test_reset_review_stops_live_headless_leg_before_deleting_row(
+    monkeypatch, config
+) -> None:
+    """coord-tui#81: a headless review leg (`interactive=False`, the ordinary
+    auto-loop shape) wedged with `status='running'` must be CANCELLED on the
+    agent (`_kill_session`, which now has a non-tmux branch for exactly this
+    case — #3223) before its row is deleted. The session probed/killed must
+    be the review leg itself (`rv1`), never the work row it reviewed
+    (`w1`) — `w1` is long done and has no process to stop."""
+    calls = _stub(
+        monkeypatch,
+        session=lambda a: "live" if a.assignment_id == "rv1" else "dead",
+    )
+    delete_calls: list = []
+    monkeypatch.setattr(
+        "coord.state.delete_assignments_for_issue",
+        lambda repo, issue, *, types, review_of_assignment_id=None: delete_calls.append(
+            (repo, issue, types, review_of_assignment_id)
+        )
+        or 1,
+    )
+    monkeypatch.setattr("coord.state.reset_work_review_state", lambda *a, **k: 1)
+    monkeypatch.setattr("coord.state.clear_issue_context_by_source", lambda *a, **k: 1)
+    monkeypatch.setattr("coord.state.release_review_dispatch_claim", lambda *a, **k: None)
+    monkeypatch.setattr("coord.state.count_review_rows_for_reset", lambda *a, **k: 0)
+
+    a = _assign(aid="rv1", typ="review", status="running", review_of="w1")
+    board = Board(active=[a])
+    res = diagnose.diagnose_stage(board, config, "api", 42, "review", reset=True)
+
+    # The live session stopped was the review leg, not the reviewed work row.
+    assert calls["kill"] == ["rv1"]
+    assert delete_calls == [("api", 42, ("review",), "w1")]
+    assert res.reset_performed is True
+    assert any("stopped the live review session" in x for x in res.actions_taken)
+
+
+def test_reset_review_failed_stop_leaves_row_intact(monkeypatch, config) -> None:
+    """coord-tui#81 (the reported failure mode): when the stop cannot be
+    confirmed — `_kill_session` returns False, e.g. the agent is unreachable
+    or its own post-cancel status disagrees — the review row must NOT be
+    deleted. Deleting it anyway destroys the only handle `coord stop` has to
+    find the assignment by, turning a visible stall into an invisible orphan
+    that still holds a worker slot forever."""
+    calls = _stub(monkeypatch, session="live")
+    monkeypatch.setattr(diagnose, "_kill_session", lambda a, c: (
+        calls["kill"].append(a.assignment_id) or False
+    ))
+
+    def _boom(*a, **k):  # noqa: ANN002, ANN003
+        raise AssertionError("must not delete/mutate rows when the stop failed")
+
+    monkeypatch.setattr("coord.state.delete_assignments_for_issue", _boom)
+    monkeypatch.setattr("coord.state.reset_work_review_state", _boom)
+    monkeypatch.setattr("coord.state.clear_issue_context_by_source", _boom)
+    monkeypatch.setattr("coord.state.release_review_dispatch_claim", _boom)
+
+    a = _assign(aid="rv1", typ="review", status="running", review_of="w1")
+    board = Board(active=[a])
+    res = diagnose.diagnose_stage(board, config, "api", 42, "review", reset=True)
+
+    assert calls["kill"] == ["rv1"]
+    assert res.reset_performed is False
+    assert res.needs_reset is True
+    assert any(
+        "could not stop" in f and "rv1" in f and "coord stop" in f
+        for f in res.findings
+    )
+
+
+def _reset_row_stubs(monkeypatch) -> dict:
+    """Stub the four DB writes `_reset_review_stage` performs, recording them."""
+    seen: dict = {}
+    monkeypatch.setattr(
+        "coord.state.delete_assignments_for_issue",
+        lambda repo, issue, *, types, review_of_assignment_id=None: seen.setdefault(
+            "delete", (repo, issue, types, review_of_assignment_id)
+        )
+        or 1,
+    )
+    monkeypatch.setattr("coord.state.count_review_rows_for_reset", lambda *a, **k: 0)
+    monkeypatch.setattr(
+        "coord.state.reset_work_review_state",
+        lambda repo, issue, *, assignment_id=None: seen.setdefault(
+            "reset_state", (repo, issue, assignment_id)
+        )
+        or 1,
+    )
+    monkeypatch.setattr(
+        "coord.state.clear_issue_context_by_source",
+        lambda repo, issue, source: seen.setdefault("purge", (repo, issue, source)) or 1,
+    )
+    monkeypatch.setattr("coord.state.release_review_dispatch_claim", lambda *a, **k: None)
+    return seen
+
+
+def test_reset_review_terminal_leg_is_never_probed_or_stopped(
+    monkeypatch, config
+) -> None:
+    """#3223 follow-up: the stop-before-delete guard must NOT fire for a leg
+    whose row is ALREADY TERMINAL. `notify`'s `review_done_no_verdict` sweep
+    calls `_reset_review_stage` directly on a `status="done"` review, on a
+    schedule, specifically to avoid paying a liveness probe per tick — and an
+    unreachable machine probes `"unknown"`, which the guard treats as "might
+    be live", so probing a finished review would refuse the very reset the
+    sweep exists to perform for as long as that machine stayed down."""
+    probed: list[str] = []
+    killed: list[str] = []
+    monkeypatch.setattr(diagnose, "_session_state", lambda a, c: (
+        probed.append(a.assignment_id) or "unknown"
+    ))
+    monkeypatch.setattr(diagnose, "_kill_session", lambda a, c: (
+        killed.append(a.assignment_id) or False
+    ))
+    seen = _reset_row_stubs(monkeypatch)
+
+    rv = _assign(aid="rv1", typ="review", status="done", review_of="w1")
+    res = diagnose.DiagnoseResult(repo_name="api", issue_number=42, stage="review")
+    diagnose._reset_review_stage(
+        config, "api", 42, res,
+        dry_run=False, assignment_id="w1", live_assignment=rv,
+    )
+
+    assert probed == []  # terminal row → short-circuit, no ssh/HTTP round trip
+    assert killed == []
+    assert res.reset_performed is True
+    assert seen["delete"] == ("api", 42, ("review",), "w1")
+
+
+def test_reset_review_unknown_liveness_counts_as_possibly_live(
+    monkeypatch, config
+) -> None:
+    """The other half of the same gate: for a NON-terminal leg, an
+    unconfirmed probe (`"unknown"` — agent unreachable) must be treated as
+    "might still be running", so the row survives as `coord stop`'s handle.
+    Without this the gate could only ever pass, since `"unknown"` is what a
+    down machine reports (#2096: a gate must be able to fail)."""
+    probed: list[str] = []
+    monkeypatch.setattr(diagnose, "_session_state", lambda a, c: (
+        probed.append(a.assignment_id) or "unknown"
+    ))
+    monkeypatch.setattr(diagnose, "_kill_session", lambda a, c: False)
+
+    def _boom(*a, **k):  # noqa: ANN002, ANN003
+        raise AssertionError("must not touch rows when liveness is unconfirmed")
+
+    monkeypatch.setattr("coord.state.delete_assignments_for_issue", _boom)
+
+    rv = _assign(aid="rv1", typ="review", status="running", review_of="w1")
+    res = diagnose.DiagnoseResult(repo_name="api", issue_number=42, stage="review")
+    diagnose._reset_review_stage(
+        config, "api", 42, res,
+        dry_run=False, assignment_id="w1", live_assignment=rv,
+    )
+
+    assert probed == ["rv1"]
+    assert res.reset_performed is False
+    assert res.needs_reset is True
+
+
+def test_kill_session_cancels_headless_leg_via_agent(monkeypatch, config) -> None:
+    """Unit-level #3223 regression on `_kill_session` itself: when tmux has
+    no session at all for the assignment (the headless shape), it must fall
+    through to the agent's own `POST /cancel/{id}` — the same seam `coord
+    stop` uses — rather than silently reporting success for a tmux kill
+    that targeted a session which never existed."""
+    from coord.network import CancelResult
+
+    monkeypatch.setattr("coord.interactive.tmux_session_running", lambda *a, **k: False)
+    seen: list = []
+
+    def _fake_cancel(machine, assignment_id, **kwargs):
+        seen.append((machine.name, assignment_id))
+        return CancelResult(ok=True, status="cancelled")
+
+    monkeypatch.setattr("coord.network.cancel_assignment", _fake_cancel)
+    a = _assign(aid="rv1", typ="review", status="running")
+
+    assert diagnose._kill_session(a, config) is True
+    assert seen == [("precision", "rv1")]
+
+
+def test_kill_session_headless_cancel_failure_is_not_swallowed(
+    monkeypatch, config
+) -> None:
+    """The headless branch must report False (not silently True) when the
+    agent's own cancel could not be confirmed — e.g. the agent is
+    unreachable, or its post-cancel status isn't 'cancelled'."""
+    from coord.network import CancelResult
+
+    monkeypatch.setattr("coord.interactive.tmux_session_running", lambda *a, **k: False)
+    monkeypatch.setattr(
+        "coord.network.cancel_assignment",
+        lambda machine, assignment_id, **kwargs: CancelResult(
+            ok=False, error="connection error"
+        ),
+    )
+    a = _assign(aid="rv1", typ="review", status="running")
+
+    assert diagnose._kill_session(a, config) is False
 
 
 def _record(a: Assignment) -> None:

@@ -2691,7 +2691,7 @@ def _dvec(x: float, y: float, c: KCell, unit: Literal["dbu", "um"]) -> kdb.DVect
     return kdb.DVector(x, y)
 
 
-def _is_int_schematic(s: TSchematic[Any]) -> TypeGuard[Schematic[int]]:
+def _is_int_schematic(s: TSchematic[Any]) -> TypeGuard[TSchematic[int]]:
     return s.unit == "dbu"
 
 
@@ -3260,7 +3260,7 @@ def sanitize_pic_yml[T: (int, float)](data: dict[str, Any]) -> dict[str, Any]:
                     placement["anchor"] = _anchor_mapping[port]
                 else:
                     placement["anchor"] = {"port": port}
-            anchor: FixedAnchorDict = placement.get("anchor", {})
+            anchor: dict[str, Any] = placement.get("anchor", {})
             if "xmin" in placement:
                 anchor["x"] = "left"
                 placement["x"] = placement.pop("xmin")

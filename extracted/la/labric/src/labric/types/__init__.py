@@ -30,6 +30,8 @@ if typing.TYPE_CHECKING:
     from .queryable_table_schema import QueryableTableSchema
     from .revert_result_schema import RevertResultSchema
     from .save_annotation_schema import SaveAnnotationSchema
+    from .sent_notification_schema import SentNotificationSchema
+    from .sent_notification_schema_status import SentNotificationSchemaStatus
     from .start_job_execution_schema import StartJobExecutionSchema
     from .table_summary import TableSummary
     from .tools_ml_model_detail_schema import ToolsMlModelDetailSchema
@@ -60,6 +62,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "QueryableTableSchema": ".queryable_table_schema",
     "RevertResultSchema": ".revert_result_schema",
     "SaveAnnotationSchema": ".save_annotation_schema",
+    "SentNotificationSchema": ".sent_notification_schema",
+    "SentNotificationSchemaStatus": ".sent_notification_schema_status",
     "StartJobExecutionSchema": ".start_job_execution_schema",
     "TableSummary": ".table_summary",
     "ToolsMlModelDetailSchema": ".tools_ml_model_detail_schema",
@@ -114,6 +118,8 @@ __all__ = [
     "QueryableTableSchema",
     "RevertResultSchema",
     "SaveAnnotationSchema",
+    "SentNotificationSchema",
+    "SentNotificationSchemaStatus",
     "StartJobExecutionSchema",
     "TableSummary",
     "ToolsMlModelDetailSchema",

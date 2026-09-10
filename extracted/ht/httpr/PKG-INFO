@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpr
-Version: 0.6.0
+Version: 0.7.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -17,6 +17,7 @@ Requires-Dist: certifi ; extra == 'dev'
 Requires-Dist: pytest>=9.0.3 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.25.3 ; extra == 'dev'
 Requires-Dist: pytest-benchmark>=5.1.0 ; extra == 'dev'
+Requires-Dist: pytest-codspeed>=4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-httpbin>=2.1.0 ; extra == 'dev'
 Requires-Dist: typing-extensions ; python_full_version < '3.12' and extra == 'dev'
 Requires-Dist: mypy>=1.14.1 ; extra == 'dev'
@@ -42,6 +43,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # httpr
+
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/thomasht86/httpr?utm_source=badge)
 
 **Blazing fast http-client** for Python in Rust 🦀 that can be used as drop-in replacement for `httpx` and `requests` in most cases.
 
@@ -106,9 +109,16 @@ pip install -U httpr
 
 ## Benchmark
 
-Performance is tracked continuously with [github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark): on every push to `main`, the benchmark suite (`tests/benchmark/`) runs in CI and the results are published as interactive charts.
+Performance is tracked continuously in two complementary ways:
+
+- **CPU cost per pull request** with [CodSpeed](https://app.codspeed.io/thomasht86/httpr): `tests/benchmark/codspeed/` runs under CodSpeed's CPU simulation instrument on every PR and every push to `main`, so a regression in decoding, request building or transfer handling is reported on the PR that introduces it. See [tests/benchmark/codspeed/README.md](tests/benchmark/codspeed/README.md).
+- **Wall-clock trend over time** with [github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark): on every push to `main`, `tests/benchmark/test_performance.py` runs in CI and the results are published as interactive charts.
 
 **📈 [View live benchmark results](https://thomasht86.github.io/httpr/dev/bench/)**
+
+Against other clients, `benchmark/benchmark.py` is run every Monday against the latest release of each library (requests, httpx, httpx2, aiohttp, curl_cffi, pycurl, tls_client) and published at **[thomasht86.github.io/httpr/dev/bench/compare](https://thomasht86.github.io/httpr/dev/bench/compare/)**, with the full tables and raw CSVs. Seconds for 400 requests against a local server, lower is better:
+
+[![HTTP client comparison](https://thomasht86.github.io/httpr/dev/bench/compare/comparison.png)](https://thomasht86.github.io/httpr/dev/bench/compare/)
 
 To run the benchmarks locally, see [benchmark/README.md](benchmark/README.md).
 
@@ -123,10 +133,13 @@ class Client:
     Args:
         auth (tuple[str, str| None] | None): Username and password for basic authentication. Default is None.
         auth_bearer (str | None): Bearer token for authentication. Default is None.
-        params (dict[str, str] | None): Default query parameters to include in all requests. Default is None.
+        params (QueryParamTypes | None): Default query parameters to include in all requests, merged with
+            each request's own `params` (the request wins per key). Default is None.
         headers (dict[str, str] | None): Default headers to send with requests. 
         cookies (dict[str, str] | None): - Map of cookies to send with requests as the `Cookie` header.
-        timeout (float | None): HTTP request timeout in seconds. Default is 30.
+        timeout (float | None): Timeout in seconds for waiting on the server: for the response headers,
+            then for each chunk of the body, so a response that keeps arriving is never cut off. Default is 30;
+            `None` disables it.
         cookie_store (bool | None): Enable a persistent cookie store. Received cookies will be preserved and included
             in additional requests. Default is True.
         referer (bool | None): Enable or disable automatic setting of the `Referer` header. Default is True.
@@ -141,13 +154,31 @@ class Client:
     """
 ```
 
+#### Client lifecycle
+
+A `Client` owns a connection pool. Use it as a context manager, or call `close()` when you are done, to release the pooled connections back to the OS:
+
+```python
+with httpr.Client() as client:
+    client.get("https://httpbin.org/get")
+# pool released here
+
+client = httpr.Client()
+try:
+    client.get("https://httpbin.org/get")
+finally:
+    client.close()  # idempotent
+```
+
+Requests that are still in flight when `close()` is called (including open `stream()` responses) finish normally; the pool is released as soon as the last of them completes. Any request made afterwards, or assigning `client.proxy`, raises `httpr.ClientClosed` (a `RuntimeError`, as in httpx); `client.is_closed` tells you which state a client is in. `AsyncClient` offers the same via `aclose()` / `async with`, and additionally shuts down its own thread pool. A client that is garbage-collected without being closed releases its pool too, but only once the interpreter gets to it, so prefer closing explicitly.
+
 #### Client methods
 
 The `Client` class provides a set of methods for making HTTP requests: `get`, `head`, `options`, `delete`, `post`, `put`, `patch`, each of which internally utilizes the `request()` method for execution. The parameters for these methods closely resemble those in `httpx`.
 ```python
 def get(
     url: str,
-    params: dict[str, str] | None = None,
+    params: QueryParamTypes | None = None,
     headers: dict[str, str] | None = None,
     cookies: dict[str, str] | None = None,
     auth: tuple[str, str| None] | None = None,
@@ -158,9 +189,12 @@ def get(
 
     Args:
         url (str): The URL to which the request will be made.
-        params (dict[str, str] | None): A map of query parameters to append to the URL. Default is None.
+        params (QueryParamTypes | None): Query parameters to append to the URL, merged with the client's.
+            Values may be str, int, float, bool (sent as `true`/`false`), None (sent empty) or a
+            list/tuple of those, which repeats the key. Default is None.
         headers (dict[str, str] | None): A map of HTTP headers to send with the request. Default is None.
-        cookies (dict[str, str] | None): - An optional map of cookies to send with requests as the `Cookie` header.
+        cookies (dict[str, str] | None): Cookies to send with the request, merged with the client's into
+            a single `Cookie` header.
         auth (tuple[str, str| None] | None): A tuple containing the username and an optional password
             for basic authentication. Default is None.
         auth_bearer (str | None): A string representing the bearer token for bearer token authentication. Default is None.
@@ -171,7 +205,7 @@ def get(
 ```python
 def post(
     url: str,
-    params: dict[str, str] | None = None,
+    params: QueryParamTypes | None = None,
     headers: dict[str, str] | None = None,
     cookies: dict[str, str] | None = None,
     content: bytes | None = None,
@@ -186,11 +220,15 @@ def post(
 
     Args:
         url (str): The URL to which the request will be made.
-        params (dict[str, str] | None): A map of query parameters to append to the URL. Default is None.
+        params (QueryParamTypes | None): Query parameters to append to the URL, merged with the client's.
+            Values may be str, int, float, bool (sent as `true`/`false`), None (sent empty) or a
+            list/tuple of those, which repeats the key. Default is None.
         headers (dict[str, str] | None): A map of HTTP headers to send with the request. Default is None.
-        cookies (dict[str, str] | None): - An optional map of cookies to send with requests as the `Cookie` header.
+        cookies (dict[str, str] | None): Cookies to send with the request, merged with the client's into
+            a single `Cookie` header.
         content (bytes | None): The content to send in the request body as bytes. Default is None.
-        data (dict[str, Any] | None): The form data to send in the request body. Default is None.
+        data (dict[str, Any] | None): The form data to send in the request body; values are converted
+            like `params`, so a list repeats the field. Default is None.
         json (Any | None): A JSON serializable object to send in the request body. Default is None.
         files (dict[str, str] | None): A map of file fields to file paths to be sent as multipart/form-data. Default is None.
         auth (tuple[str, str| None] | None): A tuple containing the username and an optional password
@@ -337,7 +375,8 @@ export HTTPR_PROXY="socks5://127.0.0.1:1080"
 resp = httpr.Client().get("https://tls.peet.ws/api/all")
 print(resp.json())
 
-# Using custom CA certificate store: env var HTTPR_CA_BUNDLE
+# Using custom CA certificate store: ca_cert_file param, or env var HTTPR_CA_BUNDLE as the default
+# (ca_cert_file applies only to the client it is passed to and never modifies the environment)
 resp = httpr.Client(ca_cert_file="/cert/cacert.pem").get("https://tls.peet.ws/api/all")
 print(resp.json())
 resp = httpr.Client(ca_cert_file=certifi.where()).get("https://tls.peet.ws/api/all")
@@ -379,16 +418,20 @@ if __name__ == "__main__":
 
 **Streaming with AsyncClient:**
 
-The `AsyncClient` also supports streaming responses with the same API:
+`AsyncClient.stream()` yields an `AsyncStreamingResponse` with `async for` iteration. `aiter_bytes()`, `aiter_text()`, `aiter_lines()` and `aread()` read each chunk on the client's thread pool, so the event loop keeps serving other tasks while the server is producing data (useful for Server-Sent Events and LLM token streams that stay open for a long time):
 
 ```python
 async with httpr.AsyncClient() as client:
     async with client.stream("GET", "https://example.com/large-file") as response:
-        for chunk in response.iter_bytes():
+        async for chunk in response.aiter_bytes():
             process(chunk)
+
+    async with client.stream("GET", "https://example.com/events") as response:
+        async for line in response.aiter_lines():
+            handle(line)
 ```
 
-Note: While the context manager is async, the iteration over chunks (`iter_bytes()`, `iter_text()`, `iter_lines()`) is synchronous.
+The synchronous `iter_bytes()`, `iter_text()`, `iter_lines()` and `read()` are still available on the async response, but each step blocks the event loop until the next chunk arrives, so prefer the `a`-prefixed variants in async code.
 
 ## Precompiled wheels
 
@@ -441,6 +484,8 @@ task test
 ```bash
 task dev           # Build Rust extension
 task check         # Run all checks (lint + test) - use before committing
+task test:benchmark    # Wall-clock benchmarks
+task test:codspeed     # CodSpeed CPU-simulation benchmarks (requires the codspeed CLI)
 task lint          # Run Python linters (ruff + mypy)
 task lint:rust     # Run Rust linters (fmt + clippy)
 task lint:all      # Run all linters (Python + Rust)
@@ -457,6 +502,8 @@ task httpbun:logs  # Show container logs
 
 - `tests/unit/` - Unit tests using pytest-httpbin (fast, no Docker required)
 - `tests/e2e/` - E2E tests using httpbun Docker container with SSL
+- `tests/benchmark/test_performance.py` - Wall-clock benchmarks published to the live charts
+- `tests/benchmark/codspeed/` - CPU benchmarks measured by CodSpeed on every PR
 
 ## CI
 
@@ -465,11 +512,13 @@ task httpbun:logs  # Show container logs
 | `lint` | ✓ | | | |
 | `test` (Python 3.10-3.14) | ✓ | ✓ | ✓ | |
 | `docs` (build) | ✓ | | | |
+| `benchmarks` (CodSpeed) | ✓ | ✓ | | ✓ |
 | `linux`, `musllinux`, `windows`, `macos`, `sdist` | | | ✓ | ✓ |
 | `release` (PyPI publish) | | | ✓ | ✓ |
 
-- **PRs**: Run lint, tests across Python 3.10-3.14 matrix, and verify docs build
-- **Push to main**: Run tests, then the separate `Benchmark` workflow runs the benchmark suite and publishes results to the [live benchmark charts](https://thomasht86.github.io/httpr/dev/bench/)
+- **PRs**: Run lint, tests across Python 3.10-3.14 matrix, verify docs build, and report the CPU cost of the CodSpeed benchmark suite
+- **Push to main**: Run tests and the CodSpeed benchmarks, then the separate `Benchmark` workflow runs the wall-clock suite and publishes results to the [live benchmark charts](https://thomasht86.github.io/httpr/dev/bench/)
+- **Weekly (Monday 06:00 UTC)**: The `Client comparison` workflow benchmarks httpr against the latest release of each other client and publishes the [comparison page](https://thomasht86.github.io/httpr/dev/bench/compare/)
 - **Tags**: Run tests, build wheels, publish stable release to PyPI
 - **Manual**: Full multi-platform wheel builds with release
 

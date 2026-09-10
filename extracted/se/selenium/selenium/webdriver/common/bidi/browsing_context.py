@@ -140,6 +140,7 @@ class CaptureScreenshotParameters:
     context: Any | None = None
     format: Any | None = None
     clip: Any | None = None
+    image_size: Any | None = None
 
 
 @dataclass
@@ -621,7 +622,7 @@ class BrowsingContext:
             ]
         return []
 
-    def handle_user_prompt(self, context: Any | None = None, accept: bool | None = None, user_text: Any | None = None):
+    def handle_user_prompt(self, context: Any | None = None, accept: bool | None = None, user_text: str | None = None):
         """Execute browsingContext.handleUserPrompt"""
         if context is None:
             raise TypeError("handle_user_prompt() missing required argument: 'context'")
@@ -665,7 +666,7 @@ class BrowsingContext:
             return extracted
         return result
 
-    def navigate(self, context: Any | None = None, url: Any | None = None, wait: Any | None = None):
+    def navigate(self, context: Any | None = None, url: str | None = None, wait: Any | None = None):
         """Execute browsingContext.navigate"""
         if context is None:
             raise TypeError("navigate() missing required argument: 'context'")
@@ -749,7 +750,7 @@ class BrowsingContext:
     def start_screencast(
         self,
         context: Any | None = None,
-        mime_type: Any | None = None,
+        mime_type: str | None = None,
         video: Any | None = None,
         audio: bool | None = None,
     ):

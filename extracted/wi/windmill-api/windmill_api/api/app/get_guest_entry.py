@@ -58,8 +58,9 @@ def sync_detailed(
 
      Unauthenticated: what a signed-out visitor reads to learn that signing in would let them in. 404
     unless the app's execution mode is `guest` AND the workspace has `guest_access_enabled` AND the
-    instance has not set the `guest_access_disabled` global setting, so it says nothing about apps that
-    are not open to guests. Discloses only the app path, to a caller already holding the share secret.
+    instance has not set the `guest_access_disabled` global setting, and never on a deployment where
+    guests are unavailable (the shared cloud), so it says nothing about apps that are not open to
+    guests. Discloses only the app path, to a caller already holding the share secret.
 
     Args:
         workspace (str):
@@ -95,8 +96,9 @@ def sync(
 
      Unauthenticated: what a signed-out visitor reads to learn that signing in would let them in. 404
     unless the app's execution mode is `guest` AND the workspace has `guest_access_enabled` AND the
-    instance has not set the `guest_access_disabled` global setting, so it says nothing about apps that
-    are not open to guests. Discloses only the app path, to a caller already holding the share secret.
+    instance has not set the `guest_access_disabled` global setting, and never on a deployment where
+    guests are unavailable (the shared cloud), so it says nothing about apps that are not open to
+    guests. Discloses only the app path, to a caller already holding the share secret.
 
     Args:
         workspace (str):
@@ -127,8 +129,9 @@ async def asyncio_detailed(
 
      Unauthenticated: what a signed-out visitor reads to learn that signing in would let them in. 404
     unless the app's execution mode is `guest` AND the workspace has `guest_access_enabled` AND the
-    instance has not set the `guest_access_disabled` global setting, so it says nothing about apps that
-    are not open to guests. Discloses only the app path, to a caller already holding the share secret.
+    instance has not set the `guest_access_disabled` global setting, and never on a deployment where
+    guests are unavailable (the shared cloud), so it says nothing about apps that are not open to
+    guests. Discloses only the app path, to a caller already holding the share secret.
 
     Args:
         workspace (str):
@@ -162,8 +165,9 @@ async def asyncio(
 
      Unauthenticated: what a signed-out visitor reads to learn that signing in would let them in. 404
     unless the app's execution mode is `guest` AND the workspace has `guest_access_enabled` AND the
-    instance has not set the `guest_access_disabled` global setting, so it says nothing about apps that
-    are not open to guests. Discloses only the app path, to a caller already holding the share secret.
+    instance has not set the `guest_access_disabled` global setting, and never on a deployment where
+    guests are unavailable (the shared cloud), so it says nothing about apps that are not open to
+    guests. Discloses only the app path, to a caller already holding the share secret.
 
     Args:
         workspace (str):

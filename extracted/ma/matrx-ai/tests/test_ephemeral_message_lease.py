@@ -87,12 +87,43 @@ def test_append_after_attach_preserves_real_text_in_storage_and_after_detach() -
     assert "CONTEXT" in text.text
     assert text.text.endswith("\n\nREAL")
     assert config.to_storage_dict()["messages"] == [
-        {"role": "user", "content": [{"type": "text", "text": "REAL"}]}
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": "REAL"}],
+            "user_content": [{"type": "text", "text": "REAL"}],
+        }
     ]
 
     config.messages.detach_ephemeral_from_last_user()
     assert len(config.messages) == 1
     assert text.text == "REAL"
+
+
+def test_agent_template_and_pristine_user_content_persist_separately() -> None:
+    messages = MessageList(
+        _messages=[
+            UnifiedMessage(
+                role="user",
+                content=[TextContent(text="MACHINE: resolved context")],
+            )
+        ]
+    )
+
+    messages.append_or_extend_user_text("HUMAN: my actual words")
+
+    storage = messages[0].to_storage_dict()
+    assert storage["content"] == [
+        {
+            "type": "text",
+            "text": "MACHINE: resolved context\nHUMAN: my actual words",
+        }
+    ]
+    assert storage["user_content"] == [
+        {"type": "text", "text": "HUMAN: my actual words"}
+    ]
+
+    hydrated = UnifiedMessage.from_dict(storage)
+    assert hydrated.to_storage_dict() == storage
 
 
 def test_detach_targets_exact_leased_message_after_new_user_is_appended() -> None:

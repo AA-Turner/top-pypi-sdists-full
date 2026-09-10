@@ -3,6 +3,7 @@
 import contextlib
 import functools
 import logging
+import math
 import numbers
 import os
 import random
@@ -95,12 +96,15 @@ def _validate_date_range(start: str, end: str) -> tuple[str, str]:
 def _validate_positive_number(
     value: int | float, param_name: str = "value"
 ) -> int | float:
-    """Validate that a number is positive."""
+    """Validate that a number is positive and finite."""
     if not isinstance(value, numbers.Real):
         raise ValueError(f"{param_name} must be a number")
 
     if isinstance(value, bool):
         raise ValueError(f"{param_name} must be a number, not bool")
+
+    if not math.isfinite(value):
+        raise ValueError(f"{param_name} must be finite, got: {value}")
 
     if value <= 0:
         raise ValueError(f"{param_name} must be positive, got: {value}")
@@ -839,29 +843,48 @@ class Garmin:
             logger.debug("Login failed: %s", e)
             raise GarminConnectConnectionError(f"Login failed: {e}") from e
 
-    def _load_profile_and_settings(self) -> None:
-        """Fetch social profile and user settings, populating display name,
-        full name and unit system. Raises ``GarminConnectAuthenticationError``
-        if either cannot be retrieved (e.g. the token is rejected).
+    def _load_social_profile(self) -> None:
+        """Fetch the social profile, populating display name and full name.
+
+        A response without a usable ``displayName`` is retried, because the
+        display name is needed to build most API URLs. If it is still missing
+        after three attempts the profile is accepted as is (new or empty
+        Garmin profiles may legitimately lack one) and the username is used
+        as fallback. Raises ``GarminConnectAuthenticationError`` if no
+        profile could be retrieved at all.
         """
         prof = None
+        name = None
         for attempt in range(3):
             try:
                 prof = self.client.connectapi("/userprofile-service/socialProfile")
-                if isinstance(prof, dict):
+                name = prof.get("displayName") if isinstance(prof, dict) else None
+                if isinstance(name, str) and name.strip():
                     break
+                name = None
+                logger.debug(
+                    "Social profile has no usable displayName (attempt %d)", attempt + 1
+                )
             except Exception as e:
                 if attempt == 2:
                     raise GarminConnectAuthenticationError(
                         "Failed to retrieve social profile"
                     ) from e
                 logger.debug("Retrying social profile fetch: %s", e)
+            if attempt < 2:
                 time.sleep(1)
-        else:
+        if not isinstance(prof, dict):
             raise GarminConnectAuthenticationError("Invalid profile data found")
 
-        self.display_name = prof.get("displayName", self.username)
+        self.display_name = name or self.username
         self.full_name = prof.get("fullName", "")
+
+    def _load_profile_and_settings(self) -> None:
+        """Fetch social profile and user settings, populating display name,
+        full name and unit system. Raises ``GarminConnectAuthenticationError``
+        if either cannot be retrieved (e.g. the token is rejected).
+        """
+        self._load_social_profile()
 
         settings = None
         for attempt in range(3):
@@ -895,22 +918,29 @@ class Garmin:
         return mfa_status, _legacy_token
 
     def _require_display_name(self) -> str:
-        """Return display_name, URL-encoded, or raise if not set.
+        """Return display_name, URL-encoded, reloading the profile if unset.
 
-        New/empty Garmin profiles may not have a displayName, which
-        would cause 'None' to be interpolated into API URLs and
-        result in 403 Forbidden errors.
+        A missing displayName would cause 'None' to be interpolated into
+        API URLs and result in 403 Forbidden errors, so one reload is
+        attempted before giving up.
 
         Encoding the value before it enters a URL path prevents a
         compromised or malicious server response from injecting path
         separators or query/fragment characters via displayName.
         """
         if not self.display_name:
+            try:
+                self._load_social_profile()
+            except Exception as e:
+                raise GarminConnectConnectionError(
+                    "Could not load the Garmin social profile, so the display "
+                    "name required for this request is unavailable. "
+                    "Please log in again."
+                ) from e
+        if not self.display_name:
             raise GarminConnectConnectionError(
-                "Display name is not set. This usually means your "
-                "Garmin profile is incomplete (new account with no "
-                "display name configured). Please set a display name "
-                "at https://connect.garmin.com and try again."
+                "Display name is not set. Your Garmin profile did not include "
+                "a display name, so this request cannot be made."
             )
         return quote(self.display_name, safe="")
 
@@ -1767,7 +1797,19 @@ class Garmin:
         return self.connectapi(url, params={"calendarDate": cdate})
 
     def get_personal_record(self) -> dict[str, Any]:
-        """Return personal records for current user."""
+        """Return personal records for current user.
+
+        Returns raw personal record entries from Garmin Connect.
+        For running records (activityType == 'running'), typeId maps to:
+          - 1: 1 km
+          - 2: 1 mile
+          - 3: 5 km
+          - 4: 10 km
+          - 5: Half marathon
+          - 6: Marathon
+          - 7: Longest run (distance in meters; duration requires
+            calling activity-service/activity/{activityId})
+        """
         url = (
             f"{self.garmin_connect_personal_record_url}/{self._require_display_name()}"
         )
@@ -2336,11 +2378,13 @@ class Garmin:
         start: int = 0,
         limit: int = 20,
         activitytype: str | None = None,
+        activitysubtype: str | None = None,
     ) -> dict[str, Any] | list[Any]:
         """Return available activities.
         :param start: Starting activity offset, where 0 means the most recent activity
         :param limit: Number of activities to return
         :param activitytype: (Optional) Filter activities by type
+        :param activitysubtype: (Optional) Filter activities further by sub-type.
         :return: List of activities from Garmin.
         """
         # Validate inputs
@@ -2354,6 +2398,9 @@ class Garmin:
         params = {"start": str(start), "limit": str(limit)}
         if activitytype:
             params["activityType"] = activitytype
+
+            if activitysubtype:
+                params["activitySubType"] = activitysubtype
 
         logger.debug("Requesting activities from %d with limit %d", start, limit)
 
@@ -2771,6 +2818,114 @@ class Garmin:
         logger.debug("Requesting gear for user %s", userProfileNumber)
 
         return self.connectapi(url, params={"userProfilePk": userProfileNumber})
+
+    def create_gear(
+        self,
+        gear_type: str,
+        brand: str,
+        model: str,
+        name: str,
+        first_use_date: str,
+        usage_type: str = "DISTANCE",
+        max_usage_distance_km: float | None = None,
+        max_usage_duration_min: float | None = None,
+        notes: str = "",
+        activity_type_keys: list[str] | None = None,
+    ) -> Any:
+        """Create a new piece of gear (e.g. a pair of shoes) and return it.
+
+        Mirrors the payload the Garmin Connect web "Add Gear" form sends to
+        ``gear-service/gear/v2``. Only ``gear_type="SHOES"`` and
+        ``usage_type="DISTANCE"`` have been confirmed against a real
+        account; other gear/usage type values are almost certainly also
+        SCREAMING_SNAKE_CASE (e.g. "BIKE", "TIME") but are unverified — if
+        one is rejected, check the "Gear Type"/"Usage Tracking" dropdown
+        option values on the Garmin Connect "Add Gear" page.
+
+        :param gear_type: Gear category, e.g. "SHOES".
+        :param brand: Brand/make name, e.g. "Anta".
+        :param model: Model name, e.g. "A-Flash".
+        :param name: Nickname shown in Garmin Connect, e.g. "Test".
+        :param first_use_date: Date gear was first used, "YYYY-MM-DD".
+        :param usage_type: How usage is tracked, e.g. "DISTANCE" or "TIME".
+        :param max_usage_distance_km: Optional retirement threshold in km.
+        :param max_usage_duration_min: Optional retirement threshold in minutes.
+        :param notes: Optional free-text notes.
+        :param activity_type_keys: Optional activity type keys (e.g.
+            ["running"], lowercase — matching :meth:`get_activities`'
+            ``activitytype``, not :meth:`set_gear_default`'s uppercase
+            convention) to associate as default gear for those activities.
+        :return: The created gear record from Garmin.
+        """
+        gear_type = _validate_sport_key(gear_type, "gear_type")
+        usage_type = _validate_sport_key(usage_type, "usage_type")
+        if not isinstance(brand, str) or not brand.strip():
+            raise ValueError("brand must be a non-empty string")
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError("model must be a non-empty string")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("name must be a non-empty string")
+        first_use_date = _validate_date_format(first_use_date, "first_use_date")
+
+        max_usage_distance_meters = 0
+        if max_usage_distance_km is not None:
+            max_usage_distance_meters = round(
+                _validate_positive_number(
+                    max_usage_distance_km, "max_usage_distance_km"
+                )
+                * 1000
+            )
+            if max_usage_distance_meters < 1:
+                raise ValueError(
+                    "max_usage_distance_km must be at least 0.001 (1 meter) — "
+                    "a smaller value would round down to 0, which means "
+                    "'no threshold' rather than the value requested"
+                )
+
+        max_usage_duration_seconds = 0
+        if max_usage_duration_min is not None:
+            max_usage_duration_seconds = round(
+                _validate_positive_number(
+                    max_usage_duration_min, "max_usage_duration_min"
+                )
+                * 60
+            )
+            if max_usage_duration_seconds < 1:
+                raise ValueError(
+                    "max_usage_duration_min must be at least 1/60 (1 second) — "
+                    "a smaller value would round down to 0, which means "
+                    "'no threshold' rather than the value requested"
+                )
+
+        if activity_type_keys is not None and not isinstance(activity_type_keys, list):
+            raise ValueError("activity_type_keys must be a list of strings")
+
+        associated_activity_types = []
+        for key in activity_type_keys or []:
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError("activity_type_keys entries must be non-empty strings")
+            associated_activity_types.append(
+                {"activityTypeKey": key, "defaultGear": True, "preferredGear": False}
+            )
+
+        payload = {
+            "uuid": None,
+            "gearType": gear_type,
+            "brand": brand,
+            "model": model,
+            "name": name,
+            "firstUseDate": first_use_date,
+            "maxUsageDate": None,
+            "maxUsageDistanceMeters": max_usage_distance_meters,
+            "maxUsageDurationSeconds": max_usage_duration_seconds,
+            "usageType": usage_type,
+            "notes": notes,
+            "associatedActivityTypes": associated_activity_types,
+        }
+
+        url = f"{self.garmin_connect_gear_baseurl}/v2"
+        logger.debug("Creating gear: %s", payload)
+        return self.client.post("connectapi", url, json=payload, api=True)
 
     def get_gear_stats(self, gearUUID: str) -> dict[str, Any]:
         """Return statistics (e.g. distance) for specific gear UUID."""

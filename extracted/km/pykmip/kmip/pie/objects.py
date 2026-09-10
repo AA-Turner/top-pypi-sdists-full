@@ -20,7 +20,6 @@ from sqlalchemy import Boolean
 from sqlalchemy.ext.associationproxy import association_proxy
 
 import binascii
-import six
 
 from kmip.core import enums
 from kmip.pie import sqltypes as sql
@@ -658,7 +657,8 @@ class SymmetricKey(Key):
     }
 
     def __init__(self, algorithm, length, value, masks=None,
-                 name='Symmetric Key', key_wrapping_data=None):
+                 name='Symmetric Key', key_wrapping_data=None,
+                 app_specific_info=None):
         """
         Create a SymmetricKey.
 
@@ -674,6 +674,9 @@ class SymmetricKey(Key):
             key_wrapping_data(dict): A dictionary containing key wrapping data
                 settings, describing how the key value has been wrapped.
                 Optional, defaults to None.
+            app_specific_info(list): A list of dictionaries containing
+                application_namespace and application_data. Optional, defaults
+                to None.
         """
         super(SymmetricKey, self).__init__(
             key_wrapping_data=key_wrapping_data
@@ -689,6 +692,9 @@ class SymmetricKey(Key):
 
         if masks:
             self.cryptographic_usage_masks.extend(masks)
+
+        if app_specific_info:
+            self._application_specific_informations = app_specific_info
 
         # All remaining attributes are not considered part of the public API
         # and are subject to change.
@@ -714,7 +720,7 @@ class SymmetricKey(Key):
                             enums.CryptographicAlgorithm):
             raise TypeError("key algorithm must be a CryptographicAlgorithm "
                             "enumeration")
-        elif not isinstance(self.cryptographic_length, six.integer_types):
+        elif not isinstance(self.cryptographic_length, int):
             raise TypeError("key length must be an integer")
 
         mask_count = len(self.cryptographic_usage_masks)
@@ -729,7 +735,7 @@ class SymmetricKey(Key):
         name_count = len(self.names)
         for i in range(name_count):
             name = self.names[i]
-            if not isinstance(name, six.string_types):
+            if not isinstance(name, str):
                 position = "({0} in list)".format(i)
                 raise TypeError("key name {0} must be a string".format(
                     position))
@@ -821,7 +827,8 @@ class PublicKey(Key):
 
     def __init__(self, algorithm, length, value,
                  format_type=enums.KeyFormatType.X_509, masks=None,
-                 name='Public Key', key_wrapping_data=None):
+                 name='Public Key', key_wrapping_data=None,
+                 app_specific_info=None):
         """
         Create a PublicKey.
 
@@ -839,6 +846,9 @@ class PublicKey(Key):
             key_wrapping_data(dict): A dictionary containing key wrapping data
                 settings, describing how the key value has been wrapped.
                 Optional, defaults to None.
+            app_specific_info(list): A list of dictionaries containing
+                application_namespace and application_data. Optional, defaults
+                to None.
         """
         super(PublicKey, self).__init__(
             key_wrapping_data=key_wrapping_data
@@ -858,6 +868,9 @@ class PublicKey(Key):
 
         if masks:
             self.cryptographic_usage_masks = masks
+
+        if app_specific_info:
+            self._application_specific_informations = app_specific_info
 
         # All remaining attributes are not considered part of the public API
         # and are subject to change.
@@ -881,7 +894,7 @@ class PublicKey(Key):
                             enums.CryptographicAlgorithm):
             raise TypeError("key algorithm must be a CryptographicAlgorithm "
                             "enumeration")
-        elif not isinstance(self.cryptographic_length, six.integer_types):
+        elif not isinstance(self.cryptographic_length, int):
             raise TypeError("key length must be an integer")
         elif not isinstance(self.key_format_type, enums.KeyFormatType):
             raise TypeError("key format type must be a KeyFormatType "
@@ -904,7 +917,7 @@ class PublicKey(Key):
         name_count = len(self.names)
         for i in range(name_count):
             name = self.names[i]
-            if not isinstance(name, six.string_types):
+            if not isinstance(name, str):
                 position = "({0} in list)".format(i)
                 raise TypeError("key name {0} must be a string".format(
                     position))
@@ -986,7 +999,8 @@ class PrivateKey(Key):
     }
 
     def __init__(self, algorithm, length, value, format_type, masks=None,
-                 name='Private Key', key_wrapping_data=None):
+                 name='Private Key', key_wrapping_data=None,
+                 app_specific_info=None):
         """
         Create a PrivateKey.
 
@@ -1003,6 +1017,9 @@ class PrivateKey(Key):
             key_wrapping_data(dict): A dictionary containing key wrapping data
                 settings, describing how the key value has been wrapped.
                 Optional, defaults to None.
+            app_specific_info(list): A list of dictionaries containing
+                application_namespace and application_data. Optional, defaults
+                to None.
         """
         super(PrivateKey, self).__init__(
             key_wrapping_data=key_wrapping_data
@@ -1022,6 +1039,9 @@ class PrivateKey(Key):
 
         if masks:
             self.cryptographic_usage_masks = masks
+
+        if app_specific_info:
+            self._application_specific_informations = app_specific_info
 
         # All remaining attributes are not considered part of the public API
         # and are subject to change.
@@ -1045,7 +1065,7 @@ class PrivateKey(Key):
                             enums.CryptographicAlgorithm):
             raise TypeError("key algorithm must be a CryptographicAlgorithm "
                             "enumeration")
-        elif not isinstance(self.cryptographic_length, six.integer_types):
+        elif not isinstance(self.cryptographic_length, int):
             raise TypeError("key length must be an integer")
         elif not isinstance(self.key_format_type, enums.KeyFormatType):
             raise TypeError("key format type must be a KeyFormatType "
@@ -1068,7 +1088,7 @@ class PrivateKey(Key):
         name_count = len(self.names)
         for i in range(name_count):
             name = self.names[i]
-            if not isinstance(name, six.string_types):
+            if not isinstance(name, str):
                 position = "({0} in list)".format(i)
                 raise TypeError("key name {0} must be a string".format(
                     position))
@@ -1228,7 +1248,7 @@ class SplitKey(Key):
 
     @split_key_parts.setter
     def split_key_parts(self, value):
-        if (value is None) or (isinstance(value, six.integer_types)):
+        if (value is None) or (isinstance(value, int)):
             self._split_key_parts = value
         else:
             raise TypeError("The split key parts must be an integer.")
@@ -1239,7 +1259,7 @@ class SplitKey(Key):
 
     @key_part_identifier.setter
     def key_part_identifier(self, value):
-        if (value is None) or (isinstance(value, six.integer_types)):
+        if (value is None) or (isinstance(value, int)):
             self._key_part_identifier = value
         else:
             raise TypeError("The key part identifier must be an integer.")
@@ -1250,7 +1270,7 @@ class SplitKey(Key):
 
     @split_key_threshold.setter
     def split_key_threshold(self, value):
-        if (value is None) or (isinstance(value, six.integer_types)):
+        if (value is None) or (isinstance(value, int)):
             self._split_key_threshold = value
         else:
             raise TypeError("The split key threshold must be an integer.")
@@ -1274,7 +1294,7 @@ class SplitKey(Key):
 
     @prime_field_size.setter
     def prime_field_size(self, value):
-        if (value is None) or (isinstance(value, six.integer_types)):
+        if (value is None) or (isinstance(value, int)):
             self._prime_field_size = value
         else:
             raise TypeError("The prime field size must be an integer.")
@@ -1468,7 +1488,7 @@ class Certificate(CryptographicObject):
         name_count = len(self.names)
         for i in range(name_count):
             name = self.names[i]
-            if not isinstance(name, six.string_types):
+            if not isinstance(name, str):
                 position = "({0} in list)".format(i)
                 raise TypeError("certificate name {0} must be a string".format(
                     position))
@@ -1580,7 +1600,8 @@ class SecretData(CryptographicObject):
         'sqlite_autoincrement': True
     }
 
-    def __init__(self, value, data_type, masks=None, name='Secret Data'):
+    def __init__(self, value, data_type, masks=None, name='Secret Data',
+                 app_specific_info=None):
         """
         Create a SecretData object.
 
@@ -1591,6 +1612,9 @@ class SecretData(CryptographicObject):
             masks(list): A list of CryptographicUsageMask enumerations
                 defining how the key will be used.
             name(string): The string name of the key.
+            app_specific_info(list): A list of dictionaries containing
+                application_namespace and application_data. Optional, defaults
+                to None.
         """
         super(SecretData, self).__init__()
 
@@ -1599,6 +1623,9 @@ class SecretData(CryptographicObject):
         self.value = value
         self.data_type = data_type
         self.names = [name]
+
+        if app_specific_info:
+            self._application_specific_informations = app_specific_info
 
         if masks:
             self.cryptographic_usage_masks = masks
@@ -1636,7 +1663,7 @@ class SecretData(CryptographicObject):
         name_count = len(self.names)
         for i in range(name_count):
             name = self.names[i]
-            if not isinstance(name, six.string_types):
+            if not isinstance(name, str):
                 position = "({0} in list)".format(i)
                 raise TypeError("secret data name {0} must be a string".format(
                     position))
@@ -1743,7 +1770,7 @@ class OpaqueObject(ManagedObject):
         name_count = len(self.names)
         for i in range(name_count):
             name = self.names[i]
-            if not isinstance(name, six.string_types):
+            if not isinstance(name, str):
                 position = "({0} in list)".format(i)
                 raise TypeError("opaque data name {0} must be a string".format(
                     position))
@@ -1819,7 +1846,7 @@ class ApplicationSpecificInformation(sql.Base):
 
     @application_namespace.setter
     def application_namespace(self, value):
-        if (value is None) or (isinstance(value, six.string_types)):
+        if (value is None) or (isinstance(value, str)):
             self._application_namespace = value
         else:
             raise TypeError("The application namespace must be a string.")
@@ -1830,7 +1857,7 @@ class ApplicationSpecificInformation(sql.Base):
 
     @application_data.setter
     def application_data(self, value):
-        if (value is None) or (isinstance(value, six.string_types)):
+        if (value is None) or (isinstance(value, str)):
             self._application_data = value
         else:
             raise TypeError("The application data must be a string.")
@@ -1909,7 +1936,7 @@ class ObjectGroup(sql.Base):
 
     @object_group.setter
     def object_group(self, value):
-        if (value is None) or (isinstance(value, six.string_types)):
+        if (value is None) or (isinstance(value, str)):
             self._object_group = value
         else:
             raise TypeError("The object group must be a string.")

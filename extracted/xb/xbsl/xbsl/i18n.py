@@ -181,6 +181,12 @@ _CORE_MESSAGES = {
         "ru": "Погашено базлайном: {suppressed}; устаревших записей базлайна: {unused}",
         "en": "Suppressed by the baseline: {suppressed}; stale baseline entries: {unused}",
     },
+    "cli.baseline-stale-hint": {
+        "ru": "Показать устаревшие записи: --stale-baseline; снять их из файла: "
+              "--prune-baseline",
+        "en": "Show the stale entries: --stale-baseline; remove them from the file: "
+              "--prune-baseline",
+    },
     "cli.baseline-not-checked": {
         "ru": "Записей базлайна не проверено: {count} – их правил не было в наборе этого "
               "прогона ({rules}) либо их файлы лежат вне проверенных путей ({paths}); "
@@ -329,9 +335,11 @@ _CORE_MESSAGES = {
     },
     "cli.help.list-rules": {
         "ru": "вывести список правил (с их параметрами и величинами) и выйти; вместе с "
-              "--select/--ignore список сужается так же, как набор прогона",
+              "--select/--ignore список сужается так же, как набор прогона; с --format json "
+              "те же записи отдаются машине",
         "en": "print the list of rules (with their parameters and values) and exit; together "
-              "with --select/--ignore the list narrows the way a run's rule set does",
+              "with --select/--ignore the list narrows the way a run's rule set does; with "
+              "--format json the same records are answered as data",
     },
     "cli.help.where": {
         "ru": "показать корень данных Элемента (путь, источник, версии) и выйти",
@@ -1147,6 +1155,10 @@ _CORE_MESSAGES = {
     "cli.help.scaf.form-tree-no-properties": {
         "ru": "без записей свойств – только имена и идентификаторы плюс propertyCount",
         "en": "no property records - names and ids only, plus propertyCount",
+    },
+    "cli.help.scaf.form-tree-brief": {
+        "ru": "скелет дерева: идентификатор, вид, тип, имя и слот узла – без спанов и свойств",
+        "en": "the skeleton: id, kind, type, name and slot per node - no spans, no properties",
     },
     "cli.help.scaf.meta.node-id": {
         "ru": "УЗЕЛ",

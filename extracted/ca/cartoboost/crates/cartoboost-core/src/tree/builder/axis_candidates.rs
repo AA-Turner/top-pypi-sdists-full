@@ -789,7 +789,15 @@ impl TreeBuilder {
             .collect::<Vec<_>>();
 
         let mut best = None;
-        for window in pairs.windows(2) {
+        let boundaries = pairs
+            .windows(2)
+            .enumerate()
+            .filter(|(_, window)| window[0].0 != window[1].0)
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        for position in bounded_candidate_positions(boundaries.len(), self.max_split_candidates) {
+            let index = boundaries[position];
+            let window = &pairs[index..index + 2];
             let (a, _) = window[0];
             let (b, _) = window[1];
             if a == b {
@@ -879,7 +887,8 @@ impl TreeBuilder {
             return None;
         }
         let mut best = None;
-        for threshold in thresholds {
+        for position in bounded_candidate_positions(thresholds.len(), self.max_split_candidates) {
+            let threshold = thresholds[position];
             let split = Split::Axis {
                 feature,
                 threshold,

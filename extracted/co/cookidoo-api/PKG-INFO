@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cookidoo-api
-Version: 0.18.2
+Version: 0.18.3
 Summary: Unofficial package to access Cookidoo.
 Author-email: Cyrill Raccaud <cyrill.raccaud+pypi@gmail.com>
 License-Expression: MIT

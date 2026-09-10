@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "matrx-scraper"
-version = "0.2.163"
+version = "0.2.167"
 description = "Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem"
 readme = "README.md"
 license = { text = "MIT" }
@@ -48,8 +48,8 @@ dependencies = [
     "python-dotenv>=1.0",
     # web_crawl/schedules.py imports detached_task at module scope; detached_task
     # and the package's utcnow imports were first exported by matrx-utils 1.1.0.
-    "matrx-utils>=2.0.31",
-    "matrx-files>=0.2.129",
+    "matrx-utils>=2.0.32",
+    "matrx-files>=0.2.132",
     "croniter>=2.0",
 ]
 
@@ -68,7 +68,7 @@ pdf = ["pymupdf>=1.27"]
 ocr = ["pytesseract>=0.3.13", "pillow>=11.0"]
 # 0.1.25 is the first matrx-connect whose matrx-utils floor is correct; every
 # earlier release can resolve matrx-utils 2.0.0 and ImportError on AsyncSingleFlight.
-connect = ["matrx-connect>=0.1.77"]
+connect = ["matrx-connect>=0.1.79"]
 # Enables matrx-orm-backed persistence: the package OWNS the `scraper.*` schema
 # (models + bind seam + default ORM crawl persistence), the matrx-rag/runtime
 # "own-the-schema, bind-the-host-pool" pattern. Without this extra the engine
@@ -80,14 +80,14 @@ connect = ["matrx-connect>=0.1.77"]
 # 'PLATFORM_DB_ENV_PREFIX' from 'matrx_orm'` — which is exactly how matrx-local
 # (matrx-orm 3.1.16) died on `from matrx_scraper.cache import MemoryCache`.
 # Same defect class as MXL-D-075. Do not lower it.
-db = ["matrx-orm>=3.1.127"]
+db = ["matrx-orm>=3.1.129"]
 # Enables the DURABLE crawl frontier (RuntimeWorkQueueBackend over the matrx-runtime
 # work queue) so a deploy/OOM/restart mid-crawl is a non-event. Without this extra the
 # crawler runs on the in-memory frontier (fine for short runs; no resume).
-durable = ["matrx-runtime>=0.0.80"]
+durable = ["matrx-runtime>=0.0.82"]
 # Enables the matrx_scraper.graph_nodes submodule — optional, since the
 # core scraper has no need to know about workflow orchestration.
-graph = ["matrx-graph>=0.2.126"]
+graph = ["matrx-graph>=0.2.129"]
 # Enables MinHash/SimHash-based near-duplicate detection in the parser.
 # Without this extra the parser still works; hashing fields are just empty.
 dedup = ["datasketch>=1.6", "simhash>=2.1", "cachetools>=5.3"]
@@ -102,7 +102,7 @@ server = [
     # matrx_runtime was silently absent from the EC2 image and every crawl ran
     # (and died) on the in-memory frontier (FOUND_DEFECTS 2026-07-29).
     "matrx-scraper[durable]",
-    "matrx-connect>=0.1.77",
+    "matrx-connect>=0.1.79",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "asyncpg>=0.31.0",

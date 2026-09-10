@@ -197,6 +197,21 @@ class ActorType(sgqlc.types.Enum):
     __choices__ = ("AI", "HUMAN", "assistant", "system", "user")
 
 
+class AgentCostType(sgqlc.types.Enum):
+    """How an agent's model execution is billed, decided by who runs the
+    model.      Only billing we hold rates for is named here. An agent
+    billed some other way has no     member, is priced by nothing, and
+    renders no cost.
+
+    Enumeration Choices:
+
+    * `SNOWFLAKE_CORTEX`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SNOWFLAKE_CORTEX",)
+
+
 class AgentEvaluationRunSamplesStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -1836,6 +1851,19 @@ class ComparisonType(sgqlc.types.Enum):
     )
 
 
+class ComputationId(sgqlc.types.Enum):
+    """A pricing method in the book. Selects which rate table a lookup
+    reads.
+
+    Enumeration Choices:
+
+    * `SNOWFLAKE_CORTEX_TOKEN_RATE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SNOWFLAKE_CORTEX_TOKEN_RATE",)
+
+
 class ConnectionModelType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -2388,6 +2416,25 @@ class CostBucketSize(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("DAY", "MONTH", "WEEK")
+
+
+class CostComponent(sgqlc.types.Enum):
+    """One of the four terms a Cortex span's price sums.
+    ``NEW_INPUT`` is the provider's input count less its cache reads.
+    The remainder     still holds Cortex's cache writes -- see
+    ``SpanCostComponent``. The other three     are charged at their
+    own rates.
+
+    Enumeration Choices:
+
+    * `CACHE_READ`None
+    * `CACHE_WRITE`None
+    * `NEW_INPUT`None
+    * `OUTPUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CACHE_READ", "CACHE_WRITE", "NEW_INPUT", "OUTPUT")
 
 
 class Criticality(sgqlc.types.Enum):
@@ -5880,6 +5927,61 @@ class MonitoredTableRuleType(sgqlc.types.Enum):
     )
 
 
+class MonitoringPlanDecisionKind(sgqlc.types.Enum):
+    """What a recorded decision is about.
+
+    Enumeration Choices:
+
+    * `MONITOR_CANDIDATE`None
+    * `TABLE_EXCLUDED`None
+    * `TABLE_NOT_DEEP_DIVED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MONITOR_CANDIDATE", "TABLE_EXCLUDED", "TABLE_NOT_DEEP_DIVED")
+
+
+class MonitoringPlanMaterializationStatus(sgqlc.types.Enum):
+    """Whether acknowledged bulk records have been indexed yet.
+
+    Enumeration Choices:
+
+    * `FAILED`None
+    * `PENDING`None
+    * `READY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FAILED", "PENDING", "READY")
+
+
+class MonitoringPlanOutcomeCaptureStatus(sgqlc.types.Enum):
+    """Whether the collection still accepts producer input.
+
+    Enumeration Choices:
+
+    * `ACCEPTING`None
+    * `CLOSED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ACCEPTING", "CLOSED")
+
+
+class MonitoringPlanOutcomeStatus(sgqlc.types.Enum):
+    """Recording quality of a run's outcome collection.
+
+    Enumeration Choices:
+
+    * `COLLECTING`None
+    * `COMPLETE`None
+    * `PARTIAL`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COLLECTING", "COMPLETE", "PARTIAL")
+
+
 class MonthlyPosition(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -7038,6 +7140,21 @@ class RateType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("COMPUTE", "STORAGE")
+
+
+class RateUnit(sgqlc.types.Enum):
+    """What a rate is denominated in. Costs in different units cannot be
+    summed.
+
+    Enumeration Choices:
+
+    * `CREDITS_PER_MILLION_TOKENS`None
+    * `DBU_PER_MILLION_TOKENS`None
+    * `USD_PER_MILLION_TOKENS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREDITS_PER_MILLION_TOKENS", "DBU_PER_MILLION_TOKENS", "USD_PER_MILLION_TOKENS")
 
 
 class RawContentWithheldReason(sgqlc.types.Enum):
@@ -9959,6 +10076,20 @@ class AddConversationToGoldenSetInput(sgqlc.types.Input):
 
     capture_response = sgqlc.types.Field(Boolean, graphql_name="captureResponse")
     """Whether to also capture the target turn's original response."""
+
+
+class AgentCostAgentInput(sgqlc.types.Input):
+    """One agent to price in a batched cost read."""
+
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent to price"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the table holding the agent's traces"""
 
 
 class AgentEvalInput(sgqlc.types.Input):
@@ -22751,10 +22882,40 @@ class AgentContext(sgqlc.types.Type):
 
 class AgentCost(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("cost", "cost_unit", "traces", "conversations", "series")
+    __field_names__ = (
+        "cost",
+        "cost_unit",
+        "cache_savings",
+        "trace_count",
+        "conversation_count",
+        "traces",
+        "conversations",
+        "series",
+        "spans",
+    )
     cost = sgqlc.types.Field(Float, graphql_name="cost")
 
     cost_unit = sgqlc.types.Field(String, graphql_name="costUnit")
+
+    cache_savings = sgqlc.types.Field(Float, graphql_name="cacheSavings")
+    """What the prompt cache saved over the window, in `costUnit`: the
+    cache-read tokens billed at the cache rate rather than the input
+    rate. None when the window was not read whole, or when nothing in
+    it could be priced -- which is not zero.
+    """
+
+    trace_count = sgqlc.types.Field(Int, graphql_name="traceCount")
+    """How many traces the window total covers. Counts only traces with a
+    priced span, so it is not the trace count the summary read
+    reports. None when the read was scoped to traces, conversations or
+    buckets.
+    """
+
+    conversation_count = sgqlc.types.Field(Int, graphql_name="conversationCount")
+    """How many conversations the window total covers. A Cortex thread id
+    of '0' reads as no conversation and is not counted. None when the
+    read was scoped to traces, conversations or buckets.
+    """
 
     traces = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TraceCost"))),
@@ -22770,6 +22931,28 @@ class AgentCost(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CostBucket"))),
         graphql_name="series",
     )
+
+    spans = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("SpanCost"))),
+        graphql_name="spans",
+    )
+
+
+class AgentCostTotal(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon", "cost", "cost_unit")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+
+    cost = sgqlc.types.Field(Float, graphql_name="cost")
+    """The window total in `costUnit`. Null when the window held no
+    priced model call, which is not zero.
+    """
+
+    cost_unit = sgqlc.types.Field(String, graphql_name="costUnit")
 
 
 class AgentCustomConnectors(sgqlc.types.Type):
@@ -24884,6 +25067,7 @@ class AgenticPlatformPipelineExecutionOutput(sgqlc.types.Type):
         "last_heartbeat_at",
         "created_time",
         "updated_time",
+        "outcome_collection",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Stable identifier for the execution."""
@@ -24933,6 +25117,15 @@ class AgenticPlatformPipelineExecutionOutput(sgqlc.types.Type):
 
     updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
     """When the execution row was last updated."""
+
+    outcome_collection = sgqlc.types.Field(
+        "MonitoringPlanOutcomeCollectionRef", graphql_name="outcomeCollection"
+    )
+    """The recorded outcome collection for this run, or null when the run
+    recorded none. Present for failed and interrupted runs too,
+    including ones that produced no findings — null means not
+    recorded, not an empty complete collection.
+    """
 
 
 class AgenticPlatformPipelineOutput(sgqlc.types.Type):
@@ -36432,6 +36625,7 @@ class DomainOutput(sgqlc.types.Type):
         "assignments_with_properties",
         "excluded_assignments_with_properties",
         "obj_assignment_update_time",
+        "reference_domains",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """Domain UUID"""
@@ -36488,6 +36682,11 @@ class DomainOutput(sgqlc.types.Type):
     """Last update time for object assignments cause by domain changes
     (as opposed to catalog changes)
     """
+
+    reference_domains = sgqlc.types.Field(
+        sgqlc.types.list_of("DomainSummaryOutput"), graphql_name="referenceDomains"
+    )
+    """Domains whose owned assets this domain's monitors may read"""
 
 
 class DomainOutputV2Connection(sgqlc.types.relay.Connection):
@@ -46324,6 +46523,266 @@ class MonitoringPlanAnchor(sgqlc.types.Type):
     section to expand on arrival, since a run can hold one container
     per database.
     """
+
+
+class MonitoringPlanCandidateOutcome(sgqlc.types.Type):
+    """One monitor candidate's settled decision plus every check attempt
+    recorded against it, so a client can answer why a monitor is
+    absent without paging the whole collection.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("collection_uuid", "candidate_id", "decision", "checks")
+    collection_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="collectionUuid")
+
+    candidate_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="candidateId")
+
+    decision = sgqlc.types.Field("MonitoringPlanOutcomeDecision", graphql_name="decision")
+    """The decision that settled the candidate, when one was recorded."""
+
+    checks = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("MonitoringPlanOutcomeCheck"))
+        ),
+        graphql_name="checks",
+    )
+
+
+class MonitoringPlanOutcomeCheck(sgqlc.types.Type):
+    """One check observed against a monitor candidate. Only a completed
+    check carries a verdict; an unavailable check says nothing about
+    the data.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "check_id",
+        "check_name",
+        "candidate_id",
+        "attempt_id",
+        "execution",
+        "verdict",
+        "observed_at",
+        "record",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    check_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="checkId")
+
+    check_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="checkName")
+    """Which check ran, e.g. dry_run_preview or field_suitability_probe."""
+
+    candidate_id = sgqlc.types.Field(String, graphql_name="candidateId")
+    """Candidate checked; null for a table-level check."""
+
+    attempt_id = sgqlc.types.Field(String, graphql_name="attemptId")
+    """Which attempt of the candidate was checked."""
+
+    execution = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="execution")
+    """Whether the check ran: completed, failed, skipped, unavailable or
+    not_applicable.
+    """
+
+    verdict = sgqlc.types.Field(String, graphql_name="verdict")
+    """What a completed check established. Null unless execution is
+    completed.
+    """
+
+    observed_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="observedAt")
+
+    record = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="record")
+    """The versioned check body, including the checked scope and
+    fingerprints.
+    """
+
+
+class MonitoringPlanOutcomeCollectionRef(sgqlc.types.Type):
+    """Reference to a monitoring run's recorded outcome collection. Use
+    uuid as collectionUuid on monitoringPlanOutcomes to read the
+    records themselves.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "status",
+        "capture_status",
+        "materialization_status",
+        "snapshot_revision",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Collection identifier."""
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanOutcomeStatus), graphql_name="status"
+    )
+    """Recording quality. `partial` means some observed decisions were
+    never persisted and is permanent; a collection never returns to
+    `complete`.
+    """
+
+    capture_status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanOutcomeCaptureStatus), graphql_name="captureStatus"
+    )
+    """Whether the run can still add records. Independent from status."""
+
+    materialization_status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanMaterializationStatus),
+        graphql_name="materializationStatus",
+    )
+    """Whether accepted bulk records have been indexed. `pending` records
+    are accepted and awaiting indexing, not missing.
+    """
+
+    snapshot_revision = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="snapshotRevision"
+    )
+    """Revision of the readable snapshot. Restart pagination when this
+    changes.
+    """
+
+
+class MonitoringPlanOutcomeDecision(sgqlc.types.Type):
+    """One recorded plan decision: a table outcome or a candidate
+    outcome.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "decision_id",
+        "kind",
+        "owner_key",
+        "owner_finding_uuid",
+        "table_mcon",
+        "agent_id",
+        "candidate_id",
+        "observed_at",
+        "record",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Row identifier."""
+
+    decision_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="decisionId")
+    """Producer-stable decision identity, stable across replays."""
+
+    kind = sgqlc.types.Field(sgqlc.types.non_null(MonitoringPlanDecisionKind), graphql_name="kind")
+
+    owner_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ownerKey")
+    """Stable key of the decision's owner. An owner exists before its
+    finding does, so this is set even when ownerFindingUuid is null.
+    """
+
+    owner_finding_uuid = sgqlc.types.Field(UUID, graphql_name="ownerFindingUuid")
+    """The finding the owner rides, once the run linked one."""
+
+    table_mcon = sgqlc.types.Field(String, graphql_name="tableMcon")
+    """MCON of the table, for deep-linking."""
+
+    agent_id = sgqlc.types.Field(String, graphql_name="agentId")
+    """Agent identity for agent-scope decisions."""
+
+    candidate_id = sgqlc.types.Field(String, graphql_name="candidateId")
+    """The monitor candidate this decision settled, for candidate
+    decisions.
+    """
+
+    observed_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="observedAt")
+    """When the run observed the decision."""
+
+    record = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="record")
+    """The versioned decision body: reasons, table and agent identity,
+    and the candidate outcome when there is one. Render every text
+    field escaped, with no markdown, HTML or auto-linking.
+    """
+
+
+class MonitoringPlanOutcomeEdge(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("node",)
+    node = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanOutcomeDecision), graphql_name="node"
+    )
+
+
+class MonitoringPlanOutcomePageInfo(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("end_cursor", "has_next_page")
+    end_cursor = sgqlc.types.Field(String, graphql_name="endCursor")
+    """Cursor to pass as `after` for the next page."""
+
+    has_next_page = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasNextPage")
+
+
+class MonitoringPlanOutcomes(sgqlc.types.Type):
+    """A page of a monitoring run's recorded outcomes, plus the
+    collection state a client needs to trust the page.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "collection_uuid",
+        "run_uuid",
+        "status",
+        "capture_status",
+        "materialization_status",
+        "snapshot_revision",
+        "provisional",
+        "filtered_total",
+        "decision_count",
+        "check_count",
+        "edges",
+        "page_info",
+    )
+    collection_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="collectionUuid")
+
+    run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
+    """The run the collection belongs to."""
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanOutcomeStatus), graphql_name="status"
+    )
+
+    capture_status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanOutcomeCaptureStatus), graphql_name="captureStatus"
+    )
+
+    materialization_status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanMaterializationStatus),
+        graphql_name="materializationStatus",
+    )
+
+    snapshot_revision = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="snapshotRevision"
+    )
+    """Revision of the snapshot this page was read from. Cursors are
+    bound to it; restart pagination from the first page when it
+    changes.
+    """
+
+    provisional = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="provisional")
+    """True while the readable set can still change — the run is still
+    recording, or accepted bulk records are still being indexed.
+    """
+
+    filtered_total = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="filteredTotal")
+    """Exact number of persisted records matching the filter."""
+
+    decision_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="decisionCount")
+    """Exact number of persisted decisions in the whole collection."""
+
+    check_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="checkCount")
+    """Exact number of persisted checks in the whole collection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MonitoringPlanOutcomeEdge))),
+        graphql_name="edges",
+    )
+
+    page_info = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitoringPlanOutcomePageInfo), graphql_name="pageInfo"
+    )
 
 
 class MonteCarloConfigTemplateConnection(sgqlc.types.relay.Connection):
@@ -65395,6 +65854,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "reference_domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="referenceDomainUuids",
+                        default=None,
+                    ),
+                ),
+                (
                     "tags",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
@@ -65420,6 +65887,12 @@ class Mutation(sgqlc.types.Type):
     * `excluded_tags` (`[TagKeyValuePairInput]`): Filter out by tag
       key/value pairs for tables.
     * `name` (`String!`): Domain name
+    * `reference_domain_uuids` (`[UUID!]`): UUIDs of domains whose
+      owned assets this domain's monitors may read. On update, omitted
+      fields are preserved: sending referenceDomainUuids alone changes
+      only references. Replaces the current reference domains when
+      provided; an empty list clears them. Every uuid must be a domain
+      in the same account, and the domain cannot reference itself.
     * `tags` (`[TagKeyValuePairInput]`): Filter by tag key/value pairs
       for tables.
     * `uuid` (`UUID`): UUID of domain to update
@@ -75781,6 +76254,106 @@ class PreflightSpanScores(sgqlc.types.Type):
     """JSON object mapping template alias to this span's score."""
 
 
+class PriceBook(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("version", "last_verified", "editable", "computations")
+    version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="version")
+    """Bumped whenever a rate changes."""
+
+    last_verified = sgqlc.types.Field(sgqlc.types.non_null(Date), graphql_name="lastVerified")
+    """When the rates were last checked against the vendor pages. Rates
+    are flat rather than effective-dated, so a change re-prices every
+    span still in retention.
+    """
+
+    editable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="editable")
+    """Whether an account can change these rates. False today: the book
+    ships with the product and is the same for every account.
+    """
+
+    computations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PriceBookComputation"))),
+        graphql_name="computations",
+    )
+    """The rate tables, ordered by identifier."""
+
+
+class PriceBookComputation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("computation", "unit", "agent_cost_types", "sources", "models")
+    computation = sgqlc.types.Field(sgqlc.types.non_null(ComputationId), graphql_name="computation")
+    """Identifier of the pricing method this table implements."""
+
+    unit = sgqlc.types.Field(sgqlc.types.non_null(RateUnit), graphql_name="unit")
+    """What every rate in this table is denominated in. This is the rate
+    unit, not the cost unit: rates here are per million tokens, and a
+    cost computed from them is reported by `getAgentCost.costUnit` as
+    `credits` or `usd`.
+    """
+
+    agent_cost_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentCostType))),
+        graphql_name="agentCostTypes",
+    )
+    """The kinds of agent priced by this table. An agent billed some
+    other way is named by no cost type, is priced by no table, and
+    renders no cost.
+    """
+
+    sources = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PriceBookSource"))),
+        graphql_name="sources",
+    )
+    """The vendor pages the rates were read from."""
+
+    models = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PriceBookModelRate"))),
+        graphql_name="models",
+    )
+    """Rates by model, grouped by model family with the newest version of
+    each family first. A model absent here has no rate and prices to
+    null -- never to zero.
+    """
+
+
+class PriceBookModelRate(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("model", "input_rate", "output_rate", "cache_read_rate", "cache_write_rate")
+    model = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="model")
+    """Canonical model name. A raw model value is reduced to this first:
+    region, vendor and Databricks endpoint prefixes are stripped, then
+    version and datestamp suffixes, then known aliases are applied. So
+    one row here prices every spelling that reduces to it.
+    """
+
+    input_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="inputRate")
+    """Fresh input, excluding anything served from or written to cache."""
+
+    output_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="outputRate")
+    """Generated tokens."""
+
+    cache_read_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="cacheReadRate")
+    """Input served from the prompt cache."""
+
+    cache_write_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="cacheWriteRate")
+    """Input written into the prompt cache. Equal to the input rate where
+    the provider does not charge a premium for the write.
+    """
+
+
+class PriceBookSource(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("vendor", "url")
+    vendor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="vendor")
+    """The model vendor these rates are for. Not necessarily who
+    publishes the page -- a vendor without a public rate card is cited
+    from a reseller's.
+    """
+
+    url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="url")
+    """The pricing page the rates were read from."""
+
+
 class PrivateLinkDetails(sgqlc.types.Type):
     """Private Link information"""
 
@@ -76046,7 +76619,9 @@ class Query(sgqlc.types.Type):
         "get_trace_time_series",
         "get_trace_overview",
         "get_tool_call_overview",
+        "get_llm_price_book",
         "get_agent_cost",
+        "get_agent_cost_totals",
         "get_tool_call_time_series",
         "get_top_tools",
         "get_conversations_filters",
@@ -76426,6 +77001,8 @@ class Query(sgqlc.types.Type):
         "agentic_notification_routes",
         "queued_job",
         "active_sso_migration_job",
+        "monitoring_plan_outcomes",
+        "monitoring_plan_candidate_outcome",
         "findings",
         "finding",
         "latest_monitoring_plan",
@@ -77825,6 +78402,15 @@ class Query(sgqlc.types.Type):
     * `input` (`GetToolCallOverviewInput!`)None
     """
 
+    get_llm_price_book = sgqlc.types.Field(PriceBook, graphql_name="getLlmPriceBook")
+    """(experimental) Get the LLM price book agent costs are computed
+    against: every model with its four per-million-token rates, the
+    unit each rate table is denominated in, and the vendor pages the
+    rates were read from. The book ships with the product and is the
+    same for every account, so this takes no arguments. A model absent
+    from a table has no rate and prices to null, never to zero.
+    """
+
     get_agent_cost = sgqlc.types.Field(
         AgentCost,
         graphql_name="getAgentCost",
@@ -77874,16 +78460,23 @@ class Query(sgqlc.types.Type):
                     "bucket_size",
                     sgqlc.types.Arg(TraceBucketSize, graphql_name="bucketSize", default=None),
                 ),
+                (
+                    "span_breakdown",
+                    sgqlc.types.Arg(Boolean, graphql_name="spanBreakdown", default=None),
+                ),
             )
         ),
     )
     """(experimental) Cost of an agent's model calls over a time range,
-    in the unit its platform bills. Read separately from the trace and
-    summary queries because it crosses to the customer's warehouse —
-    the prompt-cache counts it needs exist nowhere else — so a client
-    can render first and fill cost in after. Returns empty for any
-    agent whose platform publishes no per-token cost; today that is
-    everything except Cortex.
+    in the unit its platform bills. With none of traceIds,
+    conversationIds, bucketSize or spanBreakdown set, it also returns
+    cacheSavings, traceCount and conversationCount for that window.
+    Read separately from the trace and summary queries because it
+    crosses to the customer's warehouse — the prompt-cache counts it
+    needs exist nowhere else — so a client can render first and fill
+    cost in after. Returns empty for any agent whose platform
+    publishes no per-token cost; today that is everything except
+    Cortex.
 
     Arguments:
 
@@ -77899,6 +78492,69 @@ class Query(sgqlc.types.Type):
       traceIds -- passing both is rejected.
     * `bucket_size` (`TraceBucketSize`): Return a time series bucketed
       at this size instead of a single total.
+    * `span_breakdown` (`Boolean`): Return one cost per LLM call in
+      the traces named by traceIds -- the spans carrying a model or a
+      token count. Tool executions and the trace root carry neither
+      and are not returned. Each row carries the model, the four token
+      counts, and the four rates its price was computed from; cost is
+      null when the price book has no rate for the model. A single
+      component is indicative, not exact: Cortex's input count
+      includes its cache writes, so NEW_INPUT is overstated and cache
+      writes are counted twice. The components sum to the span's
+      total, and that total is the same value the other grains sum to
+      -- an estimate that converges over a window, not a figure to
+      reconcile one span against a bill. Requires traceIds (at most
+      100). Cannot be combined with bucketSize or conversationIds.
+      Defaults to false: omit it (or send false) to get the grain the
+      other arguments select.
+    """
+
+    get_agent_cost_totals = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentCostTotal)),
+        graphql_name="getAgentCostTotals",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agents",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AgentCostAgentInput))
+                        ),
+                        graphql_name="agents",
+                        default=None,
+                    ),
+                ),
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Window cost for several agents at once. Returns the
+    total only: the cache savings and counts getAgentCost carries
+    belong to a single agent's summary. An agent whose platform
+    publishes no per-token cost is left out of the result rather than
+    returned null -- today that is everything except Cortex. An agent
+    that is Cortex but priced nothing in the window comes back with a
+    null cost, which is not zero. Two entries naming the same agent
+    come back indistinguishable, so match results on the agent name
+    and mcon they carry rather than by position.
+
+    Arguments:
+
+    * `agents` (`[AgentCostAgentInput!]!`): Agents to price, at most
+      25 per call
+    * `start_time` (`DateTime!`): Window start (inclusive)
+    * `end_time` (`DateTime!`): Window end (inclusive)
     """
 
     get_tool_call_time_series = sgqlc.types.Field(
@@ -91948,6 +92604,86 @@ class Query(sgqlc.types.Type):
     slow response that never delivered the job handle.
     """
 
+    monitoring_plan_outcomes = sgqlc.types.Field(
+        MonitoringPlanOutcomes,
+        graphql_name="monitoringPlanOutcomes",
+        args=sgqlc.types.ArgDict(
+            (
+                ("run_uuid", sgqlc.types.Arg(UUID, graphql_name="runUuid", default=None)),
+                (
+                    "collection_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="collectionUuid", default=None),
+                ),
+                ("plan_uuid", sgqlc.types.Arg(UUID, graphql_name="planUuid", default=None)),
+                ("owner_key", sgqlc.types.Arg(String, graphql_name="ownerKey", default=None)),
+                ("table_mcon", sgqlc.types.Arg(String, graphql_name="tableMcon", default=None)),
+                ("agent_id", sgqlc.types.Arg(String, graphql_name="agentId", default=None)),
+                ("candidate_id", sgqlc.types.Arg(String, graphql_name="candidateId", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+            )
+        ),
+    )
+    """(experimental) A monitoring run's recorded outcomes: why each
+    table got no new coverage and how each monitor candidate ended.
+    Pass exactly one of runUuid, collectionUuid or planUuid. Filters
+    narrow within that collection and can never widen it. Monitor-
+    permission-gated (monitors/management write or propose) — NOT
+    alerts/access — and reauthorized against the collection's domain
+    on every page.
+
+    Arguments:
+
+    * `run_uuid` (`UUID`): The run's UUID. Resolves the collection
+      directly, so this works for a failed or interrupted run that
+      published no findings.
+    * `collection_uuid` (`UUID`): The collection's own UUID.
+    * `plan_uuid` (`UUID`): A plan UUID, resolved through the
+      monitoring-plan surface first.
+    * `owner_key` (`String`): Only decisions recorded under this
+      owner.
+    * `table_mcon` (`String`): Only decisions about this table.
+    * `agent_id` (`String`): Only decisions about this agent.
+    * `candidate_id` (`String`): Only decisions about this monitor
+      candidate.
+    * `after` (`String`): Cursor from a previous page's endCursor.
+    * `first` (`Int`): Page size. Defaults to 50, capped at 200.
+    """
+
+    monitoring_plan_candidate_outcome = sgqlc.types.Field(
+        MonitoringPlanCandidateOutcome,
+        graphql_name="monitoringPlanCandidateOutcome",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "candidate_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="candidateId", default=None
+                    ),
+                ),
+                ("run_uuid", sgqlc.types.Arg(UUID, graphql_name="runUuid", default=None)),
+                (
+                    "collection_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="collectionUuid", default=None),
+                ),
+                ("plan_uuid", sgqlc.types.Arg(UUID, graphql_name="planUuid", default=None)),
+            )
+        ),
+    )
+    """(experimental) One monitor candidate's outcome and its full check
+    history. Pass exactly one of runUuid, collectionUuid or planUuid.
+    Same monitor-permission and domain boundary as
+    monitoringPlanOutcomes; a guessed candidate id in another
+    account's collection resolves nothing.
+
+    Arguments:
+
+    * `candidate_id` (`String!`): The candidate's stable id.
+    * `run_uuid` (`UUID`): The run's UUID.
+    * `collection_uuid` (`UUID`): The collection's own UUID.
+    * `plan_uuid` (`UUID`): A plan UUID.
+    """
+
     findings = sgqlc.types.Field(
         FindingConnection,
         graphql_name="findings",
@@ -104822,6 +105558,67 @@ class SourceColumn(sgqlc.types.Type):
     """Type of the source column"""
 
 
+class SpanCost(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "span_id",
+        "trace_id",
+        "start_time",
+        "span_name",
+        "model",
+        "cost",
+        "components",
+    )
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """The span's stored id."""
+
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """The trace the span belongs to; one breakdown can mix traces."""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """When the span started."""
+
+    span_name = sgqlc.types.Field(String, graphql_name="spanName")
+    """The raw record name, including the per-iteration suffix (e.g.
+    ReasoningAgentStepPlanning-0). The trace tree collapses the
+    suffix; span_id matches the tree either way.
+    """
+
+    model = sgqlc.types.Field(String, graphql_name="model")
+    """The model the span was priced against."""
+
+    cost = sgqlc.types.Field(Float, graphql_name="cost")
+    """The span's price; None when the price book has no rate for the
+    model.
+    """
+
+    components = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("SpanCostComponent"))),
+        graphql_name="components",
+    )
+    """The four terms the price sums."""
+
+
+class SpanCostComponent(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("component", "tokens", "rate", "cost")
+    component = sgqlc.types.Field(sgqlc.types.non_null(CostComponent), graphql_name="component")
+    """Which of the four price terms this line is."""
+
+    tokens = sgqlc.types.Field(Int, graphql_name="tokens")
+    """The token count this term charges."""
+
+    rate = sgqlc.types.Field(Float, graphql_name="rate")
+    """The price book's rate for this term, per million tokens."""
+
+    cost = sgqlc.types.Field(Float, graphql_name="cost")
+    """Indicative, not exact: Cortex's input count includes its cache
+    writes, so NEW_INPUT is overstated and cache writes are counted
+    twice. The components sum to the span's total, the same value the
+    other grains sum to; the split shows where spend concentrates.
+    """
+
+
 class SpanPredicate(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -113358,9 +114155,9 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     """Thread holding the latest completed troubleshooting analysis for
     this alert, or null if none is recorded. Non-null means TSA output
     exists, so a caller reading a page of alerts can tell which were
-    investigated without querying each one. Null covers alerts never
-    investigated and those investigated by the trace troubleshooting
-    agent.
+    investigated without querying each one. Null means unknown — the
+    alert was never investigated, or a completed analysis was not
+    recorded against it.
     """
 
     status = sgqlc.types.Field(AlertStatus, graphql_name="status")
@@ -118155,6 +118952,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "excluded_tags",
         "assignments_with_properties",
         "excluded_assignments_with_properties",
+        "reference_domains",
         "effective_triage_enabled",
         "triage_enabled_override",
         "tsa_threshold_override",
@@ -118216,6 +119014,12 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         graphql_name="excludedAssignmentsWithProperties",
     )
     """Objects excluded from domains and their properties"""
+
+    reference_domains = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DomainSummaryOutput))),
+        graphql_name="referenceDomains",
+    )
+    """Domains whose owned assets this domain's monitors may read"""
 
     effective_triage_enabled = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="effectiveTriageEnabled"

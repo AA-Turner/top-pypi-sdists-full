@@ -21,6 +21,7 @@ from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
 )
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import CerebrasTranslator
@@ -173,7 +174,9 @@ class CerebrasChat:
         vcprint("[Cerebras] Starting API call (non-streaming)...", color="cyan")
 
         # Native async API call - no executor needed!
-        response = await self.client.chat.completions.create(**config_data)
+        response = await self.client.chat.completions.create(
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="cerebras")
+        )
 
         vcprint("[Cerebras] API call completed, processing response...", color="cyan")
         vcprint(response, "Cerebras Response", color="green", verbose=self.debug)
@@ -219,7 +222,9 @@ class CerebrasChat:
         vcprint("[Cerebras] Starting API call (streaming)...", color="cyan")
 
         # Native async streaming - stream=True already in config_data from translator
-        stream = await self.client.chat.completions.create(**config_data)
+        stream = await self.client.chat.completions.create(
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="cerebras")
+        )
 
         vcprint(
             "[Cerebras] Stream connection established, processing chunks...",

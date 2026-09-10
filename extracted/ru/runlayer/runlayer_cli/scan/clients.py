@@ -494,6 +494,11 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
                 "%USERPROFILE%/.cursor/plugins/cache/cursor-public",
                 platform="windows",
             ),
+            # User-local installs are flat (<name>/ holds the config directly)
+            # rather than <name>/<hash>/; the walker detects which it is.
+            PluginPath("~/.cursor/plugins/local", platform="macos"),
+            PluginPath("~/.cursor/plugins/local", platform="linux"),
+            PluginPath("%USERPROFILE%/.cursor/plugins/local", platform="windows"),
         ],
         process_signatures=[
             "cursor.app/contents/macos/cursor",
@@ -523,7 +528,8 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
                 PlatformPath("~/.config/Cursor", platform="linux"),
             ],
         ),
-        notes="Plugins in ~/.cursor/plugins/cache/cursor-public/<name>/<hash>/. "
+        notes="Plugins in ~/.cursor/plugins/cache/cursor-public/<name>/<hash>/ and "
+        "user-local installs in ~/.cursor/plugins/local/<name>/. "
         "Project scope via .cursor/settings.json plugins key.",
     ),
     MCPClientDefinition(

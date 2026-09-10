@@ -65,6 +65,164 @@ class ScreenOrientationType(str, Enum):
     LANDSCAPE_SECONDARY = "landscape-secondary"
 
 
+@register("emulation.MediaFeaturesAnyHover")
+class MediaFeaturesAnyHover(str, Enum):
+    NONE = "none"
+    HOVER = "hover"
+
+
+@register("emulation.MediaFeaturesAnyPointer")
+class MediaFeaturesAnyPointer(str, Enum):
+    NONE = "none"
+    COARSE = "coarse"
+    FINE = "fine"
+
+
+@register("emulation.MediaFeaturesColorGamut")
+class MediaFeaturesColorGamut(str, Enum):
+    SRGB = "srgb"
+    P3 = "p3"
+    REC2020 = "rec2020"
+
+
+@register("emulation.MediaFeaturesDisplayMode")
+class MediaFeaturesDisplayMode(str, Enum):
+    FULLSCREEN = "fullscreen"
+    STANDALONE = "standalone"
+    MINIMAL_UI = "minimal-ui"
+    BROWSER = "browser"
+    PICTURE_IN_PICTURE = "picture-in-picture"
+
+
+@register("emulation.MediaFeaturesDynamicRange")
+class MediaFeaturesDynamicRange(str, Enum):
+    STANDARD = "standard"
+    HIGH = "high"
+
+
+@register("emulation.MediaFeaturesEnvironmentBlending")
+class MediaFeaturesEnvironmentBlending(str, Enum):
+    OPAQUE = "opaque"
+    ADDITIVE = "additive"
+    SUBTRACTIVE = "subtractive"
+
+
+@register("emulation.MediaFeaturesForcedColors")
+class MediaFeaturesForcedColors(str, Enum):
+    NONE = "none"
+    ACTIVE = "active"
+
+
+@register("emulation.MediaFeaturesGrid")
+class MediaFeaturesGrid(int, Enum):
+    _0 = 0
+    _1 = 1
+
+
+@register("emulation.MediaFeaturesHover")
+class MediaFeaturesHover(str, Enum):
+    NONE = "none"
+    HOVER = "hover"
+
+
+@register("emulation.MediaFeaturesInvertedColors")
+class MediaFeaturesInvertedColors(str, Enum):
+    NONE = "none"
+    INVERTED = "inverted"
+
+
+@register("emulation.MediaFeaturesNavControls")
+class MediaFeaturesNavControls(str, Enum):
+    NONE = "none"
+    BACK = "back"
+
+
+@register("emulation.MediaFeaturesOverflowBlock")
+class MediaFeaturesOverflowBlock(str, Enum):
+    NONE = "none"
+    SCROLL = "scroll"
+    OPTIONAL_PAGED = "optional-paged"
+    PAGED = "paged"
+
+
+@register("emulation.MediaFeaturesOverflowInline")
+class MediaFeaturesOverflowInline(str, Enum):
+    NONE = "none"
+    SCROLL = "scroll"
+
+
+@register("emulation.MediaFeaturesPointer")
+class MediaFeaturesPointer(str, Enum):
+    NONE = "none"
+    COARSE = "coarse"
+    FINE = "fine"
+
+
+@register("emulation.MediaFeaturesPrefersColorScheme")
+class MediaFeaturesPrefersColorScheme(str, Enum):
+    LIGHT = "light"
+    DARK = "dark"
+
+
+@register("emulation.MediaFeaturesPrefersContrast")
+class MediaFeaturesPrefersContrast(str, Enum):
+    NO_PREFERENCE = "no-preference"
+    MORE = "more"
+    LESS = "less"
+    CUSTOM = "custom"
+
+
+@register("emulation.MediaFeaturesPrefersReducedData")
+class MediaFeaturesPrefersReducedData(str, Enum):
+    NO_PREFERENCE = "no-preference"
+    REDUCE = "reduce"
+
+
+@register("emulation.MediaFeaturesPrefersReducedMotion")
+class MediaFeaturesPrefersReducedMotion(str, Enum):
+    NO_PREFERENCE = "no-preference"
+    REDUCE = "reduce"
+
+
+@register("emulation.MediaFeaturesPrefersReducedTransparency")
+class MediaFeaturesPrefersReducedTransparency(str, Enum):
+    NO_PREFERENCE = "no-preference"
+    REDUCE = "reduce"
+
+
+@register("emulation.MediaFeaturesScan")
+class MediaFeaturesScan(str, Enum):
+    INTERLACE = "interlace"
+    PROGRESSIVE = "progressive"
+
+
+@register("emulation.MediaFeaturesScripting")
+class MediaFeaturesScripting(str, Enum):
+    NONE = "none"
+    INITIAL_ONLY = "initial-only"
+    ENABLED = "enabled"
+
+
+@register("emulation.MediaFeaturesUpdate")
+class MediaFeaturesUpdate(str, Enum):
+    NONE = "none"
+    SLOW = "slow"
+    FAST = "fast"
+
+
+@register("emulation.MediaFeaturesVideoColorGamut")
+class MediaFeaturesVideoColorGamut(str, Enum):
+    SRGB = "srgb"
+    P3 = "p3"
+    REC2020 = "rec2020"
+
+
+@register("emulation.MediaFeaturesVideoDynamicRange")
+class MediaFeaturesVideoDynamicRange(str, Enum):
+    STANDARD = "standard"
+    HIGH = "high"
+
+
 @register("emulation.SetScrollbarTypeOverrideParametersScrollbarType")
 class SetScrollbarTypeOverrideParametersScrollbarType(str, Enum):
     CLASSIC = "classic"
@@ -154,8 +312,8 @@ class SetMediaFeaturesOverrideParameters(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-emulationsetmediafeaturesoverrideparameters
     """
 
-    features: list[MediaFeature] | None = field(
-        metadata=meta("features", required=True, nullable=True, ref="emulation.MediaFeature", is_list=True),
+    features: MediaFeatures | None = field(
+        metadata=meta("features", required=True, nullable=True, ref="emulation.MediaFeatures"),
     )
     contexts: list[str] | UnsetType = field(default=UNSET, metadata=meta("contexts", is_list=True, primitive="str"))
     user_contexts: list[str] | UnsetType = field(
@@ -164,16 +322,127 @@ class SetMediaFeaturesOverrideParameters(Record):
     )
 
 
-@register("emulation.MediaFeature")
+@register("emulation.MediaFeatures")
 @dataclass(frozen=True)
-class MediaFeature(Record):
-    """emulation.MediaFeature.
+class MediaFeatures(Record):
+    """emulation.MediaFeatures.
 
-    See https://w3c.github.io/webdriver-bidi/#cddl-type-emulationmediafeature
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-emulationmediafeatures
     """
 
-    name: str = field(metadata=meta("name", required=True, primitive="str"))
-    value: str = field(metadata=meta("value", required=True, primitive="str"))
+    any_hover: MediaFeaturesAnyHover | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("any-hover", nullable=True, enum="emulation.MediaFeaturesAnyHover"),
+    )
+    any_pointer: MediaFeaturesAnyPointer | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("any-pointer", nullable=True, enum="emulation.MediaFeaturesAnyPointer"),
+    )
+    color: int | None | UnsetType = field(default=UNSET, metadata=meta("color", nullable=True, primitive="int"))
+    color_gamut: MediaFeaturesColorGamut | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("color-gamut", nullable=True, enum="emulation.MediaFeaturesColorGamut"),
+    )
+    color_index: int | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("color-index", nullable=True, primitive="int"),
+    )
+    display_mode: MediaFeaturesDisplayMode | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("display-mode", nullable=True, enum="emulation.MediaFeaturesDisplayMode"),
+    )
+    dynamic_range: MediaFeaturesDynamicRange | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("dynamic-range", nullable=True, enum="emulation.MediaFeaturesDynamicRange"),
+    )
+    environment_blending: MediaFeaturesEnvironmentBlending | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("environment-blending", nullable=True, enum="emulation.MediaFeaturesEnvironmentBlending"),
+    )
+    forced_colors: MediaFeaturesForcedColors | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("forced-colors", nullable=True, enum="emulation.MediaFeaturesForcedColors"),
+    )
+    grid: MediaFeaturesGrid | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("grid", nullable=True, enum="emulation.MediaFeaturesGrid"),
+    )
+    horizontal_viewport_segments: int | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("horizontal-viewport-segments", nullable=True, primitive="int"),
+    )
+    hover: MediaFeaturesHover | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("hover", nullable=True, enum="emulation.MediaFeaturesHover"),
+    )
+    inverted_colors: MediaFeaturesInvertedColors | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("inverted-colors", nullable=True, enum="emulation.MediaFeaturesInvertedColors"),
+    )
+    monochrome: int | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("monochrome", nullable=True, primitive="int"),
+    )
+    nav_controls: MediaFeaturesNavControls | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("nav-controls", nullable=True, enum="emulation.MediaFeaturesNavControls"),
+    )
+    overflow_block: MediaFeaturesOverflowBlock | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("overflow-block", nullable=True, enum="emulation.MediaFeaturesOverflowBlock"),
+    )
+    overflow_inline: MediaFeaturesOverflowInline | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("overflow-inline", nullable=True, enum="emulation.MediaFeaturesOverflowInline"),
+    )
+    pointer: MediaFeaturesPointer | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("pointer", nullable=True, enum="emulation.MediaFeaturesPointer"),
+    )
+    prefers_color_scheme: MediaFeaturesPrefersColorScheme | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("prefers-color-scheme", nullable=True, enum="emulation.MediaFeaturesPrefersColorScheme"),
+    )
+    prefers_contrast: MediaFeaturesPrefersContrast | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("prefers-contrast", nullable=True, enum="emulation.MediaFeaturesPrefersContrast"),
+    )
+    prefers_reduced_data: MediaFeaturesPrefersReducedData | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("prefers-reduced-data", nullable=True, enum="emulation.MediaFeaturesPrefersReducedData"),
+    )
+    prefers_reduced_motion: MediaFeaturesPrefersReducedMotion | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("prefers-reduced-motion", nullable=True, enum="emulation.MediaFeaturesPrefersReducedMotion"),
+    )
+    prefers_reduced_transparency: MediaFeaturesPrefersReducedTransparency | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("prefers-reduced-transparency", nullable=True, enum="emulation.MediaFeaturesPrefersReducedTransparency"),
+    )
+    scan: MediaFeaturesScan | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("scan", nullable=True, enum="emulation.MediaFeaturesScan"),
+    )
+    scripting: MediaFeaturesScripting | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("scripting", nullable=True, enum="emulation.MediaFeaturesScripting"),
+    )
+    update: MediaFeaturesUpdate | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("update", nullable=True, enum="emulation.MediaFeaturesUpdate"),
+    )
+    vertical_viewport_segments: int | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("vertical-viewport-segments", nullable=True, primitive="int"),
+    )
+    video_color_gamut: MediaFeaturesVideoColorGamut | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("video-color-gamut", nullable=True, enum="emulation.MediaFeaturesVideoColorGamut"),
+    )
+    video_dynamic_range: MediaFeaturesVideoDynamicRange | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("video-dynamic-range", nullable=True, enum="emulation.MediaFeaturesVideoDynamicRange"),
+    )
 
 
 @register("emulation.SetNetworkConditionsParameters")
@@ -472,7 +741,7 @@ class Emulation(Domain):
 
     def set_media_features_override(
         self,
-        features: list[MediaFeature] | None,
+        features: MediaFeatures | None,
         contexts: list[str] | UnsetType = UNSET,
         user_contexts: list[str] | UnsetType = UNSET,
     ) -> Any:

@@ -82,6 +82,11 @@ class MessagingAdsResource:
         name: str,
         destination: str,
         *,
+        creative_features: Any | None = None,
+        tracking: Any | None = None,
+        existing_post_id: str | None = None,
+        object_story_id: str | None = None,
+        whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
         image_url: str | None = None,
@@ -116,11 +121,16 @@ class MessagingAdsResource:
         regional_regulated_categories: list[str] | None = None,
         regional_regulation_identities: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create click-to-message ad (WhatsApp / Messenger / Instagram Direct)"""
+        """Create messaging ad"""
         payload = self._build_payload(
+            creative_features=creative_features,
+            tracking=tracking,
             account_id=account_id,
             ad_account_id=ad_account_id,
             name=name,
+            existing_post_id=existing_post_id,
+            object_story_id=object_story_id,
+            whatsapp_phone_number=whatsapp_phone_number,
             headline=headline,
             body=body,
             image_url=image_url,
@@ -166,6 +176,11 @@ class MessagingAdsResource:
         phone_number: str,
         link_url: str,
         *,
+        creative_features: Any | None = None,
+        tracking: Any | None = None,
+        existing_post_id: str | None = None,
+        object_story_id: str | None = None,
+        whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
         image_url: str | None = None,
@@ -202,9 +217,14 @@ class MessagingAdsResource:
     ) -> dict[str, Any]:
         """Create Click-to-Call ad"""
         payload = self._build_payload(
+            creative_features=creative_features,
+            tracking=tracking,
             account_id=account_id,
             ad_account_id=ad_account_id,
             name=name,
+            existing_post_id=existing_post_id,
+            object_story_id=object_story_id,
+            whatsapp_phone_number=whatsapp_phone_number,
             headline=headline,
             body=body,
             image_url=image_url,
@@ -249,6 +269,11 @@ class MessagingAdsResource:
         ad_account_id: str,
         name: str,
         *,
+        creative_features: Any | None = None,
+        tracking: Any | None = None,
+        existing_post_id: str | None = None,
+        object_story_id: str | None = None,
+        whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
         image_url: str | None = None,
@@ -283,11 +308,16 @@ class MessagingAdsResource:
         regional_regulated_categories: list[str] | None = None,
         regional_regulation_identities: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create Click-to-WhatsApp ad (deprecated)"""
+        """Create CTWA ad (deprecated)"""
         payload = self._build_payload(
+            creative_features=creative_features,
+            tracking=tracking,
             account_id=account_id,
             ad_account_id=ad_account_id,
             name=name,
+            existing_post_id=existing_post_id,
+            object_story_id=object_story_id,
+            whatsapp_phone_number=whatsapp_phone_number,
             headline=headline,
             body=body,
             image_url=image_url,
@@ -331,6 +361,11 @@ class MessagingAdsResource:
         name: str,
         destination: str,
         *,
+        creative_features: Any | None = None,
+        tracking: Any | None = None,
+        existing_post_id: str | None = None,
+        object_story_id: str | None = None,
+        whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
         image_url: str | None = None,
@@ -365,11 +400,16 @@ class MessagingAdsResource:
         regional_regulated_categories: list[str] | None = None,
         regional_regulation_identities: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create click-to-message ad (WhatsApp / Messenger / Instagram Direct) (async)"""
+        """Create messaging ad (async)"""
         payload = self._build_payload(
+            creative_features=creative_features,
+            tracking=tracking,
             account_id=account_id,
             ad_account_id=ad_account_id,
             name=name,
+            existing_post_id=existing_post_id,
+            object_story_id=object_story_id,
+            whatsapp_phone_number=whatsapp_phone_number,
             headline=headline,
             body=body,
             image_url=image_url,
@@ -415,6 +455,11 @@ class MessagingAdsResource:
         phone_number: str,
         link_url: str,
         *,
+        creative_features: Any | None = None,
+        tracking: Any | None = None,
+        existing_post_id: str | None = None,
+        object_story_id: str | None = None,
+        whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
         image_url: str | None = None,
@@ -451,9 +496,14 @@ class MessagingAdsResource:
     ) -> dict[str, Any]:
         """Create Click-to-Call ad (async)"""
         payload = self._build_payload(
+            creative_features=creative_features,
+            tracking=tracking,
             account_id=account_id,
             ad_account_id=ad_account_id,
             name=name,
+            existing_post_id=existing_post_id,
+            object_story_id=object_story_id,
+            whatsapp_phone_number=whatsapp_phone_number,
             headline=headline,
             body=body,
             image_url=image_url,
@@ -498,6 +548,11 @@ class MessagingAdsResource:
         ad_account_id: str,
         name: str,
         *,
+        creative_features: Any | None = None,
+        tracking: Any | None = None,
+        existing_post_id: str | None = None,
+        object_story_id: str | None = None,
+        whatsapp_phone_number: str | None = None,
         headline: str | None = None,
         body: str | None = None,
         image_url: str | None = None,
@@ -532,11 +587,16 @@ class MessagingAdsResource:
         regional_regulated_categories: list[str] | None = None,
         regional_regulation_identities: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create Click-to-WhatsApp ad (deprecated) (async)"""
+        """Create CTWA ad (deprecated) (async)"""
         payload = self._build_payload(
+            creative_features=creative_features,
+            tracking=tracking,
             account_id=account_id,
             ad_account_id=ad_account_id,
             name=name,
+            existing_post_id=existing_post_id,
+            object_story_id=object_story_id,
+            whatsapp_phone_number=whatsapp_phone_number,
             headline=headline,
             body=body,
             image_url=image_url,

@@ -120,6 +120,11 @@ def SnowflakeSource(
         Snowflake schema in the database to use.
     role
         Snowflake role name to use.
+    private_key_b64
+        Base64-encoded unencrypted PKCS#8 PEM private key (the entire file, including the
+        `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines) for key-pair
+        authentication. May also be supplied via the `SNOWFLAKE_PRIVATE_KEY_B64` environment
+        variable. When set, key-pair authentication is used instead of `password`.
     unload_stage
         Snowflake stage or cloud storage prefix to use for unload-based execution.
     unload_storage_integration

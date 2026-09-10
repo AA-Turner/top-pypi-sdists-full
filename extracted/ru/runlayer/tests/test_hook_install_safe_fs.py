@@ -582,3 +582,17 @@ class TestSafeChownWithinHome:
             safe_fs.safe_chown_within_home(home, link, os.getuid(), os.getgid())
 
         assert outside_ino not in inodes
+
+
+@pytest.mark.skipif(os.name != "posix", reason="descriptor-relative helpers are POSIX-only")
+def test_safe_read_file_max_bytes_bounds_the_read(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    target = home / ".runlayer" / "secret"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"0123456789")
+
+    bounded = safe_fs.safe_read_file(home, target, max_bytes=4)
+    unbounded = safe_fs.safe_read_file(home, target)
+
+    assert bounded is not None and bounded["data"] == b"01234"
+    assert unbounded is not None and unbounded["data"] == b"0123456789"

@@ -111,6 +111,7 @@ class ControlClassification(str, Enum):
     CYTRIX = 'Cytrix'
     BRIGHTDAST = 'BrightDast'
     INSIGHTAPPSEC = 'InsightAppSec'
+    INVICTIPLATFORM = 'InvictiPlatform'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

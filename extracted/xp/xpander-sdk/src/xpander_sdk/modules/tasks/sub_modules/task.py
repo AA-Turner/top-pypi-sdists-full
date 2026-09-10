@@ -45,7 +45,8 @@ import httpx
 import json
 from httpx_sse import aconnect_sse
 from loguru import logger
-from pydantic import Field, PrivateAttr
+from xpander_sdk.models.frameworks import normalize_permission_mode
+from pydantic import Field, PrivateAttr, field_validator
 
 from xpander_sdk.consts.api_routes import APIRoute
 from xpander_sdk.core.xpander_api_client import APIClient
@@ -226,6 +227,10 @@ class Task(XPanderSharedModel):
         llm_model_provider (Optional[str]): Per-task override of the agent's LLM provider (e.g. ``"openai"``, ``"anthropic"``). Defaults to the agent's settings.
         llm_model_name (Optional[str]): Per-task override of the model name (e.g. ``"gpt-5"``). Defaults to the agent's settings.
         llm_reasoning_effort (Optional[LLMReasoningEffort]): Per-task override of the reasoning effort. Defaults to the agent's settings.
+        harness_cli (Optional[str]): Harness agents only: the CLI this conversation
+            runs on (``"claude-code"`` or ``"codex"``), fixed by the conversation's
+            first task. Kept as a string so an older SDK still loads a task that
+            names a CLI it does not know; the value is normalized, never rejected.
 
     Example:
         >>> task = Task.load(task_id="task_123")
@@ -290,6 +295,27 @@ class Task(XPanderSharedModel):
     llm_model_provider: Optional[str] = None
     llm_model_name: Optional[str] = None
     llm_reasoning_effort: Optional[LLMReasoningEffort] = None
+    harness_cli: Optional[str] = None
+
+    @field_validator("harness_cli", mode="before")
+    @classmethod
+    def _normalize_harness_cli(cls, value: Any) -> Optional[str]:
+        """Lower-case and strip the CLI name; blank becomes None, unknown names pass."""
+        if value is None:
+            return None
+        raw = getattr(value, "value", value)
+        normalized = str(raw).strip().lower()
+        return normalized or None
+
+    # harness agents only: "full" runs every CLI action, "gated" holds shell/edit
+    # calls for a person; inherited per conversation
+    permission_mode: Optional[str] = None
+
+    @field_validator("permission_mode", mode="before")
+    @classmethod
+    def _normalize_permission_mode(cls, value: Any) -> Optional[str]:
+        """Normalize the mode; unknown values pass for the platform to judge."""
+        return normalize_permission_mode(value)
 
     # metrics
     tokens: Optional[Tokens] = None
@@ -299,6 +325,8 @@ class Task(XPanderSharedModel):
     # Attachment pipeline runtime state (never serialized; task.save() untouched).
     # _model_capabilities is set by agno._load_llm_model once the provider/model resolve.
     _model_capabilities: Optional[ModelCapabilities] = PrivateAttr(default=None)
+    # the model that actually served the run; private so a PATCH echo cannot turn it into a per-task override
+    _served_model: Optional[str] = PrivateAttr(default=None)
     _attachment_plan: Optional[AttachmentPlan] = PrivateAttr(default=None)
     _attachment_images: Optional[List[Any]] = PrivateAttr(default=None)
     _attachment_files: Optional[List[Any]] = PrivateAttr(default=None)
@@ -580,6 +608,19 @@ class Task(XPanderSharedModel):
 
     def _attachment_caps(self) -> ModelCapabilities:
         return self._model_capabilities or DEFAULT_CAPABILITIES
+
+    def mark_served_model(self, model: Optional[str]) -> None:
+        """Record the model id the run resolved to, normalized the way agno routes it."""
+        normalized = (model or "").strip().lower()
+        if normalized:
+            self._served_model = normalized
+
+    @property
+    def served_model(self) -> Optional[str]:
+        """The model that served this run, else the per-task override, normalized; None when neither is known."""
+        return self._served_model or (
+            (self.llm_model_name or "").strip().lower() or None
+        )
 
     def _attachment_refs_map(self) -> dict:
         """{url: AttachmentRef} from the task input, for mime/size-aware classification (empty when none)."""
@@ -1405,7 +1446,7 @@ class Task(XPanderSharedModel):
                 status=self.status.value,
                 internal_status=self.internal_status,
                 duration=0.0,
-                ai_model="xpander",
+                ai_model=self.served_model or "xpander",
                 api_calls_made=(
                     []
                     if self.return_metrics and self.source == "orchestration"

@@ -62,7 +62,17 @@ def discover_plugins(client_def: MCPClientDefinition) -> list[DiscoveredPlugin]:
                 if plugin_name in seen_plugins:
                     continue
 
-                for hash_dir in sorted(plugin_dir.iterdir()):
+                # User-local installs are flat: the plugin dir holds the MCP
+                # config directly, with no hash tier under it. Marketplace
+                # caches keep the <name>/<hash>/ shape.
+                if any((plugin_dir / m).is_file() for m in mcp_filenames):
+                    candidate_dirs = [plugin_dir]
+                else:
+                    candidate_dirs = sorted(
+                        d for d in plugin_dir.iterdir() if d.is_dir()
+                    )
+
+                for hash_dir in candidate_dirs:
                     if not hash_dir.is_dir():
                         continue
 

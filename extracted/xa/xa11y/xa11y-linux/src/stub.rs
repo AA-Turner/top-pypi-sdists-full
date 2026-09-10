@@ -2,7 +2,8 @@
 
 use xa11y_core::input::{InputProvider, Key, MouseButton, Point, ScrollDelta};
 use xa11y_core::{
-    ElementData, Error, Provider, Rect, Result, Screenshot, ScreenshotProvider, Subscription,
+    ElementData, Error, Provider, Rect, Result, Screenshot, ScreenshotProvider, ShellSurfaceKind,
+    Subscription,
 };
 
 #[derive(Default)]
@@ -65,7 +66,7 @@ impl LinuxScreenshot {
 }
 
 impl ScreenshotProvider for LinuxScreenshot {
-    fn capture_full(&self) -> Result<Screenshot> {
+    fn capture_full(&self) -> Result<(Screenshot, Point)> {
         unreachable!()
     }
     fn capture_region(&self, _: Rect) -> Result<Screenshot> {
@@ -96,6 +97,10 @@ impl Provider for LinuxProvider {
     }
 
     fn focused_app(&self) -> Result<ElementData> {
+        Err(unavailable())
+    }
+
+    fn list_shell_surfaces(&self) -> Result<Vec<(ShellSurfaceKind, ElementData)>> {
         Err(unavailable())
     }
 

@@ -29,7 +29,7 @@ from osgeo_utils import gdal2xyz
 from pandas import DataFrame
 
 from pyramids._io import new_vsimem_path, read_vsi_bytes
-from pyramids.base._domain import is_no_data
+from pyramids.base._domain import INHERIT_NO_DATA, is_no_data
 from pyramids.base._errors import (
     FailedToSaveError,
     OutOfBoundsError,
@@ -79,11 +79,6 @@ _VSIMEM_PREFIX = "/vsimem/"
 # How much of an offending VRT description the refusal quotes back. An inline-XML
 # description is a whole document, so it is cut rather than dumped into the message.
 _DESCRIPTION_EXCERPT = 80
-
-# Local "inherit from the source" sentinel for stream_transform's no_data_value.
-# Kept here (not imported from dataset.py's _INHERIT_NO_DATA) because dataset.py
-# imports this module, so importing back would be a circular import.
-_STREAM_INHERIT_NO_DATA = object()
 
 _GRID_SNAP_TOL = 1e-9
 """Fractional-pixel tolerance for snapping a bbox edge onto an exact cell boundary.
@@ -477,6 +472,23 @@ def _stack_bands(
 
 
 class IO(_Engine["Dataset"]):
+    """Mixin providing array, file, streaming and overview IO for Dataset.
+
+    Owns the reads (`read_array`, `read_windows`, `get_tile`,
+    `get_block_arrangement`), the writes (`write_array`, `to_file`, `to_bytes`,
+    `to_raster`, `to_xyz`, `to_terrain_rgb`), the block-wise passes
+    (`stream_transform`, `stream_reduce`, `map_blocks`) and the overview family
+    (`overview_count`, `create_overviews`, `recreate_overviews`, `get_overview`,
+    `get_overview_dataset`, `read_overview_array`). `Dataset` exposes a
+    same-named facade for each, so `ds.read_array(...)` and
+    `ds.io.read_array(...)` are equivalent.
+
+    `read_array` returns the band's stored values and does not consult a GDAL
+    mask or alpha band, so a caller comparing it against something GDAL
+    computed -- band statistics, a warp -- is comparing two different views of
+    the raster.
+    """
+
     @under_gdal_env
     def read_array(
         self,
@@ -2408,7 +2420,7 @@ class IO(_Engine["Dataset"]):
         out: Dataset | None = None,
         dtype: str | None = None,
         bands: int | None = None,
-        no_data_value: Any = _STREAM_INHERIT_NO_DATA,
+        no_data_value: Any = INHERIT_NO_DATA,
         tile_size: int = 256,
         path: str | Path | None = None,
     ) -> Dataset:
@@ -2480,7 +2492,7 @@ class IO(_Engine["Dataset"]):
         """
         if out is None:
             allocate: dict[str, Any] = {"dtype": dtype, "bands": bands, "path": path}
-            if no_data_value is not _STREAM_INHERIT_NO_DATA:
+            if no_data_value is not INHERIT_NO_DATA:
                 allocate["no_data_value"] = no_data_value
             out = cast("Dataset", self._ds.empty_like(self._ds, **allocate))
         for xoff, yoff, xsize, ysize in self._tile_offsets(size=tile_size):

@@ -152,7 +152,12 @@ EventNameType = Literal[
 ]
 FillPolicyType = Literal["FULL_AVAIL_ONLY", "PARTIAL_AVAIL"]
 FunctionTypeType = Literal[
-    "CONCURRENT_EXECUTOR", "CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR", "VAST_REQUEST"
+    "AWS_SERVICE_REQUEST",
+    "CONCURRENT_EXECUTOR",
+    "CUSTOM_OUTPUT",
+    "HTTP_REQUEST",
+    "SEQUENTIAL_EXECUTOR",
+    "VAST_REQUEST",
 ]
 GetChannelSchedulePaginatorName = Literal["get_channel_schedule"]
 InsertionModeType = Literal["PLAYER_SELECT", "STITCHED_ONLY"]

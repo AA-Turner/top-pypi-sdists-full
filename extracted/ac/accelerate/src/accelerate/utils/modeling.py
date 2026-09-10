@@ -447,9 +447,9 @@ def named_module_tensors(
     Args:
         module (`torch.nn.Module`):
             The module we want the tensors on.
-        include_buffer (`bool`, *optional*, defaults to `True`):
+        include_buffers (`bool`, *optional*, defaults to `True`):
             Whether or not to include the buffers in the result.
-        recurse (`bool`, *optional`, defaults to `False`):
+        recurse (`bool`, *optional*, defaults to `False`):
             Whether or not to go look in every submodule or just return the direct parameters and buffers.
         remove_non_persistent (`bool`, *optional*, defaults to `False`):
             Whether or not to remove the non persistent buffer from the buffers. Useful only when include_buffers =
@@ -480,7 +480,7 @@ def get_non_persistent_buffers(module: nn.Module, recurse: bool = False, fqns: b
             Whether or not to return the fully-qualified names of the non persistent buffers.
     """
 
-    non_persistent_buffers_set = module._non_persistent_buffers_set
+    non_persistent_buffers_set = set(module._non_persistent_buffers_set)
     if recurse:
         for n, m in module.named_modules():
             if fqns:
@@ -762,6 +762,7 @@ def get_max_memory(max_memory: Optional[dict[Union[int, str], Union[int, str]]] 
 
     if max_memory is None:
         max_memory = {}
+        is_integrated_cuda = False
         # Make sure device is initialized on each device to have the right memory info.
         if is_npu_available():
             for i in range(torch.npu.device_count()):
@@ -816,13 +817,15 @@ def get_max_memory(max_memory: Optional[dict[Union[int, str], Union[int, str]]] 
                 try:
                     _ = torch.tensor([0], device=i)
                     max_memory[i] = torch.cuda.mem_get_info(i)[0]
+                    device_properties = torch.cuda.get_device_properties(i)
+                    is_integrated_cuda = is_integrated_cuda or getattr(device_properties, "is_integrated", False)
                 except Exception:
                     logger.info(f"Device {i} seems unavailable, Proceeding to check subsequent devices.")
                     continue
-        # allocate everything in the mps device as the RAM is shared
+        # MPS and integrated CUDA devices share host RAM, so exposing a separate CPU budget would double-count it.
         if is_mps_available():
             max_memory["mps"] = psutil.virtual_memory().available
-        else:
+        elif not is_integrated_cuda:
             max_memory["cpu"] = psutil.virtual_memory().available
         return max_memory
 
@@ -984,7 +987,16 @@ def get_balanced_memory(
         expected_device_type = "mps"
     else:
         expected_device_type = "cuda"
-    num_devices = len([d for d in max_memory if torch.device(d).type == expected_device_type and max_memory[d] > 0])
+    # Integer keys always refer to accelerator devices, so they are counted directly: resolving them through
+    # `torch.device` errors out on machines without an accelerator ("Cannot access accelerator device when
+    # none is available.").
+    num_devices = len(
+        [
+            d
+            for d in max_memory
+            if (isinstance(d, int) or torch.device(d).type == expected_device_type) and max_memory[d] > 0
+        ]
+    )
 
     if num_devices == 0:
         return max_memory
@@ -2070,8 +2082,6 @@ def get_mixed_precision_context_manager(native_amp: bool = False, autocast_kwarg
     Args:
         native_amp (`bool`, *optional*, defaults to False):
             Whether mixed precision is actually enabled.
-        cache_enabled (`bool`, *optional*, defaults to True):
-            Whether the weight cache inside autocast should be enabled.
     """
     state = AcceleratorState()
     if autocast_kwargs is None:

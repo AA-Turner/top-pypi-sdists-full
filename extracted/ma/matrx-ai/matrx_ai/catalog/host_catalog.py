@@ -425,6 +425,10 @@ def build_catalog_call_profile(model: CatalogModel) -> Any:
         token_billed=bool(model.get("token_billed", False)),
         model_is_deprecated=bool(model.get("is_deprecated", False)),
         model_is_primary=bool(model.get("is_primary", False)),
+        model_retired_at=(str(model.get("retired_at")) if model.get("retired_at") else None),
+        model_successor_id=(
+            str(model.get("successor_id")) if model.get("successor_id") else None
+        ),
         offering_metadata={"tts": tts} if tts else {},
         tts_voice_ids=tuple(str(voice) for voice in voices),
         tts_default_voice_id=(

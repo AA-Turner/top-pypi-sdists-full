@@ -12,11 +12,12 @@ this test fails — the queue helper must never be called for store=False.
 from __future__ import annotations
 
 import ast
-import inspect
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+
+from matrx_utils.source_guard import stable_source
 
 from matrx_ai.orchestrator import executor as executor_mod
 from matrx_ai.orchestrator.execution_state import ExecutionState
@@ -26,7 +27,7 @@ _FAKE_COORD = object()  # in-lane sentinel: the writer must route through the qu
 
 def test_success_path_awaits_snapshot_writer_before_losing_request_lane() -> None:
     """The call site must queue into the parent conversation's Coordinator."""
-    tree = ast.parse(inspect.getsource(executor_mod._execute_until_complete_inner))
+    tree = ast.parse(stable_source(executor_mod._execute_until_complete_inner))
     awaited_snapshot_calls = [
         node
         for node in ast.walk(tree)
@@ -42,9 +43,7 @@ def test_success_path_awaits_snapshot_writer_before_losing_request_lane() -> Non
 
 def _with_lane(monkeypatch):
     """Pretend a WriteCoordinator/lane is active so the queue path is taken."""
-    monkeypatch.setattr(
-        "matrx_ai.persistence.queue_helpers.get_coordinator", lambda: _FAKE_COORD
-    )
+    monkeypatch.setattr("matrx_ai.persistence.queue_helpers.get_coordinator", lambda: _FAKE_COORD)
 
 
 @pytest.mark.asyncio
@@ -415,7 +414,9 @@ async def test_snapshot_failure_uses_canonical_system_error_kind(monkeypatch):
 async def test_out_of_lane_ephemeral_still_never_writes(monkeypatch):
     fake_model = _without_lane(monkeypatch)
     await executor_mod._write_request_snapshot(
-        exec_ctx=SimpleNamespace(store=False, conversation_id=str(uuid4()), request_id=str(uuid4())),
+        exec_ctx=SimpleNamespace(
+            store=False, conversation_id=str(uuid4()), request_id=str(uuid4())
+        ),
         iteration=1,
         api_response=None,
         request_payload={"messages": []},
@@ -433,9 +434,7 @@ async def test_out_of_lane_ephemeral_still_never_writes(monkeypatch):
 @pytest.mark.asyncio
 async def test_out_of_lane_client_host_skips_direct_insert(monkeypatch):
     fake_model = _without_lane(monkeypatch)
-    monkeypatch.setattr(
-        "matrx_ai.client_host.get_conversation_store", lambda: object()
-    )
+    monkeypatch.setattr("matrx_ai.client_host.get_conversation_store", lambda: object())
     await executor_mod._write_request_snapshot(
         exec_ctx=SimpleNamespace(store=True, conversation_id=str(uuid4()), request_id=str(uuid4())),
         iteration=1,

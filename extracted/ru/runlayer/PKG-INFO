@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: runlayer
-Version: 0.30.9
+Version: 0.30.12
 Summary: A command-line interface for running MCP servers via HTTP transport
 Project-URL: Homepage, https://runlayer.com
 Project-URL: Documentation, https://docs.runlayer.com/
@@ -233,7 +233,7 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: questionary>=2.0.0
 Requires-Dist: rich>=13.0.0
-Requires-Dist: runlayer-hooks-sdk==0.2.2
+Requires-Dist: runlayer-hooks-sdk==0.2.3
 Requires-Dist: structlog>=25.4.0
 Requires-Dist: tomli>=2.0.0; python_version < '3.11'
 Requires-Dist: tomlkit>=0.15.0

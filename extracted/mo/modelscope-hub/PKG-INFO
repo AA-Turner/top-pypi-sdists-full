@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modelscope-hub
-Version: 0.4.0
+Version: 0.4.2
 Summary: The official Python client to connect with ModelScope Hub.
 License: Apache-2.0
 Keywords: modelscope,hub,sdk,openapi,machine-learning

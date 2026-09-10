@@ -223,6 +223,7 @@ class _ValidatorWrapper:
     func: Callable[..., object]
     decorator: Callable[..., Callable[..., object]]
     is_deleted: bool = False
+    is_classmethod: bool = False
 
 
 @dataclasses.dataclass(**DATACLASS_SLOTS, **DATACLASS_KW_ONLY)
@@ -237,7 +238,9 @@ def _wrap_validator(
 ):
     # This is only for pydantic v1 style validators
     func = fully_unwrap_decorator(func, is_pydantic_v1_style_validator)
+    is_classmethod = False
     if inspect.ismethod(func):
+        is_classmethod = True
         func = func.__func__
     kwargs = dataclasses.asdict(decorator_info)
     decorator_fields = kwargs.pop("fields", None)
@@ -257,10 +260,14 @@ def _wrap_validator(
             kwargs["skip_on_failure"] = True
     if decorator_fields is not None:
         return _PerFieldValidatorWrapper(
-            func=func, fields=list(decorator_fields), decorator=actual_decorator, kwargs=kwargs
+            func=func,
+            fields=list(decorator_fields),
+            decorator=actual_decorator,
+            kwargs=kwargs,
+            is_classmethod=is_classmethod,
         )
     else:
-        return _ValidatorWrapper(func=func, decorator=actual_decorator, kwargs=kwargs)
+        return _ValidatorWrapper(func=func, decorator=actual_decorator, kwargs=kwargs, is_classmethod=is_classmethod)
 
 
 def _is_dunder(attr_name: str):
@@ -422,10 +429,11 @@ class _PydanticModelWrapper(Generic[_T_PYDANTIC_MODEL]):
         for name, validator in self.validators.items():
             if validator.is_deleted:
                 continue
+            func = classmethod(validator.func) if validator.is_classmethod else validator.func
             if isinstance(validator, _PerFieldValidatorWrapper):
-                per_field_validators[name] = validator.decorator(*validator.fields, **validator.kwargs)(validator.func)
+                per_field_validators[name] = validator.decorator(*validator.fields, **validator.kwargs)(func)
             else:
-                root_validators[name] = validator.decorator(**validator.kwargs)(validator.func)
+                root_validators[name] = validator.decorator(**validator.kwargs)(func)
         fields = {name: field.generate_field_copy(generator) for name, field in self.fields.items()}
 
         model_copy = type(self.cls)(
@@ -760,12 +768,14 @@ def is_async_gen_callable(call: Callable[..., object]) -> bool:
 
 def is_coroutine_callable(call: Callable[..., object]) -> bool:  # pragma: no cover
     # Copied from fastapi.dependencies.models
+    # ty reports the deprecation only on Python 3.11/3.12. Repeating unused-ignore-comment
+    # handles the other targets: https://github.com/astral-sh/ty/issues/3393.
     if inspect.isroutine(call):
-        return iscoroutinefunction(call)
+        return iscoroutinefunction(call)  # ty: ignore[deprecated, unused-ignore-comment, unused-ignore-comment]  # Match FastAPI.
     if inspect.isclass(call):
         return False
     dunder_call = getattr(call, "__call__", None)  # noqa: B004
-    return iscoroutinefunction(dunder_call)
+    return iscoroutinefunction(dunder_call)  # ty: ignore[deprecated, unused-ignore-comment, unused-ignore-comment]  # Match FastAPI.
 
 
 def _add_request_and_response_params(route: APIRoute):

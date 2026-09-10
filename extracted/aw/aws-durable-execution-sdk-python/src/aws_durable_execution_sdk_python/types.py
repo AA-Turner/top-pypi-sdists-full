@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from aws_durable_execution_sdk_python.config import (
-        BatchedInput,
         CallbackConfig,
         ChildConfig,
         Duration,
@@ -57,7 +56,13 @@ class OperationContext:
 
 @dataclass(frozen=True)
 class StepContext(OperationContext):
-    pass
+    """Context provided to step functions.
+
+    Attributes:
+        attempt: Current attempt number, starting at 1 for the first execution.
+    """
+
+    attempt: int
 
 
 @dataclass(frozen=True)
@@ -67,7 +72,13 @@ class WaitForCallbackContext(OperationContext):
 
 @dataclass(frozen=True)
 class WaitForConditionCheckContext(OperationContext):
-    pass
+    """Context provided to wait_for_condition check functions.
+
+    Attributes:
+        attempt: Current attempt number, starting at 1 for the first check.
+    """
+
+    attempt: int
 
 
 class Callback(Protocol, Generic[C_co]):
@@ -117,7 +128,7 @@ class DurableContext(Protocol):
     def map(
         self,
         inputs: Sequence[U],
-        func: Callable[[DurableContext, U | BatchedInput[Any, U], int, Sequence[U]], T],
+        func: Callable[[DurableContext, U, int, Sequence[U]], T],
         name: str | None = None,
         config: MapConfig | None = None,
     ) -> BatchResult[T]:

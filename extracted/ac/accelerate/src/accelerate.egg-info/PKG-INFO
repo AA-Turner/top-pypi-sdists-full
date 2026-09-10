@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: accelerate
-Version: 1.14.0
+Version: 1.15.0
 Summary: Accelerate
 Home-page: https://github.com/huggingface/accelerate
 Author: The Hugging Face team
@@ -39,6 +39,7 @@ Provides-Extra: test-dev
 Requires-Dist: datasets; extra == "test-dev"
 Requires-Dist: diffusers; extra == "test-dev"
 Requires-Dist: evaluate; extra == "test-dev"
+Requires-Dist: peft; extra == "test-dev"
 Requires-Dist: torchdata>=0.8.0; extra == "test-dev"
 Requires-Dist: torchpippy>=0.2.0; extra == "test-dev"
 Requires-Dist: transformers; extra == "test-dev"
@@ -56,6 +57,7 @@ Requires-Dist: pytest-order; extra == "testing"
 Requires-Dist: datasets; extra == "testing"
 Requires-Dist: diffusers; extra == "testing"
 Requires-Dist: evaluate; extra == "testing"
+Requires-Dist: peft; extra == "testing"
 Requires-Dist: torchdata>=0.8.0; extra == "testing"
 Requires-Dist: torchpippy>=0.2.0; extra == "testing"
 Requires-Dist: transformers; extra == "testing"
@@ -87,6 +89,7 @@ Requires-Dist: pytest-order; extra == "dev"
 Requires-Dist: datasets; extra == "dev"
 Requires-Dist: diffusers; extra == "dev"
 Requires-Dist: evaluate; extra == "dev"
+Requires-Dist: peft; extra == "dev"
 Requires-Dist: torchdata>=0.8.0; extra == "dev"
 Requires-Dist: torchpippy>=0.2.0; extra == "dev"
 Requires-Dist: transformers; extra == "dev"

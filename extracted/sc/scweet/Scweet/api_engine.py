@@ -43,6 +43,13 @@ AUTH_FAILURE_MESSAGES = (
 # you" from a request with a bad bearer token. The code is the durable signal, because X can reword a message.
 # Add a code here only with a captured answer, because a wrong code costs the account 30 days.
 AUTH_FAILURE_CODES = frozenset({32, 89})
+
+# X locks an account behind a human challenge and still answers HTTP 200 with an empty timeline. The body
+# then holds code 326 with a bounce to https://x.com/account/access. Captured 2026-09-07 from a Followers
+# request. Without this code the answer counts as a successful empty page and the account never rests.
+ACCOUNT_LOCKED_CODES = frozenset({326})
+ACCOUNT_LOCKED_STATUS = 423
+
 HTTP_MODE_AUTO = "auto"
 HTTP_MODE_ASYNC = "async"
 HTTP_MODE_SYNC = "sync"
@@ -740,10 +747,7 @@ class ApiEngine:
                 max_account_switches = max(0, int(follows_request.max_account_switches))
             except Exception:
                 max_account_switches = configured_switches
-        try:
-            account_window_limit = max(1, int(_cfg(self.config, "window_request_limit", 50)))
-        except Exception:
-            account_window_limit = 50
+        account_window_limit = self._relationship_window_limit()
         try:
             account_window_s = max(1.0, float(_cfg(self.config, "rate_limit_window_s", 900.0)))
         except Exception:
@@ -1414,7 +1418,7 @@ class ApiEngine:
             api_http_mode=self.http_mode,
             proxy=_cfg(self.config, "proxy", None),
             user_agent=_cfg(self.config, "api_user_agent", None),
-            impersonate=str(_cfg(self.config, "api_http_impersonate", "chrome120") or "chrome120"),
+            impersonate=str(_cfg(self.config, "api_http_impersonate", "chrome") or "chrome"),
         )
         try:
             built = await self._maybe_await(builder.build(account))
@@ -1472,7 +1476,7 @@ class ApiEngine:
             api_http_mode=self.http_mode,
             proxy=_cfg(self.config, "proxy", None),
             user_agent=_cfg(self.config, "api_user_agent", None),
-            impersonate=str(_cfg(self.config, "api_http_impersonate", "chrome120") or "chrome120"),
+            impersonate=str(_cfg(self.config, "api_http_impersonate", "chrome") or "chrome"),
         )
         try:
             built = await self._maybe_await(builder.build(account))
@@ -2152,6 +2156,14 @@ class ApiEngine:
 
         return int(count)
 
+    def _relationship_window_limit(self) -> int:
+        # The followers paths never read the search key: the graph endpoint allows 50 requests in a window
+        # and X restricts an account there more easily (measured 2026-09-07), so it keeps its own margin.
+        try:
+            return max(1, int(_cfg(self.config, "relationship_window_request_limit", 45)))
+        except Exception:
+            return 45
+
     @staticmethod
     def _coerce_positive_int(value: Any) -> Optional[int]:
         if value is None:
@@ -2186,6 +2198,9 @@ class ApiEngine:
 
             if "rate limit" in message or "too many requests" in message or code in {"RATE_LIMITED", "RATE_LIMIT"}:
                 return 429
+            # A lock is a fact about the whole account, and X reports it with HTTP 200.
+            if numeric_code is not None and numeric_code in ACCOUNT_LOCKED_CODES:
+                return ACCOUNT_LOCKED_STATUS
             if (
                 any(phrase in message for phrase in AUTH_FAILURE_MESSAGES)
                 or code in {"UNAUTHORIZED", "AUTHENTICATION_ERROR"}
@@ -2245,6 +2260,12 @@ class ApiEngine:
             if isinstance(payload, dict) and payload.get("errors"):
                 mapped = self._map_graphql_errors_to_status(payload.get("errors"))
                 if mapped is not None:
+                    if mapped == ACCOUNT_LOCKED_STATUS:
+                        logger.warning(
+                            "Account %s is locked by X. Open https://x.com/account/access with that "
+                            "account to unlock it. The account rests until then.",
+                            account_label,
+                        )
                     logger.info("API request endpoint=%s status=%s account=%s", url, mapped, account_label)
                     return None, mapped, headers, text_snippet
 

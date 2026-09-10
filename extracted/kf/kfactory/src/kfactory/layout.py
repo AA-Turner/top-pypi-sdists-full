@@ -198,7 +198,7 @@ class Factories[F: WrappedKCellFunc[Any, Any] | WrappedVKCellFunc[Any, Any]](
 
     def get_by_qualified_name(self, qualified_name: str) -> F | None:
         for factory in self._all:
-            if factory.qualified_name == qualified_name:
+            if factory.qualified_name == qualified_name:  # ty:ignore[invalid-attribute-access]
                 return factory
         return None
 
@@ -697,6 +697,8 @@ class KCLayout(
             tuple[kdb.LayerInfo, float] | tuple[kdb.LayerInfo, float, float]
         ]
         | None = None,
+        bbox_sections: Sequence[tuple[kdb.LayerInfo, int]] = [],
+        dbbox_sections: Sequence[tuple[kdb.LayerInfo, float]] | None = None,
     ) -> LayerEnclosure:
         """Create a new LayerEnclosure in the KCLayout."""
         if name is None and main_layer is not None and main_layer.name != "":
@@ -706,6 +708,8 @@ class KCLayout(
             dsections=dsections,
             name=name,
             main_layer=main_layer,
+            bbox_sections=bbox_sections,
+            dbbox_sections=dbbox_sections,
             kcl=self,
         )
 
@@ -2816,8 +2820,11 @@ class KCLayout(
         return f"{self.__class__.__name__}({self.name}, n={len(self.kcells)})"
 
     def delete(self) -> None:
-        del kcls[self.name]
-        self.library.delete()
+        if kcls.get(self.name) is self:
+            del kcls[self.name]
+        if not self.library._destroyed():
+            self.library.delete()
+        self.tkcells = {}
 
     def routing_strategy(
         self,

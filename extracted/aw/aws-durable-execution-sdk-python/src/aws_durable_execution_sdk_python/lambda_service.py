@@ -1,21 +1,23 @@
 from __future__ import annotations
 
+import builtins
 import copy
 import datetime
 import logging
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeAlias, cast
 
 import boto3
 from botocore.config import Config
 
 from aws_durable_execution_sdk_python.__about__ import __version__
 from aws_durable_execution_sdk_python.exceptions import (
-    CallableRuntimeError,
     CheckpointError,
+    DurableOperationError,
     GetExecutionStateError,
+    SerDesError,
 )
 
 
@@ -100,18 +102,6 @@ class OperationType(Enum):
 class CallbackTimeoutType(Enum):
     TIMEOUT = "Callback.Timeout"
     HEARTBEAT = "Callback.Heartbeat"
-
-
-class ChainedInvokeFailedToStartType(Enum):
-    FAILED_TO_START = "ChainedInvoke.FailedToStart"
-
-
-class ChainedInvokeTimeoutType(Enum):
-    TIMEOUT = "ChainedInvoke.Timeout"
-
-
-class ChainedInvokeStopType(Enum):
-    STOPPED = "ChainedInvoke.Stopped"
 
 
 class OperationSubType(Enum):
@@ -217,6 +207,17 @@ class ContextDetails:
         )
 
 
+def _qualified_error_type(exception: BaseException) -> str:
+    """Return the fully-qualified class name for use as the wire ErrorType.
+
+    Builtins (e.g. ValueError) are left unqualified; everything else is
+    prefixed with its module path.
+    """
+    cls_: type[BaseException] = type(exception)
+    module: str = "" if cls_.__module__ == "builtins" else f"{cls_.__module__}."
+    return f"{module}{cls_.__qualname__}"
+
+
 @dataclass(frozen=True)
 class ErrorObject:
     message: str | None
@@ -235,9 +236,28 @@ class ErrorObject:
 
     @classmethod
     def from_exception(cls, exception: Exception) -> ErrorObject:
+        # SerDesError and subclasses pin to the base discriminator so replay
+        # always reconstructs them as SerDesError.
+        if isinstance(exception, SerDesError):
+            return cls(
+                message=exception.message,
+                type=f"{SerDesError.__module__}.{SerDesError.__qualname__}",
+                data=exception.data,
+                stack_trace=exception.stack_trace,
+            )
+        # The wire ErrorType is the fully-qualified class name, with builtins
+        # left unqualified for brevity.
+        wire_type: str = _qualified_error_type(exception)
+        if isinstance(exception, DurableOperationError):
+            return cls(
+                message=exception.message,
+                type=wire_type,
+                data=exception.data,
+                stack_trace=exception.stack_trace,
+            )
         return cls(
             message=str(exception),
-            type=type(exception).__name__,
+            type=wire_type,
             data=None,
             stack_trace=None,
         )
@@ -263,13 +283,47 @@ class ErrorObject:
             result["StackTrace"] = self.stack_trace
         return result
 
-    def to_callable_runtime_error(self) -> CallableRuntimeError:
-        return CallableRuntimeError(
+    def to_durable_operation_error(self) -> DurableOperationError:
+        return DurableOperationError.from_error_fields(
+            error_type=self.type,
+            message=self.message,
+            data=self.data,
+            stack_trace=self.stack_trace,
+        )
+
+    def raise_as_operation_error(
+        self, operation_error_cls: builtins.type[DurableOperationError]
+    ) -> NoReturn:
+        """Raise the operation's typed error reconstructed from this ErrorObject.
+
+        Used by both the first-run terminal-failure path and replay, so the
+        surfaced error is identical (a durable-execution determinism guarantee):
+        the wrapper is ``operation_error_cls`` (or ``SerDesError`` for a serdes
+        failure) carrying this object's ``error_type``/``data``/``stack_trace``,
+        and ``__cause__`` is the escaping error rebuilt via the registry (a typed
+        subclass when known, else the base ``DurableOperationError``).
+        """
+        cause: DurableOperationError = DurableOperationError.from_error_fields(
+            error_type=self.type,
+            message=self.message,
+            data=self.data,
+            stack_trace=self.stack_trace,
+        )
+        # A serdes failure surfaces as SerDesError regardless of the operation
+        # kind, so it is catchable as itself on both first run and replay.
+        if self.type == f"{SerDesError.__module__}.{SerDesError.__qualname__}":
+            raise SerDesError(
+                message=self.message,
+                error_type=self.type,
+                data=self.data,
+                stack_trace=self.stack_trace,
+            ) from cause
+        raise operation_error_cls(
             message=self.message,
             error_type=self.type,
             data=self.data,
             stack_trace=self.stack_trace,
-        )
+        ) from cause
 
 
 @dataclass(frozen=True)
@@ -470,7 +524,7 @@ class OperationUpdate:
             result["Name"] = self.name
         if self.sub_type:
             result["SubType"] = self.sub_type.value
-        if self.payload:
+        if self.payload is not None:
             result["Payload"] = self.payload
         if self.error:
             result["Error"] = self.error.to_dict()
@@ -562,7 +616,7 @@ class OperationUpdate:
     def create_context_succeed(
         cls,
         identifier: OperationIdentifier,
-        payload: str,
+        payload: str | None,
         sub_type: OperationSubType,
         context_options: ContextOptions | None = None,
     ) -> OperationUpdate:
@@ -624,7 +678,7 @@ class OperationUpdate:
     # region step
     @classmethod
     def create_step_succeed(
-        cls, identifier: OperationIdentifier, payload: str
+        cls, identifier: OperationIdentifier, payload: str | None
     ) -> OperationUpdate:
         """Create an instance of OperationUpdate for type: STEP, action: SUCCEED."""
         return cls(
@@ -692,7 +746,7 @@ class OperationUpdate:
     def create_invoke_start(
         cls,
         identifier: OperationIdentifier,
-        payload: str,
+        payload: str | None,
         chained_invoke_options: ChainedInvokeOptions,
     ) -> OperationUpdate:
         """Create an instance of OperationUpdate for type: INVOKE, action: START."""
@@ -726,7 +780,7 @@ class OperationUpdate:
 
     @classmethod
     def create_wait_for_condition_succeed(
-        cls, identifier: OperationIdentifier, payload: str
+        cls, identifier: OperationIdentifier, payload: str | None
     ) -> OperationUpdate:
         """Create an instance of OperationUpdate for type: STEP, action: SUCCEED."""
         return cls(
@@ -743,7 +797,7 @@ class OperationUpdate:
     def create_wait_for_condition_retry(
         cls,
         identifier: OperationIdentifier,
-        payload: str,
+        payload: str | None,
         next_attempt_delay_seconds: int,
     ) -> OperationUpdate:
         """Create an instance of OperationUpdate for type: STEP, action: RETRY."""
@@ -1061,7 +1115,8 @@ class CheckpointUpdatedExecutionState:
 class CheckpointOutput:
     """Representation of the CheckpointDurableExecutionOutput structure of the DEX CheckpointDurableExecution API."""
 
-    checkpoint_token: str
+    # None on the terminal checkpoint that ends the execution.
+    checkpoint_token: str | None
     new_execution_state: CheckpointUpdatedExecutionState
 
     @classmethod
@@ -1084,8 +1139,7 @@ class CheckpointOutput:
             new_execution_state = CheckpointUpdatedExecutionState()
 
         return cls(
-            # TODO: maybe should throw if empty?
-            checkpoint_token=data.get("CheckpointToken", ""),
+            checkpoint_token=data.get("CheckpointToken"),
             new_execution_state=new_execution_state,
         )
 
@@ -1176,6 +1230,11 @@ class LambdaClient(DurableServiceClient):
         updates: list[OperationUpdate],
         client_token: str | None,
     ) -> CheckpointOutput:
+        # A checkpoint token is required. Raise a clear, retryable error (so the
+        # invocation re-drives) rather than letting the client reject an empty
+        # value with an opaque validation error.
+        if not checkpoint_token:
+            raise CheckpointError("Cannot checkpoint without a checkpoint token.")
         try:
             optional_params: dict[str, str] = {}
             if client_token is not None:
@@ -1205,6 +1264,13 @@ class LambdaClient(DurableServiceClient):
         next_marker: str,
         max_items: int = 1000,
     ) -> StateOutput:
+        # A checkpoint token is required. Raise a clear, retryable error (so the
+        # invocation re-drives) rather than letting the client reject an empty
+        # value with an opaque validation error.
+        if not checkpoint_token:
+            raise GetExecutionStateError(
+                "Cannot get execution state without a checkpoint token."
+            )
         try:
             result: GetDurableExecutionStateResponseTypeDef = (
                 self.client.get_durable_execution_state(

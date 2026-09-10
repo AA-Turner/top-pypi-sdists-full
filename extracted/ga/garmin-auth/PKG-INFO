@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: garmin-auth
-Version: 0.3.0
+Version: 0.4.0
 Summary: Self-healing Garmin Connect authentication with 2FA/MFA support, token refresh, and rate limit recovery
 Project-URL: Homepage, https://github.com/drkostas/garmin-auth
 Project-URL: Repository, https://github.com/drkostas/garmin-auth

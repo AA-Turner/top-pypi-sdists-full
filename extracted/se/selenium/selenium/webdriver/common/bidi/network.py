@@ -507,8 +507,8 @@ class Network:
         body: Any | None = None,
         cookies: list[Any] | None = None,
         headers: list[Any] | None = None,
-        method: Any | None = None,
-        url: Any | None = None,
+        method: str | None = None,
+        url: str | None = None,
     ):
         """Execute network.continueRequest"""
         if request is None:
@@ -533,7 +533,7 @@ class Network:
         cookies: list[Any] | None = None,
         credentials: Any | None = None,
         headers: list[Any] | None = None,
-        reason_phrase: Any | None = None,
+        reason_phrase: str | None = None,
         status_code: Any | None = None,
     ):
         """Execute network.continueResponse"""
@@ -628,7 +628,7 @@ class Network:
         body: Any | None = None,
         cookies: list[Any] | None = None,
         headers: list[Any] | None = None,
-        reason_phrase: Any | None = None,
+        reason_phrase: str | None = None,
         status_code: Any | None = None,
     ):
         """Execute network.provideResponse"""

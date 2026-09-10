@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gs_quant
-Version: 2.1.12
+Version: 2.1.14
 Summary: Goldman Sachs Quant
 Author-email: Goldman Sachs <developer@gs.com>
 License: Apache-2.0
@@ -21,7 +21,7 @@ Requires-Dist: aenum
 Requires-Dist: backoff
 Requires-Dist: cachetools
 Requires-Dist: certifi
-Requires-Dist: dataclasses_json
+Requires-Dist: dataclasses_json>=0.6.5
 Requires-Dist: deprecation
 Requires-Dist: inflection
 Requires-Dist: lmfit

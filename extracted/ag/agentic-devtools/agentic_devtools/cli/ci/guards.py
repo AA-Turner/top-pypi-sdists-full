@@ -10,12 +10,606 @@ import logging
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from hmac import compare_digest
+from pathlib import Path
+from typing import Any, cast
 
+from agentic_devtools.cli.ci.dispatch_state import (
+    DispatchIdentity,
+    DispatchRecord,
+    DispatchState,
+    _attempt_capability_digest,
+    load_dispatch_record,
+)
 from agentic_devtools.cli.ci.models import COPILOT_COMMENT_LOGINS, EventPayload, IssueCommentInfo
 from agentic_devtools.cli.ci.provider import CIPlatformProvider
 
 logger = logging.getLogger(__name__)
+DISPATCH_CONTRACT_MARKER = "<!-- agdt:ref:sub-dedup-ordering -->"
+_ITERATION_EXHAUSTED = object()
+_ALIAS_CONFLICT = object()
+
+
+def canonical_dispatch_token(
+    identity_or_repo: DispatchIdentity | str,
+    pull_request_id: int | None = None,
+    sha: str | None = None,
+    ordinal: int | None = None,
+) -> str:
+    """Return the canonical correlation token for a dispatch identity."""
+    if isinstance(identity_or_repo, DispatchIdentity):
+        if any(value is not None for value in (pull_request_id, sha, ordinal)):
+            raise ValueError("identity and individual identity fields cannot be combined")
+        return identity_or_repo.token
+    if any(value is None for value in (pull_request_id, sha, ordinal)):
+        raise ValueError("all dispatch identity fields are required")
+    assert pull_request_id is not None and sha is not None and ordinal is not None
+    return DispatchIdentity(identity_or_repo, pull_request_id, sha, ordinal).token
+
+
+def validate_dispatch_identity(repo: str, pull_request_id: int, sha: str, ordinal: int) -> DispatchIdentity:
+    """Validate and normalize the immutable identity used by dispatch state."""
+    return DispatchIdentity(repo, pull_request_id, sha, ordinal)
+
+
+def build_dispatch_marker_comment(identity: DispatchIdentity, content: str = "") -> str:
+    """Build a byte-zero contract marker containing the identity token."""
+    if not isinstance(content, str):
+        raise ValueError("marker content must be a string")
+    identity = validate_dispatch_identity(
+        identity.repo,
+        identity.pull_request_id,
+        identity.sha,
+        identity.ordinal,
+    )
+    suffix = f"\n\n{content}" if content else ""
+    return f"{DISPATCH_CONTRACT_MARKER}\n{identity.token}{suffix}"
+
+
+def build_task_prompt_header(identity: DispatchIdentity) -> str:
+    """Return the structured first line used for task correlation."""
+    identity = validate_dispatch_identity(
+        identity.repo,
+        identity.pull_request_id,
+        identity.sha,
+        identity.ordinal,
+    )
+    return f"agdt-dispatch-token: {identity.token}"
+
+
+def assert_task_creation_allowed(path: Path, record: DispatchRecord) -> bool:
+    """Fail closed unless the persisted creating record still matches a local capability."""
+    record.validate()
+    if not isinstance(record.attempt_capability, str) or not record.attempt_capability:
+        raise ValueError("task creation requires a non-replayable local attempt capability")
+    digest = _attempt_capability_digest(record.attempt_capability)
+    persisted = load_dispatch_record(path, record.identity)
+    if (
+        persisted is None
+        or persisted.to_dict() != record.to_dict()
+        or persisted.state is not DispatchState.CREATING
+        or persisted.marker_comment_id is None
+        or persisted.attempt_capability_digest is None
+        or not compare_digest(persisted.attempt_capability_digest, digest)
+    ):
+        raise ValueError("task creation requires a durably persisted creating marker")
+    return True
+
+
+def append_task_link_idempotently(path: Path, identity: DispatchIdentity, body: str, task_id: str) -> str:
+    """Append exactly one Agent Task link for a durably persisted created record."""
+    if not isinstance(body, str):
+        raise ValueError("comment body must be a string")
+    if not isinstance(task_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", task_id):
+        raise ValueError("task_id must be a non-empty safe identifier")
+    identity = DispatchIdentity(identity.repo, identity.pull_request_id, identity.sha, identity.ordinal)
+    record = load_dispatch_record(path, identity)
+    if record is None or record.state is not DispatchState.CREATED or record.task_id != task_id:
+        raise ValueError("task link edit requires a durably persisted created record")
+    link = f"#agent-task-{task_id}"
+    if any(line.strip() == link for line in body.splitlines()):
+        return body
+    return f"{body}\n\n{link}"
+
+
+@dataclass(frozen=True)
+class ReconciliationResult:
+    """Bounded result of reconciling uncertain task or marker writes."""
+
+    outcome: str
+    task_id: str | None = None
+    marker_comment_id: int | None = None
+    evidence: dict[str, Any] | None = None
+
+
+def _candidate_scope(candidate: dict[str, Any]) -> tuple[str | None, int | None]:
+    def _normalize_repo(value: object) -> str | None:
+        def _valid_segment(segment: str) -> bool:
+            return bool(segment) and segment not in {".", ".."}
+
+        if not isinstance(value, str):
+            return None
+        if value.count("/") == 1:
+            owner, repository = value.split("/", 1)
+            if not (_valid_segment(owner) and _valid_segment(repository)):
+                return None
+            value = repository
+        elif "/" in value:
+            return None
+        if not _valid_segment(value):
+            return None
+        return value.lower()
+
+    def _normalize_pr(value: object) -> int | None:
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None
+        return value
+
+    repo_values = [candidate.get(key) for key in ("repo", "repository", "repository_name") if key in candidate]
+    repo_candidates = {_normalize_repo(value) for value in repo_values}
+    if None in repo_candidates:
+        return None, None
+    if len(repo_candidates) > 1:
+        return None, None
+    repo = next(iter(repo_candidates), None)
+
+    pr_values = [
+        candidate.get(key) for key in ("pull_request_id", "pr_number", "pull_request_number") if key in candidate
+    ]
+    if "pull_request" in candidate:
+        nested = candidate.get("pull_request")
+        if not isinstance(nested, dict):
+            return None, None
+        nested_pr_values = [nested.get(key) for key in ("number", "id") if key in nested]
+        if not nested_pr_values:
+            return None, None
+        pr_values.extend(nested_pr_values)
+
+    pr_candidates = {_normalize_pr(value) for value in pr_values}
+    if None in pr_candidates:
+        return None, None
+    if len(pr_candidates) > 1:
+        return None, None
+    pr = next(iter(pr_candidates), None)
+
+    if repo is None or pr is None:
+        return None, None
+    return repo, pr
+
+
+def _has_exact_prompt_header(prompt: object, token: str) -> bool:
+    if not isinstance(prompt, str):
+        return False
+    first_line = prompt.splitlines()[0] if prompt.splitlines() else ""
+    pattern = rf"(?:agdt-dispatch-token|agdt:dispatch|dispatch-token)\s*[:=]\s*{re.escape(token)}"
+    return bool(re.fullmatch(pattern, first_line))
+
+
+def _comment_author_login(comment: dict[str, Any]) -> object:
+    author_aliases: list[object] = []
+    if "author" in comment:
+        author = comment.get("author")
+        if isinstance(author, dict):
+            if "login" not in author:
+                return _ALIAS_CONFLICT
+            author_aliases.append(author.get("login"))
+        else:
+            author_aliases.append(author)
+    if "author_login" in comment:
+        author_aliases.append(comment.get("author_login"))
+    if "user" in comment:
+        user = comment.get("user")
+        if not isinstance(user, dict) or "login" not in user:
+            return _ALIAS_CONFLICT
+        author_aliases.append(user.get("login"))
+    if not author_aliases:
+        return None
+    normalized_aliases: list[str] = []
+    for alias in author_aliases:
+        if not isinstance(alias, str) or not alias.strip():
+            return _ALIAS_CONFLICT
+        normalized_aliases.append(alias.casefold())
+    if len(set(normalized_aliases)) != 1:
+        return _ALIAS_CONFLICT
+    return normalized_aliases[0]
+
+
+def _consistent_present_aliases(mapping: dict[str, Any], keys: tuple[str, ...]) -> object:
+    def _typed_json_equal(left: object, right: object) -> bool:
+        if type(left) is not type(right):
+            return False
+        if isinstance(left, dict):
+            right_dict = cast(dict[object, object], right)
+            if left.keys() != right_dict.keys():
+                return False
+            return all(_typed_json_equal(left[key], right_dict[key]) for key in left)
+        if isinstance(left, list):
+            right_list = cast(list[object], right)
+            if len(left) != len(right_list):
+                return False
+            return all(_typed_json_equal(left_item, right_item) for left_item, right_item in zip(left, right_list))
+        return left == right
+
+    aliases = [mapping.get(key) for key in keys if key in mapping]
+    if not aliases:
+        return None
+    value = aliases[0]
+    if any(not _typed_json_equal(alias, value) for alias in aliases[1:]):
+        return _ALIAS_CONFLICT
+    return value
+
+
+_MAX_RECONCILIATION_FOLLOW_UPS = 32
+
+
+def _page_parts(page: object) -> tuple[list[dict[str, Any]], bool, bool]:
+    """Return tasks, explicit completion, and an invalid/partial flag."""
+    if not isinstance(page, dict):
+        return [], False, True
+    invalid = False
+    authorized_raw = page.get("authorized")
+    if "authorized" in page:
+        if not isinstance(authorized_raw, bool):
+            invalid = True
+        elif authorized_raw is False:
+            invalid = True
+    partial_raw = page.get("partial")
+    if "partial" in page:
+        if not isinstance(partial_raw, bool):
+            invalid = True
+        elif partial_raw is True:
+            invalid = True
+    truncated_raw = page.get("truncated")
+    if "truncated" in page:
+        if not isinstance(truncated_raw, bool):
+            invalid = True
+        elif truncated_raw is True:
+            invalid = True
+    status_values: dict[str, int] = {}
+    for status_key in ("status", "status_code"):
+        if status_key not in page:
+            continue
+        status_raw = page.get(status_key)
+        if isinstance(status_raw, bool) or not isinstance(status_raw, int) or not 200 <= status_raw <= 299:
+            invalid = True
+            continue
+        status_values[status_key] = status_raw
+    if (
+        "status" in status_values
+        and "status_code" in status_values
+        and status_values["status"] != status_values["status_code"]
+    ):
+        invalid = True
+    task_aliases = [page.get(key) for key in ("tasks", "items", "data") if key in page]
+    if not task_aliases:
+        return [], False, True
+    normalized_aliases: list[list[dict[str, Any]]] = []
+    for alias in task_aliases:
+        normalized = alias
+        if isinstance(normalized, dict):
+            nested_aliases = [normalized.get(key) for key in ("tasks", "items", "data") if key in normalized]
+            if not nested_aliases:
+                return [], False, True
+            normalized = nested_aliases[0]
+            nested_alias_mapping = {str(index): alias for index, alias in enumerate(nested_aliases)}
+            nested_alias_keys = tuple(nested_alias_mapping)
+            if _consistent_present_aliases(nested_alias_mapping, nested_alias_keys) is _ALIAS_CONFLICT:
+                invalid = True
+        if not isinstance(normalized, list) or any(not isinstance(task, dict) for task in normalized):
+            return [], False, True
+        normalized_aliases.append(normalized)
+    raw_tasks = normalized_aliases[0]
+    task_alias_mapping = {str(index): alias for index, alias in enumerate(normalized_aliases)}
+    task_alias_keys = tuple(task_alias_mapping)
+    if _consistent_present_aliases(task_alias_mapping, task_alias_keys) is _ALIAS_CONFLICT:
+        invalid = True
+    pagination_keys = ("has_more", "next", "next_url", "next_token", "continuation", "is_last")
+    has_pagination = any(key in page for key in pagination_keys)
+    has_more = page.get("has_more")
+    page_dict = cast(dict[str, Any], page)
+    continuation = None
+    continuation_aliases = [
+        page_dict.get(key) for key in ("next", "next_url", "next_token", "continuation") if key in page_dict
+    ]
+    if continuation_aliases:
+        continuation = continuation_aliases[0]
+        if any(type(alias) is not type(continuation) or alias != continuation for alias in continuation_aliases[1:]):
+            invalid = True
+    is_last_raw = page.get("is_last")
+    is_last = is_last_raw if isinstance(is_last_raw, bool) else None
+    if "is_last" in page and is_last is None:
+        invalid = True
+    if "has_more" in page and not isinstance(has_more, bool):
+        invalid = True
+    if is_last is True and (has_more is True or continuation is not None):
+        invalid = True
+    if is_last is False:
+        if has_more is False:
+            invalid = True
+        elif continuation is None and has_more is not True:
+            invalid = True
+    explicit_end = (
+        has_more is False
+        or is_last is True
+        or (has_pagination and continuation is None and has_more is not True and is_last is not False)
+    )
+    if has_more is True and continuation is None:
+        invalid = True
+    if has_more is False and continuation is not None:
+        invalid = True
+    return raw_tasks, explicit_end, invalid
+
+
+def reconcile_uncertain_dispatch(
+    identity: DispatchIdentity,
+    pages: Iterable[object] | Callable[[object | None], object],
+) -> ReconciliationResult:
+    """Reconcile an uncertain task write using every complete page of results.
+
+    Only a structured first-line prompt header is correlated. Missing pagination
+    termination, malformed pages, authorization failures, and scope ambiguity
+    are deliberately incomplete rather than misses.
+    """
+    identity = DispatchIdentity(identity.repo, identity.pull_request_id, identity.sha, identity.ordinal)
+    matches: set[str] = set()
+    invalid = False
+    page_count = 0
+    scope_attested = False
+    continuation: object | None = None
+    callable_source_invalid = False
+    callable_source = callable(pages)
+    max_pages = _MAX_RECONCILIATION_FOLLOW_UPS + 1
+
+    source: Iterator[object]
+    if callable_source:
+        page_fetcher = cast(Callable[[object | None], object], pages)
+        seen_continuations: set[tuple[str, str]] = set()
+
+        def page_source() -> Iterator[object]:
+            nonlocal callable_source_invalid, continuation
+            while True:
+                try:
+                    page = page_fetcher(continuation)
+                except Exception:
+                    callable_source_invalid = True
+                    return
+                yield page
+                _, explicit_end, page_invalid = _page_parts(page)
+                if page_invalid or explicit_end:
+                    return
+                page_dict = cast(dict[str, Any], page)
+                continuation_aliases = [
+                    page_dict.get(key) for key in ("next", "next_url", "next_token", "continuation") if key in page_dict
+                ]
+                continuation = continuation_aliases[0] if continuation_aliases else None
+                if continuation is None:
+                    return
+                if isinstance(continuation, bool) or not isinstance(continuation, (str, int)):
+                    callable_source_invalid = True
+                    return
+                continuation_key = (type(continuation).__name__, str(continuation))
+                if continuation_key in seen_continuations or len(seen_continuations) >= _MAX_RECONCILIATION_FOLLOW_UPS:
+                    callable_source_invalid = True
+                    return
+                seen_continuations.add(continuation_key)
+
+        source = page_source()
+    elif isinstance(pages, dict):
+        source = iter((pages,))
+    else:
+        source = iter(cast(Iterable[object], pages))
+
+    explicit_end = False
+    try:
+        for page in source:
+            page_count += 1
+            if page_count > max_pages:
+                invalid = True
+                break
+            tasks, explicit_end, page_invalid = _page_parts(page)
+            invalid = invalid or page_invalid
+            page_dict = cast(dict[str, Any], page) if isinstance(page, dict) else None
+            if page_dict is not None:
+                page_scope_keys = (
+                    "repo",
+                    "repository",
+                    "repository_name",
+                    "pull_request_id",
+                    "pr_number",
+                    "pull_request_number",
+                    "pull_request",
+                )
+                if any(key in page_dict for key in page_scope_keys):
+                    page_repo, page_pr = _candidate_scope(page_dict)
+                    if page_repo != identity.repo or page_pr != identity.pull_request_id:
+                        invalid = True
+                    else:
+                        scope_attested = True
+            for candidate in tasks:
+                prompt = candidate.get("prompt")
+                if not isinstance(prompt, str):
+                    invalid = True
+                    continue
+                repo, pr = _candidate_scope(candidate)
+                if not _has_exact_prompt_header(prompt, identity.token):
+                    if repo == identity.repo and pr == identity.pull_request_id:
+                        scope_attested = True
+                    continue
+                if repo != identity.repo or pr != identity.pull_request_id:
+                    invalid = True
+                    continue
+                scope_attested = True
+                task_id = _consistent_present_aliases(candidate, ("id", "task_id"))
+                if task_id is _ALIAS_CONFLICT:
+                    invalid = True
+                    continue
+                if not isinstance(task_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", task_id):
+                    invalid = True
+                    continue
+                matches.add(task_id)
+            if explicit_end:
+                break
+    except Exception:
+        invalid = True
+
+    if explicit_end and not callable_source:
+        try:
+            trailing_page = next(source, _ITERATION_EXHAUSTED)
+        except Exception:
+            invalid = True
+            page_count += 1
+        else:
+            if trailing_page is not _ITERATION_EXHAUSTED:
+                invalid = True
+                page_count += 1
+
+    invalid = invalid or callable_source_invalid
+    complete = bool(page_count and explicit_end and not invalid)
+    evidence = {"pages": page_count, "matches": len(matches), "scope_attested": scope_attested}
+    if not complete:
+        return ReconciliationResult("incomplete", evidence=evidence)
+    if len(matches) == 1:
+        return ReconciliationResult("unique_match", task_id=next(iter(matches)), evidence=evidence)
+    if len(matches) > 1:
+        return ReconciliationResult("ambiguous", evidence=evidence)
+    if not scope_attested:
+        return ReconciliationResult("incomplete", evidence=evidence)
+    return ReconciliationResult("complete_miss", evidence=evidence)
+
+
+def _as_dispatch_tasks_from_comments(
+    identity: DispatchIdentity,
+    comments: object,
+    *,
+    dispatch_login: str = "",
+) -> list[dict[str, Any]] | object:
+    if isinstance(comments, dict):
+        comments = comments.get("comments", comments.get("items", []))
+    if not isinstance(comments, list):
+        return comments
+
+    def _comment_id_as_task_id(comment: dict[str, Any]) -> object:
+        comment_id = _consistent_present_aliases(comment, ("id", "comment_id"))
+        if isinstance(comment_id, bool):
+            return _ALIAS_CONFLICT
+        if isinstance(comment_id, int) and comment_id > 0:
+            return str(comment_id)
+        return _ALIAS_CONFLICT
+
+    def _invalid_matching_comment(comment: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": _comment_id_as_task_id(comment),
+            "repo": "invalid/repo/shape",
+            "pull_request_id": identity.pull_request_id,
+            "prompt": f"agdt-dispatch-token: {identity.token}",
+        }
+
+    tasks: list[dict[str, Any]] = []
+    for comment in comments:
+        if not isinstance(comment, dict):
+            return comments
+        body = comment.get("body")
+        if not isinstance(body, str):
+            tasks.append(_invalid_matching_comment(comment))
+            continue
+        prompt = ""
+        marker_prefix = f"{DISPATCH_CONTRACT_MARKER}\n"
+        if body.startswith(marker_prefix) and body[len(marker_prefix) :].split("\n", 1)[0] == identity.token:
+            if not dispatch_login:
+                tasks.append(_invalid_matching_comment(comment))
+                continue
+            author_login = _comment_author_login(comment)
+            if author_login is _ALIAS_CONFLICT or author_login is None:
+                tasks.append(_invalid_matching_comment(comment))
+                continue
+            if author_login == dispatch_login.casefold():
+                prompt = f"agdt-dispatch-token: {identity.token}"
+        tasks.append(
+            {
+                "id": _comment_id_as_task_id(comment),
+                "repo": identity.repo,
+                "pull_request_id": identity.pull_request_id,
+                "prompt": prompt,
+            }
+        )
+    return tasks
+
+
+def reconcile_uncertain_marker_comment(
+    identity: DispatchIdentity,
+    pages: Iterable[object] | Callable[[object | None], object],
+    *,
+    dispatch_login: str = "",
+) -> ReconciliationResult:
+    """Reconcile an uncertain marker write from paginated PR issue comments.
+
+    Only marker comments authored by ``dispatch_login`` are eligible matches.
+    A canonical token without an authenticated expected author is incomplete,
+    while spoofed comments from other authors are ignored as misses.
+    """
+    identity = DispatchIdentity(identity.repo, identity.pull_request_id, identity.sha, identity.ordinal)
+
+    def map_page(page: object) -> object:
+        if not isinstance(page, dict):
+            return page
+        mapped = dict(page)
+        mapped.setdefault("repo", identity.repo)
+        mapped.setdefault("pull_request_id", identity.pull_request_id)
+        comment_aliases = [page.get(key) for key in ("comments", "items", "data") if key in page]
+        if not comment_aliases:
+            mapped["tasks"] = "invalid-comment-alias-conflict"
+            return mapped
+        normalized_aliases: list[object] = []
+        for alias in comment_aliases:
+            normalized = alias
+            if isinstance(normalized, dict):
+                nested_aliases = [normalized.get(key) for key in ("comments", "items", "data") if key in normalized]
+                if not nested_aliases:
+                    mapped["tasks"] = "invalid-comment-alias-conflict"
+                    return mapped
+                normalized = nested_aliases[0]
+                nested_alias_mapping = {str(index): alias for index, alias in enumerate(nested_aliases)}
+                nested_alias_keys = tuple(nested_alias_mapping)
+                if _consistent_present_aliases(nested_alias_mapping, nested_alias_keys) is _ALIAS_CONFLICT:
+                    mapped["tasks"] = "invalid-comment-alias-conflict"
+                    return mapped
+            normalized_aliases.append(normalized)
+        raw_comments = normalized_aliases[0]
+        comment_alias_mapping = {str(index): alias for index, alias in enumerate(normalized_aliases)}
+        comment_alias_keys = tuple(comment_alias_mapping)
+        if _consistent_present_aliases(comment_alias_mapping, comment_alias_keys) is _ALIAS_CONFLICT:
+            mapped["tasks"] = "invalid-comment-alias-conflict"
+            return mapped
+        mapped["tasks"] = _as_dispatch_tasks_from_comments(identity, raw_comments, dispatch_login=dispatch_login)
+        mapped.pop("items", None)
+        mapped.pop("data", None)
+        return mapped
+
+    mapped_pages: Iterable[object] | Callable[[object | None], object]
+    if callable(pages):
+
+        def mapped_pages(continuation: object | None) -> object:
+            return map_page(pages(continuation))
+    elif isinstance(pages, dict):
+        mapped_pages = (map_page(pages),)
+    else:
+        mapped_pages = (map_page(page) for page in pages)
+    result = reconcile_uncertain_dispatch(identity, mapped_pages)
+    evidence = dict(result.evidence or {})
+    evidence["operation"] = "marker"
+    marker_comment_id = None
+    if result.outcome == "unique_match":
+        marker_comment_id_raw = result.task_id
+        if not isinstance(marker_comment_id_raw, str):
+            return ReconciliationResult("incomplete", evidence=evidence)
+        if not re.fullmatch(r"[1-9][0-9]*", marker_comment_id_raw):
+            return ReconciliationResult("incomplete", evidence=evidence)
+        marker_comment_id = int(marker_comment_id_raw)
+    return ReconciliationResult(result.outcome, marker_comment_id=marker_comment_id, evidence=evidence)
+
 
 # Privileged path prefixes that trigger the guard
 PRIVILEGED_PREFIXES = (
@@ -72,7 +666,7 @@ def build_conflict_repair_marker(*, base_sha: str, head_sha: str) -> str:
     Returns:
         HTML comment string suitable for embedding in a PR comment body.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     return f"<!-- agdt:conflict-repair:{base_sha}:{head_sha}:{now} -->"
 
 
@@ -90,8 +684,8 @@ def _parse_iso8601_timestamp_guard(timestamp: str) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def should_dispatch_conflict_repair(
@@ -189,7 +783,7 @@ def should_dispatch_conflict_repair(
         )
         return True
 
-    current_time = now if now is not None else datetime.now(timezone.utc)
+    current_time = now if now is not None else datetime.now(UTC)
     age_minutes = (current_time - marker_time).total_seconds() / 60
     if age_minutes >= ttl_minutes:
         logger.info(
@@ -472,7 +1066,7 @@ def is_duplicate_trigger(
     if newest_marker_time is None:
         return False
 
-    current_time = now if now is not None else datetime.now(timezone.utc)
+    current_time = now if now is not None else datetime.now(UTC)
     age_minutes = (current_time - newest_marker_time).total_seconds() / 60
     if age_minutes >= ttl_minutes:
         logger.info(
@@ -642,7 +1236,7 @@ def _build_squash_wait_body(
     squash_done: bool,
 ) -> str:
     """Build the full comment body for a squash-wait marker."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     return (
         f"{SQUASH_WAIT_MARKER_PREFIX}"
         f"sha={sha}\n"
@@ -811,7 +1405,7 @@ def delete_squash_wait_marker(
     existing = provider.find_comment(pr_number, SQUASH_WAIT_MARKER_PREFIX)
     if existing is None:
         return
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     completed_body = f"<!-- squash-wait-completed -->\nSquash-wait completed for PR #{pr_number} at {now}"
     provider.update_comment(existing[0], completed_body)
 

@@ -61,12 +61,20 @@ def _github_row(github: Dict[str, Any]) -> List[str]:
     reachable = github.get("reachable")
     detail = str(github.get("detail") or "")
     org = str(github.get("github_org") or "")
+    # **Identity first, type second -- the same way round as every other row.**
+    # This one had them swapped: `GitHub | BrightPowerSoftware` against
+    # `Bright Power (BPAI) | linear`, so the column that named the board named
+    # the *kind* of thing for GitHub, and the type column held an account name.
+    # Two rows of a three-row table disagreeing about what each column means is
+    # the whole cost.
+    name = escape(org) if org else "GitHub"
     if reachable is None:
-        kind = f"[dim]{escape(detail or 'not checked')}[/dim]"
+        kind = f"[dim]github — {escape(detail or 'not checked')}[/dim]"
     elif reachable:
-        kind = escape(org) if org else "github"
+        kind = "github"
     else:
-        kind = f"[red]{escape(detail or 'rejected')}[/red]"
+        kind = f"[red]github — {escape(detail or 'rejected')}[/red]"
+
     # **Both numbers are real here.** The probe has always timed its own round
     # trip and repository discovery has always recorded when it last ran; this
     # row printed a dash over each. A dash beside a row showing `1203ms` reads
@@ -74,7 +82,7 @@ def _github_row(github: Dict[str, Any]) -> List[str]:
     # looked" -- and it was not even that, since both had been measured.
     latency = github.get("latency_ms")
     return [
-        "GitHub",
+        name,
         kind,
         reach_mark(reachable),
         f"{latency}ms" if latency is not None else "[dim]—[/dim]",
@@ -96,8 +104,8 @@ def health_table(health: Dict[str, Any]) -> Table:
     connected = health.get("database") == "connected"
     db_latency = health.get("database_latency_ms")
     table.add_row(
-        "Database",
-        "[dim]innoday[/dim]",
+        "innoday",
+        f"[dim]{escape(str(health.get('database_dialect') or 'database'))}[/dim]",
         reach_mark(connected),
         f"{db_latency}ms" if db_latency is not None else "[dim]—[/dim]",
         # A database is not synced, so this one stays blank on purpose -- it is

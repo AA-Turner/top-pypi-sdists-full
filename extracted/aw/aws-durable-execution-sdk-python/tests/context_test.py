@@ -3,6 +3,8 @@
 import hashlib
 import json
 import random
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
 from unittest.mock import ANY, MagicMock, Mock, patch
 
@@ -11,6 +13,7 @@ import pytest
 from aws_durable_execution_sdk_python.config import (
     CallbackConfig,
     ChildConfig,
+    CompletionConfig,
     Duration,
     InvokeConfig,
     MapConfig,
@@ -26,6 +29,13 @@ from aws_durable_execution_sdk_python.context import (
 )
 from aws_durable_execution_sdk_python.exceptions import (
     CallbackError,
+    CallbackExternalError,
+    CallbackSubmitterError,
+    CallbackTimeoutError,
+    ChildContextError,
+    InvokeError,
+    NonDeterministicExecutionError,
+    StepError,
     SuspendExecution,
     ValidationError,
 )
@@ -37,6 +47,7 @@ from aws_durable_execution_sdk_python.lambda_service import (
     OperationStatus,
     OperationSubType,
     OperationType,
+    StepDetails,
 )
 from aws_durable_execution_sdk_python.plugin import (
     DurableInstrumentationPlugin,
@@ -205,8 +216,14 @@ def test_callback_result_failed():
 
     callback = Callback("callback5", "op5", mock_state)
 
-    with pytest.raises(CallbackError):
+    # A FAILED callback (external SendDurableExecutionCallbackFailure) surfaces
+    # as CallbackExternalError. The external error's own type stays on the
+    # callback operation, and there is no synthetic __cause__.
+    with pytest.raises(CallbackExternalError) as exc_info:
         callback.result()
+    assert exc_info.value.message == "Callback failed"
+    assert isinstance(exc_info.value, CallbackError)
+    assert exc_info.value.__cause__ is None
 
 
 def test_callback_result_not_started():
@@ -264,7 +281,32 @@ def test_callback_result_timed_out():
 
     callback = Callback("callback_timeout", "op_timeout", mock_state)
 
-    with pytest.raises(CallbackError):
+    # A TIMED_OUT callback surfaces as CallbackTimeoutError.
+    with pytest.raises(CallbackTimeoutError) as exc_info:
+        callback.result()
+    assert isinstance(exc_info.value, CallbackError)
+
+
+@pytest.mark.parametrize(
+    "status",
+    [OperationStatus.CANCELLED, OperationStatus.STOPPED],
+)
+def test_callback_result_cancelled_or_stopped_is_external(status):
+    """CANCELLED/STOPPED terminal callbacks surface as CallbackExternalError."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    operation = Operation(
+        operation_id="op_cs",
+        operation_type=OperationType.CALLBACK,
+        status=status,
+        callback_details=CallbackDetails(callback_id="callback_cs"),
+    )
+    mock_result = CheckpointedResult.create_from_operation(operation)
+    mock_state.get_checkpoint_result.return_value = mock_result
+
+    callback = Callback("callback_cs", "op_cs", mock_state)
+
+    with pytest.raises(CallbackExternalError):
         callback.result()
 
 
@@ -561,6 +603,74 @@ def test_step_increments_counter(mock_executor_class):
 
 
 @patch("aws_durable_execution_sdk_python.context.StepOperationExecutor")
+def test_shared_context_allocates_operation_ids_atomically(mock_executor_class):
+    """Concurrent callers cannot retain the same operation ID."""
+    mock_executor_class.return_value.process.return_value = "result"
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    context = create_test_context(state=mock_state)
+    peek_barrier = threading.Barrier(2, timeout=5.0)
+    original_peek = context._peek_next_operation_id  # noqa: SLF001
+
+    def synchronized_peek() -> str:
+        operation_id = original_peek()
+        peek_barrier.wait()
+        return operation_id
+
+    context._peek_next_operation_id = synchronized_peek  # type: ignore[method-assign]  # noqa: SLF001
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(context.step, lambda _step_context: "unused")
+            for _ in range(2)
+        ]
+        assert [future.result(timeout=5.0) for future in futures] == [
+            "result",
+            "result",
+        ]
+
+    operation_ids = [
+        call.kwargs["operation_identifier"].operation_id
+        for call in mock_executor_class.call_args_list
+    ]
+    assert len(operation_ids) == 2
+    assert len(set(operation_ids)) == 2
+
+
+def test_operation_replay_aware_looks_up_allocated_operation_id():
+    """Replay lookup uses the atomically reserved ID instead of peeking again."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    mock_state.get_checkpoint_result.return_value = (
+        CheckpointedResult.create_not_found()
+    )
+    context = DurableContext(
+        state=mock_state,
+        execution_context=ExecutionContext(
+            durable_execution_arn=mock_state.durable_execution_arn
+        ),
+        replay_status=ReplayStatus.REPLAY,
+    )
+    context._peek_next_checkpoint = Mock(  # type: ignore[method-assign]  # noqa: SLF001
+        side_effect=AssertionError("must look up the reserved operation ID")
+    )
+
+    with context._operation_replay_aware(  # noqa: SLF001
+        OperationSubType.STEP,
+        "current-step",
+    ) as operation_identifier:
+        assert context._step_counter.get_current() == 1  # noqa: SLF001
+
+    mock_state.get_checkpoint_result.assert_called_once_with(
+        operation_identifier.operation_id
+    )
+
+
+@patch("aws_durable_execution_sdk_python.context.StepOperationExecutor")
 def test_step_with_original_name(mock_executor_class):
     """Test step with callable that has _original_name attribute."""
     mock_executor = MagicMock()
@@ -644,7 +754,7 @@ def test_invoke_with_name_and_config(mock_executor_class):
     mock_state.durable_execution_arn = (
         "arn:aws:durable:us-east-1:123456789012:execution/test"
     )
-    config = InvokeConfig[str, str](timeout=Duration.from_seconds(30))
+    config = InvokeConfig[str, str]()
 
     context = create_test_context(state=mock_state)
     [context._create_step_id() for _ in range(5)]  # Set counter to 5 # noqa: SLF001
@@ -790,7 +900,6 @@ def test_invoke_with_custom_serdes(mock_executor_class):
     config = InvokeConfig[dict, dict](
         serdes_payload=payload_serdes,
         serdes_result=result_serdes,
-        timeout=Duration.from_minutes(1),
     )
 
     context = create_test_context(state=mock_state)
@@ -1011,7 +1120,11 @@ def test_run_in_child_context_basic(mock_handler):
     call_args = mock_handler.call_args
     assert call_args[1]["state"] is mock_state
     assert call_args[1]["operation_identifier"] == OperationIdentifier(
-        expected_operation_id, OperationSubType.RUN_IN_CHILD_CONTEXT, None, None
+        expected_operation_id,
+        OperationSubType.RUN_IN_CHILD_CONTEXT,
+        None,
+        None,
+        operation_type=OperationType.CONTEXT,
     )
     assert call_args[1]["config"] is None
 
@@ -1027,7 +1140,7 @@ def test_run_in_child_context_with_name_and_config(mock_handler):
     mock_callable = Mock()
     mock_callable._original_name = "original_function"  # noqa: SLF001
 
-    config = ChildConfig()
+    config = ChildConfig(sub_type=OperationSubType.STEP)
 
     context = create_test_context(state=mock_state)
     [context._create_step_id() for _ in range(3)]  # Set counter to 3 # noqa: SLF001
@@ -1041,7 +1154,11 @@ def test_run_in_child_context_with_name_and_config(mock_handler):
     assert result == "configured_child_result"
     call_args = mock_handler.call_args
     assert call_args[1]["operation_identifier"] == OperationIdentifier(
-        expected_id, OperationSubType.RUN_IN_CHILD_CONTEXT, None, "original_function"
+        expected_id,
+        OperationSubType.STEP,
+        None,
+        "original_function",
+        operation_type=OperationType.CONTEXT,
     )
     assert call_args[1]["config"] is config
 
@@ -1074,7 +1191,11 @@ def test_run_in_child_context_with_parent_id(mock_executor_class):
 
     call_args = mock_executor_class.call_args
     assert call_args[1]["operation_identifier"] == OperationIdentifier(
-        expected_id, OperationSubType.RUN_IN_CHILD_CONTEXT, "parent456", None
+        expected_id,
+        OperationSubType.RUN_IN_CHILD_CONTEXT,
+        "parent456",
+        None,
+        operation_type=OperationType.CONTEXT,
     )
 
 
@@ -1139,12 +1260,20 @@ def test_run_in_child_context_increments_counter(mock_executor_class):
     assert mock_executor_class.call_args_list[0][1][
         "operation_identifier"
     ] == OperationIdentifier(
-        expected_id1, OperationSubType.RUN_IN_CHILD_CONTEXT, None, None
+        expected_id1,
+        OperationSubType.RUN_IN_CHILD_CONTEXT,
+        None,
+        None,
+        operation_type=OperationType.CONTEXT,
     )
     assert mock_executor_class.call_args_list[1][1][
         "operation_identifier"
     ] == OperationIdentifier(
-        expected_id2, OperationSubType.RUN_IN_CHILD_CONTEXT, None, None
+        expected_id2,
+        OperationSubType.RUN_IN_CHILD_CONTEXT,
+        None,
+        None,
+        operation_type=OperationType.CONTEXT,
     )
 
 
@@ -1294,6 +1423,86 @@ def test_wait_for_callback_passes_child_context(mock_executor_class):
 
         assert result == "handler_result"
         mock_executor_class.assert_called_once()
+
+
+# region wait_for_callback error translation
+
+
+def _child_context_error_with_cause(cause: BaseException) -> ChildContextError:
+    """Build the ChildContextError that run_in_child_context raises, inner on __cause__.
+
+    Same shape on first run and replay (reconstructed from the FAILED checkpoint).
+    """
+    error = ChildContextError("child context failed")
+    error.__cause__ = cause
+    return error
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        CallbackError("internal callback failure"),
+        CallbackExternalError("callback failed"),
+        CallbackTimeoutError("callback timed out"),
+    ],
+)
+def test_wait_for_callback_passes_callback_errors_through(inner):
+    """Any CallbackError-family failure passes through wait_for_callback unchanged."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    context = create_test_context(state=mock_state)
+
+    with patch.object(
+        DurableContext,
+        "run_in_child_context",
+        side_effect=_child_context_error_with_cause(inner),
+    ):
+        with pytest.raises(CallbackError) as exc_info:
+            context.wait_for_callback(Mock())
+    assert exc_info.value is inner
+
+
+def test_wait_for_callback_translates_submitter_step_failure():
+    """A failed submitter step (StepError inner) becomes CallbackSubmitterError."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    context = create_test_context(state=mock_state)
+
+    inner = StepError("submitter blew up", data="payload", stack_trace=["frame"])
+    with patch.object(
+        DurableContext,
+        "run_in_child_context",
+        side_effect=_child_context_error_with_cause(inner),
+    ):
+        with pytest.raises(CallbackSubmitterError) as exc_info:
+            context.wait_for_callback(Mock())
+    # The original StepError is preserved as the cause, and its data/stack_trace
+    # carry onto the CallbackSubmitterError.
+    assert exc_info.value.__cause__ is inner
+    assert "submitter blew up" in str(exc_info.value)
+    assert exc_info.value.data == "payload"
+    assert exc_info.value.stack_trace == ["frame"]
+
+
+def test_wait_for_callback_reraises_unrelated_child_context_error():
+    """A non-callback, non-step failure re-raises the original ChildContextError."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    context = create_test_context(state=mock_state)
+
+    inner = InvokeError("nested invoke failed")
+    child_error = _child_context_error_with_cause(inner)
+    with patch.object(
+        DurableContext,
+        "run_in_child_context",
+        side_effect=child_error,
+    ):
+        with pytest.raises(ChildContextError) as exc_info:
+            context.wait_for_callback(Mock())
+    assert exc_info.value is child_error
+
+
+# endregion wait_for_callback error translation
 
 
 # endregion wait_for_callback
@@ -1723,7 +1932,9 @@ def test_context_map_handler_call():
     with patch(
         "aws_durable_execution_sdk_python.context.map_handler"
     ) as mock_map_handler:
-        mock_map_handler.return_value = Mock()
+        # The wrapping child context round-trips this result, so it must be
+        # serializable.
+        mock_map_handler.return_value = {"result": "value"}
 
         with patch.object(context, "run_in_child_context") as mock_run_in_child:
             # Set up the mock to call the nested function
@@ -1739,6 +1950,51 @@ def test_context_map_handler_call():
 
             # Verify map_handler was called (line 283)
             mock_map_handler.assert_called_once()
+
+
+@patch("aws_durable_execution_sdk_python.context.child_handler")
+def test_context_map_min_successful_greater_than_total_raises_bare(
+    mock_child_handler,
+):
+    """ctx.map validates min_successful before the child context starts.
+
+    The error is a bare ValidationError (not a checkpointed operation
+    failure wrapped in ChildContextError), matching wait and
+    wait_for_condition validation.
+    """
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    context = create_test_context(state=mock_state)
+
+    with pytest.raises(ValidationError, match="min_successful cannot be greater"):
+        context.map(
+            [1, 2],
+            lambda ctx, item, idx, items: item,
+            config=MapConfig(completion_config=CompletionConfig(min_successful=3)),
+        )
+    # No operation started: the child context was never entered.
+    mock_child_handler.assert_not_called()
+
+
+@patch("aws_durable_execution_sdk_python.context.child_handler")
+def test_context_parallel_min_successful_greater_than_total_raises_bare(
+    mock_child_handler,
+):
+    """ctx.parallel validates min_successful before the child context starts."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    context = create_test_context(state=mock_state)
+
+    with pytest.raises(ValidationError, match="min_successful cannot be greater"):
+        context.parallel(
+            [lambda ctx: 1],
+            config=ParallelConfig(completion_config=CompletionConfig(min_successful=2)),
+        )
+    mock_child_handler.assert_not_called()
 
 
 def test_context_parallel_handler_call():
@@ -1764,7 +2020,9 @@ def test_context_parallel_handler_call():
     with patch(
         "aws_durable_execution_sdk_python.context.parallel_handler"
     ) as mock_parallel_handler:
-        mock_parallel_handler.return_value = Mock()
+        # The wrapping child context round-trips this result, so it must be
+        # serializable.
+        mock_parallel_handler.return_value = {"result": "value"}
 
         with patch.object(context, "run_in_child_context") as mock_run_in_child:
             # Set up the mock to call the nested function
@@ -2085,7 +2343,7 @@ def test_should_use_step_id_prefix_when_generating_step_ids():
     )
     expected_prefixed = hashlib.blake2b(b"branch-op-1").hexdigest()[:64]
 
-    assert virtual._create_step_id_for_logical_step(1) == expected_prefixed  # noqa: SLF001
+    assert virtual._create_step_id_for_logical_step(1) == expected_prefixed
 
 
 def test_should_use_parent_id_as_step_prefix_when_non_virtual():
@@ -2112,7 +2370,7 @@ def test_should_use_parent_id_as_step_prefix_when_non_virtual():
     )
     expected = hashlib.blake2b(b"parent-op-1").hexdigest()[:64]
 
-    assert non_virtual._create_step_id_for_logical_step(1) == expected  # noqa: SLF001
+    assert non_virtual._create_step_id_for_logical_step(1) == expected
     assert non_virtual.is_virtual is False
 
 
@@ -2166,7 +2424,7 @@ def test_should_create_virtual_child_with_none_parent_when_parent_is_root():
     assert child.is_virtual is True
 
     expected = hashlib.blake2b(b"child-op-1").hexdigest()[:64]
-    assert child._create_step_id_for_logical_step(1) == expected  # noqa: SLF001
+    assert child._create_step_id_for_logical_step(1) == expected
 
 
 def test_should_propagate_outer_parent_id_when_virtual_is_nested_in_virtual():
@@ -2211,7 +2469,37 @@ def test_should_propagate_outer_parent_id_when_virtual_is_nested_in_virtual():
     # own operation id; they must not leak the outer ancestor into the
     # step-id namespace.
     expected = hashlib.blake2b(b"inner-branch-op-1").hexdigest()[:64]
-    assert inner_branch._create_step_id_for_logical_step(1) == expected  # noqa: SLF001
+    assert inner_branch._create_step_id_for_logical_step(1) == expected
+
+
+def test_flat_branch_rejects_nested_inner_checkpoint_parent():
+    """Changing NESTED to FLAT keeps the inner id but changes its parent."""
+    branch_id = "branch-op"
+    inner_id = hashlib.blake2b(f"{branch_id}-1".encode()).hexdigest()[:64]
+    checkpoint = Operation(
+        operation_id=inner_id,
+        operation_type=OperationType.STEP,
+        status=OperationStatus.SUCCEEDED,
+        parent_id=branch_id,
+        sub_type=OperationSubType.STEP,
+        name="inner-step",
+        step_details=StepDetails(result=json.dumps("cached")),
+    )
+    state = _replay_state({inner_id: checkpoint})
+    executor_context = DurableContext(
+        state=state,
+        execution_context=ExecutionContext(
+            durable_execution_arn=state.durable_execution_arn
+        ),
+        parent_id="parallel-op",
+        replay_status=ReplayStatus.REPLAY,
+    )
+    flat_branch = executor_context.create_child_context(branch_id, is_virtual=True)
+
+    with pytest.raises(NonDeterministicExecutionError, match="parent_id"):
+        flat_branch.step(lambda _ctx: "must-not-run", name="inner-step")
+
+    state.close()
 
 
 # endregion Virtual-context identity tests
@@ -2519,8 +2807,8 @@ def test_replay_aware_stays_replaying_between_two_completed_ops():
         replay_status=ReplayStatus.REPLAY,
     )
     # Both the wrapped op and the following op already completed.
-    first_id = ctx._create_step_id_for_logical_step(1)  # noqa: SLF001
-    second_id = ctx._create_step_id_for_logical_step(2)  # noqa: SLF001
+    first_id = ctx._create_step_id_for_logical_step(1)
+    second_id = ctx._create_step_id_for_logical_step(2)
     ctx.state._operations[first_id] = _step_op(  # noqa: SLF001
         first_id, OperationStatus.SUCCEEDED
     )
@@ -2561,8 +2849,8 @@ def test_replay_aware_terminal_non_success_op_stays_replaying(terminal_status):
     )
     # op1: terminal-but-not-succeeded/failed (e.g. a handled invoke/callback timeout).
     # op2: a completed step that ran after it.
-    first_id = ctx._create_step_id_for_logical_step(1)  # noqa: SLF001
-    second_id = ctx._create_step_id_for_logical_step(2)  # noqa: SLF001
+    first_id = ctx._create_step_id_for_logical_step(1)
+    second_id = ctx._create_step_id_for_logical_step(2)
     ctx.state._operations[first_id] = Operation(  # noqa: SLF001
         operation_id=first_id,
         operation_type=OperationType.CHAINED_INVOKE,
@@ -2618,8 +2906,8 @@ def test_replay_aware_step_stays_replaying_for_completed_op():
         replay_status=ReplayStatus.REPLAY,
     )
     # Wrapped op completed; a following op also completed so nothing flips.
-    first_id = ctx._create_step_id_for_logical_step(1)  # noqa: SLF001
-    second_id = ctx._create_step_id_for_logical_step(2)  # noqa: SLF001
+    first_id = ctx._create_step_id_for_logical_step(1)
+    second_id = ctx._create_step_id_for_logical_step(2)
     ctx.state._operations[first_id] = _step_op(  # noqa: SLF001
         first_id, OperationStatus.SUCCEEDED
     )
@@ -2705,6 +2993,64 @@ def test_replay_aware_does_not_emit_replay_hook_when_not_replaying():
     assert emitted == []
 
 
+@pytest.mark.parametrize(
+    ("checkpoint_status", "updated"),
+    [
+        (OperationStatus.STARTED, False),
+        (OperationStatus.SUCCEEDED, True),
+    ],
+)
+def test_operation_identity_is_validated_before_replay_hooks(
+    checkpoint_status: OperationStatus,
+    updated: bool,
+):
+    """Mismatched history fails before replay/update plugin hooks are dispatched."""
+    captured: list[str] = []
+
+    class _CapturingPlugin(DurableInstrumentationPlugin):
+        def on_operation_start(self, info):
+            captured.append(f"start:{info.operation_id}")
+
+        def on_operation_end(self, info):
+            captured.append(f"end:{info.operation_id}")
+
+    plugin_executor = PluginExecutor(plugins=[_CapturingPlugin()])
+    step_body_calls: list[bool] = []
+    with plugin_executor.run():
+        state = ExecutionState(
+            durable_execution_arn="arn",
+            initial_checkpoint_token="token",  # noqa: S106
+            operations={},
+            service_client=Mock(),
+            plugin_executor=plugin_executor,
+            updated_operation_ids=[],
+        )
+        ctx = DurableContext(
+            state=state,
+            execution_context=ExecutionContext(durable_execution_arn="arn"),
+            replay_status=ReplayStatus.REPLAY,
+        )
+        next_id = ctx._peek_next_operation_id()  # noqa: SLF001
+        state._operations[next_id] = Operation(  # noqa: SLF001
+            operation_id=next_id,
+            operation_type=OperationType.WAIT,
+            status=checkpoint_status,
+            sub_type=OperationSubType.WAIT,
+            name="stale-wait",
+        )
+        if updated:
+            state._updated_operation_ids.add(next_id)  # noqa: SLF001
+
+        with pytest.raises(NonDeterministicExecutionError):
+            ctx.step(
+                lambda _step_context: step_body_calls.append(True),
+                name="current-step",
+            )
+
+    assert captured == []
+    assert step_body_calls == []
+
+
 def test_replay_aware_emits_update_hook_for_operation_updated_since_last_invocation():
     """Updated terminal operations emit operation_end, not replay start+end."""
     captured: list[tuple[str, str, bool, OperationStatus]] = []
@@ -2769,8 +3115,8 @@ def test_replay_aware_updated_callback_with_following_op_stays_replaying():
             execution_context=ExecutionContext(durable_execution_arn="arn"),
             replay_status=ReplayStatus.REPLAY,
         )
-        callback_id = ctx._create_step_id_for_logical_step(1)  # noqa: SLF001
-        following_id = ctx._create_step_id_for_logical_step(2)  # noqa: SLF001
+        callback_id = ctx._create_step_id_for_logical_step(1)
+        following_id = ctx._create_step_id_for_logical_step(2)
         state._operations[callback_id] = _callback_op(  # noqa: SLF001
             callback_id, OperationStatus.SUCCEEDED
         )

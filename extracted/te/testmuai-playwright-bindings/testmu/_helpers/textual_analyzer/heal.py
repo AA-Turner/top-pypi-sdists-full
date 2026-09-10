@@ -93,7 +93,7 @@ async def run_heal(
             bid = structured.index_to_backend_id.get(i)
             if bid is None:
                 return None
-            enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": bid})
+            enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": bid}, page=page)
             loc = (enriched or {}).get("locator")
             if not loc:
                 return None

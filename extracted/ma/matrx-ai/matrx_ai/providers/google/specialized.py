@@ -18,6 +18,7 @@ from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from matrx_ai.providers.google.google_client import get_google_client
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 if TYPE_CHECKING:
     from matrx_ai.catalog.models import ResolvedCallProfile
@@ -293,7 +294,8 @@ class GoogleBackgroundInteractionRuntime:
             warnings.filterwarnings(
                 "ignore", message="Interactions usage is experimental.*", category=UserWarning
             )
-            result = await get_google_client().aio.interactions.create(**kwargs)
+            _create = get_google_client().aio.interactions.create
+            result = await _create(**route_undeclared_params(_create, kwargs, provider="google"))
         return _json_safe(result)
 
     async def get(self, interaction_id: str) -> dict[str, Any]:

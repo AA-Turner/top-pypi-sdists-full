@@ -2,7 +2,9 @@ use tower_lsp::lsp_types::{DidChangeWatchedFilesParams, FileChangeType};
 
 use crate::{
     backend::Backend,
-    workspace_config::{WorkspaceConfig, get_workspace_configs, is_workspace_target},
+    workspace_config::{
+        WorkspaceConfig, get_workspace_configs, is_workspace_ignored, is_workspace_target,
+    },
     workspace_diagnostic::upsert_document_source,
 };
 
@@ -23,6 +25,42 @@ pub async fn handle_did_change_watched_files(
         let uri: tombi_uri::Uri = change.uri.clone().into();
 
         log::debug!("detected {:?} via watcher: {}", change.typ, uri);
+
+        if matches!(
+            change.typ,
+            FileChangeType::CREATED | FileChangeType::CHANGED
+        ) {
+            if workspace_configs.is_none() {
+                workspace_configs = Some(get_workspace_configs(backend).await.unwrap_or_default());
+            }
+
+            if is_workspace_ignored(&uri, workspace_configs.as_deref().unwrap_or(&[])) {
+                backend.wait_for_document_open(&uri).await;
+                let mut document_sources = backend.document_sources.write().await;
+                if document_sources
+                    .get(&uri)
+                    .is_none_or(|source| source.version.is_none())
+                {
+                    log::debug!("clear watcher diagnostics for ignored file: {uri}");
+                    document_sources.remove(&uri);
+                    backend
+                        .workspace_diagnostics_cache
+                        .write()
+                        .await
+                        .untrack(&uri);
+
+                    if backend.is_diagnostic_mode_push().await {
+                        backend
+                            .client
+                            .publish_diagnostics(change.uri, Vec::new(), None)
+                            .await;
+                    } else {
+                        should_refresh_pull_diagnostics = true;
+                    }
+                    continue;
+                }
+            }
+        }
 
         match change.typ {
             FileChangeType::DELETED => {

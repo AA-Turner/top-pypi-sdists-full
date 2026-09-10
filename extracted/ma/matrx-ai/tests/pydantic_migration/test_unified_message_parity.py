@@ -25,6 +25,7 @@ _FIELDS = (
     "status",
     "is_visible_to_model",
     "metadata",
+    "user_content",
     "position",
 )
 

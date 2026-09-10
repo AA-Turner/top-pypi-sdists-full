@@ -43,7 +43,9 @@ pub use crate::{
     lexed_str::LexedStr,
     // output::{Output, Step},
     shortcuts::StrStep,
-    syntax_kind::SyntaxKind,
+    syntax_kind::{
+        SyntaxKind, is_col_name_keyword, is_reserved_keyword, is_type_func_name_keyword,
+    },
 };
 
 use crate::input::Input;
@@ -466,7 +468,7 @@ impl<'t> Parser<'t> {
             TrivaBetween::NotAllowed => {
                 return tokens_match
                     && self.inp.is_joint(self.pos + n)
-                    && self.next_not_joined_op(n + 1);
+                    && self.next_not_joined_op_at(n, n + 1);
             }
         }
     }
@@ -491,7 +493,14 @@ impl<'t> Parser<'t> {
             && self.inp.kind(self.pos + n + 3) == k4
     }
 
-    fn next_not_joined_op(&self, n: usize) -> bool {
+    fn next_not_joined_op(&self) -> bool {
+        self.next_not_joined_op_at(0, 0)
+    }
+
+    fn next_not_joined_op_at(&self, start: usize, n: usize) -> bool {
+        if !self.nth_at_ts(start, OPERATOR_FIRST) {
+            return true;
+        }
         // next isn't an operator so we know we're not joined to it
         if !self.nth_at_ts(n + 1, OPERATOR_FIRST) {
             return true;
@@ -500,18 +509,24 @@ impl<'t> Parser<'t> {
         if !self.inp.is_joint(self.pos + n) {
             return true;
         }
-        self.op_len() == n + 1
+        self.op_len_at(start) == n + 1 - start
     }
 
     fn op_len(&self) -> usize {
-        if !self.at_ts(OPERATOR_FIRST) {
+        self.op_len_at(0)
+    }
+
+    fn op_len_at(&self, start: usize) -> usize {
+        if !self.nth_at_ts(start, OPERATOR_FIRST) {
             return 0;
         }
 
         let mut len = 1;
-        let mut has_special = self.at_ts(SPECIAL_OP_CHARS);
-        while self.inp.is_joint(self.pos + len - 1) && self.nth_at_ts(len, OPERATOR_FIRST) {
-            has_special |= self.nth_at_ts(len, SPECIAL_OP_CHARS);
+        let mut has_special = self.nth_at_ts(start, SPECIAL_OP_CHARS);
+        while self.inp.is_joint(self.pos + start + len - 1)
+            && self.nth_at_ts(start + len, OPERATOR_FIRST)
+        {
+            has_special |= self.nth_at_ts(start + len, SPECIAL_OP_CHARS);
             len += 1;
         }
 
@@ -519,7 +534,7 @@ impl<'t> Parser<'t> {
         // special char.
         // This means `2*-3` parses as `2 * -3`.
         if !has_special {
-            while len > 1 && self.nth_at_ts(len - 1, OPERATOR_SIGN) {
+            while len > 1 && self.nth_at_ts(start + len - 1, OPERATOR_SIGN) {
                 len -= 1;
             }
         }

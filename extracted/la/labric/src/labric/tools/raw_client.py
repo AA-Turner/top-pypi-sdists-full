@@ -60,6 +60,10 @@ class RawToolsClient:
         UUID4), and optional dry-run validation. A job execution is created
         automatically if one is not provided.
 
+        Core tables are writable only if they appear in the write allowlist. Tables
+        that describe the organization itself, such as organizationmember, are
+        read-only and can only be reached through the read tool.
+
         Requires an API key with the `write` scope.
 
         Parameters
@@ -68,7 +72,7 @@ class RawToolsClient:
             The name of the table to write to.
 
         target_type : LabricWriteSchemaTargetType
-            The type of target. Currently 'table' or 'core-table'.
+            The type of target. Currently 'table' or 'core-table'. Only some core tables are writable. Tables describing the organization, such as organizationmember, are read-only.
 
         data : typing.Sequence[typing.Dict[str, typing.Any]]
             List of record dicts to write.
@@ -239,7 +243,7 @@ class RawToolsClient:
             The type of target. Either 'table' or 'core-table'.
 
         filters : typing.Optional[typing.Dict[str, typing.Any]]
-            Key-value filters to apply to the query. Omit to match all records.
+            Key-value filters to apply to the query. Omit to match all records. A key may follow a foreign key onto another readable table, as in instrument_type__name; tables the read tool does not return are not traversable.
 
         mode : typing.Optional[LabricReadSchemaMode]
             'single' returns exactly one record and throws an error if more than one matching record exists, 'multiple' returns all matches.
@@ -782,6 +786,10 @@ class AsyncRawToolsClient:
         UUID4), and optional dry-run validation. A job execution is created
         automatically if one is not provided.
 
+        Core tables are writable only if they appear in the write allowlist. Tables
+        that describe the organization itself, such as organizationmember, are
+        read-only and can only be reached through the read tool.
+
         Requires an API key with the `write` scope.
 
         Parameters
@@ -790,7 +798,7 @@ class AsyncRawToolsClient:
             The name of the table to write to.
 
         target_type : LabricWriteSchemaTargetType
-            The type of target. Currently 'table' or 'core-table'.
+            The type of target. Currently 'table' or 'core-table'. Only some core tables are writable. Tables describing the organization, such as organizationmember, are read-only.
 
         data : typing.Sequence[typing.Dict[str, typing.Any]]
             List of record dicts to write.
@@ -961,7 +969,7 @@ class AsyncRawToolsClient:
             The type of target. Either 'table' or 'core-table'.
 
         filters : typing.Optional[typing.Dict[str, typing.Any]]
-            Key-value filters to apply to the query. Omit to match all records.
+            Key-value filters to apply to the query. Omit to match all records. A key may follow a foreign key onto another readable table, as in instrument_type__name; tables the read tool does not return are not traversable.
 
         mode : typing.Optional[LabricReadSchemaMode]
             'single' returns exactly one record and throws an error if more than one matching record exists, 'multiple' returns all matches.

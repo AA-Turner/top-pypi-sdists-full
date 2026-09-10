@@ -7,22 +7,27 @@ from matrx_ai.tools.vfs.commands import (
     CommandContext,
     VfsCommandRunner,
     all_names,
-    clear,
     fail,
     get,
     is_registered,
     ok,
     register,
 )
+from matrx_ai.tools.vfs.commands.registry import isolated
 from matrx_ai.tools.vfs.core import MatrxAsyncFS
 from matrx_ai.tools.vfs.shell.env import ShellEnv
 
 
 @pytest.fixture
 def fresh_registry():
-    clear()
-    yield
-    clear()
+    """An empty registry for THIS test only — the real one is put back after.
+
+    A bare ``clear()`` teardown left the process-global registry empty for every
+    test that ran afterwards; on 2026-09-09 that took 557 later tests with it as
+    soon as collection order put this module first.
+    """
+    with isolated():
+        yield
 
 
 @pytest.fixture

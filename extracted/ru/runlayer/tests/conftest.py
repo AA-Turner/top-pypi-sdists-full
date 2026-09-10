@@ -186,3 +186,29 @@ def _isolate_browser_extension():
         ),
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _stub_llm_routing_reconcile(request: pytest.FixtureRequest):
+    """Keep MDM-scope command tests off the enterprise routing files.
+
+    The reconcile unroutes on the self-gate and runs the routing step in both
+    branches, so any test driving ``aiwatch setup hooks install --mdm`` would
+    otherwise touch ``/Library/Application Support/ClaudeCode`` and
+    ``/etc/codex`` on the host and post check-ins to example hosts. The
+    dedicated suite opts out with the ``real_llm_routing`` marker.
+    """
+    if request.node.get_closest_marker("real_llm_routing"):
+        yield
+        return
+    with (
+        patch(
+            "runlayer_cli.commands.aiwatch_setup._llm_routing_step",
+            new=lambda _managed, **_kwargs: False,
+        ),
+        patch(
+            "runlayer_cli.commands.aiwatch_setup.unroute",
+            new=lambda **_kwargs: None,
+        ),
+    ):
+        yield

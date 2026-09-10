@@ -719,6 +719,7 @@ class DynamoBackend(str, BaseEnum):
           more](https://github.com/pytorch/xla/blob/r2.0/docs/dynamo.md)
         - **TVM** -- Uses Apache TVM for inference optimizations. [Read more](https://tvm.apache.org/)
         - **HPU_BACKEND** -- Uses HPU backend for inference optimizations.
+        - **NEURON** -- Uses AWS Neuron backend for Trainium/Inferentia.
 
     """
 
@@ -738,6 +739,7 @@ class DynamoBackend(str, BaseEnum):
     TORCHXLA_TRACE_ONCE = "TORCHXLA_TRACE_ONCE"
     TVM = "TVM"
     HPU_BACKEND = "HPU_BACKEND"
+    NEURON = "NEURON"
 
 
 class LoggerType(BaseEnum):
@@ -1150,7 +1152,7 @@ class DeepSpeedPlugin:
             `MixtralSparseMoeBlock`, `Qwen2MoeSparseMoeBlock`, `JetMoEAttention`, `JetMoEBlock`, etc.
         enable_msamp (`bool`, defaults to `None`):
             Flag to indicate whether to enable MS-AMP backend for FP8 training.
-        msasmp_opt_level (`Optional[Literal["O1", "O2"]]`, defaults to `None`):
+        msamp_opt_level (`Optional[Literal["O1", "O2"]]`, defaults to `None`):
             Optimization level for MS-AMP (defaults to 'O1'). Only applicable if `enable_msamp` is True. Should be one
             of ['O1' or 'O2'].
     """
@@ -1790,6 +1792,14 @@ class FullyShardedDataParallelPlugin:
             "for reduced memory usage. Defaults to `False`"
         },
     )
+    activation_checkpointing_offload: bool = field(
+        default=None,
+        metadata={
+            "help": "Whether to offload each checkpointed layer's input activation to pinned CPU memory during the "
+            "forward pass and restore it on demand during the backward pass. Bounds activation memory at long "
+            "sequence lengths. Requires `activation_checkpointing=True` and `fsdp_version=2`. Defaults to `False`"
+        },
+    )
     cpu_ram_efficient_loading: bool = field(
         default=None,
         metadata={
@@ -1949,6 +1959,15 @@ class FullyShardedDataParallelPlugin:
             self.activation_checkpointing = (
                 str_to_bool(os.environ.get(env_prefix + "ACTIVATION_CHECKPOINTING", "False")) == 1
             )
+
+        if self.activation_checkpointing_offload is None:
+            self.activation_checkpointing_offload = (
+                str_to_bool(os.environ.get(env_prefix + "ACTIVATION_CHECKPOINTING_OFFLOAD", "False")) == 1
+            )
+        if self.activation_checkpointing_offload and not self.activation_checkpointing:
+            raise ValueError("`activation_checkpointing_offload=True` requires `activation_checkpointing=True`.")
+        if self.activation_checkpointing_offload and self.fsdp_version != 2:
+            raise ValueError("`activation_checkpointing_offload=True` requires `fsdp_version=2`.")
 
         if self.ignored_modules is None:
             self.ignored_modules = os.environ.get(env_prefix + "IGNORED_MODULES", None)
@@ -2331,7 +2350,7 @@ class MegatronLMPlugin:
             Enable sequence parallelism.
         recompute_activations (`bool`, defaults to `None`):
             Enable selective activation recomputation.
-        use_distributed_optimizr (`bool`, defaults to `None`):
+        use_distributed_optimizer (`bool`, defaults to `None`):
             Enable distributed optimizer.
         pipeline_model_parallel_split_rank (`int`, defaults to `None`):
             Rank where encoder and decoder should be split.

@@ -36,7 +36,7 @@ async def test_web_inner_constraints_reject_before_dispatch(
     )
 
     body_called = False
-    captures: list[str] = []
+    captures: list[dict[str, Any]] = []
 
     async def must_not_run(*_args, **_kwargs):
         nonlocal body_called
@@ -44,7 +44,7 @@ async def test_web_inner_constraints_reject_before_dispatch(
         raise AssertionError("invalid web arguments reached the tool body")
 
     async def capture_spy(**kwargs):
-        captures.append(kwargs["tool_name"])
+        captures.append(kwargs)
 
     definition._callable = must_not_run
     isolated_registry._tools["web"] = definition
@@ -60,7 +60,8 @@ async def test_web_inner_constraints_reject_before_dispatch(
     )
 
     assert body_called is False
-    assert captures == ["web"]
+    assert captures[0]["tool_name"] == "web"
+    assert captures[0]["validation_error"].errors()[0]["type"] == "too_long"
     assert content
     assert result.success is False
     assert result.error is not None
@@ -308,3 +309,60 @@ class TestMustCompleteExecution:
             await execution
 
         assert finished.is_set()
+
+
+async def test_validation_capture_keeps_codes_without_model_content(monkeypatch, app_ctx_set):
+    from pydantic import BaseModel, ValidationError, Field
+    from matrx_ai.tools.executor import _capture_tool_argument_validation_failed
+
+    class Arguments(BaseModel):
+        queries: list[str] = Field(max_length=5)
+
+    with pytest.raises(ValidationError) as failure:
+        Arguments(queries=['private-query-sentinel'] * 10)
+    captured = []
+
+    async def capture_spy(*args, **kwargs):
+        captured.append(kwargs)
+
+    monkeypatch.setattr('matrx_connect.streaming.error_capture.capture_error', capture_spy)
+    await _capture_tool_argument_validation_failed(
+        ctx=_make_ctx(), tool_name='web', validation_error=failure.value,
+    )
+    assert captured[0]['kind'] == 'tool_argument_validation_failed'
+    assert captured[0]['route'] == 'tool_executor.argument_validation'
+    assert captured[0]['error_type'] == 'ToolArgumentValidationError'
+    context = captured[0]['context']
+    assert context['validation_error_count'] == 1
+    assert context['validation_error_codes'] == ['too_long']
+    assert context['validation_error_codes_truncated'] is False
+    assert 'private-query-sentinel' not in str(captured)
+    assert 'queries' not in str(captured)
+
+
+async def test_validation_capture_hides_custom_code_and_message(monkeypatch, app_ctx_set):
+    from pydantic import BaseModel, ValidationError, field_validator
+    from pydantic_core import PydanticCustomError
+    from matrx_ai.tools.executor import _capture_tool_argument_validation_failed
+
+    class Arguments(BaseModel):
+        value: str
+
+        @field_validator('value')
+        @classmethod
+        def refuse(cls, value):
+            raise PydanticCustomError('private-code-sentinel', 'private-message-sentinel')
+
+    with pytest.raises(ValidationError) as failure:
+        Arguments(value='private-input-sentinel')
+    captured = []
+
+    async def capture_spy(*args, **kwargs):
+        captured.append(kwargs)
+
+    monkeypatch.setattr('matrx_connect.streaming.error_capture.capture_error', capture_spy)
+    await _capture_tool_argument_validation_failed(
+        ctx=_make_ctx(), tool_name='web', validation_error=failure.value,
+    )
+    assert captured[0]['context']['validation_error_codes'] == ['custom_validation']
+    assert 'sentinel' not in str(captured)

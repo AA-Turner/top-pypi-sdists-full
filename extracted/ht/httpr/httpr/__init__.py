@@ -29,11 +29,11 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from collections.abc import AsyncIterator, Generator
+from collections.abc import AsyncIterator, Generator, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from functools import partial
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, TypeVar
 
 if sys.version_info <= (3, 11):
     from typing_extensions import Unpack
@@ -41,11 +41,20 @@ else:
     from typing import Unpack
 
 
-from .httpr import CaseInsensitiveHeaderMap, RClient, Response, StreamingResponse
+from .httpr import (
+    _CLIENT_CLOSED_MSG,
+    CaseInsensitiveHeaderMap,
+    ClientClosed,
+    RClient,
+    Response,
+    StreamingResponse,
+)
 
 #: Default number of requests an :class:`AsyncClient` keeps in flight. Threads are
 #: created lazily, so an idle client costs nothing.
 DEFAULT_MAX_CONCURRENCY = 64
+
+_T = TypeVar("_T")
 
 
 class CaseInsensitiveDict(dict[str, str]):
@@ -132,7 +141,7 @@ class _ClientHeaders(CaseInsensitiveDict):
 
 
 if TYPE_CHECKING:
-    from .httpr import ClientRequestParams, HttpMethod, RequestParams
+    from .httpr import ClientRequestParams, HttpMethod, QueryParamTypes, RequestParams
 else:
 
     class _Unpack:
@@ -142,6 +151,7 @@ else:
 
     Unpack = _Unpack()
     RequestParams = ClientRequestParams = TypedDict
+    QueryParamTypes = dict
 
 
 class Client(RClient):
@@ -185,16 +195,20 @@ class Client(RClient):
         headers: Default headers sent with all requests. Excludes Cookie header.
         cookies: Default cookies sent with all requests.
         auth: Basic auth credentials as (username, password) tuple.
-        params: Default query parameters added to all requests.
-        timeout: Default timeout in seconds.
+        params: Default query parameters added to all requests, as a dict; a key
+            given more than once maps to a list of values.
+        timeout: Default timeout in seconds; assigning it applies to the next request.
         proxy: Proxy URL for requests.
     """
 
+    # This signature exists for documentation and IDEs only: the arguments reach
+    # Rust through `RClient.__new__`, whose defaults are the ones applied. The
+    # two are kept in step by tests/unit/test_timeout.py (issue #81).
     def __init__(
         self,
         auth: tuple[str, str | None] | None = None,
         auth_bearer: str | None = None,
-        params: dict[str, str] | None = None,
+        params: QueryParamTypes | None = None,
         headers: dict[str, str] | None = None,
         cookies: dict[str, str] | None = None,
         cookie_store: bool | None = True,
@@ -216,7 +230,10 @@ class Client(RClient):
         Args:
             auth: Basic auth credentials as (username, password). Password can be None.
             auth_bearer: Bearer token for Authorization header.
-            params: Default query parameters to include in all requests.
+            params: Default query parameters to include in all requests. Merged with
+                each request's own `params`; a key the request supplies wins. Values
+                may be str, int, float, bool (sent as `true`/`false`), None (sent
+                empty) or a list/tuple of those (the key is repeated).
             headers: Default headers to send with all requests.
             cookies: Default cookies to send with all requests.
             cookie_store: Enable persistent cookie store. Cookies from responses will be
@@ -224,7 +241,10 @@ class Client(RClient):
             referer: Automatically set Referer header. Default is True.
             proxy: Proxy URL (e.g., "http://proxy:8080" or "socks5://127.0.0.1:1080").
                 Falls back to HTTPR_PROXY environment variable.
-            timeout: Request timeout in seconds. Default is 30.
+            timeout: Timeout in seconds for waiting on the server: for the response
+                headers, then for each chunk of the body. A response that keeps
+                arriving is never cut off, however long it takes. Default is 30;
+                `None` disables the timeout. Raises `ReadTimeout` when exceeded.
             follow_redirects: Follow HTTP redirects. Default is True.
             max_redirects: Maximum redirects to follow. Default is 20.
             verify: Verify SSL certificates. Default is True.
@@ -279,11 +299,18 @@ class Client(RClient):
 
     def __exit__(self, *args):
         """Exit context manager and close client."""
-        del self
+        self.close()
 
     def close(self) -> None:
         """
-        Close the client and release resources.
+        Close the client and release its connection pool.
+
+        Idle pooled connections are shut down before this returns. Requests
+        that are already in flight (including open `stream()` responses) finish
+        normally and keep the pool alive until the last of them completes, at
+        which point it is released. Any request made after `close()` raises
+        `httpr.ClientClosed` (a `RuntimeError`, as in httpx). Calling `close()`
+        more than once is a no-op.
 
         Example:
             ```python
@@ -294,7 +321,7 @@ class Client(RClient):
                 client.close()
             ```
         """
-        del self
+        super().close()
 
     @property
     def headers(self) -> dict[str, str]:
@@ -324,14 +351,20 @@ class Client(RClient):
             **kwargs: Request parameters (see below).
 
         Keyword Args:
-            params (Optional[dict[str, str]]): Query parameters to append to URL.
+            params (Optional[QueryParamTypes]): Query parameters to append to the URL, merged
+                with the client's (the request wins for a key both supply). Values may be
+                str, int, float, bool (sent as `true`/`false`), None (sent empty) or a
+                list/tuple of those, which repeats the key.
             headers (Optional[dict[str, str]]): Request headers (merged with client defaults).
-            cookies (Optional[dict[str, str]]): Request cookies (merged with client defaults).
+            cookies (Optional[dict[str, str]]): Request cookies, merged with the client's into a
+                single `Cookie` header (the request wins for a name both supply).
             auth (Optional[tuple[str, Optional[str]]]): Basic auth credentials (overrides client default).
             auth_bearer (Optional[str]): Bearer token (overrides client default).
-            timeout (Optional[float]): Request timeout in seconds (overrides client default).
+            timeout (Optional[float]): Timeout in seconds for this request, overriding the
+                client's; `None` keeps the client's. See `Client` for what it bounds.
             content (Optional[bytes]): Raw bytes for request body.
             data (Optional[dict[str, Any]]): Form data for request body (application/x-www-form-urlencoded).
+                Values are converted like `params`; a list/tuple repeats the field.
             json (Optional[Any]): JSON data for request body (application/json).
             files (Optional[dict[str, str]]): Files for multipart upload (dict mapping field names to file paths).
 
@@ -353,9 +386,6 @@ class Client(RClient):
         """
         if method not in ["GET", "HEAD", "OPTIONS", "DELETE", "POST", "PUT", "PATCH"]:
             raise ValueError(f"Unsupported HTTP method: {method}")
-        if "params" in kwargs and kwargs["params"] is not None:
-            kwargs["params"] = {k: str(v) for k, v in kwargs["params"].items()}
-
         return super().request(method=method, url=url, **kwargs)
 
     def get(self, url: str, **kwargs: Unpack[RequestParams]) -> Response:
@@ -591,14 +621,202 @@ class Client(RClient):
         """
         if method not in ["GET", "HEAD", "OPTIONS", "DELETE", "POST", "PUT", "PATCH"]:
             raise ValueError(f"Unsupported HTTP method: {method}")
-        if "params" in kwargs and kwargs["params"] is not None:
-            kwargs["params"] = {k: str(v) for k, v in kwargs["params"].items()}
-
         response = super()._stream(method=method, url=url, **kwargs)
         try:
             yield response
         finally:
             response.close()
+
+
+class AsyncStreamingResponse:
+    """
+    The streaming response yielded by `AsyncClient.stream()`.
+
+    Wraps the `StreamingResponse` produced by the Rust core and adds async
+    iteration: `aiter_bytes()`, `aiter_text()`, `aiter_lines()` and `aread()`
+    fetch each chunk on the client's thread pool, so the event loop keeps
+    running other tasks while the server is producing the next one. Status,
+    headers, cookies and URL are available as soon as the context manager is
+    entered, before any of the body has been read.
+
+    The synchronous `iter_bytes()`, `iter_text()`, `iter_lines()` and `read()`
+    are still available, but each step blocks the event loop for as long as the
+    server takes to send the next chunk; use the async variants in async code.
+
+    Example:
+        ```python
+        async with client.stream("GET", "https://example.com/events") as response:
+            async for line in response.aiter_lines():
+                handle(line)
+        ```
+    """
+
+    __slots__ = ("_client", "_response")
+
+    def __init__(self, response: StreamingResponse, client: AsyncClient) -> None:
+        self._response = response
+        self._client = client
+
+    # -- Metadata, available before the body is read ---------------------------
+
+    @property
+    def status_code(self) -> int:
+        """HTTP status code."""
+        return self._response.status_code
+
+    @property
+    def reason_phrase(self) -> str:
+        """Canonical reason phrase for the status code (e.g. "OK")."""
+        return self._response.reason_phrase
+
+    @property
+    def headers(self) -> CaseInsensitiveHeaderMap:
+        """Response headers (case-insensitive access)."""
+        return self._response.headers
+
+    @property
+    def cookies(self) -> dict[str, str]:
+        """Response cookies."""
+        return self._response.cookies
+
+    @property
+    def url(self) -> str:
+        """Final URL after any redirects."""
+        return self._response.url
+
+    @property
+    def is_informational(self) -> bool:
+        """True for 1xx status codes."""
+        return self._response.is_informational
+
+    @property
+    def is_success(self) -> bool:
+        """True for 2xx status codes."""
+        return self._response.is_success
+
+    @property
+    def is_redirect(self) -> bool:
+        """True for 3xx status codes."""
+        return self._response.is_redirect
+
+    @property
+    def is_client_error(self) -> bool:
+        """True for 4xx status codes."""
+        return self._response.is_client_error
+
+    @property
+    def is_server_error(self) -> bool:
+        """True for 5xx status codes."""
+        return self._response.is_server_error
+
+    @property
+    def is_error(self) -> bool:
+        """True for 4xx and 5xx status codes."""
+        return self._response.is_error
+
+    @property
+    def has_redirect_location(self) -> bool:
+        """True for 3xx responses that carry a `Location` header."""
+        return self._response.has_redirect_location
+
+    @property
+    def is_closed(self) -> bool:
+        """Whether the stream has been closed."""
+        return self._response.is_closed
+
+    @property
+    def is_consumed(self) -> bool:
+        """Whether the stream has been fully consumed."""
+        return self._response.is_consumed
+
+    def raise_for_status(self) -> AsyncStreamingResponse:
+        """Raise `HTTPStatusError` on a non-2xx status; returns self on success."""
+        self._response.raise_for_status()
+        return self
+
+    # -- Async body access -----------------------------------------------------
+
+    async def _aiter(self, it: Iterator[_T]) -> AsyncIterator[_T]:
+        # Each `next()` does a blocking read on the Rust side, so it goes through
+        # the client's executor like a request does. `_run_sync_asyncio` maps a
+        # closed client to ClientClosed.
+        sentinel: object = object()
+        while True:
+            item = await self._client._run_sync_asyncio(next, it, sentinel)
+            if item is sentinel:
+                return
+            yield item
+
+    def aiter_bytes(self) -> AsyncIterator[bytes]:
+        """
+        Iterate over the response body as bytes chunks without blocking the event loop.
+
+        Example:
+            ```python
+            async for chunk in response.aiter_bytes():
+                process(chunk)
+            ```
+        """
+        return self._aiter(self._response.iter_bytes())
+
+    def aiter_text(self) -> AsyncIterator[str]:
+        """Iterate over the response body as text chunks, decoded with the response encoding."""
+        return self._aiter(self._response.iter_text())
+
+    def aiter_lines(self) -> AsyncIterator[str]:
+        """
+        Iterate over the response body line by line, e.g. for Server-Sent Events.
+
+        Example:
+            ```python
+            async for line in response.aiter_lines():
+                if line.startswith("data:"):
+                    handle(line[5:].strip())
+            ```
+        """
+        return self._aiter(self._response.iter_lines())
+
+    def __aiter__(self) -> AsyncIterator[bytes]:
+        """`async for chunk in response` is the same as `aiter_bytes()`."""
+        return self.aiter_bytes()
+
+    async def aread(self) -> bytes:
+        """Read the entire remaining response body without blocking the event loop."""
+        return await self._client._run_sync_asyncio(self._response.read)
+
+    async def aclose(self) -> None:
+        """
+        Close the streaming response and release its connection.
+
+        `AsyncClient.stream()` calls this when the `async with` block exits.
+        Closing never waits on I/O, so it runs on the event-loop thread.
+        """
+        self._response.close()
+
+    # -- Synchronous body access (blocks the event loop) -----------------------
+
+    def iter_bytes(self) -> Iterator[bytes]:
+        """Synchronous `aiter_bytes()`; blocks the event loop while waiting for chunks."""
+        return self._response.iter_bytes()
+
+    def iter_text(self) -> Iterator[str]:
+        """Synchronous `aiter_text()`; blocks the event loop while waiting for chunks."""
+        return self._response.iter_text()
+
+    def iter_lines(self) -> Iterator[str]:
+        """Synchronous `aiter_lines()`; blocks the event loop while waiting for chunks."""
+        return self._response.iter_lines()
+
+    def __iter__(self) -> Iterator[bytes]:
+        return self._response.iter_bytes()
+
+    def read(self) -> bytes:
+        """Synchronous `aread()`; blocks the event loop until the body has arrived."""
+        return self._response.read()
+
+    def close(self) -> None:
+        """Synchronous `aclose()`."""
+        self._response.close()
 
 
 class AsyncClient(Client):
@@ -678,9 +896,7 @@ class AsyncClient(Client):
         """
         super().__init__(*args, **kwargs)
         self.max_concurrency = max_concurrency
-        # Threads are created on demand, and ThreadPoolExecutor retires them via a
-        # weakref callback once this client is collected, so there is nothing to
-        # release explicitly and `aclose` stays the no-op it has always been.
+        # Threads are created on demand; `close()`/`aclose()` shut the pool down.
         self._executor = (
             None
             if max_concurrency is None
@@ -693,11 +909,30 @@ class AsyncClient(Client):
 
     async def __aexit__(self, *args):
         """Exit async context manager and close client."""
-        del self
+        await self.aclose()
 
-    async def aclose(self):
+    def close(self) -> None:
+        """
+        Close the client synchronously.
+
+        Releases the connection pool and shuts down this client's thread pool.
+        Prefer `aclose()` from async code; this exists so `AsyncClient` honours
+        the `Client` contract too.
+        """
+        super().close()
+        if self._executor is not None:
+            # Requests still running on the pool keep their handle to the reqwest
+            # client and finish normally; queued ones raise ClientClosed when they
+            # run. Not waiting keeps this safe to call from the event-loop thread.
+            self._executor.shutdown(wait=False)
+
+    async def aclose(self) -> None:
         """
         Close the async client.
+
+        Releases the connection pool and shuts down this client's thread pool.
+        Any request made after `aclose()` raises `httpr.ClientClosed`. Calling it
+        more than once is a no-op.
 
         Example:
             ```python
@@ -708,13 +943,30 @@ class AsyncClient(Client):
                 await client.aclose()
             ```
         """
-        del self
-        return
+        # Runs on the event-loop thread on purpose: closing never waits on I/O
+        # (pending connects are cancelled, not awaited) and takes well under a
+        # millisecond, less than a hop through the executor would cost.
+        self.close()
 
     async def _run_sync_asyncio(self, fn, *args, **kwargs):
         """Run a synchronous function on this client's executor."""
+        if self.is_closed:
+            # Checked here rather than left to the Rust side so a closed client
+            # raises ClientClosed instead of the executor's own "cannot schedule
+            # new futures after shutdown" RuntimeError.
+            raise ClientClosed(_CLIENT_CLOSED_MSG)
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self._executor, partial(fn, *args, **kwargs))
+        try:
+            future = loop.run_in_executor(self._executor, partial(fn, *args, **kwargs))
+        except RuntimeError:
+            # The executor is only ever shut down by close()/aclose(), so if one
+            # landed between the check above and submit (from another thread),
+            # report it as the client being closed rather than leaking the
+            # executor's own error.
+            if self.is_closed:
+                raise ClientClosed(_CLIENT_CLOSED_MSG) from None
+            raise
+        return await future
 
     async def request(  # type: ignore[override]
         self,
@@ -740,9 +992,6 @@ class AsyncClient(Client):
         """
         if method not in ["GET", "HEAD", "OPTIONS", "DELETE", "POST", "PUT", "PATCH"]:
             raise ValueError(f"Unsupported HTTP method: {method}")
-        if "params" in kwargs and kwargs["params"] is not None:
-            kwargs["params"] = {k: str(v) for k, v in kwargs["params"].items()}
-
         return await self._run_sync_asyncio(super().request, method=method, url=url, **kwargs)
 
     async def get(  # type: ignore[override]
@@ -883,12 +1132,14 @@ class AsyncClient(Client):
         method: HttpMethod,
         url: str,
         **kwargs: Unpack[RequestParams],
-    ) -> AsyncIterator[StreamingResponse]:
+    ) -> AsyncIterator[AsyncStreamingResponse]:
         """
         Make an async streaming HTTP request.
 
-        Returns an async context manager that yields a StreamingResponse for
-        iterating over the response body in chunks.
+        Returns an async context manager that yields an `AsyncStreamingResponse`
+        for iterating over the response body in chunks. Status, headers and
+        cookies are available as soon as the block is entered; the body is
+        read as you iterate.
 
         Args:
             method: HTTP method.
@@ -896,29 +1147,32 @@ class AsyncClient(Client):
             **kwargs: Request parameters.
 
         Yields:
-            StreamingResponse: A response object that can be iterated.
+            AsyncStreamingResponse: A response object that can be iterated with
+            `async for`.
 
         Example:
             ```python
             async with client.stream("GET", "https://example.com/large-file") as response:
-                for chunk in response.iter_bytes():
+                async for chunk in response.aiter_bytes():
                     process(chunk)
+
+            async with client.stream("GET", "https://example.com/events") as response:
+                async for line in response.aiter_lines():
+                    handle(line)
             ```
 
         Note:
-            Iteration over the response is synchronous (uses iter_bytes, iter_text,
-            iter_lines). The async part is initiating the request and entering
-            the context manager.
+            `aiter_bytes()`, `aiter_text()`, `aiter_lines()` and `aread()` read
+            each chunk on the client's thread pool, so other tasks keep running
+            while the server is producing data. The synchronous `iter_*()` and
+            `read()` methods are still available but block the event loop.
         """
         if method not in ["GET", "HEAD", "OPTIONS", "DELETE", "POST", "PUT", "PATCH"]:
             raise ValueError(f"Unsupported HTTP method: {method}")
-        if "params" in kwargs and kwargs["params"] is not None:
-            kwargs["params"] = {k: str(v) for k, v in kwargs["params"].items()}
-
         # Run the sync _stream in executor
         response = await self._run_sync_asyncio(super(Client, self)._stream, method=method, url=url, **kwargs)
         try:
-            yield response
+            yield AsyncStreamingResponse(response, self)
         finally:
             response.close()
 
@@ -1174,6 +1428,7 @@ __all__ = [
     # Response classes
     "Response",
     "StreamingResponse",
+    "AsyncStreamingResponse",
     "CaseInsensitiveHeaderMap",
     # Base exceptions
     "HTTPError",
@@ -1206,6 +1461,8 @@ __all__ = [
     "ResponseNotRead",
     "RequestNotRead",
     "StreamClosed",
+    # Client lifecycle exceptions
+    "ClientClosed",
     "InvalidURL",
     "CookieConflict",
 ]

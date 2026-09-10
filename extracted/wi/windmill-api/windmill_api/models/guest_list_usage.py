@@ -11,9 +11,12 @@ class GuestListUsage:
     """Guests are free up to `free_allowance` distinct emails over the trailing `window_days`. Past that an Enterprise plan
     meters them (`metered`, four guests to one seat: `billable_guests`, `guest_seats`); every other plan and build
     admits no new email until the count drops. `instance_enabled` is the superadmin switch (`guest_access_disabled`
-    global setting) every workspace switch sits under.
+    global setting) every workspace switch sits under. `available` is whether this deployment can have guests at all:
+    false on the shared cloud, where guest access requires a self-hosted or dedicated deployment, and every other field
+    and switch is then moot.
 
         Attributes:
+            available (bool):
             instance_enabled (bool):
             guest_count (int):
             window_days (int):
@@ -23,6 +26,7 @@ class GuestListUsage:
             guest_seats (int):
     """
 
+    available: bool
     instance_enabled: bool
     guest_count: int
     window_days: int
@@ -33,6 +37,7 @@ class GuestListUsage:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        available = self.available
         instance_enabled = self.instance_enabled
         guest_count = self.guest_count
         window_days = self.window_days
@@ -45,6 +50,7 @@ class GuestListUsage:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "available": available,
                 "instance_enabled": instance_enabled,
                 "guest_count": guest_count,
                 "window_days": window_days,
@@ -60,6 +66,8 @@ class GuestListUsage:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         d = src_dict.copy()
+        available = d.pop("available")
+
         instance_enabled = d.pop("instance_enabled")
 
         guest_count = d.pop("guest_count")
@@ -75,6 +83,7 @@ class GuestListUsage:
         guest_seats = d.pop("guest_seats")
 
         guest_list_usage = cls(
+            available=available,
             instance_enabled=instance_enabled,
             guest_count=guest_count,
             window_days=window_days,

@@ -95,23 +95,26 @@ impl TreeBuilder {
         }
 
         let mut best = None;
-        for start_idx in 0..boundaries.len() {
-            for end_idx in 0..boundaries.len() {
-                if start_idx == end_idx {
-                    continue;
-                }
-                let split = Split::PeriodicInterval {
-                    feature,
-                    period: feature_period,
-                    start: boundaries[start_idx],
-                    end: boundaries[end_idx],
-                    missing_goes_left: true,
-                };
-                merge_best_split(
-                    &mut best,
-                    self.evaluate_split_candidate(split, x, target, weights, indices, parent_sse),
-                );
-            }
+        let candidate_count = boundaries.len() * (boundaries.len() - 1);
+        for position in bounded_candidate_positions(candidate_count, self.max_split_candidates) {
+            let start_idx = position / (boundaries.len() - 1);
+            let offset = position % (boundaries.len() - 1);
+            let end_idx = if offset >= start_idx {
+                offset + 1
+            } else {
+                offset
+            };
+            let split = Split::PeriodicInterval {
+                feature,
+                period: feature_period,
+                start: boundaries[start_idx],
+                end: boundaries[end_idx],
+                missing_goes_left: true,
+            };
+            merge_best_split(
+                &mut best,
+                self.evaluate_split_candidate(split, x, target, weights, indices, parent_sse),
+            );
         }
         best.map(|best| (feature, best))
     }
@@ -618,5 +621,4 @@ impl TreeBuilder {
         materialize_dense_sparse_split(feature, id, x, indices, &mut candidate);
         candidate.map(|candidate| (feature, candidate))
     }
-
 }

@@ -170,8 +170,32 @@ class AiCatalogManager:
                 {
                     "id": str(row.id),
                     "name": getattr(row, "name", "") or "",
+                    "common_name": getattr(row, "common_name", "") or "",
                     "is_deprecated": bool(getattr(row, "is_deprecated", False) or False),
                     "is_primary": bool(getattr(row, "is_primary", False) or False),
+                    # Lifecycle (ai_075): retired_at = the DEAD state (null = alive);
+                    # successor_id = the explicit replacement. provider_id +
+                    # capabilities feed the same-class replacement fallback.
+                    "retired_at": (
+                        str(getattr(row, "retired_at", None))
+                        if getattr(row, "retired_at", None)
+                        else None
+                    ),
+                    "successor_id": (
+                        str(getattr(row, "successor_id", None))
+                        if getattr(row, "successor_id", None)
+                        else None
+                    ),
+                    "provider_id": (
+                        str(getattr(row, "provider_id", None))
+                        if getattr(row, "provider_id", None)
+                        else None
+                    ),
+                    "capabilities": (
+                        dict(getattr(row, "capabilities", None) or {})
+                        if isinstance(getattr(row, "capabilities", None), dict)
+                        else {}
+                    ),
                 }
                 for row in await AiModel.filter(deleted_at=None).all()
             ]
@@ -509,6 +533,12 @@ class AiCatalogManager:
 
     def model_state(self, model_id: str) -> dict[str, Any]:
         return dict(self._model_state.get(str(model_id), {}))
+
+    def model_states(self) -> dict[str, dict[str, Any]]:
+        """Every live model's state row (id -> dict) — the input to
+        ``matrx_ai.catalog.lifecycle`` (deprecated warning / retired refusal /
+        replacement naming)."""
+        return {k: dict(v) for k, v in self._model_state.items()}
 
     def tts_offering(self, vendor: str, quality: str | None) -> CatalogOffering | None:
         target = (quality or "high_quality").strip().lower()

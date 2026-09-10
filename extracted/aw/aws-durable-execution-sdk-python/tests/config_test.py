@@ -1,35 +1,27 @@
 """Unit tests for config module."""
 
-from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock
 
+import pytest
+
 from aws_durable_execution_sdk_python.config import (
-    BatchedInput,
     CallbackConfig,
     ChildConfig,
     CompletionConfig,
+    CompletionDecision,
+    CompletionOutcome,
     Duration,
     InvokeConfig,
-    ItemBatcher,
-    ItemsPerBatchUnit,
     MapConfig,
     ParallelConfig,
     StepConfig,
-    StepFuture,
     StepSemantics,
-    TerminationMode,
 )
+from aws_durable_execution_sdk_python.exceptions import ValidationError
 from aws_durable_execution_sdk_python.waits import (
     WaitForConditionConfig,
     WaitForConditionDecision,
 )
-
-
-def test_batched_input():
-    """Test BatchedInput dataclass."""
-    batch_input = BatchedInput("batch", [1, 2, 3])
-    assert batch_input.batch_input == "batch"
-    assert batch_input.items == [1, 2, 3]
 
 
 def test_completion_config_defaults():
@@ -58,7 +50,7 @@ def test_completion_config_all_completed():
     config = CompletionConfig.all_completed()
     assert config.min_successful is None
     assert config.tolerated_failure_count is None
-    assert config.tolerated_failure_percentage is None
+    assert config.tolerated_failure_percentage == 100
 
 
 def test_completion_config_all_successful():
@@ -67,14 +59,6 @@ def test_completion_config_all_successful():
     assert config.min_successful is None
     assert config.tolerated_failure_count == 0
     assert config.tolerated_failure_percentage == 0
-
-
-def test_termination_mode_enum():
-    """Test TerminationMode enum."""
-    assert TerminationMode.TERMINATE.value == "TERMINATE"
-    assert TerminationMode.CANCEL.value == "CANCEL"
-    assert TerminationMode.WAIT.value == "WAIT"
-    assert TerminationMode.ABANDON.value == "ABANDON"
 
 
 def test_parallel_config_defaults():
@@ -183,35 +167,10 @@ def test_child_config_with_summary_generator():
     assert result == "Summary of test_data"
 
 
-def test_items_per_batch_unit_enum():
-    """Test ItemsPerBatchUnit enum."""
-    assert ItemsPerBatchUnit.COUNT.value == ("COUNT",)
-    assert ItemsPerBatchUnit.BYTES.value == "BYTES"
-
-
-def test_item_batcher_defaults():
-    """Test ItemBatcher default values."""
-    batcher = ItemBatcher()
-    assert batcher.max_items_per_batch == 0
-    assert batcher.max_item_bytes_per_batch == 0
-    assert batcher.batch_input is None
-
-
-def test_item_batcher_with_values():
-    """Test ItemBatcher with custom values."""
-    batcher = ItemBatcher(
-        max_items_per_batch=100, max_item_bytes_per_batch=1024, batch_input="test_input"
-    )
-    assert batcher.max_items_per_batch == 100
-    assert batcher.max_item_bytes_per_batch == 1024
-    assert batcher.batch_input == "test_input"
-
-
 def test_map_config_defaults():
     """Test MapConfig default values."""
     config = MapConfig()
     assert config.max_concurrency is None
-    assert isinstance(config.item_batcher, ItemBatcher)
     assert isinstance(config.completion_config, CompletionConfig)
     assert config.serdes is None
 
@@ -237,44 +196,86 @@ def test_callback_config_with_values():
     assert config.serdes is serdes
 
 
-def test_step_future():
-    """Test StepFuture with Future."""
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(lambda: "test_result")
-        step_future = StepFuture(future, "test_step")
-
-        result = step_future.result()
-        assert result == "test_result"
-
-
-def test_step_future_with_timeout():
-    """Test StepFuture result with timeout."""
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(lambda: "test_result")
-        step_future = StepFuture(future)
-
-        result = step_future.result(timeout_seconds=1)
-        assert result == "test_result"
-
-
-def test_step_future_without_name():
-    """Test StepFuture without name."""
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(lambda: 42)
-        step_future = StepFuture(future)
-
-        result = step_future.result()
-        assert result == 42
-
-
 def test_invoke_config_defaults():
     """Test InvokeConfig defaults."""
     config = InvokeConfig()
     assert config.tenant_id is None
-    assert config.timeout_seconds == 0
 
 
 def test_invoke_config_with_tenant_id():
     """Test InvokeConfig with explicit tenant_id."""
     config = InvokeConfig(tenant_id="test-tenant")
     assert config.tenant_id == "test-tenant"
+
+
+# region Config validation
+
+
+def test_completion_config_rejects_min_successful_below_one():
+    with pytest.raises(ValidationError, match="min_successful must be at least 1"):
+        CompletionConfig(min_successful=0)
+
+
+def test_completion_config_rejects_negative_tolerated_failure_count():
+    with pytest.raises(
+        ValidationError, match="tolerated_failure_count must be non-negative"
+    ):
+        CompletionConfig(tolerated_failure_count=-1)
+
+
+def test_completion_config_rejects_out_of_range_failure_percentage():
+    with pytest.raises(
+        ValidationError, match="tolerated_failure_percentage must be between 0 and 100"
+    ):
+        CompletionConfig(tolerated_failure_percentage=101)
+    with pytest.raises(
+        ValidationError, match="tolerated_failure_percentage must be between 0 and 100"
+    ):
+        CompletionConfig(tolerated_failure_percentage=-0.1)
+
+
+def test_completion_config_accepts_boundary_values():
+    assert CompletionConfig(min_successful=1).min_successful == 1
+    assert CompletionConfig(tolerated_failure_count=0).tolerated_failure_count == 0
+    assert (
+        CompletionConfig(tolerated_failure_percentage=0).tolerated_failure_percentage
+        == 0
+    )
+    assert (
+        CompletionConfig(tolerated_failure_percentage=100).tolerated_failure_percentage
+        == 100
+    )
+
+
+def test_map_config_rejects_max_concurrency_below_one():
+    with pytest.raises(ValidationError, match="max_concurrency must be at least 1"):
+        MapConfig(max_concurrency=0)
+    with pytest.raises(ValidationError, match="max_concurrency must be at least 1"):
+        MapConfig(max_concurrency=-1)
+
+
+def test_parallel_config_rejects_max_concurrency_below_one():
+    with pytest.raises(ValidationError, match="max_concurrency must be at least 1"):
+        ParallelConfig(max_concurrency=0)
+
+
+def test_configs_accept_none_max_concurrency_as_unlimited():
+    assert MapConfig().max_concurrency is None
+    assert ParallelConfig(max_concurrency=1).max_concurrency == 1
+
+
+def test_completion_decision_rejects_complete_without_outcome():
+    with pytest.raises(
+        ValidationError, match="outcome is required when complete is True"
+    ):
+        CompletionDecision(complete=True)
+
+
+def test_completion_decision_rejects_outcome_when_not_complete():
+    with pytest.raises(
+        ValidationError, match="outcome must be None when complete is False"
+    ):
+        CompletionDecision(complete=False, outcome=CompletionOutcome.SUCCEEDED)
+
+
+# endregion Config validation

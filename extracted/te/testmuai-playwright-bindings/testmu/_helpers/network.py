@@ -12,6 +12,27 @@ from testmu._helpers._errors import AssertionFailureError
 
 _log = logging.getLogger("testmu")
 
+# Operand values are captured HAR responses and can run to hundreds of
+# kilobytes; keep the failure message readable.
+_OPERAND_PREVIEW_CHARS = 200
+
+
+def _preview(value: str) -> str:
+    """Render an operand for a failure message: quoted, length-tagged, truncated."""
+    if len(value) <= _OPERAND_PREVIEW_CHARS:
+        return repr(value)
+    return f"{value[:_OPERAND_PREVIEW_CHARS]!r}… ({len(value)} chars)"
+
+
+def _format_failed_leaves(failed_leaves: list) -> str:
+    """Describe each failing comparison by its *resolved* operands."""
+    if not failed_leaves:
+        return "no leaf comparison recorded"
+    return "; ".join(
+        f"{_preview(left)} {op} {_preview(right)}"
+        for op, left, right in failed_leaves
+    )
+
 
 def evaluate_network_assertion(assertion_tree: dict) -> dict:
     """Evaluate a network assertion tree against the current variable store.
@@ -52,7 +73,9 @@ def evaluate_network_assertion(assertion_tree: dict) -> dict:
         parts = path.split('.', 1)
         var_name = parts[0]
         if var_name not in variables:
-            _log.debug("    [network_assertion] var '%s' not found", var_name)
+            # info, not debug: an operand that silently stays a template is the
+            # single most misleading state this evaluator can be in.
+            _log.info("    [network_assertion] var '%s' not found — operand stays unresolved", var_name)
             return operand
         value = variables[var_name]
         if len(parts) > 1:
@@ -60,7 +83,13 @@ def evaluate_network_assertion(assertion_tree: dict) -> dict:
                 if isinstance(value, dict):
                     value = value.get(key, '')
                 else:
-                    _log.debug("    [network_assertion] path '%s' — non-dict at key '%s'", path, key)
+                    # A None here means network_query found nothing and set_var
+                    # stored None, so the operand collapses to ''. Say so at info
+                    # level rather than letting it look like a resolution bug.
+                    _log.info(
+                        "    [network_assertion] path '%s' — %s at key '%s', resolving to ''",
+                        path, "value is None" if value is None else "non-dict", key,
+                    )
                     return ''
         return value
 
@@ -98,20 +127,28 @@ def evaluate_network_assertion(assertion_tree: dict) -> dict:
         else:
             _log.warning("    [network_assertion] unknown operator '%s'", op)
             result = False
+        if not result:
+            failed_leaves.append((op, left_str, right_str))
         return result
 
+    failed_leaves = []
     passed = _evaluate_node(assertion_tree, _variable_store)
     _log.info("    [network_assertion] result=%s", "PASS" if passed else "FAIL")
     result = {"status": "passed" if passed else "failed", "tree": assertion_tree}
 
     if not passed:
+        # Report what the comparison actually compared. The tree still holds the
+        # unresolved {{var}} templates, so a tree-only message reads as though the
+        # operand never resolved when in fact it resolved to '' — which is how an
+        # unreachable HAR service used to present itself (TE-27434).
+        detail = _format_failed_leaves(failed_leaves)
         if os.environ.get("TESTMU_SKIP_ASSERTION_FAILURE"):
             _log.warning(
-                "[ASSERTION WARN] Network assertion failed: %s", assertion_tree,
+                "[ASSERTION WARN] Network assertion failed: %s | %s", detail, assertion_tree,
             )
             return result
         raise AssertionFailureError(
-            f"Network assertion failed: {assertion_tree}", result=result,
+            f"Network assertion failed: {detail}", result=result,
         )
     return result
 
@@ -177,6 +214,8 @@ async def network_query(method, url, index, network_log_id="", polling_interval=
 
     num_tries = 0
     max_tries = int(max_polling_time / polling_interval)
+    poll_failures = 0
+    last_error = None
 
     while num_tries < max_tries:
         num_tries += 1
@@ -233,11 +272,25 @@ async def network_query(method, url, index, network_log_id="", polling_interval=
                                 )
                         return _decode_har_entry(entry)
         except Exception as e:
+            poll_failures += 1
+            last_error = e
             _log.info("    [network_query] polling error: %s", e)
 
         await asyncio.sleep(polling_interval)
 
-    _log.info("    [network_query] no match found after %d attempts", max_tries)
+    if poll_failures == num_tries and num_tries > 0:
+        # Every attempt raised, so the HAR service was never reached. That is a
+        # different failure from "the service answered and had no such request",
+        # and it used to be indistinguishable downstream: both ended as
+        # set_var(name, None) and an operand resolving to '' (TE-27434).
+        _log.error(
+            "    [network_query] HAR service unreachable at %s — all %d attempt(s) failed, "
+            "last error: %s. Network capture is probably not enabled for this run "
+            "(LT:Options.network / NETWORK=true).",
+            _har_base, num_tries, last_error,
+        )
+    else:
+        _log.info("    [network_query] no match found after %d attempts", max_tries)
     return None
 
 

@@ -128,6 +128,7 @@ from .literals import (
     EbuTtDDestinationStyleControlType,
     EbuTtDFillLineGapControlType,
     EmbeddedConvert608To708Type,
+    EmbeddedDestinationStyleControlType,
     EmbeddedScte20DetectionType,
     EventBridgeRuleTemplateEventTypeType,
     FeatureActivationsInputPrepareScheduleActionsType,
@@ -297,6 +298,7 @@ from .literals import (
     NodeConnectionStateType,
     NodeRoleType,
     NodeStateType,
+    OutputUsageType,
     PipelineIdType,
     PipelineLockingMethodType,
     PreferredChannelPipelineType,
@@ -616,6 +618,8 @@ __all__ = (
     "Eac3AtmosSettingsTypeDef",
     "Eac3SettingsTypeDef",
     "EbuTtDDestinationSettingsTypeDef",
+    "EmbeddedCaptionPositionSettingsTypeDef",
+    "EmbeddedDestinationSettingsTypeDef",
     "EmbeddedSourceSettingsTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncoderSettingsOutputTypeDef",
@@ -820,9 +824,11 @@ __all__ = (
     "MediaPackageGroupSettingsOutputTypeDef",
     "MediaPackageGroupSettingsTypeDef",
     "MediaPackageOutputDestinationSettingsTypeDef",
+    "MediaPackageOutputSettingsOutputTypeDef",
     "MediaPackageOutputSettingsTypeDef",
     "MediaPackageV2AbWatermarkerIrdetoSettingsOutputTypeDef",
     "MediaPackageV2AbWatermarkerIrdetoSettingsTypeDef",
+    "MediaPackageV2DestinationSettingsOutputTypeDef",
     "MediaPackageV2DestinationSettingsTypeDef",
     "MediaPackageV2GroupSettingsOutputTypeDef",
     "MediaPackageV2GroupSettingsTypeDef",
@@ -1006,6 +1012,7 @@ __all__ = (
     "SuccessfulMonitorDeploymentTypeDef",
     "TeletextSourceSettingsTypeDef",
     "TemporalFilterSettingsTypeDef",
+    "TextCaptionPositionSettingsTypeDef",
     "ThumbnailConfigurationTypeDef",
     "ThumbnailDetailTypeDef",
     "ThumbnailTypeDef",
@@ -1271,12 +1278,6 @@ class EbuTtDDestinationSettingsTypeDef(TypedDict):
     StyleControl: NotRequired[EbuTtDDestinationStyleControlType]
     DefaultFontSize: NotRequired[int]
     DefaultLineHeight: NotRequired[int]
-
-class TtmlDestinationSettingsTypeDef(TypedDict):
-    StyleControl: NotRequired[TtmlDestinationStyleControlType]
-
-class WebvttDestinationSettingsTypeDef(TypedDict):
-    StyleControl: NotRequired[WebvttDestinationStyleControlType]
 
 class CaptionLanguageMappingTypeDef(TypedDict):
     CaptionChannel: int
@@ -1798,6 +1799,9 @@ DvbSdtSettingsTypeDef = TypedDict(
 class DvbTdtSettingsTypeDef(TypedDict):
     RepInterval: NotRequired[int]
 
+class EmbeddedCaptionPositionSettingsTypeDef(TypedDict):
+    YPositionLine: NotRequired[int]
+
 class FeatureActivationsTypeDef(TypedDict):
     InputPrepareScheduleActions: NotRequired[FeatureActivationsInputPrepareScheduleActionsType]
     OutputStaticImageOverlayScheduleActions: NotRequired[
@@ -2228,11 +2232,19 @@ class MediaPackageOutputDestinationSettingsTypeDef(TypedDict):
     ChannelEndpointId: NotRequired[str]
     MediaPackageRegionName: NotRequired[str]
 
+class MediaPackageV2DestinationSettingsOutputTypeDef(TypedDict):
+    AudioGroupId: NotRequired[str]
+    AudioRenditionSets: NotRequired[str]
+    HlsAutoSelect: NotRequired[HlsAutoSelectType]
+    HlsDefault: NotRequired[HlsDefaultType]
+    OutputUsage: NotRequired[list[OutputUsageType]]
+
 class MediaPackageV2DestinationSettingsTypeDef(TypedDict):
     AudioGroupId: NotRequired[str]
     AudioRenditionSets: NotRequired[str]
     HlsAutoSelect: NotRequired[HlsAutoSelectType]
     HlsDefault: NotRequired[HlsDefaultType]
+    OutputUsage: NotRequired[Sequence[OutputUsageType]]
 
 class MediaResourceNeighborTypeDef(TypedDict):
     Arn: str
@@ -2514,6 +2526,9 @@ class StopInputDeviceRequestTypeDef(TypedDict):
 class StopMultiplexRequestTypeDef(TypedDict):
     MultiplexId: str
 
+class TextCaptionPositionSettingsTypeDef(TypedDict):
+    YPositionPercentage: NotRequired[int]
+
 class ThumbnailTypeDef(TypedDict):
     Body: NotRequired[str]
     ContentType: NotRequired[str]
@@ -2690,10 +2705,12 @@ class AudioCodecSettingsTypeDef(TypedDict):
 class DescribeInferenceSettingsTypeDef(TypedDict):
     FeedArn: NotRequired[str]
     AudioFeedInputs: NotRequired[list[AudioFeedInputTypeDef]]
+    EnrichmentMethods: NotRequired[list[Literal["SCTE35_ELEMENTAL_INFERENCE_QUERY_PARAMS"]]]
 
 class InferenceSettingsTypeDef(TypedDict):
     FeedArn: NotRequired[str]
     AudioFeedInputs: NotRequired[Sequence[AudioFeedInputTypeDef]]
+    EnrichmentMethods: NotRequired[Sequence[Literal["SCTE35_ELEMENTAL_INFERENCE_QUERY_PARAMS"]]]
 
 class AudioOnlyHlsSettingsTypeDef(TypedDict):
     AudioGroupId: NotRequired[str]
@@ -3713,6 +3730,10 @@ class M2tsSettingsTypeDef(TypedDict):
     VideoPid: NotRequired[str]
     Scte35PrerollPullupMilliseconds: NotRequired[float]
 
+class EmbeddedDestinationSettingsTypeDef(TypedDict):
+    Position: NotRequired[EmbeddedCaptionPositionSettingsTypeDef]
+    StyleControl: NotRequired[EmbeddedDestinationStyleControlType]
+
 class ListEventBridgeRuleTemplateGroupsResponseTypeDef(TypedDict):
     EventBridgeRuleTemplateGroups: list[EventBridgeRuleTemplateGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3855,6 +3876,9 @@ class PipelineDetailTypeDef(TypedDict):
     MediaConnectRouterOutputConnectionMap: NotRequired[
         dict[str, MediaConnectRouterOutputConnectionTypeDef]
     ]
+
+class MediaPackageOutputSettingsOutputTypeDef(TypedDict):
+    MediaPackageV2DestinationSettings: NotRequired[MediaPackageV2DestinationSettingsOutputTypeDef]
 
 class MediaPackageOutputSettingsTypeDef(TypedDict):
     MediaPackageV2DestinationSettings: NotRequired[MediaPackageV2DestinationSettingsTypeDef]
@@ -4019,6 +4043,14 @@ StaticImageOutputDeactivateScheduleActionSettingsUnionTypeDef = Union[
     StaticImageOutputDeactivateScheduleActionSettingsOutputTypeDef,
 ]
 
+class TtmlDestinationSettingsTypeDef(TypedDict):
+    StyleControl: NotRequired[TtmlDestinationStyleControlType]
+    Position: NotRequired[TextCaptionPositionSettingsTypeDef]
+
+class WebvttDestinationSettingsTypeDef(TypedDict):
+    StyleControl: NotRequired[WebvttDestinationStyleControlType]
+    Position: NotRequired[TextCaptionPositionSettingsTypeDef]
+
 class ThumbnailDetailTypeDef(TypedDict):
     PipelineId: NotRequired[str]
     Thumbnails: NotRequired[list[ThumbnailTypeDef]]
@@ -4058,37 +4090,6 @@ class RemixSettingsOutputTypeDef(TypedDict):
 AudioChannelMappingUnionTypeDef = Union[
     AudioChannelMappingTypeDef, AudioChannelMappingOutputTypeDef
 ]
-
-class CaptionDestinationSettingsOutputTypeDef(TypedDict):
-    AribDestinationSettings: NotRequired[dict[str, Any]]
-    BurnInDestinationSettings: NotRequired[BurnInDestinationSettingsTypeDef]
-    DvbSubDestinationSettings: NotRequired[DvbSubDestinationSettingsTypeDef]
-    EbuTtDDestinationSettings: NotRequired[EbuTtDDestinationSettingsTypeDef]
-    EmbeddedDestinationSettings: NotRequired[dict[str, Any]]
-    EmbeddedPlusScte20DestinationSettings: NotRequired[dict[str, Any]]
-    RtmpCaptionInfoDestinationSettings: NotRequired[dict[str, Any]]
-    Scte20PlusEmbeddedDestinationSettings: NotRequired[dict[str, Any]]
-    Scte27DestinationSettings: NotRequired[dict[str, Any]]
-    SmpteTtDestinationSettings: NotRequired[dict[str, Any]]
-    TeletextDestinationSettings: NotRequired[dict[str, Any]]
-    TtmlDestinationSettings: NotRequired[TtmlDestinationSettingsTypeDef]
-    WebvttDestinationSettings: NotRequired[WebvttDestinationSettingsTypeDef]
-
-class CaptionDestinationSettingsTypeDef(TypedDict):
-    AribDestinationSettings: NotRequired[Mapping[str, Any]]
-    BurnInDestinationSettings: NotRequired[BurnInDestinationSettingsTypeDef]
-    DvbSubDestinationSettings: NotRequired[DvbSubDestinationSettingsTypeDef]
-    EbuTtDDestinationSettings: NotRequired[EbuTtDDestinationSettingsTypeDef]
-    EmbeddedDestinationSettings: NotRequired[Mapping[str, Any]]
-    EmbeddedPlusScte20DestinationSettings: NotRequired[Mapping[str, Any]]
-    RtmpCaptionInfoDestinationSettings: NotRequired[Mapping[str, Any]]
-    Scte20PlusEmbeddedDestinationSettings: NotRequired[Mapping[str, Any]]
-    Scte27DestinationSettings: NotRequired[Mapping[str, Any]]
-    SmpteTtDestinationSettings: NotRequired[Mapping[str, Any]]
-    TeletextDestinationSettings: NotRequired[Mapping[str, Any]]
-    TtmlDestinationSettings: NotRequired[TtmlDestinationSettingsTypeDef]
-    WebvttDestinationSettings: NotRequired[WebvttDestinationSettingsTypeDef]
-
 StaticImageOutputActivateScheduleActionSettingsUnionTypeDef = Union[
     StaticImageOutputActivateScheduleActionSettingsTypeDef,
     StaticImageOutputActivateScheduleActionSettingsOutputTypeDef,
@@ -4844,6 +4845,36 @@ class SrtSettingsTypeDef(TypedDict):
     SrtCallerSources: NotRequired[list[SrtCallerSourceTypeDef]]
     SrtListenerSettings: NotRequired[SrtListenerSettingsTypeDef]
 
+class CaptionDestinationSettingsOutputTypeDef(TypedDict):
+    AribDestinationSettings: NotRequired[dict[str, Any]]
+    BurnInDestinationSettings: NotRequired[BurnInDestinationSettingsTypeDef]
+    DvbSubDestinationSettings: NotRequired[DvbSubDestinationSettingsTypeDef]
+    EbuTtDDestinationSettings: NotRequired[EbuTtDDestinationSettingsTypeDef]
+    EmbeddedDestinationSettings: NotRequired[EmbeddedDestinationSettingsTypeDef]
+    EmbeddedPlusScte20DestinationSettings: NotRequired[dict[str, Any]]
+    RtmpCaptionInfoDestinationSettings: NotRequired[dict[str, Any]]
+    Scte20PlusEmbeddedDestinationSettings: NotRequired[dict[str, Any]]
+    Scte27DestinationSettings: NotRequired[dict[str, Any]]
+    SmpteTtDestinationSettings: NotRequired[dict[str, Any]]
+    TeletextDestinationSettings: NotRequired[dict[str, Any]]
+    TtmlDestinationSettings: NotRequired[TtmlDestinationSettingsTypeDef]
+    WebvttDestinationSettings: NotRequired[WebvttDestinationSettingsTypeDef]
+
+class CaptionDestinationSettingsTypeDef(TypedDict):
+    AribDestinationSettings: NotRequired[Mapping[str, Any]]
+    BurnInDestinationSettings: NotRequired[BurnInDestinationSettingsTypeDef]
+    DvbSubDestinationSettings: NotRequired[DvbSubDestinationSettingsTypeDef]
+    EbuTtDDestinationSettings: NotRequired[EbuTtDDestinationSettingsTypeDef]
+    EmbeddedDestinationSettings: NotRequired[EmbeddedDestinationSettingsTypeDef]
+    EmbeddedPlusScte20DestinationSettings: NotRequired[Mapping[str, Any]]
+    RtmpCaptionInfoDestinationSettings: NotRequired[Mapping[str, Any]]
+    Scte20PlusEmbeddedDestinationSettings: NotRequired[Mapping[str, Any]]
+    Scte27DestinationSettings: NotRequired[Mapping[str, Any]]
+    SmpteTtDestinationSettings: NotRequired[Mapping[str, Any]]
+    TeletextDestinationSettings: NotRequired[Mapping[str, Any]]
+    TtmlDestinationSettings: NotRequired[TtmlDestinationSettingsTypeDef]
+    WebvttDestinationSettings: NotRequired[WebvttDestinationSettingsTypeDef]
+
 class DescribeThumbnailsResponseTypeDef(TypedDict):
     ThumbnailDetails: list[ThumbnailDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4932,26 +4963,6 @@ class RemixSettingsTypeDef(TypedDict):
     ChannelMappings: Sequence[AudioChannelMappingUnionTypeDef]
     ChannelsIn: NotRequired[int]
     ChannelsOut: NotRequired[int]
-
-class CaptionDescriptionOutputTypeDef(TypedDict):
-    CaptionSelectorName: str
-    Name: str
-    Accessibility: NotRequired[AccessibilityTypeType]
-    DestinationSettings: NotRequired[CaptionDestinationSettingsOutputTypeDef]
-    LanguageCode: NotRequired[str]
-    LanguageDescription: NotRequired[str]
-    CaptionDashRoles: NotRequired[list[DashRoleCaptionType]]
-    DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
-
-class CaptionDescriptionTypeDef(TypedDict):
-    CaptionSelectorName: str
-    Name: str
-    Accessibility: NotRequired[AccessibilityTypeType]
-    DestinationSettings: NotRequired[CaptionDestinationSettingsTypeDef]
-    LanguageCode: NotRequired[str]
-    LanguageDescription: NotRequired[str]
-    CaptionDashRoles: NotRequired[Sequence[DashRoleCaptionType]]
-    DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
 
 class HlsGroupSettingsOutputTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
@@ -5206,6 +5217,26 @@ class UpdateChannelClassRequestTypeDef(TypedDict):
 class Scte35DescriptorTypeDef(TypedDict):
     Scte35DescriptorSettings: Scte35DescriptorSettingsTypeDef
 
+class CaptionDescriptionOutputTypeDef(TypedDict):
+    CaptionSelectorName: str
+    Name: str
+    Accessibility: NotRequired[AccessibilityTypeType]
+    DestinationSettings: NotRequired[CaptionDestinationSettingsOutputTypeDef]
+    LanguageCode: NotRequired[str]
+    LanguageDescription: NotRequired[str]
+    CaptionDashRoles: NotRequired[list[DashRoleCaptionType]]
+    DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
+
+class CaptionDescriptionTypeDef(TypedDict):
+    CaptionSelectorName: str
+    Name: str
+    Accessibility: NotRequired[AccessibilityTypeType]
+    DestinationSettings: NotRequired[CaptionDestinationSettingsTypeDef]
+    LanguageCode: NotRequired[str]
+    LanguageDescription: NotRequired[str]
+    CaptionDashRoles: NotRequired[Sequence[DashRoleCaptionType]]
+    DvbDashAccessibility: NotRequired[DvbDashAccessibilityType]
+
 class MediaPackageGroupSettingsOutputTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
     MediapackageV2GroupSettings: NotRequired[MediaPackageV2GroupSettingsOutputTypeDef]
@@ -5259,6 +5290,7 @@ class VideoDescriptionOutputTypeDef(TypedDict):
     Width: NotRequired[int]
     CropRectangle: NotRequired[VideoPositionRectangleTypeDef]
     OutputPositionRectangle: NotRequired[VideoPositionRectangleTypeDef]
+    Border: NotRequired[int]
 
 class VideoDescriptionTypeDef(TypedDict):
     Name: str
@@ -5270,6 +5302,7 @@ class VideoDescriptionTypeDef(TypedDict):
     Width: NotRequired[int]
     CropRectangle: NotRequired[VideoPositionRectangleTypeDef]
     OutputPositionRectangle: NotRequired[VideoPositionRectangleTypeDef]
+    Border: NotRequired[int]
 
 DescribeInputResponseTypeDef = TypedDict(
     "DescribeInputResponseTypeDef",
@@ -5334,7 +5367,7 @@ class OutputSettingsOutputTypeDef(TypedDict):
     ArchiveOutputSettings: NotRequired[ArchiveOutputSettingsOutputTypeDef]
     FrameCaptureOutputSettings: NotRequired[FrameCaptureOutputSettingsTypeDef]
     HlsOutputSettings: NotRequired[HlsOutputSettingsOutputTypeDef]
-    MediaPackageOutputSettings: NotRequired[MediaPackageOutputSettingsTypeDef]
+    MediaPackageOutputSettings: NotRequired[MediaPackageOutputSettingsOutputTypeDef]
     MsSmoothOutputSettings: NotRequired[MsSmoothOutputSettingsTypeDef]
     MultiplexOutputSettings: NotRequired[MultiplexOutputSettingsTypeDef]
     RtmpOutputSettings: NotRequired[RtmpOutputSettingsTypeDef]

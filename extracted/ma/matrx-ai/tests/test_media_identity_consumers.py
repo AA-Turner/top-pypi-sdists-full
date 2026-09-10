@@ -190,7 +190,7 @@ class TestGoogleSyncMediaLaneIsDeleted:
         )
 
     def test_no_media_classmethod_can_reach_a_sync_save(self) -> None:
-        import inspect
+        from matrx_utils.source_guard import stable_source
 
         from matrx_ai.config.media_config import (
             AudioContent,
@@ -200,7 +200,7 @@ class TestGoogleSyncMediaLaneIsDeleted:
         )
 
         for cls in (ImageContent, AudioContent, VideoContent, DocumentContent):
-            src = inspect.getsource(cls.from_google)
+            src = stable_source(cls.from_google)
             assert "save_media" not in src, (
                 f"{cls.__name__}.from_google persists bytes synchronously — that "
                 "yields a signed url with no file_id, into chat.message"
@@ -225,7 +225,7 @@ class TestGoogleSyncMediaLaneIsDeleted:
             assert hasattr(cls, "from_google_async"), cls.__name__
 
     def test_a_failed_envelope_save_drops_the_item_instead_of_freezing_a_url(self) -> None:
-        import inspect
+        from matrx_utils.source_guard import stable_source
 
         from matrx_ai.config.media_config import (
             AudioContent,
@@ -235,7 +235,7 @@ class TestGoogleSyncMediaLaneIsDeleted:
         )
 
         for cls in (ImageContent, AudioContent, VideoContent, DocumentContent):
-            src = inspect.getsource(cls.from_google_async)
+            src = stable_source(cls.from_google_async)
             assert "cls.from_google(" not in src, (
                 f"{cls.__name__}.from_google_async falls back to the sync save on "
                 "failure — a signed url with no file_id, persisted forever"
@@ -244,11 +244,11 @@ class TestGoogleSyncMediaLaneIsDeleted:
     def test_the_async_translator_never_calls_a_sync_classmethod_on_inline_bytes(
         self,
     ) -> None:
-        import inspect
+        from matrx_utils.source_guard import stable_source
 
         from matrx_ai.providers import GoogleTranslator
 
-        src = inspect.getsource(GoogleTranslator.from_google_async)
+        src = stable_source(GoogleTranslator.from_google_async)
         inline_branch = src.split("elif part.inline_data:")[1].split("elif part.file_data:")[0]
         for name in ("DocumentContent", "ImageContent", "AudioContent", "VideoContent"):
             assert f"{name}.from_google(" not in inline_branch, (

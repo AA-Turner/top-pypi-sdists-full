@@ -252,6 +252,7 @@ def test_plugin_artifact_phase_includes_jetbrains_plugins_and_wsl_roots(
 
     for scanner_name in (
         "scan_cursor_native_plugins",
+        "scan_cursor_user_local_plugins",
         "scan_claude_code_plugin_artifacts",
         "scan_claude_desktop_connectors",
         "scan_codex_plugin_artifacts",

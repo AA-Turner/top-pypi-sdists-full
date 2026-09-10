@@ -56,6 +56,15 @@ PUBLIC_ROUTES = {
     # alias, version or date. Anything identifying added to it makes it not
     # public, and it must move behind a token on the same commit.
     "/api/v1/public/impact",
+    # A job application from the company's own public site. Public of necessity:
+    # an applicant has no account and never will unless we hire them. It is a
+    # write, which nothing else in this set is, so it carries boundaries of its
+    # own instead of a token -- a signed form token and a honeypot on the page
+    # that renders the form, a per-address limit here, and a unique address so a
+    # second submission is refused rather than allowed to replace the first. It
+    # reads nothing back: there is no GET beside it, and adding one would need a
+    # token, because an applicant list is exactly the thing this must not expose.
+    "/api/v1/public/applications",
     "/api/v1/ai/health",
     "/api/v1/platform/health",
     "/device",
@@ -223,7 +232,17 @@ def test_public_route_list_is_pinned():
     # nothing that could identify an organization -- which is the whole of why it
     # is allowed to be here. A field added to it that identifies anybody makes it
     # no longer a Tier A route.
-    assert len(declared) == 22, sorted(declared)
+    #
+    # 23 with /api/v1/public/applications: a job application from the company's
+    # own public site. The first Tier A route that *writes*, which is why it is
+    # the one worth arguing about. An applicant has no account, so a token is
+    # not available to ask for; what stands in its place is a signed form token
+    # with a minimum fill time and a honeypot on the page, a per-address limit
+    # on the route, and a unique address so a second submission is refused
+    # rather than replacing the first. It returns nothing but an id -- there is
+    # no GET beside it, and one would need a token, because the applicant list
+    # is precisely what must not be public.
+    assert len(declared) == 23, sorted(declared)
 
 
 def test_no_optional_user_auth_remains():

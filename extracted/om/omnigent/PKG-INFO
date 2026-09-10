@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnigent
-Version: 0.12.0
+Version: 0.13.0
 Summary: Omnigent: declarative agent authoring and runtime framework
 Author: Databricks, Inc.
 Keywords: agents,llm,ai,databricks,cli
@@ -14,8 +14,8 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: omnigent-client==0.12.0
-Requires-Dist: omnigent-ui-sdk==0.12.0
+Requires-Dist: omnigent-client==0.13.0
+Requires-Dist: omnigent-ui-sdk==0.13.0
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: json5<1,>=0.10
 Requires-Dist: openai<2.45,>=1.0
@@ -66,6 +66,9 @@ Requires-Dist: opentelemetry-instrumentation-sqlalchemy<1,>=0; extra == "all"
 Provides-Extra: bedrock
 Requires-Dist: boto3<2,>=1.30; extra == "bedrock"
 Requires-Dist: botocore<2,>=1.30; extra == "bedrock"
+Provides-Extra: kms
+Requires-Dist: boto3<2,>=1.30; extra == "kms"
+Requires-Dist: botocore<2,>=1.30; extra == "kms"
 Provides-Extra: s3
 Requires-Dist: boto3<2,>=1.30; extra == "s3"
 Requires-Dist: botocore<2,>=1.30; extra == "s3"
@@ -79,6 +82,8 @@ Provides-Extra: blaxel
 Requires-Dist: blaxel<0.5,>=0.4.1; extra == "blaxel"
 Provides-Extra: boxlite
 Requires-Dist: boxlite<1,>=0.9.5; extra == "boxlite"
+Provides-Extra: microsandbox
+Requires-Dist: microsandbox<0.7,>=0.6.9; extra == "microsandbox"
 Provides-Extra: cwsandbox
 Requires-Dist: cwsandbox<1,>=0.24; extra == "cwsandbox"
 Provides-Extra: e2b
@@ -89,6 +94,8 @@ Provides-Extra: openshell
 Requires-Dist: openshell<1,>=0.0.88; extra == "openshell"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes<37,>=36; extra == "kubernetes"
+Provides-Extra: vault
+Requires-Dist: hvac<3,>=2; extra == "vault"
 Provides-Extra: tracing
 Requires-Dist: opentelemetry-sdk<2,>=1.20; extra == "tracing"
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.20; extra == "tracing"
@@ -115,11 +122,13 @@ Requires-Dist: hindsight-client>=0.4.0; extra == "hindsight"
 Provides-Extra: nimble
 Requires-Dist: nimble-python<2,>=1.2.0; extra == "nimble"
 Provides-Extra: slack
-Requires-Dist: omnigent-slack==0.12.0; extra == "slack"
+Requires-Dist: omnigent-slack==0.13.0; extra == "slack"
+Provides-Extra: postgres
+Requires-Dist: psycopg[binary]<4,>=3.1; extra == "postgres"
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk<1,>=0.56.0; extra == "databricks"
 Requires-Dist: opentelemetry-distro<1,>=0; extra == "databricks"
-Requires-Dist: psycopg[binary]<4,>=3.1; extra == "databricks"
+Requires-Dist: omnigent[postgres]; extra == "databricks"
 Requires-Dist: pymysql<2,>=1.1; extra == "databricks"
 Requires-Dist: databricks-mcp>=0.9.0; extra == "databricks"
 Requires-Dist: databricks-ai-bridge>=0.19; extra == "databricks"
@@ -176,7 +185,8 @@ Omnigent lets you:
   [Islo](https://islo.dev), [E2B](https://e2b.dev),
   [CoreWeave](https://docs.coreweave.com/products/sandboxes),
   [Kubernetes](https://kubernetes.io), [OpenShell](https://github.com/NVIDIA/OpenShell),
-  [Boxlite](https://github.com/boxlite-ai/boxlite), or
+  [Boxlite](https://github.com/boxlite-ai/boxlite),
+  [microsandbox](https://github.com/superradcompany/microsandbox), or
   [Databricks](https://www.databricks.com) sandboxes, launched from the
   CLI or provisioned by the server per session (*managed hosts*).
 
@@ -210,8 +220,8 @@ curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/i
 Available user-facing extras include:
 
 - **Model providers:** `databricks`, `bedrock`, `vertex`
-- **Sandbox providers:** `modal`, `daytona`, `blaxel`, `boxlite`, `cwsandbox`, `e2b`,
-  `openshell`, `kubernetes`
+- **Sandbox providers:** `modal`, `daytona`, `blaxel`, `boxlite`, `microsandbox`,
+  `cwsandbox`, `e2b`, `openshell`, `kubernetes`
 - **SDK harnesses:** `antigravity`, `copilot`, `cursor`, `agents-sdk`
 - **Storage and memory:** `s3`, `hindsight`
 

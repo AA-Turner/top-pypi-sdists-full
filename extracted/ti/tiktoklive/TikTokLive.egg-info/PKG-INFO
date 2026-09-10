@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TikTokLive
-Version: 7.0.0
+Version: 7.0.1
 Summary: Unofficial TikTok LIVE API for Python: real-time chat, gift, like, follow and viewer events from any TikTok livestream.
 Author-email: Isaac Kogan <info@isaackogan.com>
 License: Modified AGPL-3.0

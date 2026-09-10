@@ -14,6 +14,10 @@ from xpander_sdk.core.module_base import ModuleBase
 from xpander_sdk.core.xpander_api_client import APIClient
 from xpander_sdk.exceptions.module_exception import ModuleException
 from xpander_sdk.models.configuration import Configuration
+from xpander_sdk.models.frameworks import (
+    normalize_harness_cli,
+    normalize_permission_mode,
+)
 from xpander_sdk.models.shared import OutputFormat, ThinkMode
 from xpander_sdk.models.principal import Principal
 from xpander_sdk.models.user import User
@@ -257,8 +261,10 @@ class Tasks(ModuleBase):
         llm_model_provider: Optional[str] = None,
         llm_model_name: Optional[str] = None,
         llm_reasoning_effort: Optional[LLMReasoningEffort] = None,
+        harness_cli: Optional[str] = None,
         tool_call_limit: Optional[int] = None,
         attachments: Optional[List["AttachmentRef"]] = None,
+        permission_mode: Optional[str] = None,
     ) -> Task:
         """
         Asynchronously create a new task for a specific agent.
@@ -296,6 +302,14 @@ class Tasks(ModuleBase):
             llm_model_provider (Optional[str]): Override the agent's configured LLM provider for this task only (e.g. ``"openai"``, ``"anthropic"``). Defaults to the agent's settings when not set.
             llm_model_name (Optional[str]): Override the agent's configured model name for this task only (e.g. ``"gpt-5"``). Defaults to the agent's settings when not set.
             llm_reasoning_effort (Optional[LLMReasoningEffort]): Override the agent's reasoning effort for this task only. Defaults to the agent's settings when not set.
+            harness_cli (Optional[str]): Harness agents only: the CLI this
+                conversation runs on (``"claude-code"`` / ``"codex"``). Read on the
+                conversation's first task; later tasks inherit it. Ignored for other
+                frameworks.
+            permission_mode (Optional[str]): Harness agents only: ``"full"`` runs every
+                CLI action, ``"gated"`` holds shell and edit calls for a person. Unset
+                inherits the conversation's mode, else the agent's default. Ignored for
+                other frameworks.
             tool_call_limit (Optional[int]): Cap tool calls for this task only.
                 Defaults to the agent's settings when not set.
 
@@ -356,6 +370,8 @@ class Tasks(ModuleBase):
                     "llm_model_provider": llm_model_provider,
                     "llm_model_name": llm_model_name,
                     "llm_reasoning_effort": llm_reasoning_effort,
+                    "harness_cli": normalize_harness_cli(harness_cli),
+                    "permission_mode": normalize_permission_mode(permission_mode),
                 },
             )
             return Task(**created_task, configuration=self.configuration)

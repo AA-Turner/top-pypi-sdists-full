@@ -234,7 +234,10 @@ SERVERS = [
             "url": "npx",
             "transport_type": "stdio",
             "transport_config": {
-                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+                # Pinned: npx resolves `latest`, and a new upstream publish is
+                # a cold fetch that hung CI. Match the warm step in
+                # .github/workflows/cli-e2e.yml.
+                "args": ["-y", "@modelcontextprotocol/server-filesystem@2026.8.31", "/tmp"]
             },
         },
         {"read_file", "list_directory"},

@@ -170,7 +170,8 @@ struct mjtIntegrator {
     std::make_pair("mjINT_EULER", ::mjtIntegrator::mjINT_EULER),
     std::make_pair("mjINT_RK4", ::mjtIntegrator::mjINT_RK4),
     std::make_pair("mjINT_IMPLICIT", ::mjtIntegrator::mjINT_IMPLICIT),
-    std::make_pair("mjINT_IMPLICITFAST", ::mjtIntegrator::mjINT_IMPLICITFAST)};
+    std::make_pair("mjINT_IMPLICITFAST", ::mjtIntegrator::mjINT_IMPLICITFAST),
+    std::make_pair("mjINT_DISCRETE", ::mjtIntegrator::mjINT_DISCRETE)};
 };
 
 struct mjtCone {

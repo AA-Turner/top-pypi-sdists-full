@@ -169,6 +169,7 @@ impl Ranker {
         let mut trees = Vec::with_capacity(self.config.n_estimators);
         let mut training_history = Vec::with_capacity(self.config.n_estimators);
         let builder = TreeBuilder {
+            max_split_candidates: None,
             max_depth: self.config.max_depth,
             min_samples_leaf: self.config.min_samples_leaf,
             min_gain: self.config.min_gain,

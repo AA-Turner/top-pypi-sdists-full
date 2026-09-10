@@ -8,9 +8,9 @@ from collections import namedtuple
 import logging
 import os
 import random
-import subprocess as sp
 
 import submitit
+from submitit.slurm.slurm import _parse_node_list
 import torch
 
 from .xp import get_xp
@@ -29,13 +29,12 @@ def set_distrib_env():
     some other framework handle the distributed initialization.
     """
     spec = get_distrib_spec()
-    if spec.world_size == 1:
+    if spec.world_size == 1 and not os.environ.get('DORA_FORCE_DISTRIB'):
         return
     if 'MASTER_ADDR' not in os.environ:
         assert 'SLURM_JOB_NODELIST' in os.environ, "case not handled"
         nodelist = os.environ['SLURM_JOB_NODELIST']
-        nodes = sp.run('scontrol show hostnames'.split() + [nodelist],
-                       capture_output=True, check=True).stdout.decode().split()
+        nodes = _parse_node_list(nodelist)
         master_node = nodes[0]
         os.environ['MASTER_ADDR'] = master_node
     if 'MASTER_PORT' not in os.environ:
@@ -61,8 +60,7 @@ def set_distrib_env():
 
 def get_distrib_spec():
     """Return information on the distributed setup, i.e. world size, rank etc.
-    This can be used even before distributed training is initialized, which is useful for
-    PytorchLightning for instance.
+    This can be used even before distributed training is initialized.
     """
     if 'WORLD_SIZE' in os.environ:
         rank = int(os.environ['RANK'])
@@ -101,7 +99,7 @@ def init(backend='nccl'):
     if torch.distributed.is_initialized():
         return
     spec = get_distrib_spec()
-    if spec.world_size == 1:
+    if spec.world_size == 1 and not os.environ.get('DORA_FORCE_DISTRIB'):
         logger.info("world_size is 1, skipping init.")
         return
     xp = get_xp()

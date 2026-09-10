@@ -54,7 +54,8 @@ def sync_detailed(
      Guests are people the identity provider authenticates who have no Windmill account; the `guest` app
     execution mode admits them. Off by default. Re-read where a guest session is minted and at the auth
     door on every guest request, so turning it off takes effect immediately, for sessions already issued
-    and for apps whose policy already says `guest`.
+    and for apps whose policy already says `guest`. Turning it *on* is refused with a 400 where guests
+    are unavailable (the shared cloud); turning it off always works.
 
     Args:
         workspace (str):
@@ -91,7 +92,8 @@ async def asyncio_detailed(
      Guests are people the identity provider authenticates who have no Windmill account; the `guest` app
     execution mode admits them. Off by default. Re-read where a guest session is minted and at the auth
     door on every guest request, so turning it off takes effect immediately, for sessions already issued
-    and for apps whose policy already says `guest`.
+    and for apps whose policy already says `guest`. Turning it *on* is refused with a 400 where guests
+    are unavailable (the shared cloud); turning it off always works.
 
     Args:
         workspace (str):

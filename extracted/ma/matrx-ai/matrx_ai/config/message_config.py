@@ -104,6 +104,12 @@ class UnifiedMessage:
     # visible). See docs/persistence/STATUS_AND_ERROR_FIELDS.md.
     is_visible_to_model: bool = True
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Pristine content authored by the human. ``content`` remains the complete
+    # provider payload (agent-authored template + resolved variables + the
+    # human input) so model replay is lossless; ``user_content`` is the honest
+    # display/transcript projection persisted in chat.message.user_content.
+    # NULL means a historical row predating this contract, not empty input.
+    user_content: list[UnifiedContent] | None = None
     # Position within the source conversation (cx_message.position). Carried
     # through ``from_cx_message`` so downstream consumers (turn counters,
     # context trimmers, debug panels) can reason about ordering without
@@ -273,6 +279,12 @@ class UnifiedMessage:
         """Create UnifiedMessage from dictionary (e.g., from API)"""
         content_data = data.get("content", [])
         parsed_content = cls.parse_content(content_data)
+        user_content_data = data.get("user_content")
+        parsed_user_content = (
+            cls.parse_content(user_content_data)
+            if isinstance(user_content_data, str | list)
+            else None
+        )
 
         return cls(
             role=data.get("role", "user"),
@@ -282,6 +294,7 @@ class UnifiedMessage:
             timestamp=data.get("timestamp"),
             status=data.get("status", "active"),
             metadata=dict(data.get("metadata") or {}),
+            user_content=parsed_user_content,
             position=data.get("position"),
         )
 
@@ -289,6 +302,12 @@ class UnifiedMessage:
     def from_cx_message(cls, message) -> "UnifiedMessage":
         """Create UnifiedMessage from CxMessage"""
         content = [reconstruct_content(item) for item in (message.content or [])]
+        raw_user_content = getattr(message, "user_content", None)
+        user_content = (
+            [reconstruct_content(item) for item in raw_user_content]
+            if isinstance(raw_user_content, list)
+            else None
+        )
 
         return cls(
             role=message.role,
@@ -298,6 +317,7 @@ class UnifiedMessage:
             status=message.status,
             is_visible_to_model=bool(getattr(message, "is_visible_to_model", True)),
             metadata=dict(message.metadata or {}),
+            user_content=user_content,
             position=getattr(message, "position", None),
         )
 
@@ -732,6 +752,10 @@ class UnifiedMessage:
             "role": self.role.value if hasattr(self.role, "value") else self.role,
             "content": content_storage_dicts,
         }
+        if self.user_content is not None:
+            result["user_content"] = [
+                content.to_storage_dict() for content in self.user_content
+            ]
         # Carry the existing cx_message.id (set for messages loaded from the DB)
         # so persistence can recognize an already-persisted message and not
         # re-INSERT it (retry duplicate-user-message guard).
@@ -1550,7 +1574,12 @@ class MessageList:
             text: The text content
             **kwargs: Additional UnifiedMessage fields (id, name, timestamp, metadata)
         """
-        user_message = UnifiedMessage(role=Role.USER, content=[TextContent(text=text)], **kwargs)
+        user_message = UnifiedMessage(
+            role=Role.USER,
+            content=[TextContent(text=text)],
+            user_content=[TextContent(text=text)],
+            **kwargs,
+        )
         self.append(user_message)
 
     def append_or_extend_user_text(self, text: str, **kwargs) -> None:
@@ -1578,6 +1607,15 @@ class MessageList:
             else:
                 # No TextContent found (e.g. template with only structured blocks) — create one
                 last_message.content.insert(0, TextContent(text=text))
+            if last_message.user_content is None:
+                last_message.user_content = [TextContent(text=text)]
+            else:
+                for content in last_message.user_content:
+                    if isinstance(content, TextContent):
+                        content.append_text(text)
+                        break
+                else:
+                    last_message.user_content.insert(0, TextContent(text=text))
         else:
             # Last message is not user (or no messages) - create new user message
             self.append_user_text(text, **kwargs)
@@ -1613,11 +1651,17 @@ class MessageList:
                     last_message.content.insert(0, TextContent(text=text))
             if items_without_text:
                 last_message.content.extend(UnifiedMessage.parse_content(items_without_text))
+            raw_items = UnifiedMessage.parse_content(items)
+            if last_message.user_content is None:
+                last_message.user_content = raw_items
+            else:
+                last_message.user_content.extend(raw_items)
         else:
             user_message = UnifiedMessage.from_dict(
                 {
                     "role": Role.USER,
                     "content": items,
+                    "user_content": items,
                 }
             )
             self.append(user_message)

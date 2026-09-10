@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 import structlog
 from dataclasses import dataclass
 
@@ -9,6 +10,8 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.routing import Route
 from uvicorn import Config, Server
+
+import anyio
 
 import os
 
@@ -53,6 +56,48 @@ class CallbackResponse:
 
     def to_dict(self) -> dict[str, str]:
         return {k: v for k, v in self.__dict__.items() if v is not None}
+
+
+class OAuthCallbackServer(Server):
+    async def startup(self, sockets: list[socket.socket] | None = None) -> None:
+        # create_server() yields after installing its reader, before Uvicorn
+        # records the listener. Defer caller cancellation across that handoff.
+        with anyio.fail_after(2, shield=True):
+            await super().startup(sockets=sockets)
+
+
+async def serve_oauth_callback_server(server: Server, listener: socket.socket) -> None:
+    """Release callback listeners and request tasks even when serving is cancelled.
+
+    This boundary requires asyncio: Uvicorn owns asyncio request tasks and the
+    callback resolves an asyncio Future. AnyIO provides structured lifecycle and
+    shielded deadlines; asyncio.wait and direct cancellation operate on those
+    Uvicorn-owned tasks.
+    """
+    try:
+        await server.serve(sockets=[listener])
+    finally:
+        # Uvicorn's serve() does not run shutdown() when it is cancelled.
+        # Shield teardown from the caller, but bound response draining.
+        try:
+            with anyio.move_on_after(2, shield=True):
+                if hasattr(server, "servers"):
+                    await server.shutdown(sockets=[listener])
+        finally:
+            for bound_server in getattr(server, "servers", ()):
+                bound_server.close()
+            listener.close()
+            for connection in list(server.server_state.connections):
+                connection.transport.abort()
+            tasks = list(server.server_state.tasks)
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                with anyio.CancelScope(shield=True):
+                    done, _ = await asyncio.wait(tasks, timeout=1)
+                for task in done:
+                    if not task.cancelled():
+                        task.exception()
 
 
 def create_oauth_callback_server(
@@ -146,12 +191,13 @@ def create_oauth_callback_server(
 
     app = Starlette(routes=[Route(callback_path, callback_handler)])
 
-    return Server(
+    return OAuthCallbackServer(
         Config(
             app=app,
             host="127.0.0.1",
             port=port,
             lifespan="off",
             log_level="warning",
+            timeout_graceful_shutdown=1,
         )
     )

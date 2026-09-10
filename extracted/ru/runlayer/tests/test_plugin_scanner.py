@@ -18,11 +18,13 @@ from runlayer_cli.scan.cursor_plugins import scan_cursor_plugins
 from runlayer_cli.scan.plugin_scanner import (
     _CLAUDE_DESKTOP_CONFIG_PATHS,
     _collect_plugin_files,
+    _redact_json_secrets,
     compute_plugin_identifier,
     scan_claude_code_plugin_artifacts,
     scan_claude_desktop_connectors,
     scan_codex_plugin_artifacts,
     scan_cursor_native_plugins,
+    scan_cursor_user_local_plugins,
 )
 
 
@@ -209,6 +211,13 @@ class TestScanCursorNativePlugins:
         assert result[0].mcp_servers[0].name == "server1"
         assert result[0].mcp_servers[0].type == "stdio"
 
+    def test_cache_scan_ignores_user_local_installs(self, tmp_path: Path):
+        """The two Cursor plugin roots must not be scanned by each other."""
+        local = tmp_path / "local" / "flat-plugin"
+        (local / ".cursor-plugin").mkdir(parents=True)
+        (local / ".cursor-plugin" / "plugin.json").write_text('{"name": "flat-plugin"}')
+        assert scan_cursor_native_plugins(plugin_cache_base=tmp_path / "local") == []
+
     def test_home_override_scans_wsl_home_and_settings(self, tmp_path: Path):
         wsl_home = tmp_path / "wsl-home"
         cache = wsl_home / ".cursor" / "plugins" / "cache" / "cursor-public"
@@ -388,6 +397,106 @@ class TestScanCursorNativePlugins:
         assert payload["plugin_type"] == "cursor_plugin"
         assert payload["client"] == "cursor"
         assert isinstance(payload["mcp_servers"], list)
+
+
+# ===========================================================================
+# scan_cursor_user_local_plugins
+# ===========================================================================
+
+
+def _create_local_cursor_plugin(
+    local_base: Path,
+    name: str,
+    plugin_json: dict | None = None,
+    mcp_json: dict | None = None,
+    manifest_at_root: bool = False,
+) -> Path:
+    """Flat user-local layout: local/<name>/ is the install dir itself."""
+    plugin_dir = local_base / name
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    if plugin_json is not None:
+        if manifest_at_root:
+            (plugin_dir / "plugin.json").write_text(json.dumps(plugin_json))
+        else:
+            manifest_dir = plugin_dir / ".cursor-plugin"
+            manifest_dir.mkdir(exist_ok=True)
+            (manifest_dir / "plugin.json").write_text(json.dumps(plugin_json))
+    if mcp_json is not None:
+        (plugin_dir / ".mcp.json").write_text(json.dumps(mcp_json))
+    return plugin_dir
+
+
+class TestScanCursorUserLocalPlugins:
+    def test_nonexistent_base(self, tmp_path: Path):
+        assert scan_cursor_user_local_plugins(local_base=tmp_path / "nope") == []
+
+    def test_empty_base(self, tmp_path: Path):
+        assert scan_cursor_user_local_plugins(local_base=tmp_path) == []
+
+    def test_directory_without_any_marker_is_ignored(self, tmp_path: Path):
+        (tmp_path / "just-a-folder").mkdir()
+        assert scan_cursor_user_local_plugins(local_base=tmp_path) == []
+
+    def test_discovers_flat_install(self, tmp_path: Path):
+        _create_local_cursor_plugin(
+            tmp_path,
+            "runlayer-plugin",
+            plugin_json={
+                "name": "runlayer-plugin",
+                "version": "1.0.0",
+                "description": "Unified plugin",
+            },
+            mcp_json={"mcpServers": {"runlayer-plugin": {"url": "https://x/mcp"}}},
+        )
+        [p] = scan_cursor_user_local_plugins(local_base=tmp_path)
+        assert p.name == "runlayer-plugin"
+        assert p.version == "1.0.0"
+        assert p.plugin_type == "cursor_plugin"
+        assert p.client == "cursor"
+        # User-local, and not from a marketplace.
+        assert p.scope == "user"
+        assert p.marketplace is None
+        assert p.identifier is not None
+        assert p.has_mcp_servers is True
+        assert [s.name for s in p.mcp_servers] == ["runlayer-plugin"]
+
+    def test_discovers_agent_plugin_root_manifest(self, tmp_path: Path):
+        """Cursor loads root-plugin.json Agent Plugins too."""
+        _create_local_cursor_plugin(
+            tmp_path,
+            "agent-style",
+            plugin_json={"name": "agent-style", "version": "2.0.0"},
+            manifest_at_root=True,
+        )
+        [p] = scan_cursor_user_local_plugins(local_base=tmp_path)
+        assert p.name == "agent-style"
+        assert p.version == "2.0.0"
+
+    def test_skips_dot_prefixed_entries(self, tmp_path: Path):
+        """Cursor's loader skips them, so they are not installed plugins."""
+        _create_local_cursor_plugin(
+            tmp_path, ".hidden-store", plugin_json={"name": "hidden"}
+        )
+        assert scan_cursor_user_local_plugins(local_base=tmp_path) == []
+
+    def test_reports_mcp_only_plugin(self, tmp_path: Path):
+        _create_local_cursor_plugin(
+            tmp_path,
+            "mcp-only",
+            mcp_json={"mcpServers": {"srv": {"command": "run"}}},
+        )
+        [p] = scan_cursor_user_local_plugins(local_base=tmp_path)
+        assert p.name == "mcp-only"
+        assert p.has_mcp_servers is True
+
+    def test_enabled_state_from_settings(self, tmp_path: Path):
+        _create_local_cursor_plugin(
+            tmp_path, "toggled", plugin_json={"name": "toggled"}
+        )
+        [p] = scan_cursor_user_local_plugins(
+            local_base=tmp_path, settings_override={"toggled": False}
+        )
+        assert p.enabled is False
 
 
 # ===========================================================================
@@ -1230,7 +1339,146 @@ class TestPluginFilesInScanResults:
         assert result[0].file_count >= 2
         titles = {f.title for f in result[0].files}
         assert ".claude-plugin/plugin.json" in titles
-        assert ".mcp.json" in titles
+        assert ".mcp.json" not in titles
+
+    def test_mcp_config_content_is_never_uploaded(self, tmp_path: Path):
+        # A global Runlayer install writes the API key into `.mcp.json`; the
+        # scanner must keep the server refs but never ship the file body.
+        local = tmp_path / ".cursor" / "plugins" / "local"
+        plugin_dir = local / "runlayer-plugin"
+        (plugin_dir / ".cursor-plugin").mkdir(parents=True)
+        (plugin_dir / ".cursor-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "runlayer-plugin", "mcpServers": "./.mcp.json"})
+        )
+        (plugin_dir / ".mcp.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "runlayer-plugin": {
+                            "url": "https://x.runlayer.com/mcp",
+                            "headers": {"x-runlayer-api-key": "rl_SECRET_KEY"},
+                        }
+                    }
+                }
+            )
+        )
+        (plugin_dir / "nested").mkdir()
+        (plugin_dir / "nested" / "mcp.json").write_text('{"k": "rl_OTHER_SECRET"}')
+        (plugin_dir / "README.md").write_text("# readme")
+
+        result = scan_cursor_user_local_plugins(local_base=local, settings_override={})
+
+        assert len(result) == 1
+        titles = {f.title for f in result[0].files}
+        assert "README.md" in titles
+        assert ".cursor-plugin/plugin.json" in titles
+        assert not any(Path(t).name in {"mcp.json", ".mcp.json"} for t in titles)
+        assert [s.name for s in result[0].mcp_servers] == ["runlayer-plugin"]
+        wire = json.dumps(result[0].to_api_payload())
+        assert "rl_SECRET_KEY" not in wire
+        assert "rl_OTHER_SECRET" not in wire
+
+    def test_redact_json_secrets_redacts_headers_and_env(self):
+        content = json.dumps(
+            {
+                "name": "runlayer",
+                "mcpServers": {
+                    "x": {
+                        "url": "https://x.runlayer.com/mcp",
+                        "headers": {"x-runlayer-api-key": "rl_SECRET"},
+                        "env": {"DEBUG": "1", "TOKEN": "t0k"},
+                    }
+                },
+            }
+        )
+
+        redacted = json.loads(_redact_json_secrets(content))
+
+        server = redacted["mcpServers"]["x"]
+        assert server["headers"] == {"x-runlayer-api-key": "<redacted:len=9>"}
+        assert server["env"] == {"DEBUG": "1", "TOKEN": "<redacted:len=3>"}
+        assert server["url"] == "https://x.runlayer.com/mcp"
+        assert redacted["name"] == "runlayer"
+        assert "rl_SECRET" not in json.dumps(redacted)
+
+    def test_redact_json_secrets_leaves_other_documents_byte_identical(self):
+        plain = '{"name":   "p",\n  "version": "1.0.0" }\n'
+        assert _redact_json_secrets(plain) == plain
+
+        jsonc = '// a comment\n{\n  "name": "p", // trailing\n}\n'
+        assert _redact_json_secrets(jsonc) == jsonc
+
+        not_json = "# not json at all\nname: p\n"
+        assert _redact_json_secrets(not_json) == not_json
+
+    def test_claude_code_manifest_api_key_is_never_uploaded(self, tmp_path: Path):
+        # Global Claude Code installs embed the tenant API key as a header in
+        # `.claude-plugin/plugin.json`, which the registry scanner collects.
+        install_path = _create_claude_plugin(
+            tmp_path,
+            "runlayer",
+            "runlayer-plugin",
+            "v1",
+            plugin_json={
+                "name": "runlayer-plugin",
+                "version": "1.0.0",
+                "mcpServers": {
+                    "runlayer-plugin": {
+                        "url": "https://x.runlayer.com/mcp",
+                        "headers": {"x-runlayer-api-key": "rl_SECRET_KEY"},
+                    }
+                },
+            },
+        )
+        installed = _write_installed_plugins(
+            tmp_path,
+            {
+                "runlayer-plugin@runlayer": [
+                    {"installPath": install_path, "scope": "user"}
+                ]
+            },
+        )
+
+        result = scan_claude_code_plugin_artifacts(installed_plugins_path=installed)
+
+        assert len(result) == 1
+        payload = result[0].to_api_payload()
+        titles = {f["title"] for f in payload["files"]}
+        assert ".claude-plugin/plugin.json" in titles
+        wire = json.dumps(payload)
+        assert "rl_SECRET_KEY" not in wire
+        manifest = next(
+            f for f in payload["files"] if f["title"] == ".claude-plugin/plugin.json"
+        )
+        assert "https://x.runlayer.com/mcp" in manifest["content"]
+
+    def test_hooks_env_is_redacted_in_payload(self, tmp_path: Path):
+        local = tmp_path / ".cursor" / "plugins" / "local"
+        plugin_dir = local / "hooky"
+        (plugin_dir / ".cursor-plugin").mkdir(parents=True)
+        (plugin_dir / ".cursor-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "hooky"})
+        )
+        (plugin_dir / "hooks").mkdir()
+        (plugin_dir / "hooks" / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "hooks": [
+                        {
+                            "command": "run.sh",
+                            "env": {"LOG_LEVEL": "debug", "HOOK_TOKEN": "hk_SECRET"},
+                        }
+                    ]
+                }
+            )
+        )
+
+        result = scan_cursor_user_local_plugins(local_base=local, settings_override={})
+
+        assert len(result) == 1
+        wire = json.dumps(result[0].to_api_payload())
+        assert "hk_SECRET" not in wire
+        assert "debug" in wire
 
     def test_claude_desktop_connector_has_synthetic_file(self, tmp_path: Path):
         config = tmp_path / "claude_desktop_config.json"
@@ -1240,6 +1488,56 @@ class TestPluginFilesInScanResults:
         assert result[0].file_count == 1
         assert result[0].files[0].title == "srv.json"
         assert '"command"' in result[0].files[0].content
+
+    def test_claude_desktop_connector_env_is_redacted_in_payload(self, tmp_path: Path):
+        # This scanner builds its uploaded file straight from the raw MCP block
+        # rather than going through ``_collect_plugin_files``, so redaction has
+        # to live at the ``to_api_payload`` egress to catch it.
+        config = tmp_path / "claude_desktop_config.json"
+        config.write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "srv": {
+                            "command": "echo",
+                            "env": {"API_KEY": "sk-live-123", "DEBUG": "1"},
+                        }
+                    }
+                }
+            )
+        )
+
+        result = scan_claude_desktop_connectors(config_path_override=config)
+
+        assert len(result) == 1
+        payload = result[0].to_api_payload()
+        assert [f["title"] for f in payload["files"]] == ["srv.json"]
+        wire = json.dumps(payload)
+        assert "sk-live-123" not in wire
+        assert "DEBUG" in payload["files"][0]["content"]
+        assert '"DEBUG": "1"' in payload["files"][0]["content"]
+        # Redaction is at egress, not at collection: the in-memory artifact
+        # still holds the literal. Pinned so the design does not silently move.
+        assert "sk-live-123" in result[0].files[0].content
+
+    def test_non_json_file_content_is_untouched_in_payload(self, tmp_path: Path):
+        # Only JSON/JSONC is parsed and rewritten; a Markdown body that happens
+        # to contain a secret-shaped literal is uploaded verbatim.
+        local = tmp_path / ".cursor" / "plugins" / "local"
+        plugin_dir = local / "docs-plugin"
+        (plugin_dir / ".cursor-plugin").mkdir(parents=True)
+        (plugin_dir / ".cursor-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "docs-plugin"})
+        )
+        readme = '# Setup\n\nSet `headers` to {"x-api-key": "sk-live-999"}.\n'
+        (plugin_dir / "README.md").write_text(readme)
+
+        result = scan_cursor_user_local_plugins(local_base=local, settings_override={})
+
+        assert len(result) == 1
+        payload = result[0].to_api_payload()
+        contents = {f["title"]: f["content"] for f in payload["files"]}
+        assert contents["README.md"] == readme
 
     def test_files_in_api_payload(self, tmp_path: Path):
         _create_cursor_plugin(

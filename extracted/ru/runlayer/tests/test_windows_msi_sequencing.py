@@ -160,6 +160,65 @@ def test_aiwatch_msi_only_controls_reconcile_created_service() -> None:
     }
 
 
+def test_aiwatch_true_uninstall_sequences_task_and_hook_cleanup() -> None:
+    ns, package = _package(_AIWATCH_WXS)
+    condition = 'REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE'
+
+    components = {
+        component.get("Id"): component for component in package.iter(f"{ns}Component")
+    }
+    scripts = {
+        file.get("Id"): file
+        for file in components["ScheduledTaskScripts"].findall(f"{ns}File")
+    }
+    remove_script = scripts.get("RemoveHooksPs1")
+    assert remove_script is not None
+    assert remove_script.get("Source") == r"scheduled-task\remove-hooks.ps1"
+
+    feature = package.find(f"{ns}Feature[@Id='Complete']")
+    assert feature is not None
+    component_refs = {ref.get("Id") for ref in feature.findall(f"{ns}ComponentRef")}
+    assert "ScheduledTaskScripts" in component_refs
+
+    custom_actions = {
+        action.get("Id"): action for action in package.findall(f"{ns}CustomAction")
+    }
+    expected_commands = {
+        "UnregisterTasks": r"[INSTALLDIR]scheduled-task\unregister-tasks.ps1",
+        "RemoveHooks": r"[INSTALLDIR]scheduled-task\remove-hooks.ps1",
+    }
+    for action_id, script_path in expected_commands.items():
+        setter = custom_actions.get(f"Set{action_id}Cmd")
+        assert setter is not None
+        assert setter.get("Property") == action_id
+        assert script_path in setter.get("Value", "")
+
+        deferred = custom_actions.get(action_id)
+        assert deferred is not None
+        assert deferred.attrib == {
+            "Id": action_id,
+            "BinaryRef": "Wix4UtilCA_X64",
+            "DllEntry": "WixQuietExec64",
+            "Execute": "deferred",
+            "Impersonate": "no",
+            "Return": "ignore",
+        }
+
+    scheduled = _install_execute_customs()
+    expected_chain = {
+        "SetUnregisterTasksCmd": ("Before", "UnregisterTasks"),
+        "UnregisterTasks": ("Before", "SetRemoveHooksCmd"),
+        "SetRemoveHooksCmd": ("Before", "RemoveHooks"),
+        "RemoveHooks": ("Before", "RemoveFiles"),
+    }
+    for action_id, (anchor, target) in expected_chain.items():
+        action = scheduled.get(action_id)
+        assert action is not None
+        assert action.get(anchor) == target
+        assert action.get("Condition") == condition
+        assert "After" not in action.attrib
+
+
 def test_cli_true_uninstall_runs_owned_task_cleanup_only() -> None:
     ns, package = _package(_RUNLAYER_WXS)
     custom_actions = {

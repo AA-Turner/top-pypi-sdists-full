@@ -11,6 +11,17 @@ coverage lives in ``tests/suites/python/test_gil_release.py``, where a live
 accessibility bus exists. Issue #358 went unnoticed because that gap was not
 recorded anywhere.
 
+``_cli_main`` is the other known gap, and it is deliberate. It wraps the whole
+CLI run in ``allow_threads`` (which matters most for ``xa11y events`` and
+``xa11y mcp``, both of which block for the life of the process), but no CLI
+subcommand blocks for a bounded, display-free duration, so a tick-counting
+assertion would be flaky. The one construction that is deterministic —
+redirecting fd 0 to a pipe and closing the write end from a timer thread —
+*deadlocks* rather than fails if the GIL is held, because the closing thread
+cannot be scheduled. A hanging CI job is worse than a recorded gap, so the
+property is left to review of the one-line wrapper. Recording it here rather
+than nowhere is the lesson of issue #358.
+
 Referenced from AGENTS.md (Design Tenets, tenet 5) — keep the file name
 stable.
 """
@@ -20,6 +31,7 @@ import time
 
 import pytest
 import xa11y
+from xa11y._native import _find_test_shell_surface
 
 # A 1-second native wait. With the GIL released the 1 ms spin loop gets
 # hundreds of iterations; with the GIL held it gets approximately zero
@@ -79,6 +91,23 @@ def test_wait_detached_releases_gil(test_app):
     assert ticks >= _MIN_TICKS, (
         f"background thread made only {ticks} iterations during a "
         f"{_WAIT_S}s wait_detached — the wait is holding the GIL (tenet 5)"
+    )
+
+
+def test_shell_surface_by_kind_releases_gil():
+    """`ShellSurface.by_kind` polls the shell enumeration between 100 ms
+    sleeps. The public entry point resolves the platform provider, so this
+    exercises the same binding path against the mock, which vends no `dock`
+    surface and therefore waits out the full timeout."""
+
+    def blocked():
+        with pytest.raises(xa11y.SelectorNotMatchedError):
+            _find_test_shell_surface("dock", timeout=_WAIT_S)
+
+    ticks = _ticks_during(blocked)
+    assert ticks >= _MIN_TICKS, (
+        f"background thread made only {ticks} iterations during a "
+        f"{_WAIT_S}s by_kind wait — the poll loop is holding the GIL (tenet 5)"
     )
 
 

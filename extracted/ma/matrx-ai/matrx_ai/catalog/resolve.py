@@ -18,6 +18,7 @@ from __future__ import annotations
 from matrx_utils import vcprint
 
 from matrx_ai.catalog.errors import CatalogRoutingError
+from matrx_ai.catalog.lifecycle import gate_model_lifecycle
 from matrx_ai.catalog.manager import AiCatalogManager, ai_catalog_manager
 from matrx_ai.catalog.models import CatalogOffering, CatalogVoice, ResolvedCallProfile
 from matrx_ai.catalog.routes import client_attr_for_wire_format
@@ -172,6 +173,14 @@ async def resolve_call_profile(
                 f"client-host/runtime catalog, which has no ai.offering rows — the "
                 f"pinned offering '{offering_id}' cannot apply. Unset the pin."
             )
+        # Same lifecycle gate as the DB path — a host-catalog dict can carry
+        # is_deprecated / retired_at / successor_id too.
+        catalog_row = dict(model.to_dict())
+        catalog_id = str(catalog_row.get("id") or catalog_row.get("name") or model_ref)
+        catalog_row.setdefault("id", catalog_id)
+        gate_model_lifecycle(
+            catalog_id, {catalog_id: catalog_row}, model_name=catalog_row.get("name")
+        )
         return build_catalog_call_profile(model)
 
     manager = ai_catalog_manager
@@ -248,6 +257,12 @@ async def resolve_call_profile(
         )
 
     model_state = manager.model_state(model_id)
+    # Lifecycle gate (ruled 2026-09-09): a DEPRECATED model runs normally with a
+    # once-per-process warning naming its replacement; a RETIRED model is refused.
+    # Never a substitution — the caller asked for THIS model.
+    gate_model_lifecycle(
+        model_id, manager.model_states(), model_name=getattr(model, "name", None)
+    )
     voices = manager.tts_voices(endpoint.vendor, getattr(model, "name", "") or "")
     model_name = getattr(model, "name", "") or ""
     default_voice = select_tts_default_voice(model_name, voices)
@@ -274,6 +289,8 @@ async def resolve_call_profile(
         token_billed=offering.token_billed,
         model_is_deprecated=bool(model_state.get("is_deprecated", False)),
         model_is_primary=bool(model_state.get("is_primary", False)),
+        model_retired_at=model_state.get("retired_at"),
+        model_successor_id=model_state.get("successor_id"),
         offering_metadata=offering.metadata,
         tts_voice_ids=tuple(voice.provider_voice_id for voice in voices),
         tts_default_voice_id=default_voice,
@@ -338,7 +355,10 @@ async def resolve_tts_call_profile(
         raw_tiers = tts_meta.get("quality_tiers", ())
         current_tiers = (raw_tiers,) if isinstance(raw_tiers, str) else tuple(raw_tiers)
 
-    needs_catalog_selection = profile.model_is_deprecated or (
+    # A DEPRECATED model is never a reason to reroute (ruled 2026-09-09): it runs
+    # normally and the lifecycle gate already warned. Only a tier the pinned
+    # model does not carry triggers catalog selection.
+    needs_catalog_selection = (
         requested_tier is not None and requested_tier not in current_tiers
     )
     if not needs_catalog_selection:
@@ -371,6 +391,7 @@ async def resolve_tts_call_profile(
                 and candidate_profile.capabilities.produces_audio
                 and not candidate_profile.capabilities.produces_text
                 and not candidate_profile.model_is_deprecated
+                and candidate_profile.model_retired_at is None
             ):
                 candidates.append((not bool(tts.get("is_default")), candidate_profile.model_name))
         if not candidates:
@@ -386,7 +407,7 @@ async def resolve_tts_call_profile(
     await manager.ensure_loaded()
     selected = manager.tts_offering(profile.vendor, requested_tier)
     if selected is None:
-        reason = "deprecated model" if profile.model_is_deprecated else f"quality={requested_tier!r}"
+        reason = f"quality={requested_tier!r}"
         vcprint(
             f"TTS catalog cannot route {reason} for vendor '{profile.vendor}'. Seed "
             "ai.offering.metadata.tts.quality_tiers/is_default; no code fallback exists.",

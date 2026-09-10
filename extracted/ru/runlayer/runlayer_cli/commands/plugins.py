@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, Literal, NoReturn
 
 import anyio
 import httpx
@@ -28,15 +28,20 @@ from runlayer_cli.config import (
 from runlayer_cli.logging import setup_logging
 from runlayer_cli.plugins.discovery import discover_plugins
 from runlayer_cli.plugins.installer import (
-    NATIVE_PLUGIN_CLIENTS,
     PluginInstallResult,
     PluginLockEntry,
     PluginUpdateResult,
+    UnsupportedInstallScopeError,
+    ensure_scope_supported,
     install_plugins,
     read_plugin_lockfile,
     resolve_plugin_dirs,
     uninstall_plugin,
     update_plugins,
+)
+from runlayer_cli.plugins.layouts import (
+    NATIVE_PLUGIN_CLIENTS,
+    project_scope_unsupported_reason,
 )
 from runlayer_cli.plugins.sync_engine import (
     PluginSyncResult,
@@ -81,8 +86,24 @@ def _resolve_client(client_name: str | None) -> str:
     return "claude_code"
 
 
-def _scope_name(global_install: bool) -> str:
+def _scope_name(global_install: bool) -> Literal["global", "project"]:
     return "global" if global_install else "project"
+
+
+def _require_scope(client_name: str, global_install: bool) -> None:
+    """Refuse a scope the client could never load the install from.
+
+    ``install_plugins`` / ``update_plugins`` enforce the same rule, but ``add``
+    and ``update`` wrap their domain call in ``except Exception`` ->
+    ``print_error(..., log_file)``, so letting the refusal surface from there
+    would append a "See logs for details" line to advice that is complete on
+    its own. Refusing here keeps the message clean.
+    """
+    try:
+        ensure_scope_supported(client_name, _scope_name(global_install))
+    except UnsupportedInstallScopeError as e:
+        typer.secho(str(e), fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from e
 
 
 def _plugin_mcp_proxy_url(host: str, plugin_id: str) -> str:
@@ -395,6 +416,22 @@ def find(
         resolved_clients = prompt_clients(list(_SUPPORTED_CLIENTS))
         install_scope = prompt_scope()
         global_install = install_scope == "global"
+        if install_scope == "project":
+            supported_clients: list[str] = []
+            for candidate in resolved_clients:
+                reason = project_scope_unsupported_reason(candidate)
+                if reason is not None:
+                    typer.secho(
+                        f"Skipping {candidate}: {reason}. "
+                        "Re-run and choose global scope.",
+                        fg=typer.colors.YELLOW,
+                        err=True,
+                    )
+                    continue
+                supported_clients.append(candidate)
+            resolved_clients = supported_clients
+            if not resolved_clients:
+                raise typer.Exit(1)
         confirm_install(
             item_count=len(selected_plugins),
             client_count=len(resolved_clients),
@@ -545,6 +582,7 @@ def add(
     credentials = resolve_credentials(ctx, require_auth=not dry_run)
 
     resolved_client = _resolve_client(client_name)
+    _require_scope(resolved_client, global_install)
     canonical, editor, lockfile = resolve_plugin_dirs(
         resolved_client, global_install, Path.cwd()
     )
@@ -667,6 +705,7 @@ def remove(
                             editor,
                             lockfile,
                             resolved_client,
+                            install_scope="global" if global_install else "project",
                         )
                     except Exception as e:
                         errors.append(f"{target_name}: {e}")
@@ -691,7 +730,12 @@ def remove(
 
         async def _run() -> str:
             return await uninstall_plugin(
-                plugin_ref, canonical, editor, lockfile, resolved_client
+                plugin_ref,
+                canonical,
+                editor,
+                lockfile,
+                resolved_client,
+                install_scope="global" if global_install else "project",
             )
 
         removed_name = anyio.run(_run)
@@ -737,6 +781,7 @@ def update(
     credentials = resolve_credentials(ctx, require_auth=not dry_run)
 
     resolved_client = _resolve_client(client_name)
+    _require_scope(resolved_client, global_install)
     canonical, editor, lockfile = resolve_plugin_dirs(
         resolved_client, global_install, Path.cwd()
     )

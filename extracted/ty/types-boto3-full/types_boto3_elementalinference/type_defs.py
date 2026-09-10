@@ -28,6 +28,7 @@ from .literals import (
     FeedStatusType,
     OutputStatusType,
     ProfanityFilterModeType,
+    SummaryGenerationModeType,
     TranscriptionLanguageType,
 )
 
@@ -43,6 +44,7 @@ __all__ = (
     "AssociateFeedResponseTypeDef",
     "ClippingConfigTypeDef",
     "CompetitorTypeDef",
+    "ContextualMetadataConfigTypeDef",
     "CreateDictionaryRequestTypeDef",
     "CreateDictionaryResponseTypeDef",
     "CreateFeedRequestTypeDef",
@@ -54,6 +56,7 @@ __all__ = (
     "DataSourceConfigurationTypeDef",
     "DeleteDictionaryRequestTypeDef",
     "DeleteDictionaryResponseTypeDef",
+    "DeleteFeedPolicyRequestTypeDef",
     "DeleteFeedRequestTypeDef",
     "DeleteFeedResponseTypeDef",
     "DictionarySummaryTypeDef",
@@ -67,6 +70,8 @@ __all__ = (
     "FixtureSummaryTypeDef",
     "GetDictionaryRequestTypeDef",
     "GetDictionaryResponseTypeDef",
+    "GetFeedPolicyRequestTypeDef",
+    "GetFeedPolicyResponseTypeDef",
     "GetFeedRequestTypeDef",
     "GetFeedRequestWaitTypeDef",
     "GetFeedResponseTypeDef",
@@ -85,6 +90,7 @@ __all__ = (
     "OutputConfigTypeDef",
     "OutputConfigUnionTypeDef",
     "PaginatorConfigTypeDef",
+    "PutFeedPolicyRequestTypeDef",
     "ResponseMetadataTypeDef",
     "SearchFilterTypeDef",
     "SearchFixturesRequestPaginateTypeDef",
@@ -127,6 +133,10 @@ class CompetitorTypeDef(TypedDict):
     isHome: NotRequired[bool]
 
 
+class ContextualMetadataConfigTypeDef(TypedDict):
+    summaryGeneration: NotRequired[SummaryGenerationModeType]
+
+
 class CreateDictionaryRequestTypeDef(TypedDict):
     name: str
     language: DictionaryLanguageType
@@ -145,6 +155,12 @@ class TemplateGroupOutputTypeDef(TypedDict):
 
 DeleteDictionaryRequestTypeDef = TypedDict(
     "DeleteDictionaryRequestTypeDef",
+    {
+        "id": str,
+    },
+)
+DeleteFeedPolicyRequestTypeDef = TypedDict(
+    "DeleteFeedPolicyRequestTypeDef",
     {
         "id": str,
     },
@@ -185,6 +201,12 @@ GetDictionaryRequestTypeDef = TypedDict(
         "id": str,
     },
 )
+GetFeedPolicyRequestTypeDef = TypedDict(
+    "GetFeedPolicyRequestTypeDef",
+    {
+        "id": str,
+    },
+)
 GetFeedRequestTypeDef = TypedDict(
     "GetFeedRequestTypeDef",
     {
@@ -220,6 +242,15 @@ class ListFeedsRequestTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+
+PutFeedPolicyRequestTypeDef = TypedDict(
+    "PutFeedPolicyRequestTypeDef",
+    {
+        "id": str,
+        "policy": str,
+    },
+)
 
 
 class SearchFilterTypeDef(TypedDict):
@@ -331,6 +362,11 @@ GetDictionaryResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class GetFeedPolicyResponseTypeDef(TypedDict):
+    policy: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -452,6 +488,7 @@ class OutputConfigOutputTypeDef(TypedDict):
     cropping: NotRequired[CroppingConfigOutputTypeDef]
     clipping: NotRequired[ClippingConfigTypeDef]
     subtitling: NotRequired[SubtitlingConfigTypeDef]
+    contextualMetadata: NotRequired[ContextualMetadataConfigTypeDef]
 
 
 class CroppingConfigTypeDef(TypedDict):
@@ -518,6 +555,7 @@ class OutputConfigTypeDef(TypedDict):
     cropping: NotRequired[CroppingConfigUnionTypeDef]
     clipping: NotRequired[ClippingConfigTypeDef]
     subtitling: NotRequired[SubtitlingConfigTypeDef]
+    contextualMetadata: NotRequired[ContextualMetadataConfigTypeDef]
 
 
 OutputConfigUnionTypeDef = Union[OutputConfigTypeDef, OutputConfigOutputTypeDef]

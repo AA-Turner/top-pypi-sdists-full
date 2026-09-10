@@ -16254,6 +16254,8 @@ class VolumeResponseTypeDef(TypedDict):
     SseType: SSETypeType
     Operator: OperatorResponseTypeDef
     VolumeInitializationRate: int
+    VolumeArn: str
+    OwnerId: str
     VolumeId: str
     Size: int
     SnapshotId: str
@@ -16278,6 +16280,8 @@ class VolumeTypeDef(TypedDict):
     SseType: NotRequired[SSETypeType]
     Operator: NotRequired[OperatorResponseTypeDef]
     VolumeInitializationRate: NotRequired[int]
+    VolumeArn: NotRequired[str]
+    OwnerId: NotRequired[str]
     VolumeId: NotRequired[str]
     Size: NotRequired[int]
     SnapshotId: NotRequired[str]
@@ -19185,6 +19189,8 @@ class CopyVolumesRequestTypeDef(TypedDict):
     MultiAttachEnabled: NotRequired[bool]
     Throughput: NotRequired[int]
     ClientToken: NotRequired[str]
+    Encrypted: NotRequired[bool]
+    KmsKeyId: NotRequired[str]
 
 CreateApplicationStatusCheckRequestTypeDef = TypedDict(
     "CreateApplicationStatusCheckRequestTypeDef",

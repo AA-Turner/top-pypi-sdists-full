@@ -841,6 +841,10 @@ class edgering_select(bpy.ops._BPyOpsSubModOp):
             typing.Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeRingItems]
         ]
         | None = {"NGONS"},
+        delimit_face_loop: set[
+            typing.Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitFaceLoopItems]
+        ]
+        | None = set(),
         extend: bool | None = False,
         deselect: bool | None = False,
         toggle: bool | None = False,
@@ -854,6 +858,7 @@ class edgering_select(bpy.ops._BPyOpsSubModOp):
         :param execution_context:
         :param undo:
         :param delimit_edge_ring: Edge Ring Delimit, Delimit edge ring selection (optional)
+        :param delimit_face_loop: Face Loop Delimit, Delimit face loop selection (optional)
         :param extend: Extend Select, Extend the selection (optional)
         :param deselect: Deselect, Remove from the selection (optional)
         :param toggle: Toggle Select, Toggle the selection (optional)

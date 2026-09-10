@@ -246,6 +246,16 @@ fn read_all_zip_entries(bytes: &[u8]) -> HashMap<String, Vec<u8>> {
     out
 }
 
+fn write_all_zip_entries(entries: &HashMap<String, Vec<u8>>) -> Vec<u8> {
+    let mut names: Vec<_> = entries.keys().collect();
+    names.sort();
+    let mut zip = ZipWriter::new(Cursor::new(Vec::<u8>::new()));
+    for name in names {
+        zip_add(&mut zip, name, &entries[name]);
+    }
+    zip.finish().unwrap().into_inner()
+}
+
 fn is_writer_owned(name: &str) -> bool {
     matches!(
         name,
@@ -1266,6 +1276,192 @@ fn rename_sheet_rewrites_chart_references_on_a_real_fixture() {
     );
 }
 
+/// G2d: an explicit chart-series edit rewrites only the selected category and
+/// value references while leaving the drawing relationship chain intact.
+#[test]
+fn edit_chart_series_rewrites_selected_references_on_a_real_fixture() {
+    let source_path = real_fixture("fixture5_chart_image_freeze_print.xlsm");
+    let output_path = tmp_path("edit_chart_series_output.xlsm");
+    let mut vm = Vm::new();
+    vm.load_workbook_file(&source_path)
+        .expect("real fixture should load");
+    vm.set_chart_series_formulas(
+        "xl/charts/chart1.xml",
+        0,
+        Some("Sheet1!$A$1:$A$5"),
+        Some("Sheet1!$B$1:$B$5"),
+    )
+    .expect("chart series edit should be accepted");
+    vm.set_drawing_anchor("xl/drawings/drawing1.xml", 0, 2, 3, 10, 12)
+        .expect("drawing anchor edit should be accepted");
+    vm.set_drawing_shape_name("xl/drawings/drawing1.xml", 0, "Ready & reviewed")
+        .expect("drawing shape name edit should be accepted");
+    vm.set_drawing_shape_description("xl/drawings/drawing1.xml", 0, "Ready for review")
+        .expect("drawing shape description edit should be accepted");
+    vm.set_drawing_shape_title("xl/drawings/drawing1.xml", 0, "Review title")
+        .expect("drawing shape title edit should be accepted");
+    vm.set_chart_series_cache(
+        "xl/charts/chart1.xml",
+        0,
+        Some(vec![
+            "Open & ready".to_string(),
+            "ok".to_string(),
+            "bad".to_string(),
+        ]),
+        Some(vec!["42".to_string()]),
+    )
+    .expect("chart cache edit should be accepted");
+    save_workbook(&vm, &output_path).expect("chart series edit should save");
+
+    let output_entries = read_all_zip_entries(&std::fs::read(&output_path).unwrap());
+    let chart = String::from_utf8(output_entries["xl/charts/chart1.xml"].clone()).unwrap();
+    assert!(chart.contains("<c:cat><c:strRef><c:f>Sheet1!$A$1:$A$5</c:f>"));
+    assert!(chart.contains("<c:val><c:numRef><c:f>Sheet1!$B$1:$B$5</c:f>"));
+    assert!(chart.contains("<c:strCache><c:ptCount val=\"3\"/>"));
+    assert!(chart.contains("<c:v>Open &amp; ready</c:v>"));
+    assert!(
+        chart.contains("<c:numCache><c:formatCode>General</c:formatCode><c:ptCount val=\"1\"/>")
+    );
+    assert!(chart.contains("<c:v>42</c:v>"));
+    assert!(output_entries.contains_key("xl/drawings/drawing1.xml"));
+    assert!(output_entries.contains_key("xl/drawings/_rels/drawing1.xml.rels"));
+    let drawing = String::from_utf8(output_entries["xl/drawings/drawing1.xml"].clone()).unwrap();
+    assert!(drawing.contains("<xdr:from><xdr:col>2</xdr:col>"));
+    assert!(drawing.contains("<xdr:row>1</xdr:row>"));
+    assert!(drawing.contains("<xdr:to><xdr:col>11</xdr:col>"));
+    assert!(drawing.contains("<xdr:row>9</xdr:row>"));
+    assert!(drawing.contains("name=\"Ready &amp; reviewed\""));
+    assert!(drawing.contains("descr=\"Ready for review\""));
+    assert!(drawing.contains("title=\"Review title\""));
+}
+
+/// G2d: the chart-series smooth edit is exercised through the loaded-workbook
+/// save path. The real fixture has no smooth flag, so the test injects only
+/// that existing-OOXML element into a temporary copy before loading it.
+#[test]
+fn edit_chart_series_smooth_survives_real_fixture_save() {
+    let source_path = tmp_path("edit_chart_series_smooth_source.xlsm");
+    let output_path = tmp_path("edit_chart_series_smooth_output.xlsm");
+    let fixture_path = real_fixture("fixture5_chart_image_freeze_print.xlsm");
+    let fixture_bytes = std::fs::read(&fixture_path).expect("real fixture must exist");
+    let mut entries = read_all_zip_entries(&fixture_bytes);
+    let chart = String::from_utf8(entries["xl/charts/chart1.xml"].clone()).unwrap();
+    let series_end = chart
+        .find("</c:ser>")
+        .expect("fixture should contain one chart series");
+    let mut chart_with_smooth = chart;
+    chart_with_smooth.insert_str(series_end, "<c:smooth val=\"0\"/>");
+    entries.insert(
+        "xl/charts/chart1.xml".to_string(),
+        chart_with_smooth.into_bytes(),
+    );
+    std::fs::write(&source_path, write_all_zip_entries(&entries)).unwrap();
+
+    let mut vm = Vm::new();
+    vm.load_workbook_file(&source_path)
+        .expect("temporary fixture should load");
+    vm.set_chart_series_smooth("xl/charts/chart1.xml", 0, true)
+        .expect("smooth edit should be accepted");
+    save_workbook(&vm, &output_path).expect("smooth edit should save");
+
+    let output_entries = read_all_zip_entries(&std::fs::read(&output_path).unwrap());
+    let output_chart = String::from_utf8(output_entries["xl/charts/chart1.xml"].clone()).unwrap();
+    assert!(output_chart.contains("<c:smooth val=\"1\"/>"));
+    assert!(output_chart.contains("<c:f>Sheet1!$A$6:$B$6</c:f>"));
+}
+
+/// G2d: series visibility editing uses the same bounded save path and keeps
+/// the chart's existing formula references intact.
+#[test]
+fn edit_chart_series_visibility_survives_real_fixture_save() {
+    let source_path = tmp_path("edit_chart_series_visibility_source.xlsm");
+    let output_path = tmp_path("edit_chart_series_visibility_output.xlsm");
+    let fixture_path = real_fixture("fixture5_chart_image_freeze_print.xlsm");
+    let fixture_bytes = std::fs::read(&fixture_path).expect("real fixture must exist");
+    let mut entries = read_all_zip_entries(&fixture_bytes);
+    let chart = String::from_utf8(entries["xl/charts/chart1.xml"].clone()).unwrap();
+    let series_end = chart
+        .find("</c:ser>")
+        .expect("fixture should contain one chart series");
+    let mut chart_with_delete = chart;
+    chart_with_delete.insert_str(series_end, "<c:delete val=\"0\"/>");
+    entries.insert(
+        "xl/charts/chart1.xml".to_string(),
+        chart_with_delete.into_bytes(),
+    );
+    std::fs::write(&source_path, write_all_zip_entries(&entries)).unwrap();
+
+    let mut vm = Vm::new();
+    vm.load_workbook_file(&source_path)
+        .expect("temporary fixture should load");
+    vm.set_chart_series_deleted("xl/charts/chart1.xml", 0, true)
+        .expect("visibility edit should be accepted");
+    save_workbook(&vm, &output_path).expect("visibility edit should save");
+
+    let output_entries = read_all_zip_entries(&std::fs::read(&output_path).unwrap());
+    let output_chart = String::from_utf8(output_entries["xl/charts/chart1.xml"].clone()).unwrap();
+    assert!(output_chart.contains("<c:delete val=\"1\"/>"));
+    assert!(output_chart.contains("<c:f>Sheet1!$A$6:$B$6</c:f>"));
+}
+
+/// G2d: series line-color editing rewrites only an existing solid RGB style
+/// in a temporary copy of the Excel-authored chart fixture.
+#[test]
+fn edit_chart_series_line_color_survives_real_fixture_save() {
+    let source_path = tmp_path("edit_chart_series_line_color_source.xlsm");
+    let output_path = tmp_path("edit_chart_series_line_color_output.xlsm");
+    let fixture_path = real_fixture("fixture5_chart_image_freeze_print.xlsm");
+    let fixture_bytes = std::fs::read(&fixture_path).expect("real fixture must exist");
+    let mut entries = read_all_zip_entries(&fixture_bytes);
+    let chart = String::from_utf8(entries["xl/charts/chart1.xml"].clone()).unwrap();
+    let series_start = chart
+        .find("<c:ser>")
+        .expect("fixture should contain one chart series");
+    let series_end = chart
+        .find("</c:ser>")
+        .expect("fixture should contain one chart series");
+    let mut chart_with_line = chart;
+    let no_fill = chart_with_line[series_start..series_end]
+        .find("<a:noFill/>")
+        .map(|offset| series_start + offset)
+        .expect("fixture series should contain a line noFill marker");
+    chart_with_line.replace_range(
+        no_fill..no_fill + "<a:noFill/>".len(),
+        "<a:solidFill><a:srgbClr val=\"112233\"/></a:solidFill>",
+    );
+    let series_end_after_line = chart_with_line
+        .find("</c:ser>")
+        .expect("fixture should contain one chart series");
+    let scheme_color = chart_with_line[series_start..series_end_after_line]
+        .find("<a:schemeClr val=\"accent1\"/>")
+        .map(|offset| series_start + offset)
+        .expect("fixture series should contain a solid fill scheme color");
+    chart_with_line.replace_range(
+        scheme_color..scheme_color + "<a:schemeClr val=\"accent1\"/>".len(),
+        "<a:srgbClr val=\"223344\"/>",
+    );
+    entries.insert(
+        "xl/charts/chart1.xml".to_string(),
+        chart_with_line.into_bytes(),
+    );
+    std::fs::write(&source_path, write_all_zip_entries(&entries)).unwrap();
+
+    let mut vm = Vm::new();
+    vm.load_workbook_file(&source_path)
+        .expect("temporary fixture should load");
+    vm.set_chart_series_line_color("xl/charts/chart1.xml", 0, "#aBc123")
+        .expect("line color edit should be accepted");
+    vm.set_chart_series_fill_color("xl/charts/chart1.xml", 0, "#dEf456")
+        .expect("fill color edit should be accepted");
+    save_workbook(&vm, &output_path).expect("chart color edits should save");
+
+    let output_entries = read_all_zip_entries(&std::fs::read(&output_path).unwrap());
+    let output_chart = String::from_utf8(output_entries["xl/charts/chart1.xml"].clone()).unwrap();
+    assert!(output_chart.contains("<a:srgbClr val=\"ABC123\"/>"));
+    assert!(output_chart.contains("<a:srgbClr val=\"DEF456\"/>"));
+    assert!(output_chart.contains("<c:f>Sheet1!$A$6:$B$6</c:f>"));
+}
+
 /// A minimal Pivot cache package exercises the complete loaded-workbook rename
 /// path without requiring a binary Excel fixture. The cache itself is opaque;
 /// only its worksheet source sheet name may change.
@@ -1320,6 +1516,8 @@ fn rename_sheet_rewrites_pivot_worksheet_source_and_keeps_cache_owner() {
         concat!(
             "<pivotCacheDefinition xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" cacheId=\"7\">",
             "<cacheSource><worksheetSource ref=\"A1:B2\" sheet=\"Sheet1\"/></cacheSource>",
+            "<cacheFields count=\"2\"><cacheField name=\"Region\"><sharedItems/></cacheField>",
+            "<cacheField name=\"Amount\"><sharedItems count=\"2\"/></cacheField></cacheFields>",
             "</pivotCacheDefinition>"
         )
         .as_bytes(),
@@ -1329,6 +1527,20 @@ fn rename_sheet_rewrites_pivot_worksheet_source_and_keeps_cache_owner() {
     let mut vm = Vm::new();
     vm.load_workbook_file(&source_path).unwrap();
     vm.rename_sheet("Sheet1", "Data & 2026").unwrap();
+    vm.set_pivot_worksheet_source(
+        "xl/pivotCache/pivotCacheDefinition1.xml",
+        None,
+        Some("A1:C3"),
+    )
+    .expect("pivot source edit should be accepted");
+    vm.set_pivot_cache_refresh_on_load("xl/pivotCache/pivotCacheDefinition1.xml", true)
+        .expect("pivot refresh policy edit should be accepted");
+    vm.set_pivot_cache_field_caption(
+        "xl/pivotCache/pivotCacheDefinition1.xml",
+        1,
+        "Amount & total",
+    )
+    .expect("pivot field caption edit should be accepted");
     save_workbook(&vm, &output_path).expect("pivot sheet rename should save");
 
     let entries = read_all_zip_entries(&std::fs::read(&output_path).unwrap());
@@ -1338,7 +1550,11 @@ fn rename_sheet_rewrites_pivot_worksheet_source_and_keeps_cache_owner() {
     assert!(workbook.contains("<pivotCaches>"));
     assert!(workbook.contains("cacheId=\"7\""));
     assert!(cache.contains("sheet=\"Data &amp; 2026\""));
-    assert!(cache.contains("ref=\"A1:B2\""));
+    assert!(cache.contains("ref=\"A1:C3\""));
+    assert!(cache.contains("refreshOnLoad=\"1\""));
+    assert!(cache.contains(
+        "<cacheField name=\"Amount &amp; total\"><sharedItems count=\"2\"/></cacheField>"
+    ));
 
     let _ = std::fs::remove_file(source_path);
     let _ = std::fs::remove_file(output_path);

@@ -42,8 +42,9 @@ class HostRpcState:
 
 _CLIENTS: dict[str, AgentDaemonClient] = {}
 _HOST_STATE: dict[str, HostRpcState] = {}
-# One bearer token per session (world process), reused for every agent VM's
-# daemon. Minted lazily on first bootstrap.
+# Fallback bearer token (world process), pushed to hosts whose daemon did not
+# boot-start and mint its own — the effective token is per-host, in
+# ``HostRpcState.token``. Minted lazily on first bootstrap.
 _session_token: str | None = None
 
 

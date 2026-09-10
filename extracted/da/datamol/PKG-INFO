@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: datamol
-Version: 0.12.5
+Version: 0.13.0
 Summary: A python library to work with molecules. Built on top of RDKit.
 Author-email: Hadrien Mary <hadrien@valencediscovery.com>
-License: Apache
+License-Expression: Apache-2.0
 Project-URL: Website, https://datamol.io
 Project-URL: Source Code, https://github.com/datamol-io/datamol
 Project-URL: Bug Tracker, https://github.com/datamol-io/datamol/issues
@@ -20,29 +20,61 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: tqdm
-Requires-Dist: loguru
-Requires-Dist: joblib
-Requires-Dist: fsspec>=2021.9
-Requires-Dist: pandas
-Requires-Dist: numpy
-Requires-Dist: scipy
-Requires-Dist: matplotlib
-Requires-Dist: pillow
-Requires-Dist: selfies
-Requires-Dist: platformdirs
-Requires-Dist: scikit-learn
-Requires-Dist: packaging
-Requires-Dist: typing-extensions
-Requires-Dist: importlib-resources
-Requires-Dist: rdkit
+Requires-Dist: tqdm>=4.66
+Requires-Dist: loguru>=0.7
+Requires-Dist: joblib>=1.3
+Requires-Dist: fsspec[http]>=2023.9.2
+Requires-Dist: pandas>=2.2
+Requires-Dist: numpy>=1.26
+Requires-Dist: scipy>=1.11
+Requires-Dist: platformdirs>=4
+Requires-Dist: scikit-learn>=1.4
+Requires-Dist: packaging>=23.2
+Requires-Dist: rdkit>=2024.9.1
+Requires-Dist: gcsfs>=2024.3
+Requires-Dist: s3fs>=2024.3
+Requires-Dist: openpyxl>=3.1
+Requires-Dist: xlsxwriter>=3.2
+Requires-Dist: pyarrow>=15
+Requires-Dist: matplotlib>=3.8
+Requires-Dist: networkx>=3.2
+Requires-Dist: nglview>=3.1
+Requires-Dist: pillow>=10
+Requires-Dist: selfies>=2.1
+Provides-Extra: test
+Requires-Dist: ipykernel>=6.29; extra == "test"
+Requires-Dist: ipywidgets>=8.1; extra == "test"
+Requires-Dist: nbconvert>=7.16; extra == "test"
+Requires-Dist: nbformat>=5.10; extra == "test"
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: pytest-cov>=6; extra == "test"
+Requires-Dist: pytest-xdist>=3.6; extra == "test"
+Provides-Extra: docs
+Requires-Dist: markdown-include>=0.8.1; extra == "docs"
+Requires-Dist: mdx-truly-sane-lists>=1.3; extra == "docs"
+Requires-Dist: mike>=2; extra == "docs"
+Requires-Dist: mkdocs>=1.6; extra == "docs"
+Requires-Dist: mkdocs-jupyter>=0.25; extra == "docs"
+Requires-Dist: mkdocs-material>=9.5; extra == "docs"
+Requires-Dist: mkdocs-material-extensions>=1.3; extra == "docs"
+Requires-Dist: mkdocstrings[python]>=0.30; extra == "docs"
+Requires-Dist: seaborn>=0.13; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: black>=25; extra == "dev"
+Requires-Dist: build>=1.2; extra == "dev"
+Requires-Dist: mypy>=1.15; extra == "dev"
+Requires-Dist: pre-commit>=4; extra == "dev"
+Requires-Dist: pyright>=1.1.400; extra == "dev"
+Requires-Dist: ruff>=0.11; extra == "dev"
+Requires-Dist: twine>=6; extra == "dev"
+Dynamic: license-file
 
 <div align="center">
     <img src="docs/images/logo-title.svg" width="100%">
@@ -69,7 +101,7 @@ Requires-Dist: rdkit
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/datamol)](https://pypi.org/project/datamol/)
 [![Conda](https://img.shields.io/conda/dn/conda-forge/datamol)](https://anaconda.org/conda-forge/datamol)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/datamol)](https://pypi.org/project/datamol/)
-[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/datamol-io/datamol/blob/main/LICENSE)
+[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![GitHub Repo stars](https://img.shields.io/github/stars/datamol-io/datamol)](https://github.com/datamol-io/datamol/stargazers)
 [![GitHub Repo stars](https://img.shields.io/github/forks/datamol-io/datamol)](https://github.com/datamol-io/datamol/network/members)
 [![Codecov](https://codecov.io/gh/datamol-io/datamol/branch/main/graph/badge.svg?token=2ETG8SA7IG)](https://codecov.io/gh/datamol-io/datamol)
@@ -90,13 +122,37 @@ Visit [![Binder](http://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh
 
 Visit <https://docs.datamol.io>.
 
+## Updates
+
+Datamol 0.13.0 modernizes the supported scientific Python
+stack while keeping the library focused on reliable molecular processing. It
+adds RDKit binary and property-dictionary interchange, enforces conformer RMS
+cutoffs with symmetry-aware alignment, fixes reported RDKit compatibility
+issues, and separates optional I/O and visualization dependencies from the
+core installation.
+
+See the [complete changelog](CHANGELOG.md) for all notable changes and the
+[0.13.0 upgrade guide](docs/migration.md) for compatibility and transition
+details.
+
 ## Installation
 
-Use conda:
+Add Datamol to a uv-managed project:
 
 ```bash
+uv add datamol
+```
+
+Pip and conda-forge remain supported:
+
+```bash
+python -m pip install datamol
 mamba install -c conda-forge datamol
 ```
+
+Datamol 0.13.0 requires Python 3.11 or newer and RDKit 2024.09 or newer. Cloud
+I/O (S3, Google Cloud), Excel/Parquet, visualization and SELFIES support are all
+included by default — there are no feature extras to install.
 
 ## Quick API Tour
 
@@ -151,6 +207,7 @@ See below the associated versions of Python and RDKit, for which a minor version
 
 | `datamol` | `python`            | `rdkit`                       |
 | --------- | ------------------- | ----------------------------- |
+| `0.13.x`  | `[3.11, 3.12, 3.13, 3.14]` | `[2024.09, 2025.03, 2025.09, 2026.03]` |
 | `0.12.x`  | `[3.10, 3.11]`      | `[2023.03, 2023.09]`          |
 | `0.11.x`  | `[3.9, 3.10, 3.11]` | `[2022.09, 2023.03]`          |
 | `0.10.x`  | `[3.9, 3.10, 3.11]` | `[2022.03, 2022.09]`          |
@@ -166,14 +223,15 @@ See below the associated versions of Python and RDKit, for which a minor version
 
 The CI runs tests and performs code quality checks for the following combinations:
 
-- The three major platforms: Windows, OSX and Linux.
-- The two latest Python versions.
-- The two latest RDKit versions.
+- Linux x86-64, Windows x86-64, macOS Apple Silicon and macOS Intel.
+- Python 3.11 through 3.14 on Linux.
+- The supported RDKit release series from 2024.09 through 2026.03.
+- The latest supported stack on every operating-system and architecture lane.
 
 |                                         | `main`                                                                                                                                                                    |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Lib build & Testing                     | [![test](https://github.com/datamol-io/datamol/actions/workflows/test.yml/badge.svg)](https://github.com/datamol-io/datamol/actions/workflows/test.yml)                   |
-| Code Sanity (linting and type analysis) | [![code-check](https://github.com/datamol-io/datamol/actions/workflows/code-check.yml/badge.svg)](https://github.com/datamol-io/datamol/actions/workflows/code-check.yml) |
+| Code Sanity (formatting and linting)     | [![code-check](https://github.com/datamol-io/datamol/actions/workflows/code-check.yml/badge.svg)](https://github.com/datamol-io/datamol/actions/workflows/code-check.yml) |
 | Documentation Build                     | [![doc](https://github.com/datamol-io/datamol/actions/workflows/doc.yml/badge.svg)](https://github.com/datamol-io/datamol/actions/workflows/doc.yml)                      |
 
 ## License

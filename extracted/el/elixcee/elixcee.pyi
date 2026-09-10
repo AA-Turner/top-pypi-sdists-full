@@ -162,10 +162,38 @@ class Vm:
         """
         ...
 
+    def run_with_events(self, vba_code: str, macro_name: str, timeout_ms: int | None = None) -> None:
+        """Opt into ``Workbook_Open`` and bounded ``Worksheet_Change`` dispatch."""
+        ...
+
+    def run_event(self, vba_code: str, event_name: str, timeout_ms: int | None = None) -> bool:
+        """Dispatch an explicit zero-argument event; returns ``False`` when disabled or re-entry is suppressed."""
+        ...
+
+    def run_worksheet_change(
+        self, vba_code: str, target_address: str, timeout_ms: int | None = None
+    ) -> bool:
+        """Dispatch ``Worksheet_Change(Target)`` with an explicit A1 target range.
+
+        The handler can read ``Target.Value``, ``Address``, ``Row``, ``Column``,
+        ``Rows.Count``, ``Columns.Count``, and ``Cells.Count`` for the supported
+        single-area model; ``Target.Parent.Name`` identifies its worksheet.
+        """
+        ...
+
+    def set_enable_events(self, enabled: bool) -> None:
+        """Enable or disable explicit headless event dispatch."""
+        ...
+
+    @property
+    def enable_events(self) -> bool: ...
+
     # ── Cell access ────────────────────────────────────────────────────────────
 
-    def set_cell(self, row: int, col: int, value: Any) -> None:
-        """Write *value* into the cell at (``row``, ``col``) (1-based)."""
+    def set_cell(
+        self, row: int, col: int, value: Any, trigger_events: bool = False
+    ) -> None:
+        """Write a value and optionally dispatch cached ``Worksheet_Change``."""
         ...
 
     def get_cell(self, row: int, col: int) -> Any:
@@ -188,12 +216,21 @@ class Vm:
         """
         ...
 
+    @property
+    def workbook_date1904(self) -> bool:
+        """Whether the loaded workbook declares Excel's 1904 date system.
+
+        This reports the workbook metadata only; date-serial conversion remains
+        the caller's responsibility until the calculation contract is extended.
+        """
+        ...
+
     def cells(self) -> dict[tuple[int, int], Any]:
         """Return all non-empty cells of the active sheet as ``{(row, col): value}``."""
         ...
 
     def snapshot(self, include_formulas: bool = False) -> dict[str, Any]:
-        """Return a detached workbook snapshot including hidden rows/columns; optionally include ``formulas``."""
+        """Return a detached workbook snapshot including calculation mode and date-system metadata; optionally include ``formulas``."""
         ...
 
     @property
@@ -276,6 +313,291 @@ class Vm:
         or whitespace-only, *new_name* (case-insensitively) already names a
         *different* existing sheet, or the sheet is protected.
         """
+        ...
+
+    def set_chart_series_formulas(
+        self,
+        chart_part: str,
+        series_index: int,
+        categories: str | None = ...,
+        values: str | None = ...,
+    ) -> None:
+        """Queue a bounded edit to an existing chart series.
+
+        ``chart_part`` must be an ``xl/charts/chartN.xml`` path and
+        ``series_index`` is zero-based. Formulas use chart XML spelling, for
+        example ``Sheet1!$A$1:$A$3``.
+        """
+        ...
+
+    def set_chart_title(self, chart_part: str, text: str) -> None:
+        """Queue a bounded edit or add operation for a chart title."""
+        ...
+
+    def set_chart_legend_position(self, chart_part: str, position: str) -> None:
+        """Queue a bounded legend position edit or add operation (b, tr, r, l, or t)."""
+        ...
+
+    def set_chart_style(self, chart_part: str, style: int) -> None:
+        """Set an existing chart style number (1 through 48)."""
+        ...
+
+    def set_chart_axis_title(
+        self, chart_part: str, axis_index: int, text: str
+    ) -> None:
+        """Update or add a chart axis title; axis_index is zero-based."""
+        ...
+
+    def set_chart_legend_overlay(self, chart_part: str, overlay: bool) -> None:
+        """Update or add the existing chart legend's overlay flag."""
+        ...
+
+    def set_chart_data_labels_show_value(
+        self, chart_part: str, show_value: bool
+    ) -> None:
+        """Update the first existing chart data-labels showVal flag."""
+        ...
+
+    def set_chart_data_labels_show_category(
+        self, chart_part: str, show_category: bool
+    ) -> None:
+        """Update the first existing chart data-labels showCat flag."""
+        ...
+
+    def set_chart_data_labels_show_series_name(
+        self, chart_part: str, show_series_name: bool
+    ) -> None:
+        """Update the first existing chart data-labels showSerName flag."""
+        ...
+
+    def set_chart_data_labels_show_percent(
+        self, chart_part: str, show_percent: bool
+    ) -> None:
+        """Update the first existing chart data-labels showPercent flag."""
+        ...
+
+    def set_chart_data_labels_show_leader_lines(
+        self, chart_part: str, show_leader_lines: bool
+    ) -> None:
+        """Update the first existing chart data-labels showLeaderLines flag."""
+        ...
+
+    def set_chart_data_labels_show_bubble_size(
+        self, chart_part: str, show_bubble_size: bool
+    ) -> None:
+        """Update the first existing chart data-labels showBubbleSize flag."""
+        ...
+
+    def set_chart_data_labels_show_legend_key(
+        self, chart_part: str, show_legend_key: bool
+    ) -> None:
+        """Update the first existing chart data-labels showLegendKey flag."""
+        ...
+
+    def set_chart_data_labels_position(self, chart_part: str, position: str) -> None:
+        """Update or add the first chart data-label position.
+
+        Accepted values are ``bestFit``, ``b``, ``ctr``, ``inBase``,
+        ``inEnd``, ``l``, ``outEnd``, ``r``, and ``t``.
+        """
+        ...
+
+    def set_chart_data_labels_number_format(
+        self, chart_part: str, number_format: str
+    ) -> None:
+        """Update or add the first chart data-label number format code."""
+        ...
+
+    def set_chart_data_labels_number_format(
+        self, chart_part: str, number_format: str
+    ) -> None:
+        """Update or add the first chart data-label number format code."""
+        ...
+
+    def set_chart_data_labels_separator(self, chart_part: str, separator: str) -> None:
+        """Update or add the first chart data-label separator value."""
+        ...
+
+    def set_chart_series_name_formula(
+        self, chart_part: str, series_index: int, name_formula: str
+    ) -> None:
+        """Queue a bounded edit to an existing chart series name formula."""
+        ...
+
+    def set_chart_series_marker_symbol(
+        self, chart_part: str, series_index: int, symbol: str
+    ) -> None:
+        """Queue a bounded edit to an existing chart series marker symbol."""
+        ...
+
+    def set_chart_series_marker_size(
+        self, chart_part: str, series_index: int, size: int
+    ) -> None:
+        """Queue a bounded edit to an existing chart series marker size (2..=72)."""
+        ...
+
+    def set_chart_series_smooth(
+        self, chart_part: str, series_index: int, smooth: bool
+    ) -> None:
+        """Queue a bounded edit to an existing chart series smooth flag."""
+        ...
+
+    def set_chart_series_invert_if_negative(
+        self, chart_part: str, series_index: int, enabled: bool
+    ) -> None:
+        """Queue a bounded edit to an existing chart series negative-value display flag."""
+        ...
+
+    def set_chart_series_deleted(
+        self, chart_part: str, series_index: int, deleted: bool
+    ) -> None:
+        """Queue a bounded edit to an existing chart series visibility flag."""
+        ...
+
+    def set_chart_series_cache(
+        self,
+        chart_part: str,
+        series_index: int,
+        categories: list[str] | None = ...,
+        values: list[str] | None = ...,
+    ) -> None:
+        """Update cached category/value points without changing formulas."""
+        ...
+
+    def set_chart_series_line_color(
+        self, chart_part: str, series_index: int, color: str
+    ) -> None:
+        """Update an existing chart series solid line color using 6-digit RGB."""
+        ...
+
+    def set_chart_series_fill_color(
+        self, chart_part: str, series_index: int, color: str
+    ) -> None:
+        """Update an existing chart series solid fill color using 6-digit RGB."""
+        ...
+
+    def set_pivot_worksheet_source(
+        self,
+        cache_part: str,
+        sheet: str | None = ...,
+        reference: str | None = ...,
+    ) -> None:
+        """Queue a bounded edit to an existing worksheet-backed Pivot source.
+
+        ``cache_part`` must be an ``xl/pivotCache/*.xml`` path and
+        ``reference`` must be an A1 range such as ``A1:B100``. Cache records,
+        PivotTable layout, and recalculation remain out of scope.
+        """
+        ...
+
+    def set_pivot_cache_refresh_on_load(
+        self, cache_part: str, enabled: bool
+    ) -> None:
+        """Set an existing Pivot cache refreshOnLoad flag without recalculation."""
+        ...
+
+    def set_pivot_cache_field_caption(
+        self, cache_part: str, field_index: int, caption: str
+    ) -> None:
+        """Update one existing Pivot cache field caption without recalculation."""
+        ...
+
+    def set_drawing_anchor(
+        self,
+        drawing_part: str,
+        anchor_index: int,
+        from_row: int,
+        from_col: int,
+        to_row: int,
+        to_col: int,
+    ) -> None:
+        """Queue a bounded edit to an existing two-cell drawing anchor.
+
+        Cell coordinates are 1-based and ``anchor_index`` is zero-based.
+        One-cell anchors are not supported.
+        """
+        ...
+
+    def set_drawing_shape_name(
+        self, drawing_part: str, anchor_index: int, name: str
+    ) -> None:
+        """Update an existing drawing anchor's non-visual shape name."""
+        ...
+
+    def set_drawing_shape_description(
+        self, drawing_part: str, anchor_index: int, description: str
+    ) -> None:
+        """Update an existing drawing anchor's alternative-text description."""
+        ...
+
+    def set_drawing_shape_title(
+        self, drawing_part: str, anchor_index: int, title: str
+    ) -> None:
+        """Add or update an existing drawing anchor's title metadata."""
+        ...
+
+    def set_drawing_shape_text(
+        self, drawing_part: str, anchor_index: int, text: str
+    ) -> None:
+        """Update the first existing DrawingML text run in a shape."""
+        ...
+
+    def set_drawing_shape_text_run(
+        self, drawing_part: str, anchor_index: int, run_index: int, text: str
+    ) -> None:
+        """Update an existing DrawingML text run by zero-based run index."""
+        ...
+
+    def set_drawing_shape_hidden(
+        self, drawing_part: str, anchor_index: int, hidden: bool
+    ) -> None:
+        """Add or update an existing drawing anchor's hidden metadata flag."""
+        ...
+
+    def set_drawing_shape_rotation(
+        self, drawing_part: str, anchor_index: int, degrees: int
+    ) -> None:
+        """Update an existing shape transform rotation from 0 through 359 degrees."""
+        ...
+
+    def set_drawing_shape_flip(
+        self,
+        drawing_part: str,
+        anchor_index: int,
+        flip_horizontal: bool | None = None,
+        flip_vertical: bool | None = None,
+    ) -> None:
+        """Update an existing shape transform's horizontal or vertical flip state."""
+        ...
+
+    def set_drawing_shape_fill(
+        self, drawing_part: str, anchor_index: int, color: str
+    ) -> None:
+        """Update an existing shape's solid fill with RGB or ARGB hex color."""
+        ...
+
+    def set_drawing_shape_line_color(
+        self, drawing_part: str, anchor_index: int, color: str
+    ) -> None:
+        """Update an existing shape line's solid color with RGB or ARGB hex."""
+        ...
+
+    def set_drawing_shape_line_width(
+        self, drawing_part: str, anchor_index: int, width_points: float
+    ) -> None:
+        """Update an existing shape line width in points (0 through 1584)."""
+        ...
+
+    def set_drawing_shape_line_dash(
+        self, drawing_part: str, anchor_index: int, dash: str
+    ) -> None:
+        """Update an existing shape line's DrawingML preset dash."""
+        ...
+
+    def set_drawing_shape_geometry(
+        self, drawing_part: str, anchor_index: int, preset: str
+    ) -> None:
+        """Update an existing DrawingML preset geometry."""
         ...
 
     def move_sheet(self, name: str, new_index: int) -> None:

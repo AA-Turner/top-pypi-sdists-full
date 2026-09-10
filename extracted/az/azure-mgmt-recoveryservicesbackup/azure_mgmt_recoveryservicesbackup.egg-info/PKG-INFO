@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-recoveryservicesbackup
-Version: 11.0.0
+Version: 11.1.0
 Summary: Microsoft Azure Recoveryservicesbackup Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -87,6 +87,13 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 11.1.0 (2026-08-31)
+
+### Features Added
+
+  - Added model `InstantItemRecoveryOperationResultRequest`
+  - Operation group `ItemLevelRecoveryConnectionsOperations` added method `list_instant_item_recovery_operation_result`
 
 ## 11.0.0 (2026-08-13)
 

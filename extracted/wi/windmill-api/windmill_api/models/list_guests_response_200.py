@@ -18,7 +18,9 @@ class ListGuestsResponse200:
         usage (ListGuestsResponse200Usage): Guests are free up to `free_allowance` distinct emails over the trailing
             `window_days`. Past that an Enterprise plan meters them (`metered`, four guests to one seat: `billable_guests`,
             `guest_seats`); every other plan and build admits no new email until the count drops. `instance_enabled` is the
-            superadmin switch (`guest_access_disabled` global setting) every workspace switch sits under.
+            superadmin switch (`guest_access_disabled` global setting) every workspace switch sits under. `available` is
+            whether this deployment can have guests at all: false on the shared cloud, where guest access requires a self-
+            hosted or dedicated deployment, and every other field and switch is then moot.
         guests (List['ListGuestsResponse200GuestsItem']):
     """
 

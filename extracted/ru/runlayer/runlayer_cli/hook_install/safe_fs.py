@@ -283,12 +283,16 @@ def safe_write_text(
     )
 
 
-def safe_read_file(home: Path, path: Path) -> Optional[FileReadResult]:
+def safe_read_file(
+    home: Path, path: Path, *, max_bytes: Optional[int] = None
+) -> Optional[FileReadResult]:
     """Read *path* and its mode without following any symlink.
 
     Returns ``None`` (rather than raising) when the file is absent, is reached
     through a symlinked component, is itself a symlink, or is not a regular
     file — so callers treat a hostile/missing target as "no existing config".
+    With *max_bytes*, reads stop after ``max_bytes + 1`` bytes so the caller can
+    detect an oversized file without a size check that races the read.
     """
     try:
         parts = _relative_parts(home, path)
@@ -310,11 +314,16 @@ def safe_read_file(home: Path, path: Path) -> Optional[FileReadResult]:
                 opened_st = os.fstat(fd)
                 if stat.S_ISREG(opened_st.st_mode):
                     chunks: list[bytes] = []
-                    while True:
-                        chunk = os.read(fd, 65536)
+                    total = 0
+                    while max_bytes is None or total <= max_bytes:
+                        want = 65536
+                        if max_bytes is not None:
+                            want = min(want, max_bytes + 1 - total)
+                        chunk = os.read(fd, want)
                         if not chunk:
                             break
                         chunks.append(chunk)
+                        total += len(chunk)
                     result = {
                         "data": b"".join(chunks),
                         "mode": stat.S_IMODE(opened_st.st_mode),
@@ -532,11 +541,11 @@ def maybe_safe_read_bytes(path: Path, *, home: Optional[Path]) -> Optional[bytes
 
 
 def maybe_safe_read_file(
-    path: Path, *, home: Optional[Path]
+    path: Path, *, home: Optional[Path], max_bytes: Optional[int] = None
 ) -> Optional[FileReadResult]:
     """Read bytes and mode from one descriptor; link-safe when *home* is set."""
     if home is not None:
-        return safe_read_file(home, path)
+        return safe_read_file(home, path, max_bytes=max_bytes)
     if not path.exists():
         return None
     try:
@@ -545,7 +554,7 @@ def maybe_safe_read_file(
             if not stat.S_ISREG(opened_st.st_mode):
                 return None
             return {
-                "data": file.read(),
+                "data": file.read(-1 if max_bytes is None else max_bytes + 1),
                 "mode": stat.S_IMODE(opened_st.st_mode),
             }
     except OSError:

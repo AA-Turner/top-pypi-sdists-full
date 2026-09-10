@@ -1,5 +1,6 @@
 """Test middleware functionality."""
 
+import contextlib
 import sys
 
 import anyio
@@ -7,7 +8,10 @@ import httpx
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import mcp.types as mt
+from fastmcp import Client, FastMCP
+from fastmcp.client.transports import FastMCPTransport
 from fastmcp.server.middleware.middleware import MiddlewareContext
+from fastmcp.server.proxy import FastMCPProxy
 from fastmcp.tools.tool import ToolResult
 from runlayer_cli.middleware import RunlayerMiddleware
 from runlayer_cli.models import ServerDetails
@@ -337,7 +341,7 @@ async def test_on_list_tools_calls_pre_and_post():
 
 
 def _make_list_tools_middleware(
-    *, sync_required: bool, transport_type: str = "streaming-http"
+    *, sync_required: bool, transport_type: str = "stdio"
 ) -> tuple[RunlayerMiddleware, MagicMock, MagicMock]:
     """Helper: create middleware wired for on_list_tools with async proxy mocks."""
     mock_client = MagicMock()
@@ -922,3 +926,169 @@ async def test_on_call_tool_unrelated_error_still_raises():
         await middleware.on_call_tool(
             mock_context, _raising_call_next(ValueError("boom"))
         )
+
+
+# --- Detached first upstream connect (OAuth login outlives request cancel) ---
+
+
+class _GatedTransport(FastMCPTransport):
+    """In-memory upstream whose connect waits on a human-shaped gate."""
+
+    def __init__(self, upstream: FastMCP, gate: anyio.Event):
+        super().__init__(upstream)
+        self.gate = gate
+        self.connects = 0
+        self.aborted = 0
+
+    @contextlib.asynccontextmanager
+    async def connect_session(self, **kwargs):
+        self.connects += 1
+        try:
+            await self.gate.wait()
+        except anyio.get_cancelled_exc_class():
+            self.aborted += 1
+            raise
+        async with super().connect_session(**kwargs) as session:
+            yield session
+
+
+def _make_gated_proxy_middleware(
+    gate: anyio.Event, transport_type: str = "streaming-http"
+) -> tuple[RunlayerMiddleware, MagicMock, _GatedTransport, FastMCPProxy]:
+    upstream = FastMCP("upstream")
+
+    @upstream.tool
+    def echo(text: str) -> str:
+        return text
+
+    transport = _GatedTransport(upstream, gate)
+    client = Client(transport)
+    proxy = FastMCPProxy(client_factory=lambda: client)
+    mock_client = MagicMock()
+    mock_client.pre.return_value = MagicMock(
+        status_code=200, json=lambda: {"correlation_id": "corr-1"}
+    )
+    mock_client.post.return_value = MagicMock(
+        status_code=200,
+        json=lambda: [
+            {"name": "echo", "description": "", "inputSchema": {"type": "object"}}
+        ],
+    )
+    middleware = RunlayerMiddleware(
+        runlayer_api_client=mock_client,
+        proxy=proxy,
+        server=create_test_server(transport_type=transport_type),
+    )
+    return middleware, mock_client, transport, proxy
+
+
+async def _list_tools_via_proxy(proxy: FastMCPProxy):
+    async def call_next(_context):
+        return list((await proxy.get_tools()).values())
+
+    return call_next
+
+
+@pytest.mark.asyncio
+async def test_first_upstream_connect_outlives_cancelled_list_tools():
+    """A tools/list that times out must not tear down the in-flight connect.
+
+    Regression: the cold connect (browser OAuth login) was owned by the
+    request; the client's ~30s cancel killed the flow, so a login finished a
+    moment later landed on nothing. The warm connect is held open in the
+    background and reused by later requests (no reconnect).
+    """
+    gate = anyio.Event()
+    middleware, mock_client, transport, proxy = _make_gated_proxy_middleware(gate)
+    call_next = await _list_tools_via_proxy(proxy)
+
+    with patch("runlayer_cli.middleware._LIST_TOOLS_UPSTREAM_TIMEOUT_SECONDS", 0.1):
+        async with anyio.create_task_group() as tg:
+            middleware.background_tasks = tg
+
+            timed_out = await _call_on_list_tools(middleware, call_next)
+
+            assert timed_out == []
+            assert transport.connects == 1
+            assert transport.aborted == 0
+            assert not middleware._first_connect.is_set()
+
+            gate.set()  # the human finishes logging in after the client gave up
+            with anyio.fail_after(5):
+                await middleware._first_connect.wait()
+
+            assert transport.aborted == 0
+            listed = await _call_on_list_tools(middleware, call_next)
+
+            # The warm session is reused (nesting), never reconnected.
+            assert [tool.name for tool in listed] == ["echo"]
+            assert transport.connects == 1
+
+            tg.cancel_scope.cancel()  # stop the held-open warm connect
+
+    upstream_error = mock_client.post.call_args_list[0].args[1].upstream_error
+    assert upstream_error is not None and upstream_error.type == "TimeoutError"
+
+
+@pytest.mark.asyncio
+async def test_first_upstream_connect_gates_upstream_requests_only():
+    """initialize/ping must answer before the login completes; forwards wait."""
+    gate = anyio.Event()
+    middleware, _, transport, _ = _make_gated_proxy_middleware(gate)
+    passed: list[str] = []
+
+    async def call_next(context):
+        passed.append(context.method)
+
+    def request(method: str):
+        context = MagicMock(spec=MiddlewareContext)
+        context.method = method
+        return context
+
+    async with anyio.create_task_group() as tg:
+        middleware.background_tasks = tg
+        tg.start_soon(middleware.on_request, request("prompts/list"), call_next)
+        with anyio.fail_after(5):
+            await middleware.on_request(request("initialize"), call_next)
+            await middleware.on_request(request("ping"), call_next)
+        await anyio.sleep(0.05)
+        assert passed == ["initialize", "ping"]
+        assert transport.connects == 1
+        gate.set()
+        with anyio.fail_after(5):
+            await middleware._first_connect.wait()
+        await anyio.sleep(0.05)
+        assert passed == ["initialize", "ping", "prompts/list"]
+        tg.cancel_scope.cancel()
+
+
+@pytest.mark.asyncio
+async def test_first_upstream_connect_timeout_unblocks_requests():
+    gate = anyio.Event()  # never opened: the human walked away
+    middleware, _, transport, _ = _make_gated_proxy_middleware(gate)
+
+    with patch("runlayer_cli.middleware._FIRST_CONNECT_TIMEOUT_SECONDS", 0.05):
+        async with anyio.create_task_group() as tg:
+            middleware.background_tasks = tg
+            with anyio.fail_after(5):
+                result = await _call_on_list_tools(middleware)
+
+            assert len(result) > 0
+            assert middleware._first_connect.is_set()
+            assert transport.aborted == 1
+            tg.cancel_scope.cancel()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport_type", ["stdio"])
+async def test_first_upstream_connect_skipped_without_oauth(transport_type: str):
+    middleware, _, mock_proxy = _make_list_tools_middleware(
+        sync_required=False, transport_type=transport_type
+    )
+
+    async with anyio.create_task_group() as tg:
+        middleware.background_tasks = tg
+        await _call_on_list_tools(middleware)
+
+    mock_proxy.client_factory.assert_not_called()
+    assert middleware._first_connect.is_set()

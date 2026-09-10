@@ -11,9 +11,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from aws_durable_execution_sdk_python.concurrency.models import BatchResult
 from aws_durable_execution_sdk_python.config import ChildConfig, Duration
 from aws_durable_execution_sdk_python.context import DurableContext, durable_step
-from aws_durable_execution_sdk_python.exceptions import InvocationError
+from aws_durable_execution_sdk_python.exceptions import (
+    ChildContextError,
+    InvocationError,
+)
 from aws_durable_execution_sdk_python.execution import (
     InvocationStatus,
     durable_execution,
@@ -61,6 +65,8 @@ def create_mock_checkpoint_with_operations():
                 operation_type=update.operation_type,
                 status=OperationStatus.STARTED,
                 parent_id=update.parent_id,
+                name=update.name,
+                sub_type=update.sub_type,
             )
             operations.append(op)
 
@@ -365,6 +371,8 @@ def test_callback_deferred_error_handling_to_result():
                         operation_type=update.operation_type,
                         status=OperationStatus.STARTED,
                         parent_id=update.parent_id,
+                        name=update.name,
+                        sub_type=update.sub_type,
                         callback_details=CallbackDetails(
                             callback_id=f"cb-{update.operation_id[:8]}"
                         ),
@@ -375,6 +383,8 @@ def test_callback_deferred_error_handling_to_result():
                         operation_type=update.operation_type,
                         status=OperationStatus.STARTED,
                         parent_id=update.parent_id,
+                        name=update.name,
+                        sub_type=update.sub_type,
                     )
                 operations.append(op)
 
@@ -585,6 +595,8 @@ def test_end_to_end_child_context_replay_children_mode():
                     operation_type=update.operation_type,
                     status=OperationStatus.STARTED,
                     parent_id=update.parent_id,
+                    name=update.name,
+                    sub_type=update.sub_type,
                 )
                 operations.append(op)
 
@@ -643,7 +655,7 @@ def test_end_to_end_child_context_error_handling():
     """Test end-to-end child context error handling.
 
     Verifies that child context that raises exception creates FAIL checkpoint
-    and error is wrapped as CallableRuntimeError.
+    and error is wrapped as a typed DurableOperationError (e.g. StepError).
     """
 
     def child_function_that_fails(ctx: DurableContext) -> str:
@@ -705,11 +717,7 @@ def test_end_to_end_child_context_error_handling():
 
 
 def test_end_to_end_child_context_invocation_error_reraised():
-    """Test end-to-end child context InvocationError re-raising.
-
-    Verifies that child context that raises InvocationError creates FAIL checkpoint
-    and re-raises InvocationError (not wrapped) to enable retry at execution handler level.
-    """
+    """Child context InvocationError re-raises unchanged and writes no FAIL checkpoint."""
 
     def child_function_with_invocation_error(ctx: DurableContext) -> str:
         msg = "Invocation failed in child"
@@ -758,11 +766,84 @@ def test_end_to_end_child_context_invocation_error_reraised():
         with pytest.raises(InvocationError, match="Invocation failed in child"):
             my_handler(event, lambda_context)
 
-        # Verify FAIL checkpoint was created before re-raising
+        # No FAIL checkpoint - the operation stays non-terminal for retry.
         all_operations = [op for batch in checkpoint_calls for op in batch]
         fail_updates = [
             op
             for op in all_operations
             if hasattr(op, "action") and op.action.value == "FAIL"
         ]
-        assert len(fail_updates) == 1
+        assert len(fail_updates) == 0
+
+
+def test_parallel_and_child_context_agree_on_custom_error_type():
+    """ctx.parallel() and ctx.run_in_child_context() surface the same
+    error_type for an identical custom exception: the caller's original type,
+    not the ChildContextError wrapper class name.
+    """
+
+    class PermanentFailure(Exception):
+        pass
+
+    def branch(child_context: DurableContext) -> str:
+        msg: str = "Invalid input data"
+        raise PermanentFailure(msg)
+
+    captured: dict[str, str | None] = {}
+
+    @durable_execution
+    def my_handler(event, context: DurableContext) -> str:
+        try:
+            context.run_in_child_context(branch)
+        except ChildContextError as e:
+            captured["child"] = e.error_type
+
+        result: BatchResult[str] = context.parallel([branch])
+        try:
+            result.throw_if_error()
+        except ChildContextError as e:
+            captured["parallel"] = e.error_type
+
+        return "handled"
+
+    with patch(
+        "aws_durable_execution_sdk_python.execution.LambdaClient"
+    ) as mock_client_class:
+        mock_client = Mock()
+        mock_client_class.initialize_client.return_value = mock_client
+
+        mock_checkpoint, _ = create_mock_checkpoint_with_operations()
+        mock_client.checkpoint = mock_checkpoint
+
+        event = {
+            "DurableExecutionArn": "test-arn/execution-1",
+            "CheckpointToken": "test-token",
+            "InitialExecutionState": {
+                "Operations": [
+                    {
+                        "Id": "execution-1",
+                        "Type": "EXECUTION",
+                        "Status": "STARTED",
+                        "ExecutionDetails": {"InputPayload": "{}"},
+                    }
+                ],
+                "NextMarker": "",
+            },
+            "LocalRunner": True,
+        }
+
+        lambda_context = Mock()
+        lambda_context.aws_request_id = "test-request-id"
+        lambda_context.client_context = None
+        lambda_context.identity = None
+        lambda_context._epoch_deadline_time_in_ms = 0  # noqa: SLF001
+        lambda_context.invoked_function_arn = "test-arn"
+        lambda_context.tenant_id = None
+
+        my_handler(event, lambda_context)
+
+    # Both operations surface the caller's original type, and they agree.
+    expected: str = f"{PermanentFailure.__module__}.{PermanentFailure.__qualname__}"
+    assert captured["child"] == expected
+    assert captured["parallel"] == expected
+    assert captured["child"] == captured["parallel"]

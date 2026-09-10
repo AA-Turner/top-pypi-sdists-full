@@ -83,8 +83,8 @@ class PresentationSink:
     async def present(self, event: dict[str, Any]) -> None:
         self.events.append(event)
 
-    def blocks_point(self, _point: tuple[float, float]) -> bool:
-        return False
+    def blocking_surface(self, _point: tuple[float, float]) -> "str | None":
+        return None
 
 
 async def test_context_manager_owns_one_session_and_encodes_native_geometry():
@@ -278,16 +278,31 @@ async def test_stop_region_refuses_click_drag_and_anchored_scroll_before_driver_
     computer = MacOSComputer(transport, owns_transport=False, presentation=False)
     computer._native_size = (1000, 1000)
     sink = PresentationSink()
-    sink.blocks_point = lambda point: point[0] >= 900
+    sink.blocking_surface = lambda point: "stop" if point[0] >= 900 else None
     computer.presentation = sink
 
-    with pytest.raises(MacOSActionRefusedError):
+    with pytest.raises(MacOSActionRefusedError, match="Stop control"):
         await computer.click(950, 100)
-    with pytest.raises(MacOSActionRefusedError):
+    with pytest.raises(MacOSActionRefusedError, match="Stop control"):
         await computer.drag([{"x": 10, "y": 10}, {"x": 950, "y": 100}])
-    with pytest.raises(MacOSActionRefusedError):
+    with pytest.raises(MacOSActionRefusedError, match="Stop control"):
         await computer.scroll(950, 100, 0, 100)
     assert not [call for call in transport.calls if call[0] in {"click", "drag", "scroll"}]
+
+
+async def test_activity_grip_refuses_model_input_with_its_own_reason():
+    """The activity window's grip swallows clicks the way the Stop item does; the message says which."""
+    transport = FakeTransport()
+    computer = MacOSComputer(transport, owns_transport=False, presentation=False)
+    computer._native_size = (1000, 1000)
+    sink = PresentationSink()
+    sink.blocking_surface = lambda point: "activity" if point[0] < 100 else None
+    computer.presentation = sink
+
+    with pytest.raises(MacOSActionRefusedError, match="activity window's grip"):
+        await computer.click(50, 50)
+    await computer.click(500, 500)
+    assert [call[0] for call in transport.calls if call[0] == "click"] == ["click"]
 
 
 async def test_scroll_translates_horizontal_pixel_deltas_to_line_scrolls():
@@ -568,6 +583,21 @@ async def test_shell_preview_redacts_explicit_known_secrets():
     assert computer._known_secrets == (secret,)
     assert await computer.run_shell_command(f"printf %s {secret}") == secret
     assert all(secret not in event.command for event in computer.shell_events)
+
+
+async def test_shell_presentation_carries_the_whole_command_not_the_telemetry_preview():
+    """The panel beside the cursor wraps freely, so a long command reaches it in full.
+
+    The 160-character bound stays on the one-line identity used for diagnostics and
+    telemetry; what the operator reads on screen is allowed to run to a dozen lines.
+    """
+    from yutori.navigator.macos import COMMAND_PRESENTATION_MAX_CHARACTERS, COMMAND_PREVIEW_MAX_CHARACTERS
+
+    command = "printf %s " + " ".join(f"word{index:03d}" for index in range(40))
+    assert COMMAND_PREVIEW_MAX_CHARACTERS < len(command) <= COMMAND_PRESENTATION_MAX_CHARACTERS
+    computer = MacOSComputer(presentation=False, allow_local_shell=True)
+    await computer.run_shell_command(command, timeout_seconds=5)
+    assert all(event.command == command for event in computer.shell_events)
 
 
 async def test_bash_does_not_load_api_keys_from_login_profiles(tmp_path, monkeypatch):
@@ -1162,8 +1192,8 @@ class _FakeStatusController:
     async def encode_observation(self, _png: bytes) -> None:
         return None
 
-    def blocks_point(self, _point: tuple[float, float]) -> bool:
-        return False
+    def blocking_surface(self, _point: tuple[float, float]) -> "str | None":
+        return None
 
     async def stop(self) -> None:
         self.stopped = True

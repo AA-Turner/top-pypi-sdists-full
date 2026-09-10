@@ -34,6 +34,13 @@ _RESEARCH_REPORT_CHAR_BUDGET = 32_000
 _RESEARCH_FINAL_CHAR_BUDGET = 45_000
 _SEARCH_RESULT_CHAR_BUDGET = TOOL_RESULT_SOFT_CAP_CHARS - 1_000
 
+#: summarize=true reads the WHOLE page up to this many characters (the mandate
+#: agent's content cap), not the offset/chars window — see web_read.
+SUMMARIZE_MAX_INPUT_CHARS = 100_000
+#: Knob (Arman, 2026-09-09: "opinions become knobs"): below this size the raw
+#: page is returned instead of paying for a summary that is often larger.
+SUMMARIZE_MIN_INPUT_CHARS = 4_000
+
 
 def _cap_research_section(text: str, *, limit: int, label: str) -> tuple[str, bool]:
     capped, info = cap_text(text, limit=limit)
@@ -188,10 +195,21 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
         pages: list[dict[str, Any]] = []
+        # Full page text per URL, kept for summarize=true. The summarizer used
+        # to be fed the offset/chars WINDOW, so it compressed the same slice a
+        # raw read returns and could never spare a paging call (measured
+        # 2026-09-09: an agent re-read one pricing page three times because
+        # 87% of it never reached the summarizer). It now reads the whole page,
+        # capped at SUMMARIZE_MAX_INPUT_CHARS and honest about the cut.
+        full_texts: list[tuple[str, str, bool]] = []  # (url, text, truncated)
         for url in parsed.urls:
             await stream.progress(f"Reading: {url[:60]}...")
             result = await read_page_mcp_quick(url=url)
             text = extract_page_text(result)
+            if not (isinstance(result, dict) and result.get("status") == "error"):
+                full_texts.append(
+                    (url, text[:SUMMARIZE_MAX_INPUT_CHARS], len(text) > SUMMARIZE_MAX_INPUT_CHARS)
+                )
             if isinstance(result, dict) and result.get("status") == "error":
                 pages.append(
                     window_page_content(
@@ -214,15 +232,39 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 )
             )
 
-        if parsed.summarize and parsed.instructions:
+        total_full_chars = sum(len(t) for _, t, _ in full_texts)
+        if (
+            parsed.summarize
+            and parsed.instructions
+            and full_texts
+            and total_full_chars < SUMMARIZE_MIN_INPUT_CHARS
+        ):
+            # Knob: a page this small is cheaper to read raw than to pay an
+            # LLM call for — and measured summaries of dense content came back
+            # LARGER than the source. Return the raw page and say why.
+            for p in pages:
+                p["summarize_skipped"] = (
+                    f"Page is {total_full_chars:,} chars (under "
+                    f"{SUMMARIZE_MIN_INPUT_CHARS:,}); returned raw instead of summarizing."
+                )
+        elif parsed.summarize and parsed.instructions and full_texts:
             await stream.step("summarize", "Summarizing page content...")
             from matrx_ai.tools.implementations._summarize_helper import (
                 SUMMARIZE_FAILURE_PREFIX,
                 summarize_content,
             )
 
-            # Summarize from the windowed pages (already bounded).
-            combined = "\n\n---\n\n".join(f"URL: {p['url']}\n{p.get('content', '')}" for p in pages)
+            # Summarize the FULL page text (not the offset/chars window).
+            combined = "\n\n---\n\n".join(
+                f"URL: {u}\n{t}"
+                + (
+                    f"\n\n[Source truncated at {SUMMARIZE_MAX_INPUT_CHARS:,} characters — "
+                    "facts beyond this point are NOT in this content; say so if asked about them.]"
+                    if cut
+                    else ""
+                )
+                for u, t, cut in full_texts
+            )
             summary, child_usages = await summarize_content(
                 content=combined,
                 instructions=parsed.instructions,

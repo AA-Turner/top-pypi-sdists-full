@@ -1,8 +1,17 @@
 """SSH-as-bootloader: bring an agent VM's daemon up, once.
 
-The only SSH the RPC path keeps. One idempotent command installs the session
-token and starts the daemon; the world then polls for readiness and caches the
-handshake. Everything after this rides the daemon.
+The only SSH the RPC path keeps. One idempotent command ensures a token is
+installed and the daemon is started, then prints the token that won:
+
+- New images start the daemon from systemd at boot with ``--mint-token``, so
+  the token file already exists — the pushed fallback token is NOT installed
+  (``test -s`` guard), ``serve --daemonize`` is a no-op, and the world adopts
+  the agent-minted token from stdout. Tokens are therefore per-host.
+- Old images have neither, so the command installs the pushed token and starts
+  the daemon — the pre-boot-start flow, byte-for-byte.
+
+The world then polls for readiness and caches the handshake. Everything after
+this rides the daemon.
 
 Bootstrap NEVER fails the session — on any failure the host is demoted to
 ``ssh_only`` and every call site falls back to its legacy SSH body.
@@ -47,20 +56,25 @@ _NO_DAEMON_RETRY_DELAY_S = 2.0
 
 
 def _bootstrap_command() -> str:
-    # Idempotent: install token 0600, verify the daemon entry point exists
-    # (exit 42 = stale baked SDK), then serve --daemonize (a no-op if already
-    # running). Kept to plain, quoting-free shell — no payloads interpolated.
+    # Idempotent: keep an existing token (a boot-started daemon minted one and
+    # holds it in memory — overwriting it would 401 every call), else install
+    # the pushed fallback 0600; verify the daemon entry point exists (exit 42 =
+    # stale baked SDK), serve --daemonize (a no-op if already running), then
+    # print the winning token for the world to adopt. Kept to plain,
+    # quoting-free shell — no payloads interpolated.
     return (
         # The shared export, NOT a hand-copy: the daemon's environ seeds every
         # job/exec spawn env, so a missing dir here (an early copy dropped
         # /usr/local/bin) breaks tool resolution for everything the daemon runs.
         f"{VM_PATH_EXPORT}; "
         f"install -d -m 0700 {STATE_DIR}; "
-        f"install -m 0600 {_TOKEN_UPLOAD_PATH} {TOKEN_FILE} && rm -f {_TOKEN_UPLOAD_PATH}; "
+        f"test -s {TOKEN_FILE} || install -m 0600 {_TOKEN_UPLOAD_PATH} {TOKEN_FILE}; "
+        f"rm -f {_TOKEN_UPLOAD_PATH}; "
         f"command -v plato-agent-daemon >/dev/null || exit {BOOTSTRAP_NO_DAEMON_RC}; "
         f"plato-agent-daemon serve --port {DEFAULT_PORT} "
         f"--token-file {TOKEN_FILE} --state-dir {STATE_DIR} "
-        f"--log-file {LOG_FILE} --daemonize"
+        f"--log-file {LOG_FILE} --daemonize "
+        f"&& cat {TOKEN_FILE}"
     )
 
 
@@ -91,7 +105,7 @@ async def ensure_daemon(
         probes += 1
         try:
             await scp_content_to_vm(ssh_key_path, hostname, _TOKEN_UPLOAD_PATH, token.encode())
-            rc, _out, err = await run_ssh(ssh_key_path, hostname, _bootstrap_command(), timeout=60)
+            rc, out, err = await run_ssh(ssh_key_path, hostname, _bootstrap_command(), timeout=60)
         except Exception as exc:  # noqa: BLE001 - bootstrap failures are non-fatal
             logger.warning("agentd bootstrap on %s failed pre-readiness: %s", hostname, exc)
             return _demote(hostname)
@@ -110,9 +124,32 @@ async def ensure_daemon(
             )
             return _demote(hostname)
         if rc != 0:
+            # A BAKED daemon can start while the concurrent runtime SDK
+            # install is mid-swap: pip/uv uninstall-then-reinstall leaves a
+            # transient window where a dependency module is missing and the
+            # serve import crashes (exit 1, not 42). Same remedy as the
+            # missing-binary case — retry within the budget; a genuinely
+            # broken daemon still demotes at the deadline.
+            if loop.time() < no_daemon_deadline:
+                logger.info(
+                    "agentd start on %s exited %d (venv may be mid-install); retrying",
+                    hostname,
+                    rc,
+                )
+                await asyncio.sleep(_NO_DAEMON_RETRY_DELAY_S)
+                continue
             logger.warning("agentd bootstrap on %s exited %d: %s", hostname, rc, err.strip()[:400])
             return _demote(hostname)
         break
+
+    # The bootstrap command prints whichever token the daemon holds: a
+    # boot-started daemon (new images) minted its own before we arrived —
+    # adopt it, tokens are per-host. Old images print back the token we just
+    # pushed, making this a no-op; an empty stdout keeps the pushed token.
+    printed = out.strip().splitlines()[-1].strip() if out.strip() else ""
+    if printed and printed != token:
+        token = printed
+        state.token = token
 
     if await _await_ready(hostname, token, port=port):
         # The happy-path duration: first probe -> armed. This is the number to

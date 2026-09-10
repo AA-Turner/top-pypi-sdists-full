@@ -6067,6 +6067,7 @@ impl NativeNearestNeighborGPRegressor {
 #[derive(Clone, Debug)]
 struct NativeCartoBoostRegressor {
     backend: String,
+    max_split_candidates: Option<usize>,
     n_estimators: usize,
     learning_rate: f64,
     max_depth: usize,
@@ -6098,7 +6099,7 @@ struct NativeCartoBoostRegressor {
 #[pymethods]
 impl NativeCartoBoostRegressor {
     #[new]
-    #[pyo3(signature = (n_estimators=100, learning_rate=0.05, max_depth=4, min_samples_leaf=20, min_gain=1e-8, loss="l2", quantile_alpha=0.5, huber_delta=1.0, log_offset=1.0, splitters=None, leaf_predictor="constant", linear_leaf_features=None, l2_regularization=1.0, constant_l2_regularization=0.0, fuzzy=false, fuzzy_bandwidth=0.0, fuzzy_kernel="linear", n_threads=None, monotonic_constraints=None, graph_indptr=None, graph_indices=None, graph_weights=None, graph_smoothing=0.0, graph_smoothing_iterations=4, backend="cpu"))]
+    #[pyo3(signature = (n_estimators=100, learning_rate=0.05, max_depth=4, min_samples_leaf=20, min_gain=1e-8, loss="l2", quantile_alpha=0.5, huber_delta=1.0, log_offset=1.0, splitters=None, leaf_predictor="constant", linear_leaf_features=None, l2_regularization=1.0, constant_l2_regularization=0.0, fuzzy=false, fuzzy_bandwidth=0.0, fuzzy_kernel="linear", n_threads=None, monotonic_constraints=None, graph_indptr=None, graph_indices=None, graph_weights=None, graph_smoothing=0.0, graph_smoothing_iterations=4, backend="cpu", max_split_candidates=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         n_estimators: usize,
@@ -6126,7 +6127,13 @@ impl NativeCartoBoostRegressor {
         graph_smoothing: f64,
         graph_smoothing_iterations: usize,
         backend: &str,
+        max_split_candidates: Option<usize>,
     ) -> PyResult<Self> {
+        if max_split_candidates == Some(0) {
+            return Err(PyValueError::new_err(
+                "max_split_candidates must be positive",
+            ));
+        }
         validate_n_threads(n_threads)?;
         validate_params(
             n_estimators,
@@ -6155,6 +6162,7 @@ impl NativeCartoBoostRegressor {
         )?;
 
         Ok(Self {
+            max_split_candidates,
             backend: backend.to_string(),
             n_estimators,
             learning_rate,
@@ -6183,6 +6191,11 @@ impl NativeCartoBoostRegressor {
             model: None,
             flat_axis_predictor: None,
         })
+    }
+
+    #[getter]
+    fn max_split_candidates(&self) -> Option<usize> {
+        self.max_split_candidates
     }
 
     #[getter]
@@ -6751,6 +6764,10 @@ impl NativeCartoBoostRegressor {
             .map(|selection| selection.selected.clone())
             .unwrap_or_else(|| "cpu".to_string());
         Ok(Self {
+            max_split_candidates: model
+                .training_config
+                .as_ref()
+                .and_then(|config| config.max_split_candidates),
             backend,
             n_estimators: model.trees.len(),
             learning_rate: model.learning_rate,
@@ -6816,6 +6833,7 @@ impl NativeCartoBoostRegressor {
                 }
             };
         Ok(BoosterConfig {
+            max_split_candidates: self.max_split_candidates,
             n_estimators: self.n_estimators,
             learning_rate: self.learning_rate,
             max_depth: self.max_depth,
@@ -6902,6 +6920,7 @@ impl NativeQuantileRegressorSet {
         )?;
         let splitter_names = splitters.unwrap_or_else(|| vec!["auto".to_string()]);
         let booster_config = BoosterConfig {
+            max_split_candidates: None,
             n_estimators,
             learning_rate,
             max_depth,
@@ -7035,6 +7054,7 @@ impl NativeQuantileRegressorSet {
 #[derive(Clone, Debug)]
 struct NativeCartoBoostClassifier {
     backend: String,
+    max_split_candidates: Option<usize>,
     n_estimators: usize,
     learning_rate: f64,
     max_depth: usize,
@@ -7086,7 +7106,8 @@ impl NativeCartoBoostClassifier {
         graph_weights=None,
         graph_smoothing=0.0,
         graph_smoothing_iterations=4,
-        backend="cpu"
+        backend="cpu",
+        max_split_candidates=None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -7113,7 +7134,13 @@ impl NativeCartoBoostClassifier {
         graph_smoothing: f64,
         graph_smoothing_iterations: usize,
         backend: &str,
+        max_split_candidates: Option<usize>,
     ) -> PyResult<Self> {
+        if max_split_candidates == Some(0) {
+            return Err(PyValueError::new_err(
+                "max_split_candidates must be positive",
+            ));
+        }
         validate_n_threads(n_threads)?;
         validate_params(
             n_estimators,
@@ -7160,6 +7187,7 @@ impl NativeCartoBoostClassifier {
         )?;
 
         Ok(Self {
+            max_split_candidates,
             backend: backend.to_string(),
             n_estimators,
             learning_rate,
@@ -7185,6 +7213,11 @@ impl NativeCartoBoostClassifier {
             graph_smoothing_iterations,
             model: None,
         })
+    }
+
+    #[getter]
+    fn max_split_candidates(&self) -> Option<usize> {
+        self.max_split_candidates
     }
 
     #[getter]
@@ -7527,6 +7560,7 @@ impl NativeCartoBoostClassifier {
 impl NativeCartoBoostClassifier {
     fn classifier_config(&self) -> PyResult<ClassifierConfig> {
         Ok(ClassifierConfig {
+            max_split_candidates: self.max_split_candidates,
             n_estimators: self.n_estimators,
             learning_rate: self.learning_rate,
             max_depth: self.max_depth,
@@ -7622,6 +7656,10 @@ impl NativeCartoBoostClassifier {
             .map(|selection| selection.selected.clone())
             .unwrap_or_else(|| "cpu".to_string());
         Ok(Self {
+            max_split_candidates: model
+                .training_config
+                .as_ref()
+                .and_then(|config| config.max_split_candidates),
             backend,
             n_estimators: model.trees.len(),
             learning_rate: model.learning_rate,
@@ -13001,8 +13039,9 @@ fn coords_from_array(coords: PyReadonlyArray2<'_, f64>) -> PyResult<Vec<[f64; 2]
         ));
     }
     let values = coords.as_slice()?;
+    // Shape validation guarantees complete rows; chunks supports Rust 1.85.
     Ok(values
-        .chunks_exact(2)
+        .chunks(shape[1])
         .map(|chunk| [chunk[0], chunk[1]])
         .collect())
 }
@@ -13054,8 +13093,9 @@ fn lanes_from_array(lanes: PyReadonlyArray2<'_, f64>) -> PyResult<Vec<[f64; 4]>>
         ));
     }
     let values = lanes.as_slice()?;
+    // Shape validation guarantees complete rows; chunks supports Rust 1.85.
     Ok(values
-        .chunks_exact(4)
+        .chunks(shape[1])
         .map(|chunk| [chunk[0], chunk[1], chunk[2], chunk[3]])
         .collect())
 }

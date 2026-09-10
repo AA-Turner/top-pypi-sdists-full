@@ -4,6 +4,7 @@ import logging
 import time
 from typing import Any
 
+from matrx_utils import vcprint
 from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 
@@ -294,6 +295,44 @@ async def _stamp_auto_fields(schema: str, name: str, rows: list[Any], ctx: ToolC
             stamp_row_owner(row, owner_id, table_columns=columns)
 
 
+#: Tables the server's in-memory AI catalog is built from. A successful write
+#: to any of them (through this tool) notifies the host so it can reload the
+#: catalog — otherwise a synced model is not callable until a human reloads.
+AI_CATALOG_TABLES: frozenset[str] = frozenset(
+    {
+        "ai.provider",
+        "ai.model_definition",
+        "ai.endpoint",
+        "ai.api",
+        "ai.offering",
+        "ai.setting",
+        "ai.model_alias",
+        "ai.voices",
+    }
+)
+
+
+def _after_catalog_write(schema: str | None, name: str, verb: str) -> None:
+    """Tell the host a catalog table changed. Never raises, never blocks."""
+    if not schema or f"{schema}.{name}" not in AI_CATALOG_TABLES:
+        return
+    try:
+        from matrx_ai._ext import get_ai_catalog_write_hook
+
+        hook = get_ai_catalog_write_hook()
+        if hook is None:
+            vcprint(
+                f"[sql] {verb} on {schema}.{name} changed the AI catalog but no host "
+                "reload hook is registered — the server will keep serving the OLD "
+                "catalog until POST /api/admin/ai-catalog/reload runs.",
+                color="yellow",
+            )
+            return
+        hook(schema, name, verb)
+    except Exception as exc:  # noqa: BLE001 — a reload request must never fail a write
+        vcprint(f"[sql] catalog write hook raised (ignored): {exc}", color="yellow")
+
+
 def match_filters(match: dict[str, Any]) -> tuple[Any, ...]:
     """Translate the ``sql`` tool's ``match`` object into typed ORM filters.
 
@@ -422,6 +461,7 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         Model = _resolve_write_model(schema, name)
         created_rows = await Model.bulk_create(data)
+        _after_catalog_write(schema, name, "insert")
         return ToolResult(
             success=True,
             output=_write_output(
@@ -472,6 +512,7 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # file's dynamic write paths — see the ORM-gap note in the final report).
         await Model.update_where(parsed.match, **parsed.data)
         updated_rows = await Model.filter(**parsed.match).all()
+        _after_catalog_write(schema, name, "update")
 
         return ToolResult(
             success=True,
@@ -725,6 +766,7 @@ async def _sql_delete(args: dict[str, Any], ctx: ToolContext, started_at: float)
         rows_to_delete = await Model.filter(**match).all()
         deleted_data = [_instance_to_dict(r) for r in rows_to_delete]
         deleted_count = await Model.delete_where(**match)
+        _after_catalog_write(schema, name, "delete")
         return ToolResult(
             success=True,
             output={"deleted": deleted_count, "data": deleted_data},
@@ -782,6 +824,7 @@ async def _sql_upsert(args: dict[str, Any], ctx: ToolContext, started_at: float)
             else list(Model._meta.primary_keys)
         )
         upserted_rows = await Model.bulk_upsert(rows, conflict_fields=conflict_fields)
+        _after_catalog_write(schema, name, "upsert")
         return ToolResult(
             success=True,
             output=_write_output(

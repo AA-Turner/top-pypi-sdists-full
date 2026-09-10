@@ -4988,6 +4988,7 @@ class LicenseChecker(
         allow: typing.Optional[typing.Sequence[builtins.str]] = None,
         deny: typing.Optional[typing.Sequence[builtins.str]] = None,
         development: typing.Optional[builtins.bool] = None,
+        exclude_private_packages: typing.Optional[builtins.bool] = None,
         production: typing.Optional[builtins.bool] = None,
         task_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -4996,6 +4997,7 @@ class LicenseChecker(
         :param allow: (experimental) List of SPDX license identifiers that are allowed to be used. For the license check to pass, all detected licenses MUST be in this list. Only one of ``allowedLicenses`` and ``prohibitedLicenses`` can be provided and must not be empty. Default: - no licenses are allowed
         :param deny: (experimental) List of SPDX license identifiers that are prohibited to be used. For the license check to pass, no detected licenses can be in this list. Only one of ``allowedLicenses`` and ``prohibitedLicenses`` can be provided and must not be empty. Default: - no licenses are prohibited
         :param development: (experimental) Check development dependencies. Default: false
+        :param exclude_private_packages: (experimental) Exclude packages marked as private from the check. Private packages are local to the repository and not published, so their licenses typically don't need to be checked. This also applies to the project itself. Default: true
         :param production: (experimental) Check production dependencies. Default: true
         :param task_name: (experimental) The name of the task that is added to check licenses. Default: "check-licenses"
 
@@ -5008,6 +5010,7 @@ class LicenseChecker(
             allow=allow,
             deny=deny,
             development=development,
+            exclude_private_packages=exclude_private_packages,
             production=production,
             task_name=task_name,
         )
@@ -5030,6 +5033,7 @@ class LicenseChecker(
         "allow": "allow",
         "deny": "deny",
         "development": "development",
+        "exclude_private_packages": "excludePrivatePackages",
         "production": "production",
         "task_name": "taskName",
     },
@@ -5041,6 +5045,7 @@ class LicenseCheckerOptions:
         allow: typing.Optional[typing.Sequence[builtins.str]] = None,
         deny: typing.Optional[typing.Sequence[builtins.str]] = None,
         development: typing.Optional[builtins.bool] = None,
+        exclude_private_packages: typing.Optional[builtins.bool] = None,
         production: typing.Optional[builtins.bool] = None,
         task_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -5049,6 +5054,7 @@ class LicenseCheckerOptions:
         :param allow: (experimental) List of SPDX license identifiers that are allowed to be used. For the license check to pass, all detected licenses MUST be in this list. Only one of ``allowedLicenses`` and ``prohibitedLicenses`` can be provided and must not be empty. Default: - no licenses are allowed
         :param deny: (experimental) List of SPDX license identifiers that are prohibited to be used. For the license check to pass, no detected licenses can be in this list. Only one of ``allowedLicenses`` and ``prohibitedLicenses`` can be provided and must not be empty. Default: - no licenses are prohibited
         :param development: (experimental) Check development dependencies. Default: false
+        :param exclude_private_packages: (experimental) Exclude packages marked as private from the check. Private packages are local to the repository and not published, so their licenses typically don't need to be checked. This also applies to the project itself. Default: true
         :param production: (experimental) Check production dependencies. Default: true
         :param task_name: (experimental) The name of the task that is added to check licenses. Default: "check-licenses"
 
@@ -5059,6 +5065,7 @@ class LicenseCheckerOptions:
             check_type(argname="argument allow", value=allow, expected_type=type_hints["allow"])
             check_type(argname="argument deny", value=deny, expected_type=type_hints["deny"])
             check_type(argname="argument development", value=development, expected_type=type_hints["development"])
+            check_type(argname="argument exclude_private_packages", value=exclude_private_packages, expected_type=type_hints["exclude_private_packages"])
             check_type(argname="argument production", value=production, expected_type=type_hints["production"])
             check_type(argname="argument task_name", value=task_name, expected_type=type_hints["task_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5068,6 +5075,8 @@ class LicenseCheckerOptions:
             self._values["deny"] = deny
         if development is not None:
             self._values["development"] = development
+        if exclude_private_packages is not None:
+            self._values["exclude_private_packages"] = exclude_private_packages
         if production is not None:
             self._values["production"] = production
         if task_name is not None:
@@ -5110,6 +5119,21 @@ class LicenseCheckerOptions:
         :stability: experimental
         '''
         result = self._values.get("development")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def exclude_private_packages(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Exclude packages marked as private from the check.
+
+        Private packages are local to the repository and not published, so their
+        licenses typically don't need to be checked. This also applies to the project
+        itself.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("exclude_private_packages")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -29793,6 +29817,7 @@ def _typecheckingstub__633884d979ff043b0cb4d3b3ca5a5034b5ff1ca8ca2b0a15eddacdee5
     allow: typing.Optional[typing.Sequence[builtins.str]] = None,
     deny: typing.Optional[typing.Sequence[builtins.str]] = None,
     development: typing.Optional[builtins.bool] = None,
+    exclude_private_packages: typing.Optional[builtins.bool] = None,
     production: typing.Optional[builtins.bool] = None,
     task_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -29804,6 +29829,7 @@ def _typecheckingstub__5ecb3eb2c80d8dc313b42f1298a6228d79b42581771da7a571d2d56de
     allow: typing.Optional[typing.Sequence[builtins.str]] = None,
     deny: typing.Optional[typing.Sequence[builtins.str]] = None,
     development: typing.Optional[builtins.bool] = None,
+    exclude_private_packages: typing.Optional[builtins.bool] = None,
     production: typing.Optional[builtins.bool] = None,
     task_name: typing.Optional[builtins.str] = None,
 ) -> None:

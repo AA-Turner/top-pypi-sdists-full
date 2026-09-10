@@ -158,6 +158,9 @@ def compile_regions(module: torch.nn.Module, **compile_kwargs) -> torch.nn.Modul
         elif has_repeated_blocks(module):
             new_module = module.__class__.__new__(module.__class__)
             new_module.__dict__.update(module.__dict__)
+            for name, value in list(new_module.__dict__.items()):
+                if hasattr(value, "__func__") and getattr(value, "__self__", None) is module:
+                    new_module.__dict__[name] = MethodType(value.__func__, new_module)
             new_module._modules = {}
             for name, submodule in module.named_children():
                 new_module.add_module(name, _compile_regions(submodule, **compile_kwargs))
@@ -243,6 +246,29 @@ def model_has_dtensor(model: torch.nn.Module) -> bool:
         from torch.distributed._tensor import DTensor
 
     return any(isinstance(p, DTensor) for p in model.parameters())
+
+
+def get_model_tp_size(model: torch.nn.Module) -> Optional[int]:
+    """
+    Get the tensor parallel degree a `transformers` model was sharded with, or `None` if it was not sharded.
+
+    Args:
+        model (`torch.nn.Module`):
+            The model to inspect.
+
+    Returns:
+        `Optional[int]`: The model's tensor parallel size.
+    """
+    # `transformers<5` records it on the model itself, while `transformers>=5` moved it to the
+    # `DistributedConfig` held by the model config and left `model.tp_size` behind as a `None` stub.
+    tp_size = getattr(model, "tp_size", None)
+    if tp_size is not None:
+        return tp_size
+
+    distributed_config = getattr(getattr(model, "config", None), "distributed_config", None)
+    if isinstance(distributed_config, dict):
+        return distributed_config.get("tp_size")
+    return getattr(distributed_config, "tp_size", None)
 
 
 def extract_model_from_parallel(

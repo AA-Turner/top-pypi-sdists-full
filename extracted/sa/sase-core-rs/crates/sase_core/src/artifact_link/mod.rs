@@ -1,14 +1,31 @@
 //! First-class artifact link graph: row schema, relation registry, managed
 //! tables, companion paths, and frontmatter inlet.
 
+mod events;
 mod inlet;
 mod managed_table;
+mod merge;
 mod path;
 mod publication_retry;
 mod relation;
 mod row_resolution;
 mod wire;
 
+pub use events::{
+    artifact_link_event_canonical_json, artifact_link_event_digest,
+    artifact_link_event_path_for_digest, artifact_link_event_validate_bytes,
+    artifact_link_event_validate_path, canonicalize_artifact_link_alias,
+    canonicalize_artifact_link_event,
+    canonicalize_artifact_link_event_json_value, reduce_link_events,
+    resolve_artifact_link_event_aliases, ArtifactLinkAliasResolutionWire,
+    ArtifactLinkAliasWire, ArtifactLinkEventCanonicalWire,
+    ArtifactLinkEventEdgeWire, ArtifactLinkEventKindWire,
+    ArtifactLinkEventReductionWire, ArtifactLinkEventWire,
+    ArtifactLinkReducedEdgeWire, ArtifactLinkReducedTombstoneWire,
+    ArtifactLinkReducedVersionWire,
+    ARTIFACT_LINK_EVENT_REDUCTION_WIRE_SCHEMA_VERSION,
+    ARTIFACT_LINK_EVENT_WIRE_SCHEMA_VERSION,
+};
 pub use inlet::{
     parse_artifact_link_frontmatter_inlet,
     ArtifactLinkFrontmatterInletKindWire, ArtifactLinkFrontmatterInletWire,
@@ -27,6 +44,7 @@ pub use managed_table::{
     REFERENCED_BY_BLOCK_HEADING, REFERENCED_BY_BLOCK_START_MARKER,
     REFERENCED_BY_BLOCK_WIRE_SCHEMA_VERSION,
 };
+pub use merge::merge_artifact_link_indexes;
 pub use path::{
     artifact_md_path, bead_lineage_root, bead_page_relpath, companion_md_path,
     ArtifactCompanionPathWire, ArtifactMdPathKindWire,

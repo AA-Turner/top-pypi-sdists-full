@@ -1,12 +1,10 @@
 Metadata-Version: 2.4
 Name: xlwings
-Version: 0.37.0
+Version: 0.37.2
 Classifier: Development Status :: 4 - Beta
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -41,7 +39,7 @@ Summary: Make Excel fly: Interact with Excel from Python and vice versa.
 Keywords: xls,excel,spreadsheet,workbook,vba,macro
 Author-email: Felix Zumstein <felix.zumstein@zoomeranalytics.com>
 License: BSD 3-clause
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: Changelog, https://docs.xlwings.org/en/stable/whatsnew.html
 Project-URL: Documentation, https://docs.xlwings.org

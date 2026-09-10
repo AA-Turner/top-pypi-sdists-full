@@ -1222,7 +1222,7 @@ class VerifyInterfacesTridentCounters(AntaTest):
     Examples
     --------
     ```yaml
-    anta.tests.hardware:
+    anta.tests.interfaces:
       - VerifyInterfacesTridentCounters:
           ignored_counters:
             - nonCongestionDiscard
@@ -1400,6 +1400,9 @@ class VerifyInterfacesCounterDetails(AntaTest):
         ]
         for counter in counters_to_verify:
             counter_value = get_value(interface_counters, counter["counter_key"])
+            if counter_value is None:
+                self.result.is_failure(f"{interface_failure_message_summary} - {counter['counter_name']} not found")
+                continue
             if counter_value > self.inputs.counters_threshold:
                 failure_msg = f"Expected: <= {self.inputs.counters_threshold} Actual: {counter_value}"
                 self.result.is_failure(f"{interface_failure_message_summary} - {counter['counter_name']} above threshold - {failure_msg}")
@@ -1619,8 +1622,16 @@ class VerifyInterfacesOpticsReceivePower(AntaTest):
             intf_description = get_value(int_descriptions, f"{interface}.description", separator="..")
             description_str = f" Description: {intf_description}" if intf_description else ""
 
+            # Skip interfaces where threshold data is not available
+            if (low_alarm_threshold := get_value(rx_power_details, "threshold.lowAlarm")) is None:
+                message = f"Interface: {interface} - Threshold data is not available"
+                if self.inputs.interfaces:
+                    self.result.is_failure(message)
+                else:
+                    self.logger.debug(message)
+                continue
+
             for channel, rx_power_value in rx_power_details["channels"].items():
-                low_alarm_threshold = rx_power_details["threshold"]["lowAlarm"]
                 effective_threshold = low_alarm_threshold + self.inputs.failure_margin
                 is_receiving_light = rx_power_value != NO_LIGHT_DBM
                 if is_receiving_light and (rx_power_value < effective_threshold):

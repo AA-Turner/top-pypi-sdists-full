@@ -8,11 +8,12 @@ algebraic operation on cell's values.
 from __future__ import annotations
 
 import logging
+import operator
 import warnings
 import weakref
 from collections.abc import Callable, Sequence
 from dataclasses import replace
-from numbers import Number
+from numbers import Number, Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Unpack, cast
 
@@ -22,6 +23,7 @@ from osgeo import gdal
 
 from pyramids import _io
 from pyramids.base._axes import AXIS_NAMES, X_AXIS_NAMES, Y_AXIS_NAMES
+from pyramids.base._domain import INHERIT_NO_DATA, inherit_no_data
 from pyramids.base._errors import AlignmentError, ContainerRasterWarning, CRSError
 from pyramids.base._utils import (
     # Re-exported, not used here. The dtype catalogue was defined in this module's
@@ -38,7 +40,6 @@ from pyramids.base.crs import (
     PROJECTED_AXIS_UNITS,
     VERTICAL_AXIS_NAMES,
     cf_geographic_wkt,
-    crs_equal,
     crs_spec,
     epsg_of_crs,
     sr_from_epsg,
@@ -71,6 +72,11 @@ from pyramids.dataset.engines import (
     Spatial,
     Vectorize,
 )
+
+# The engine's "derive the sentinel from the computed values" default. Imported
+# so the `combine` facade can declare it rather than hide it behind `**kwargs`;
+# the object itself is never constructed or compared outside the engine.
+from pyramids.dataset.engines.analysis import _DERIVE_NO_DATA
 from pyramids.dataset.ops._focal import (
     aspect,
     focal_apply,
@@ -255,11 +261,6 @@ def register_dataset_accessor(name: str) -> Callable[[type], type]:
     return decorator
 
 
-# Sentinel for `Dataset.from_band_files(no_data_value=...)` so the helper can
-# tell "caller didn't pass one — inherit from the source rasters" apart from
-# "caller explicitly passed `None`" (which means "stamp no no-data sentinel").
-_INHERIT_NO_DATA = object()
-
 # Default CRS for the ``bbox`` of the web-service readers (from_wcs / from_wms /
 # from_wmts): lon/lat WGS 84.
 _DEFAULT_CRS = "EPSG:4326"
@@ -329,39 +330,6 @@ def _derive_band_names(paths: list[str]) -> list[str]:
             seen[name] = 0
             names.append(name)
     return names
-
-
-def _same_grid(a: Dataset, b: Dataset) -> bool:
-    """Return True if datasets ``a`` and ``b`` share CRS, size, and geotransform.
-
-    Geotransform components are compared with a small relative tolerance so
-    that byte-for-byte-identical grids (the normal case for per-band files of
-    one scene) compare equal even after the round-trip through GDAL's
-    floating-point geotransform.
-
-    Args:
-        a: Reference dataset.
-        b: Dataset to compare against ``a``.
-
-    Returns:
-        bool: ``True`` iff both rasters occupy the same pixel grid in the
-        same CRS.
-    """
-    return (
-        # `crs_equal(crs_spec(...))`, not `a.epsg == b.epsg`: `epsg` is None for
-        # any CRS without an EPSG authority, so two *different* such CRSes both
-        # reported None and compared equal. Two geostationary rasters at
-        # different sub-satellite longitudes were read as one grid, and the
-        # band stack silently dropped every band after the first.
-        crs_equal(crs_spec(a.epsg, a.crs), crs_spec(b.epsg, b.crs))
-        and a.rows == b.rows
-        and a.columns == b.columns
-        and bool(
-            np.allclose(
-                np.asarray(a.geotransform), np.asarray(b.geotransform), rtol=1e-7
-            )
-        )
-    )
 
 
 def _remap_nodata_to(arr: np.ndarray, src_nd: Any, dst_nd: Any) -> np.typing.NDArray:
@@ -661,6 +629,10 @@ class Dataset(RasterBase):
         """Facade — delegates to :meth:`Cell.get_cell_coords <pyramids.dataset.engines.Cell.get_cell_coords>`."""
         return self.cell.get_cell_coords(*args, **kwargs)
 
+    def cell_area(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Cell.cell_area <pyramids.dataset.engines.Cell.cell_area>`."""
+        return self.cell.cell_area(*args, **kwargs)
+
     def get_cell_polygons(self, *args, **kwargs):
         """Facade — delegates to :meth:`Cell.get_cell_polygons <pyramids.dataset.engines.Cell.get_cell_polygons>`."""
         return self.cell.get_cell_polygons(*args, **kwargs)
@@ -743,6 +715,10 @@ class Dataset(RasterBase):
         """Facade — delegates to :meth:`Analysis.stats <pyramids.dataset.engines.Analysis.stats>`."""
         return self.analysis.stats(*args, **kwargs)
 
+    def domain_area(self, *args, **kwargs):
+        """Facade — delegates to :meth:`Analysis.domain_area <pyramids.dataset.engines.Analysis.domain_area>`."""
+        return self.analysis.domain_area(*args, **kwargs)
+
     def count_domain_cells(self, *args, **kwargs):
         """Facade — delegates to :meth:`Analysis.count_domain_cells <pyramids.dataset.engines.Analysis.count_domain_cells>`."""
         return self.analysis.count_domain_cells(*args, **kwargs)
@@ -757,6 +733,36 @@ class Dataset(RasterBase):
         """
         result = self.analysis.apply(*args, **kwargs)
         return self if result is None else result
+
+    def combine(
+        self,
+        other: Dataset,
+        func: Callable[[np.ndarray, np.ndarray], np.ndarray],
+        *,
+        band: int | None = None,
+        no_data_value: Any = _DERIVE_NO_DATA,
+    ) -> Dataset:
+        """Facade — delegates to :meth:`Analysis.combine <pyramids.dataset.engines.Analysis.combine>`.
+
+        Spelled out rather than `*args, **kwargs` like its neighbours: `combine`
+        has keyword-only options and a `no_data_value` default that is neither
+        `None` nor a value, so a bare forwarding signature tells an IDE or mypy
+        user nothing — and a typo like `no_data=` would reach the engine as an
+        unexpected keyword instead of being caught here.
+
+        Args:
+            other: The second operand, on this dataset's grid.
+            func: Binary callable applied to the operands' matching cells.
+            band: Zero-based band to combine, or `None` for every band.
+            no_data_value: Sentinel for the result, as documented on the engine
+                method. Left unset it is derived from the computed values.
+
+        Returns:
+            Dataset: The combined raster, on this dataset's grid.
+        """
+        return self.analysis.combine(
+            other, func, band=band, no_data_value=no_data_value
+        )
 
     def fill(self, *args, **kwargs):
         """Facade — delegates to :meth:`Analysis.fill <pyramids.dataset.engines.Analysis.fill>`.
@@ -1366,6 +1372,22 @@ class Dataset(RasterBase):
     def align(self, *args, **kwargs):
         """Facade — delegates to :meth:`Spatial.align <pyramids.dataset.engines.Spatial.align>`."""
         return self.spatial.align(*args, **kwargs)
+
+    def same_grid(self, other: Dataset, *, compare_crs: bool = True) -> bool:
+        """Facade — delegates to :meth:`Spatial.same_grid <pyramids.dataset.engines.Spatial.same_grid>`.
+
+        Spelled out for the same reason as :meth:`combine`, whose contract it
+        states: the keyword-only `compare_crs` is invisible in a bare forwarding
+        signature.
+
+        Args:
+            other: Dataset to compare against this one.
+            compare_crs: Whether the CRSes must agree too. Default `True`.
+
+        Returns:
+            bool: `True` iff both rasters occupy the same pixel grid.
+        """
+        return self.spatial.same_grid(other, compare_crs=compare_crs)
 
     def fill_gaps(self, *args, **kwargs):
         """Facade — delegates to :meth:`Spatial.fill_gaps <pyramids.dataset.engines.Spatial.fill_gaps>`."""
@@ -2008,6 +2030,264 @@ class Dataset(RasterBase):
             info = redact_credentials(str(gdal.Info(self.raster)))
         return info
 
+    # numpy would otherwise treat a Dataset as an opaque object and broadcast
+    # over it, so `np.array([0.0]) + ds` came back as an object array of raster
+    # copies instead of refusing. `None` tells numpy this type has no ufunc
+    # protocol, so every such expression is a TypeError. The two sides word it
+    # differently: `ds + np.array([1.0])` says "operand 'Dataset' does not
+    # support ufuncs", while `np.array([1.0]) + ds` comes out of numpy's own
+    # dispatch as "Concatenation operation is not implemented for NumPy
+    # arrays" -- unhelpful, but an error rather than a silent wrong answer.
+    __array_ufunc__ = None
+
+    def _arithmetic(self, other: Any, op: Callable) -> Any:
+        """Route a binary operator to :meth:`combine`, or decline the operand.
+
+        Shared by the arithmetic operators and the comparisons — a comparison
+        is just a `combine` whose `func` returns booleans, which GDAL has no
+        band type for, so the result is stored as Byte: `1` where the test
+        holds, `0` where it does not, `255` wherever either operand was
+        no-data.
+
+        Only a second raster is handled here. Scalar arithmetic stays with
+        :meth:`apply`, which keeps the source band's dtype — routing it here as
+        well would give ``ds * 2`` and ``ds.apply(lambda v: v * 2)`` different
+        dtypes for the same expression. Anything else yields
+        ``NotImplemented``, so Python raises its own ``TypeError`` naming both
+        operand types.
+
+        A comparison — `<`, `<=`, `>`, `>=` — is the same journey with a
+        callable that returns booleans. GDAL has no boolean band type, so the
+        result is stored as Byte: `1` where the test holds, `0` where it does
+        not, and `255` wherever either operand was no-data. The mask always
+        declares `255`, whether or not anything was masked; it cannot collide
+        with `0`/`1`, and it leaves a marker for a later crop or warp fringe.
+        A cell holding `NaN` is compared rather than excluded unless `NaN` is
+        that band's declared sentinel — `NaN >= x` is `False`, so it reads as
+        `0` rather than as a gap; declare `no_data_value=np.nan` on the operand
+        when NaN should mean "missing".
+
+        `__eq__` and `__ne__` are deliberately *not* routed through here.
+        Python gives every object a working identity-based equality, the
+        codebase and its tests rely on it, and replacing it with something that
+        returns a raster would break `in`, `dict`, `assert a == b` and hashing
+        all at once. Ask for `a.combine(b, np.equal)` when you want that mask.
+
+        Args:
+            other: The right-hand operand.
+            op: The two-argument operator to apply cell by cell.
+
+        Returns:
+            Dataset | NotImplemented: The combined raster, or `NotImplemented`
+            when `other` is not a Dataset.
+        """
+        result: Any = NotImplemented
+        if isinstance(other, RasterBase):
+            # `RasterBase`, matching `Analysis.combine`'s own guard: were the two
+            # to differ, `ds - x` would decline an operand `ds.combine(x, ...)`
+            # accepts. `cast` because `RasterBase` is the ABC the engine checks
+            # while `combine` is typed for the concrete raster.
+            result = self.combine(cast("Dataset", other), op)
+        return result
+
+    def __add__(self, other: Any) -> Any:
+        """Add another raster cell by cell — see :meth:`combine`."""
+        return self._arithmetic(other, operator.add)
+
+    def __sub__(self, other: Any) -> Any:
+        """Subtract another raster cell by cell — see :meth:`combine`."""
+        return self._arithmetic(other, operator.sub)
+
+    def __mul__(self, other: Any) -> Any:
+        """Multiply by another raster cell by cell — see :meth:`combine`."""
+        return self._arithmetic(other, operator.mul)
+
+    def __truediv__(self, other: Any) -> Any:
+        """Divide by another raster cell by cell — see :meth:`combine`."""
+        return self._arithmetic(other, operator.truediv)
+
+    def __radd__(self, other: Any) -> Any:
+        """Add from the right, so a list of rasters can be `sum()`-ed.
+
+        `sum()` seeds its accumulator with the integer `0` and only then
+        starts adding, so `0 + ds` has to succeed for a list of rasters to be
+        summable at all. Zero is the additive identity, so the answer is this
+        dataset's values — returned as a copy, not as `self`. Otherwise
+        `sum([one])` would hand back the very raster it was given while
+        `sum([a, b])` hands back a fresh one, and an in-place write to "the
+        total" would reach into the input in the one-element case only. numpy
+        makes the same choice: `sum([arr]) is arr` is `False`.
+
+        It is the one scalar the operators accept, and only when it is a real
+        number equal to zero — `0`, `0.0`, `np.int32(0)`, `np.float64(0)`. Any
+        other scalar would reopen the dtype disagreement :meth:`_arithmetic`
+        declines them to avoid, so `1 + ds` raises; so do `False + ds` (a bool
+        is not a numeric seed), `0j + ds` (no band holds an imaginary part) and
+        `ds + 0` — the identity is absorbed only on the left, where `sum()`
+        puts it.
+
+        Two wrinkles worth knowing. `sum()` of a **single** raster never reaches
+        :meth:`combine`, so it returns that raster's values and sentinel
+        verbatim, while `sum()` of two or more goes through `combine` and takes
+        `combine`'s derived sentinel (`NaN` for a floating result) — a fold over
+        a glob can therefore report a different no-data value depending on how
+        many files matched. And the one-element answer is a :meth:`copy`, so it
+        carries whatever `copy` carries: the grid, CRS, band names and sentinel,
+        but not derived products such as overviews. Pass `no_data_value=` to
+        :meth:`combine <pyramids.dataset.engines.Analysis.combine>` and rebuild
+        overviews explicitly when either matters.
+
+        Args:
+            other: The left-hand operand, which reached here because its own
+                `__add__` declined this dataset.
+
+        Returns:
+            Dataset | NotImplemented: A copy of this dataset when `other` is
+            zero, else `NotImplemented` so Python raises its own `TypeError`.
+
+        Examples:
+            - Fold a list of aligned rasters into their total:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> geo_ref = GeoReference(top_left_corner=(0.0, 5.0), cell_size=0.25, epsg=4326)
+              >>> rasters = [
+              ...     Dataset.from_array(np.full((4, 4), value, "float32"), geo_ref=geo_ref)
+              ...     for value in (1.0, 2.0, 3.0)
+              ... ]
+              >>> float(np.asarray(sum(rasters).read_array()).mean())
+              6.0
+
+              ```
+        """
+        result: Any = NotImplemented
+        # `Real`, not `Number`: it admits `int`, `float` and their numpy
+        # equivalents -- what a fold actually starts from -- while turning away
+        # `0j`, whose imaginary part no raster band can hold. `bool` is excluded
+        # explicitly because `False` is a `Real` equal to `0`, and `False + ds`
+        # handing back a raster reads as the caller's bug quietly succeeding;
+        # `sum()` seeds with the integer `0`, never with `False`.
+        if isinstance(other, Real) and not isinstance(other, bool) and other == 0:
+            result = self.copy()
+        return result
+
+    def __rmul__(self, other: Any) -> Any:
+        """Multiply from the right, so `math.prod()` folds a list of rasters.
+
+        The multiplicative twin of :meth:`__radd__`: `math.prod` seeds its
+        accumulator with the integer `1`, so `1 * ds` has to succeed for a list
+        of rasters to be multipliable at all. One is the multiplicative
+        identity, so the answer is this dataset's values, as a copy — for the
+        aliasing reason :meth:`__radd__` gives.
+
+        Args:
+            other: The left-hand operand, which reached here because its own
+                `__mul__` declined this dataset.
+
+        Returns:
+            Dataset | NotImplemented: A copy of this dataset when `other` is a
+            real numeric one, else `NotImplemented`.
+        """
+        result: Any = NotImplemented
+        if isinstance(other, Real) and not isinstance(other, bool) and other == 1:
+            result = self.copy()
+        return result
+
+    def __lt__(self, other: Any) -> Any:
+        """Cell-by-cell `<` against another raster — see :meth:`_arithmetic`."""
+        return self._arithmetic(other, operator.lt)
+
+    def __le__(self, other: Any) -> Any:
+        """Cell-by-cell `<=` against another raster — see :meth:`_arithmetic`."""
+        return self._arithmetic(other, operator.le)
+
+    def __gt__(self, other: Any) -> Any:
+        """Cell-by-cell `>` against another raster — see :meth:`_arithmetic`."""
+        return self._arithmetic(other, operator.gt)
+
+    def __ge__(self, other: Any) -> Any:
+        """Cell-by-cell `>=` against another raster, as a Byte mask.
+
+        See :meth:`_arithmetic` for the mask's dtype, sentinel and NaN rules.
+
+        Examples:
+            - Where does the surface stand at least as high as the bare earth:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> geo_ref = GeoReference(top_left_corner=(0.0, 5.0), cell_size=0.25, epsg=4326)
+              >>> surface = Dataset.from_array(np.full((3, 3), 30.0, "float32"), geo_ref=geo_ref)
+              >>> bare = Dataset.from_array(np.full((3, 3), 22.0, "float32"), geo_ref=geo_ref)
+              >>> mask = surface >= bare
+              >>> np.asarray(mask.read_array()).dtype.name, int(mask.no_data_value[0])
+              ('uint8', 255)
+              >>> bool((np.asarray(mask.read_array()) == 1).all())
+              True
+
+              ```
+        """
+        return self._arithmetic(other, operator.ge)
+
+    def __bool__(self) -> bool:
+        """Refuse to collapse a raster into a single true/false.
+
+        `if surface >= bare:` reads like a question, but a comparison between
+        two rasters is a *raster* — one answer per cell — so there is no honest
+        single truth value to give back. `sorted`, `min`, `max` and `bisect`
+        compare and then reduce the same way, and before the comparison
+        operators existed they raised `TypeError` on a list of rasters. Letting
+        them quietly return the wrong element instead would be strictly worse
+        than raising.
+
+        The refusal is class-wide rather than scoped to comparison results,
+        which is the choice numpy, pandas and xarray all make. A scoped version
+        was tried: mark the raster a comparison produced and refuse only that.
+        It fails in both directions — the mark is lost by `copy`, `crop`,
+        `to_crs`, `align`, `resample`, a `to_file`/`read_file` round trip and
+        pickling, so the hazard returns after one operation; and it survives
+        `apply(inplace=True)` and `write_array`, so a raster holding ordinary
+        measurements starts refusing. A property that cannot be carried
+        correctly is not worth carrying.
+
+        Use `ds is not None` for a presence check, and reduce a comparison
+        explicitly — `bool(np.asarray((a >= b).read_array()).all())` — for a
+        yes/no.
+
+        Returns:
+            bool: Never returns; the annotation is what `__bool__` must declare.
+
+        Raises:
+            ValueError: Always.
+
+        Examples:
+            - A comparison has to be reduced before it can be a condition:
+
+              ```python
+              >>> import numpy as np
+              >>> from pyramids.dataset import Dataset, GeoReference
+              >>> geo_ref = GeoReference(top_left_corner=(0.0, 5.0), cell_size=0.25, epsg=4326)
+              >>> a = Dataset.from_array(np.ones((3, 3), "float32"), geo_ref=geo_ref)
+              >>> b = Dataset.from_array(np.zeros((3, 3), "float32"), geo_ref=geo_ref)
+              >>> bool(a >= b)
+              Traceback (most recent call last):
+                  ...
+              ValueError: the truth value of a Dataset is ambiguous ...
+              >>> bool(np.asarray((a >= b).read_array()).all())
+              True
+
+              ```
+        """
+        raise ValueError(
+            "the truth value of a Dataset is ambiguous — a raster holds one "
+            "value per cell, and a comparison between two rasters is itself a "
+            "raster. Reduce it, e.g. "
+            "`bool(np.asarray((a >= b).read_array()).all())`; use "
+            "`ds is not None` for a presence check. This is also why `sorted`, "
+            "`min` and `max` refuse a list of rasters"
+        )
+
     @property
     def access(self) -> str:
         """
@@ -2262,27 +2542,71 @@ class Dataset(RasterBase):
         values; mutating the returned object never propagates to
         the underlying state.
 
-        **The entries are numbers, not necessarily Python `int`s.** An
-        unsigned band *wider than 8 bits* created with a `NaN` no-data takes
-        the dtype maximum, because `NaN` cannot be stored there, and that
-        substituted sentinel is now built as a numpy scalar rather than a
-        Python `int`, so that it agrees in *type* as well as value with the
-        fallback used when a requested sentinel overflows the band. A uint16
-        band that used to report `(65535,)` reports `(np.float64(65535.0),)`
-        — float64 because GDAL's `SetNoDataValue` takes a C double and the
-        value is round-tripped through it.
+        **The entries are numbers, not necessarily Python `int`s.** No dtype
+        fabricates a sentinel on a caller's behalf: a `NaN` asked of an integer
+        band is reported back as `NaN` and an **unset** no-data as `None`,
+        whatever the dtype, rather than being answered with a number the band's
+        real data may already hold. Writing such a sentinel to the band is the
+        step that refuses — `change_no_data_value(None)` on any integer raster
+        raises `NoDataValueError`, since there is nothing storable to write.
 
-        Two cases the example deliberately avoids, because neither
-        substitutes: a **Byte** band, which reports `(nan,)` (255 is ordinary
-        data in 8-bit imagery, see `bands._substitutes_dtype_max`), and an
-        **unset** no-data, which reports `(None,)` whatever the dtype.
+        A sentinel that is set still round-trips through GDAL's
+        `SetNoDataValue`, which takes a C double, so a `uint16` band asked for
+        `65535` reports `(np.float64(65535.0),)`. Compare with `==` rather than
+        `is`, and call `float(...)` / `int(...)` before anything that needs a
+        builtin (JSON, `%` formatting of an `int`). `uint64` is the one row
+        that stays a numpy *integer*, since its maximum has no exact float64:
+        it reports `np.uint64(2**64 - 1)`. See `docs/migration.md`,
+        dataset / unreleased.
 
-        Compare with `==` rather than `is`, and call `float(...)` /
-        `int(...)` before anything that needs a builtin (JSON, `%` formatting
-        of an `int`). Arithmetic wraps at the dtype bound instead of promoting
-        only on the one row that stays a numpy *integer*: `uint64`, whose
-        maximum has no exact float64, reports `np.uint64(2**64 - 1)`. See
-        `docs/migration.md`, dataset / unreleased.
+        Returns:
+            tuple: One entry per band, in band order -- a number, or `None` for
+            a band that declares no sentinel.
+
+        Examples:
+            - A band created with a sentinel reports it, through GDAL's C
+              double:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> geo_ref = GeoReference(top_left_corner=(0.0, 5.0), cell_size=0.25, epsg=4326)
+                >>> raster = Dataset.from_array(
+                ...     np.ones((4, 4), "float32"), geo_ref=geo_ref, no_data_value=-9999.0
+                ... )
+                >>> raster.no_data_value
+                (np.float64(-9999.0),)
+
+                ```
+            - An integer band asked for `NaN` reports `NaN`, not a fabricated
+              maximum, so nothing in it is marked absent:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> geo_ref = GeoReference(top_left_corner=(0.0, 5.0), cell_size=0.25, epsg=4326)
+                >>> raster = Dataset.create(
+                ...     rows=4, columns=4, bands=1, dtype="uint16",
+                ...     no_data_value=np.nan, geo_ref=geo_ref,
+                ... )
+                >>> bool(np.isnan(raster.no_data_value[0]))
+                True
+
+                ```
+            - One entry per band, so a two-band raster reports a pair:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.dataset import Dataset, GeoReference
+                >>> geo_ref = GeoReference(top_left_corner=(0.0, 5.0), cell_size=0.25, epsg=4326)
+                >>> raster = Dataset.from_array(
+                ...     np.ones((2, 4, 4), "float32"), geo_ref=geo_ref, no_data_value=0.0
+                ... )
+                >>> len(raster.no_data_value)
+                2
+
+                ```
+
+        See Also:
+            change_no_data_value: Rewrites the cells as well as the
+                declaration, and refuses a sentinel the band cannot store.
         """
         return tuple(self._no_data_value)
 
@@ -3124,7 +3448,20 @@ class Dataset(RasterBase):
                 ``GetCapabilities`` (e.g. ``"nitrogen_0-5cm_mean"``). A value the
                 server does not advertise raises :class:`ValueError`.
             bbox: ``(minx, miny, maxx, maxy)`` in ``crs`` order (lon/lat for the
-                default ``"EPSG:4326"``).
+                default ``"EPSG:4326"``). ``minx > maxx`` reads as a window crossing
+                the antimeridian, the same wrap :meth:`crop` accepts: it is fetched
+                as two ``GetCoverage`` requests either side of the 180 degree seam
+                and concatenated into one raster whose longitude runs on past it
+                (``170 .. 180`` then ``180 .. 190``). Both halves are read off a
+                single open connection, so they come from the same source lattice
+                and stitch without resampling, and a half that misses the coverage
+                is skipped rather than requested. ``output_crs``, ``resolution`` and
+                ``output`` are applied once, to the merged raster. In ``direct``
+                mode there is no shared connection: the halves are two separate
+                ``GetCoverage`` requests, snapped to ``resolution`` so they land on
+                one lattice. Pass a ``resolution`` for a wrapping ``direct`` read —
+                without one nothing constrains the server to grid the two halves
+                alike, and a mismatch is refused rather than stitched.
             crs: CRS of ``bbox``. Defaults to ``"EPSG:4326"``.
             output_crs: Optional CRS to reproject the result into (any form
                 :meth:`to_crs` accepts). ``None`` (default) keeps the coverage's
@@ -3180,9 +3517,10 @@ class Dataset(RasterBase):
             Dataset: The fetched coverage subset.
 
         Raises:
-            ValueError: ``bbox`` is malformed, ``coverage`` is not advertised
-                (discovery mode), ``coverage_crs`` cannot be interpreted, the
-                requested window exceeds the pixel ceiling
+            ValueError: ``bbox`` is malformed — an inverted *latitude* range still
+                counts, since there is no seam in latitude — ``coverage`` is not
+                advertised (discovery mode), ``coverage_crs`` cannot be interpreted,
+                the requested window exceeds the pixel ceiling
                 (:data:`~pyramids.base._coverage.MAX_PX`; a native-resolution read
                 over a wide ``bbox`` — pass a coarser ``resolution`` or a smaller
                 ``bbox`` to bound it), or (direct mode) the WCS version is
@@ -3292,14 +3630,26 @@ class Dataset(RasterBase):
             layers: One layer name, or several to composite, as advertised by the
                 service ``GetCapabilities`` (joined with commas for the request).
             bbox: ``(minx, miny, maxx, maxy)`` in ``crs`` order (lon/lat for the
-                default ``"EPSG:4326"``).
+                default ``"EPSG:4326"``). ``minx > maxx`` reads as a window crossing
+                the antimeridian, the same wrap :meth:`crop` accepts:
+                ``(170, -10, -170, 10)`` is the 20 degrees around Fiji, not the 340
+                the corners subtract to. It is served as two ``GetMap`` requests
+                either side of the 180 degree seam and stitched into one raster whose
+                longitude runs on past it (``170 .. 180`` then ``180 .. 190``);
+                ``size`` is the width of the whole result, divided between the halves
+                at one shared resolution so the pixel size does not change across the
+                seam. Only a geographic ``crs`` has such a seam, so a wrapping bbox
+                with a projected one is refused rather than read as inverted.
             crs: CRS of ``bbox`` and of the rendered request. Defaults to
                 ``"EPSG:4326"`` (GDAL handles the WMS 1.3.0 lat/lon axis order).
             size: Output image size ``(width, height)`` in pixels. Mutually
                 exclusive with ``resolution``; exactly one is required.
             resolution: Output pixel size in ``crs`` units — a scalar (square) or
                 ``(x_res, y_res)`` pair — divided into the bbox extent to size the
-                image. Mutually exclusive with ``size``.
+                image. Mutually exclusive with ``size``. The derived size is capped
+                at :data:`~pyramids.base._coverage.MAX_PX` per axis; ``size``
+                itself is not, since a number the caller states cannot be amplified
+                by a mistake in ``bbox`` the way a derived one can.
             image_format: WMS ``FORMAT`` MIME type. Defaults to ``"image/png"``.
             version: WMS protocol version. Defaults to ``"1.3.0"``.
             bands: Number of bands to request (``3`` RGB, ``4`` RGBA). Defaults to
@@ -3316,8 +3666,13 @@ class Dataset(RasterBase):
             Dataset: The rendered map window.
 
         Raises:
-            ValueError: ``bbox`` is malformed, ``layers`` is empty, or ``size`` /
-                ``resolution`` was not given exactly once.
+            ValueError: ``bbox`` is malformed, ``layers`` is empty, ``size`` /
+                ``resolution`` was not given exactly once, or ``resolution`` over
+                this ``bbox`` exceeds
+                :data:`~pyramids.base._coverage.MAX_PX` on either axis. A wrapping
+                ``bbox`` is malformed when ``crs`` is projected, or when a corner
+                falls outside ``-180 .. 180`` and "west of the seam" stops meaning
+                anything.
             pyramids.errors.WMSError: The server could not be reached or returned a
                 non-raster body.
 
@@ -3387,7 +3742,13 @@ class Dataset(RasterBase):
             layer: The layer identifier as advertised by the capabilities document.
                 A value the service does not advertise raises :class:`ValueError`
                 (with the available layers listed).
-            bbox: ``(minx, miny, maxx, maxy)`` in ``crs`` order.
+            bbox: ``(minx, miny, maxx, maxy)`` in ``crs`` order. ``minx > maxx``
+                reads as a window crossing the antimeridian and is read as two crops
+                either side of the 180 degree seam, stitched into one raster whose
+                longitude continues past it. The seam offset is *measured* in the
+                layer's native CRS rather than assumed, so a layer tiled in Web
+                Mercator crosses as cleanly as a lon/lat one; a wrapping bbox in a
+                projected ``crs`` is still refused, since only lon/lat has the seam.
             crs: CRS of ``bbox``. Defaults to ``"EPSG:4326"``.
             tile_matrix_set: Optional tile-matrix-set id to pin. ``None`` lets GDAL
                 pick the layer's default.
@@ -3409,11 +3770,13 @@ class Dataset(RasterBase):
             Dataset: The cropped WMTS window.
 
         Raises:
-            ValueError: ``bbox`` is malformed, ``layer`` is not advertised,
-                ``layer_crs`` cannot be interpreted, or the requested window exceeds
-                the pixel ceiling (:data:`~pyramids.base._coverage.MAX_PX`; a
-                finest-level read over a wide ``bbox`` — pass a coarser ``resolution``
-                or a smaller ``bbox`` to bound it).
+            ValueError: ``bbox`` is malformed -- including a wrapping ``bbox`` with
+                a projected ``crs`` or a corner outside ``-180 .. 180`` -- ``layer``
+                is not advertised, ``layer_crs`` cannot be interpreted, or the
+                requested window exceeds the pixel ceiling
+                (:data:`~pyramids.base._coverage.MAX_PX`; a finest-level read over a
+                wide ``bbox`` — pass a coarser ``resolution`` or a smaller ``bbox``
+                to bound it).
             pyramids.errors.WMSError: The server could not be reached or the tile
                 read failed.
 
@@ -3499,6 +3862,13 @@ class Dataset(RasterBase):
                 **lon/lat (CRS84)**. It is projected into the coverage's native CRS
                 and read as a bounded, size-capped window; an unbounded full read is
                 not supported (the virtual raster spans the whole coverage).
+                ``minx > maxx`` reads as a subset crossing the antimeridian, as in
+                :meth:`from_wcs`, and is read as two windows either side of the 180
+                degree seam. With no ``resolution`` the two are sized *together* —
+                the combined span is capped once and the resulting pixel size
+                applied to both — because sizing each half against the cap on its
+                own gives them different pixel sizes and row counts, which cannot be
+                concatenated at all.
             output_crs: Optional CRS to reproject the result into (any form
                 :meth:`to_crs` accepts). ``None`` (default) keeps the coverage's
                 native CRS.
@@ -3533,8 +3903,9 @@ class Dataset(RasterBase):
             Dataset: The fetched coverage subset.
 
         Raises:
-            ValueError: ``bbox`` is malformed, ``coverage`` is not advertised, or
-                ``coverage_crs`` cannot be interpreted.
+            ValueError: ``bbox`` is malformed — an inverted *latitude* range
+                still counts, since there is no seam in latitude — ``coverage`` is
+                not advertised, or ``coverage_crs`` cannot be interpreted.
             pyramids.errors.OGCAPIError: The service could not be reached or
                 returned an error / a non-raster body.
 
@@ -4138,7 +4509,7 @@ class Dataset(RasterBase):
         *,
         dtype: str | None = None,
         bands: int | None = None,
-        no_data_value: Any = _INHERIT_NO_DATA,
+        no_data_value: Any = INHERIT_NO_DATA,
         path: str | Path | None = None,
         options: list[str] | None = None,
     ) -> Dataset:
@@ -4247,7 +4618,7 @@ class Dataset(RasterBase):
             template.gdal_dtype[0] if dtype is None else numpy_to_gdal_dtype(dtype)
         )
         n_bands = template.band_count if bands is None else bands
-        if no_data_value is not _INHERIT_NO_DATA:
+        if no_data_value is not INHERIT_NO_DATA:
             nodata = no_data_value
         else:
             template_nd = template.no_data_value
@@ -4708,7 +5079,7 @@ class Dataset(RasterBase):
         *,
         band_names: list[str] | None = None,
         align: bool = False,
-        no_data_value: Any = _INHERIT_NO_DATA,
+        no_data_value: Any = INHERIT_NO_DATA,
         path: str | Path | None = None,
     ) -> Dataset:
         """Stack N single-band rasters into one multi-band :class:`Dataset`.
@@ -4865,33 +5236,16 @@ class Dataset(RasterBase):
         else:
             out_names = _derive_band_names(resolved_paths)
 
-        if no_data_value is _INHERIT_NO_DATA:
-            source_nd = [ds.no_data_value[0] for ds in datasets]
-            present = [v for v in source_nd if v is not None]
-            if not present:
-                resolved_nd: Any | None = None
-            else:
-                resolved_nd = source_nd[0] if source_nd[0] is not None else present[0]
-                # NaN != NaN, so plain set() over-reports disagreement for
-                # float-NaN sentinels (the GeoTIFF default for float rasters).
-                # Normalise NaN to a single key so we only warn when distinct
-                # *real* values are present.
-                distinct = {
-                    "__nan__" if isinstance(v, float) and np.isnan(v) else v
-                    for v in present
-                }
-                if len(distinct) > 1:
-                    warnings.warn(
-                        f"source rasters disagree on no-data value ({sorted(set(present))}); "
-                        f"using {resolved_nd!r}",
-                        stacklevel=2,
-                    )
+        if no_data_value is INHERIT_NO_DATA:
+            resolved_nd: Any | None = inherit_no_data(
+                [ds.no_data_value[0] for ds in datasets]
+            )
         else:
             resolved_nd = no_data_value
 
         if not align:
             for p, ds in zip(resolved_paths[1:], datasets[1:]):
-                if not _same_grid(template, ds):
+                if not template.spatial.same_grid(ds):
                     raise AlignmentError(
                         f"{p!r} does not share the grid/CRS of {resolved_paths[0]!r}; "
                         "pass align=True to resample mismatched rasters onto the first "
@@ -4942,7 +5296,7 @@ class Dataset(RasterBase):
                 array=None,
             )
             for band_i, ds_i in enumerate(datasets):
-                if align and not _same_grid(template, ds_i):
+                if align and not template.spatial.same_grid(ds_i):
                     arr = ds_i.align(grid_template).read_array(band=0)
                 else:
                     # Same grid (or the non-align mixed-dtype path): just cast to
@@ -5009,7 +5363,7 @@ class Dataset(RasterBase):
         member_glob: str = "*",
         band_names: list[str] | None = None,
         align: bool = False,
-        no_data_value: Any = _INHERIT_NO_DATA,
+        no_data_value: Any = INHERIT_NO_DATA,
         path: str | Path | None = None,
     ) -> Dataset:
         """Open every raster in an archive and merge them into one multi-band Dataset.

@@ -69,7 +69,9 @@ def colliding_lookup(monkeypatch: pytest.MonkeyPatch) -> dict[str, ModelPricing]
     """`gpt-5` is inserted FIRST so a prefix scan would hit it before `gpt-5-nano`."""
     lookup = {
         "gpt-5": ModelPricing(model_name="gpt-5", api="openai", tiers=[_tier(1.25, 10.00)]),
-        "gpt-5-nano": ModelPricing(model_name="gpt-5-nano", api="openai", tiers=[_tier(0.05, 0.40)]),
+        "gpt-5-nano": ModelPricing(
+            model_name="gpt-5-nano", api="openai", tiers=[_tier(0.05, 0.40)]
+        ),
         "gpt-4o": ModelPricing(model_name="gpt-4o", api="openai", tiers=[_tier(2.50, 10.00)]),
         "gpt-4o-mini": ModelPricing(
             model_name="gpt-4o-mini", api="openai", tiers=[_tier(0.15, 0.60)]
@@ -283,10 +285,10 @@ def test_resolve_usage_basis_never_prefix_matches(
 
 def test_no_startswith_in_the_pricing_resolution_path() -> None:
     """Structural guard: the prefix fallback must never come back."""
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     for fn in (uc.resolve_usage_basis, TokenUsage.calculate_cost):
-        src = inspect.getsource(fn)
+        src = stable_source(fn)
         assert "startswith" not in src, (
             f"{fn.__qualname__} reintroduced a name-prefix match into billing"
         )

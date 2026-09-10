@@ -22,6 +22,65 @@ pub enum CliError {
     /// `find` matched no elements — exit code 1. Kept distinct from `Usage`
     /// so scripts can tell "ran fine but found nothing" from a bad invocation.
     NotFound(String),
+    /// A selector matched several elements where the caller's contract is
+    /// exactly one — exit code 1.
+    ///
+    /// Constructed by the MCP `action` tool, whose schema promises "must match
+    /// exactly one element". `xa11y action` keeps the library's document-order
+    /// first-match semantics, which its own reference documents; the MCP tool
+    /// cannot, because a model that is told "exactly one" and silently gets
+    /// the first of several has no way to notice.
+    ///
+    /// The [`Diagnosis`] carries the selector, the observed match count, and a
+    /// bounded candidate list, so the recovery — an attribute filter or
+    /// `:nth(n)` — is readable straight off the error (tenet 6).
+    Ambiguous {
+        /// How many elements the selector matched.
+        count: usize,
+        /// Selector, match count, and bounded candidate list.
+        diagnosis: Box<Diagnosis>,
+    },
+    /// Several shell surfaces of one kind are present where the caller's
+    /// contract is exactly one — exit code 1.
+    ///
+    /// Kept distinct from [`CliError::Ambiguous`] because the recovery is a
+    /// different one: a selector is narrowed with an attribute filter or
+    /// `:nth(n)`, whereas a shell surface is picked by process id. MCP maps
+    /// the two to distinct failure kinds (`ambiguous_selector` and
+    /// `ambiguous_shell_surface`) for the same reason.
+    ///
+    /// The [`Diagnosis`] carries the candidates — kind, name and pid of every
+    /// surface that matched — so the disambiguating pid is readable straight
+    /// off the error (tenet 6).
+    AmbiguousShellSurface {
+        /// How many shell surfaces matched.
+        count: usize,
+        /// The kind that was asked for, in its snake_case spelling.
+        kind: String,
+        /// Candidate list and what was observed.
+        diagnosis: Box<Diagnosis>,
+    },
+    /// An MCP event-subscription handle could not be resolved — exit code 1.
+    ///
+    /// Constructed by the `events_poll` / `events_stop` tools. MCP has no
+    /// protocol-level session, so a subscription is addressed by an opaque
+    /// handle, and a handle can miss for two reasons a model must tell apart:
+    /// it was issued and is now closed — stopped, or reclaimed for idling —
+    /// in which case starting another one works; or it was never issued, in
+    /// which case the id itself is wrong. `expired` carries that distinction
+    /// and `failure_kind` maps the two to separate tags.
+    ///
+    /// `live` names the handles that *are* open, so the recovery is readable
+    /// straight off the error rather than requiring another call (tenet 6).
+    NoSubscription {
+        /// The handle the caller passed.
+        id: String,
+        /// Whether this handle was issued and later reclaimed for idling, as
+        /// opposed to never having been issued at all.
+        expired: bool,
+        /// Handles that are open right now, in issue order.
+        live: Vec<String>,
+    },
     /// An underlying xa11y operation failed — exit code 1.
     Xa11y(Error),
 }
@@ -31,7 +90,11 @@ impl CliError {
     pub fn exit_code(&self) -> i32 {
         match self {
             CliError::Usage(_) => 2,
-            CliError::NotFound(_) | CliError::Xa11y(_) => 1,
+            CliError::NotFound(_)
+            | CliError::Ambiguous { .. }
+            | CliError::AmbiguousShellSurface { .. }
+            | CliError::NoSubscription { .. }
+            | CliError::Xa11y(_) => 1,
         }
     }
 }
@@ -41,6 +104,45 @@ impl std::fmt::Display for CliError {
         match self {
             CliError::Usage(msg) => write!(f, "usage error: {msg}"),
             CliError::NotFound(msg) => write!(f, "{msg}"),
+            CliError::Ambiguous { count, diagnosis } => write!(
+                f,
+                "Ambiguous selector: matched {count} elements, but this operation acts on \
+                 exactly one; narrow it with an attribute filter (e.g. [name=\"…\"]) or pick \
+                 one with :nth(n), 1-based{diagnosis}"
+            ),
+            // Both argument spellings are named because this one message is
+            // rendered on both surfaces: `--pid` for the command line, `pid`
+            // for an MCP caller, who has no flags at all.
+            CliError::AmbiguousShellSurface {
+                count,
+                kind,
+                diagnosis,
+            } => write!(
+                f,
+                "Ambiguous shell surface: {count} {kind} surfaces are present, but this \
+                 operation targets exactly one; pick one by process id — `--pid PID` on \
+                 the command line, the `pid` argument in MCP{diagnosis}"
+            ),
+            CliError::NoSubscription { id, expired, live } => {
+                let cause = if *expired {
+                    "is no longer open: `events_stop` closed it, or it expired \
+                     after idling past the retention window `events_start` \
+                     reported as `expires_after_ms`"
+                } else {
+                    "is not a handle this server issued: check the id against \
+                     what `events_start` returned"
+                };
+                let open = if live.is_empty() {
+                    "no subscriptions are open".to_string()
+                } else {
+                    format!("open subscriptions: {}", live.join(", "))
+                };
+                write!(
+                    f,
+                    "subscription \"{id}\" {cause}. Start another with \
+                     `events_start`; {open}"
+                )
+            }
             CliError::Xa11y(e) => write!(f, "{e}"),
         }
     }
@@ -64,14 +166,42 @@ impl From<Error> for CliError {
 /// Result alias for CLI operations.
 pub type CliResult<T> = std::result::Result<T, CliError>;
 
+/// Run the CLI, render any failure to stderr, and return the process exit code.
+///
+/// This is the entry point every launcher uses — the `xa11y` binary, Python's
+/// `xa11y` console script, and the Node `xa11y` bin — so the exit-code
+/// contract on [`CliError`] and the error-message formatting are defined once
+/// rather than re-implemented per language. They had already drifted: the
+/// Python wrapper mapped every failure to exit 1, losing the documented
+/// `2` for usage errors, and prefixed usage errors twice ("error: usage
+/// error: ...").
+///
+/// Writes only to stderr, so it is safe to call for `xa11y mcp`, whose stdout
+/// carries protocol messages.
+pub fn run_main(args: &[String]) -> i32 {
+    match run(args) {
+        Ok(()) => 0,
+        Err(e) => {
+            // `CliError`'s Display already prefixes usage errors with
+            // "usage error: "; everything else gets the generic prefix.
+            match &e {
+                CliError::Usage(_) => eprintln!("{e}"),
+                _ => eprintln!("error: {e}"),
+            }
+            e.exit_code()
+        }
+    }
+}
+
 /// Run the CLI with the given arguments (excluding the program name).
 ///
 /// Returns `Ok(())` on success, or an `Err` with a human-readable message
-/// on failure. The caller is responsible for printing the error and exiting
-/// with [`CliError::exit_code`].
+/// on failure. Most callers want [`run_main`], which renders the error and
+/// produces the exit code.
 pub fn run(args: &[String]) -> CliResult<()> {
     match args.first().map(|s| s.as_str()) {
         Some("apps") => cmd_apps(),
+        Some("shell") => cmd_shell(&args[1..]),
         Some("tree") => cmd_tree(&args[1..]),
         Some("find") => cmd_find(&args[1..]),
         Some("action") => cmd_action(&args[1..]),
@@ -83,6 +213,7 @@ pub fn run(args: &[String]) -> CliResult<()> {
         Some("key") => cmd_key(&args[1..]),
         Some("type") => cmd_type(&args[1..]),
         Some("screenshot") => cmd_screenshot(&args[1..]),
+        Some("mcp") => crate::mcp::serve(&args[1..]),
         _ => {
             print_usage();
             Ok(())
@@ -90,8 +221,14 @@ pub fn run(args: &[String]) -> CliResult<()> {
     }
 }
 
-fn print_usage() {
-    eprintln!(
+/// The `xa11y --help` text.
+///
+/// Built as a value so a test can hold it against [`ACTION_NAMES`]: this
+/// text carries its own hand-written action list, and `set-numeric-value`
+/// worked on both the CLI and MCP while appearing in neither it nor its
+/// value-requiring line.
+fn usage_text() -> String {
+    format!(
         "\
 xa11y — accessibility tree explorer
 
@@ -99,12 +236,29 @@ Usage:
 
 Accessibility tree:
   xa11y apps                                List running applications
-  xa11y tree   [--app NAME | --pid PID]     Print the accessibility tree
-  xa11y find   SELECTOR [--app NAME | --pid PID] [-o pretty|bounds|center]
+  xa11y shell                               List OS shell surfaces: KIND PID NAME
+  xa11y tree   [TARGET]                     Print the accessibility tree
+  xa11y find   SELECTOR [TARGET] [-o pretty|bounds|center]
                                             Find elements matching a selector
-  xa11y action ACTION SELECTOR [--app NAME | --pid PID] [--value V]
+  xa11y action ACTION SELECTOR [TARGET] [--value V]
                                             Perform an action on an element
   xa11y events [--app NAME | --pid PID]     Stream accessibility events
+
+TARGET — what tree/find/action search (--shell and --app are exclusive):
+  --app NAME | --pid PID                    A running application
+  --shell KIND [--pid PID]                  An OS shell surface, as listed by
+                                            `xa11y shell`. Add --pid when
+                                            several surfaces share a kind: it
+                                            is the only disambiguator, and it
+                                            cannot separate several surfaces
+                                            owned by one process (two panel
+                                            rows from one xfce4-panel).
+      KIND is one of:
+      {kinds}
+      Kinds are platform-specific though the list is not: menu_bar,
+      status_items and dock are macOS only, taskbar is Windows only,
+      panel is Linux only, desktop and flyout are macOS and Windows.
+      `xa11y shell` lists what this machine actually has.
 
 Input simulation (coords only — no selectors, no a11y):
   xa11y click  --at X,Y [--button left|right|middle] [--count N] [--held K,K]
@@ -114,9 +268,23 @@ Input simulation (coords only — no selectors, no a11y):
   xa11y key    KEY [--held K,K]
   xa11y type   TEXT
 
-Screenshot (regions only — no selectors, no a11y):
+Screenshot (pixels; --annotate adds selectors and a11y):
   xa11y screenshot [--region X,Y,W,H] --out PATH
-                                            --out - writes PNG bytes to stdout
+                   [--app NAME | --pid PID | --shell KIND]
+                   [--annotate SELECTOR]... [--legend text|json|none]
+                                            --out - writes PNG bytes to stdout.
+                                            With no --annotate: a plain capture,
+                                            no target, no a11y.
+  Each --annotate is one group: it boxes every element its selector matches in
+  TARGET, in that group's colour, and the legend on stdout maps each box's tag
+  to a selector that acts on it (A7 -> button:nth(7)). Repeat for more groups.
+  Boxes come from the accessibility tree, so --annotate needs a target and gains
+  its failures (app not found, no match); an app with no tree gets no boxes.
+  --out - and a legend both want stdout: pick --out FILE, or --legend none.
+
+Model Context Protocol:
+  xa11y mcp                                 Serve the above as MCP tools over
+                                            stdio (for MCP clients, not humans)
 
 Compose a11y + input/screenshot via `find -o bounds|center`:
   region=$(xa11y find 'button[name=\"OK\"]' --app Safari -o bounds)
@@ -126,13 +294,19 @@ Compose a11y + input/screenshot via `find -o bounds|center`:
 Actions: press, focus, blur, toggle, expand, collapse, select, show-menu,
   scroll-into-view, increment, decrement,
   set-value (requires --value), type-text (requires --value),
-  select-text (requires --value START,END)
+  set-numeric-value (requires --value), select-text (requires --value START,END)
 
 Exit codes:
   0  success
   1  operation failed (app not found, no selector match, platform error)
-  2  usage error (unknown flag value, missing or invalid argument)"
-    );
+  2  usage error (unknown flag value, missing or invalid argument)",
+        // Derived, not spelled out: see `shell_kind_names`.
+        kinds = shell_kind_names().join(", ")
+    )
+}
+
+fn print_usage() {
+    eprintln!("{}", usage_text());
 }
 
 // ── Argument helpers ────────────────────────────────────────────────────────
@@ -142,6 +316,9 @@ Exit codes:
 pub(crate) struct Opts {
     pub app: Option<String>,
     pub pid: Option<u32>,
+    /// Shell surface kind, as its snake_case spelling. Mutually exclusive with
+    /// `app`; combines with `pid` to disambiguate same-kind surfaces.
+    pub shell: Option<String>,
     pub value: Option<String>,
     // Input simulation / screenshot
     pub at: Option<String>,
@@ -155,6 +332,12 @@ pub(crate) struct Opts {
     pub duration_ms: Option<u64>,
     pub region: Option<String>,
     pub out: Option<String>,
+    /// One selector per `--annotate` occurrence, in the order given. Each is
+    /// one annotation *group*: it gets its own colour and tag letter, so the
+    /// flag collects repeats rather than the last one winning.
+    pub annotate: Vec<String>,
+    /// Raw `--legend` value, parsed by [`parse_legend_format`].
+    pub legend: Option<String>,
     // Output format for `find`
     pub output_format: Option<String>,
 }
@@ -210,6 +393,10 @@ pub(crate) fn parse_opts(args: &[String]) -> CliResult<(Opts, Vec<String>)> {
                     "an integer process id",
                 )?);
             }
+            "--shell" => {
+                i += 1;
+                opts.shell = Some(flag_value(args, i, "--shell")?.to_string());
+            }
             "--value" => {
                 i += 1;
                 opts.value = Some(flag_value(args, i, "--value")?.to_string());
@@ -262,6 +449,17 @@ pub(crate) fn parse_opts(args: &[String]) -> CliResult<(Opts, Vec<String>)> {
             "--out" => {
                 i += 1;
                 opts.out = Some(flag_value(args, i, "--out")?.to_string());
+            }
+            // The one repeatable flag: each occurrence is a distinct
+            // annotation group, so a later one must not overwrite an earlier.
+            "--annotate" => {
+                i += 1;
+                opts.annotate
+                    .push(flag_value(args, i, "--annotate")?.to_string());
+            }
+            "--legend" => {
+                i += 1;
+                opts.legend = Some(flag_value(args, i, "--legend")?.to_string());
             }
             "-o" => {
                 i += 1;
@@ -393,6 +591,244 @@ pub(crate) fn resolve_app(opts: &Opts) -> CliResult<App> {
         Ok(App::by_pid(pid, std::time::Duration::ZERO)?)
     } else {
         Err(CliError::Usage("specify --app NAME or --pid PID".into()))
+    }
+}
+
+// ── Shell surface targeting ─────────────────────────────────────────────────
+
+/// Every [`ShellSurfaceKind`] spelling `--shell` (MCP: `shell`) accepts.
+///
+/// Single source of truth for the flag's error message, the usage text, and
+/// the MCP schema's `enum`, so a kind cannot be advertised by one surface and
+/// rejected by another. **Derived** from [`ShellSurfaceKind::ALL`] rather than
+/// written out again: `ShellSurfaceKind` is `#[non_exhaustive]`, so a `match`
+/// here could not fail to compile when a variant is added, and a hand-written
+/// list would silently keep advertising eight kinds out of nine. Core's
+/// `every_variant_is_in_all` test is the exhaustive `match` that guards `ALL`.
+pub(crate) fn shell_kind_names() -> &'static [&'static str] {
+    static NAMES: std::sync::LazyLock<Vec<&'static str>> = std::sync::LazyLock::new(|| {
+        ShellSurfaceKind::ALL
+            .iter()
+            .map(|k| k.to_snake_case())
+            .collect()
+    });
+    NAMES.as_slice()
+}
+
+/// Longest candidate list carried in a shell-lookup failure. Bounded per
+/// tenet 6 — diagnostics must not grow with the environment.
+const MAX_SHELL_CANDIDATES: usize = 20;
+
+/// Parse a `--shell` / `shell` value into a [`ShellSurfaceKind`].
+///
+/// Runs before any enumeration, so a misspelled kind is a usage error rather
+/// than a listing the caller has to read to discover the typo.
+pub(crate) fn parse_shell_kind(raw: &str) -> CliResult<ShellSurfaceKind> {
+    ShellSurfaceKind::from_snake_case(raw).ok_or_else(|| {
+        CliError::Usage(format!(
+            "unknown shell surface kind: {raw} (expected one of: {})",
+            shell_kind_names().join(", ")
+        ))
+    })
+}
+
+/// Bounded `kind "name" (pid=N)` rendering of the surfaces that were present.
+fn describe_shell_surfaces(surfaces: &[ShellSurface]) -> Vec<String> {
+    bound_candidates(
+        surfaces
+            .iter()
+            .map(|s| {
+                let pid = s.pid.map(|p| format!(" (pid={p})")).unwrap_or_default();
+                format!("{} \"{}\"{pid}", s.kind.to_snake_case(), s.name)
+            })
+            .collect(),
+    )
+}
+
+/// Cap a candidate list at [`MAX_SHELL_CANDIDATES`], naming how many were
+/// dropped.
+///
+/// Split out from the rendering so the cap is testable without a provider:
+/// a diagnosis that grows with the environment is the tenet-6 failure that
+/// costs the success path nothing and the failure path everything.
+fn bound_candidates(mut lines: Vec<String>) -> Vec<String> {
+    if lines.len() > MAX_SHELL_CANDIDATES {
+        let dropped = lines.len() - MAX_SHELL_CANDIDATES;
+        lines.truncate(MAX_SHELL_CANDIDATES);
+        lines.push(format!("… (+{dropped} more)"));
+    }
+    lines
+}
+
+/// Resolve the one shell surface of `kind` (optionally owned by `pid`).
+///
+/// A single enumeration attempt, like [`resolve_app`]: these surfaces are
+/// either on screen or they are not, and a caller who wants to *wait* for one
+/// (the tray-overflow flyout, after pressing the chevron) uses
+/// `ShellSurface::by_kind` with a timeout. The lookup is written here rather
+/// than delegated to `by_kind`, which has no pid filter and reports ambiguity
+/// and absence through the same error — this surface must tell them apart, so
+/// a caller is told either "add a pid" or "here is what is on screen".
+///
+/// # Errors
+///
+/// - [`CliError::Usage`] for an unknown kind name.
+/// - [`CliError::AmbiguousShellSurface`] when several surfaces match.
+/// - [`CliError::Xa11y`] with [`Error::SelectorNotMatched`] when none do, its
+///   diagnosis naming every surface that *was* enumerated.
+pub(crate) fn resolve_shell_surface(kind_raw: &str, pid: Option<u32>) -> CliResult<ShellSurface> {
+    let kind = parse_shell_kind(kind_raw)?;
+    select_shell_surface(ShellSurface::list()?, kind, pid)
+}
+
+/// Pick the one surface of `kind` (optionally owned by `pid`) out of an
+/// already-enumerated listing.
+///
+/// Split from [`resolve_shell_surface`] so the selection — which of match,
+/// ambiguity and absence a listing produces, and which hint each failure
+/// carries — is testable without a desktop. `resolve_shell_surface` is then
+/// just the singleton `ShellSurface::list()` call plus this.
+///
+/// # Errors
+///
+/// - [`CliError::AmbiguousShellSurface`] when several surfaces match. The
+///   diagnosis's hint depends on whether `pid` was already given: without one
+///   it points at `xa11y shell`; with one it says the operation cannot pick
+///   between them, because `pid` is the only lever there is and it does not
+///   separate surfaces owned by a single process.
+/// - [`CliError::Xa11y`] with [`Error::SelectorNotMatched`] when none do, its
+///   diagnosis naming every surface that *was* enumerated.
+pub(crate) fn select_shell_surface(
+    surfaces: Vec<ShellSurface>,
+    kind: ShellSurfaceKind,
+    pid: Option<u32>,
+) -> CliResult<ShellSurface> {
+    let selector = match pid {
+        Some(p) => format!("shell_surface[kind={kind}][pid={p}]"),
+        None => format!("shell_surface[kind={kind}]"),
+    };
+
+    let (mut matched, others): (Vec<ShellSurface>, Vec<ShellSurface>) = surfaces
+        .into_iter()
+        .partition(|s| s.kind == kind && pid.is_none_or(|p| s.pid == Some(p)));
+
+    if matched.len() > 1 {
+        let hint = match pid {
+            // A pid was already given and did not narrow it: saying "add a
+            // pid" would send the caller somewhere they have been. There is
+            // no second lever — one process can own several surfaces of one
+            // kind (two xfce4-panel rows), and nothing distinguishes them.
+            Some(p) => format!(
+                "{} {kind} surfaces share pid {p}; pid is the only disambiguator, so this \
+                 operation cannot pick between them",
+                matched.len()
+            ),
+            None => format!(
+                "{} {kind} surfaces are present; `xa11y shell` lists their pids",
+                matched.len()
+            ),
+        };
+        return Err(CliError::AmbiguousShellSurface {
+            count: matched.len(),
+            kind: kind.to_snake_case().to_string(),
+            diagnosis: Box::new(
+                Diagnosis::new()
+                    .condition(format!("exactly one {kind} shell surface"))
+                    .last_observed(hint)
+                    .candidates(describe_shell_surfaces(&matched)),
+            ),
+        });
+    }
+
+    matched.pop().ok_or_else(|| {
+        let observed = match pid {
+            Some(p) => format!("no {kind} surface with pid {p} is present"),
+            None => format!("no {kind} surface is present"),
+        };
+        CliError::Xa11y(
+            Error::selector_not_matched(selector).diagnose(
+                Diagnosis::new()
+                    .condition(format!("a {kind} shell surface"))
+                    .last_observed(format!(
+                        "{observed}; {} other shell surface(s) enumerated",
+                        others.len()
+                    ))
+                    .candidates(describe_shell_surfaces(&others)),
+            ),
+        )
+    })
+}
+
+/// What `tree`, `find` and `action` search: a running application, or an OS
+/// shell surface.
+///
+/// Value-producing, so the MCP handlers can share the resolution without
+/// reaching for a `cmd_*` function — those print, and on the stdio transport
+/// stdout carries protocol messages only.
+#[derive(Debug)]
+pub(crate) enum Target {
+    /// A running application, from `--app` / `--pid`.
+    App(App),
+    /// An OS shell surface, from `--shell` (plus `--pid` to disambiguate).
+    Shell(ShellSurface),
+}
+
+impl Target {
+    /// A [`Locator`] rooted at the target.
+    pub(crate) fn locator(&self, selector: &str) -> Locator {
+        match self {
+            Target::App(app) => app.locator(selector),
+            Target::Shell(surface) => surface.locator(selector),
+        }
+    }
+
+    /// The target's root element.
+    pub(crate) fn root(&self) -> Element {
+        match self {
+            Target::App(app) => Element::new(app.data.clone(), app.provider().clone()),
+            Target::Shell(surface) => surface.as_element(),
+        }
+    }
+
+    /// The target's human-readable name.
+    pub(crate) fn name(&self) -> &str {
+        match self {
+            Target::App(app) => &app.name,
+            Target::Shell(surface) => &surface.name,
+        }
+    }
+
+    /// The owning process, where the platform reports one.
+    pub(crate) fn pid(&self) -> Option<u32> {
+        match self {
+            Target::App(app) => app.pid,
+            Target::Shell(surface) => surface.pid,
+        }
+    }
+
+    /// The shell surface behind this target, if it is one.
+    pub(crate) fn shell(&self) -> Option<&ShellSurface> {
+        match self {
+            Target::App(_) => None,
+            Target::Shell(surface) => Some(surface),
+        }
+    }
+}
+
+/// Resolve the target of a `tree` / `find` / `action` invocation.
+///
+/// `--shell` and `--app` name two different things to search, so passing both
+/// is a usage error rather than one of them silently winning.
+pub(crate) fn resolve_target(opts: &Opts) -> CliResult<Target> {
+    match (&opts.shell, &opts.app) {
+        (Some(_), Some(_)) => Err(CliError::Usage(
+            "--shell and --app are mutually exclusive: --shell targets an OS shell surface, \
+             --app a running application. Use --pid alongside --shell to pick between \
+             surfaces of one kind."
+                .into(),
+        )),
+        (Some(kind), None) => Ok(Target::Shell(resolve_shell_surface(kind, opts.pid)?)),
+        (None, _) => Ok(Target::App(resolve_app(opts)?)),
     }
 }
 
@@ -559,11 +995,45 @@ fn cmd_apps() -> CliResult<()> {
     Ok(())
 }
 
+/// List the OS shell surfaces currently on screen.
+///
+/// Columns are `kind\tpid\tname`, mirroring `xa11y apps`' tab-separated
+/// contract: the kind leads because it is what `--shell` takes, and the pid
+/// keeps its `-` for a surface the platform attributes to no process.
+fn cmd_shell(args: &[String]) -> CliResult<()> {
+    // The listing takes no filters. Ignoring `--shell taskbar` here would let
+    // someone believe it had narrowed the output (tenet 1); the flag belongs
+    // on tree / find / action.
+    if let Some(first) = args.first() {
+        return Err(CliError::Usage(format!(
+            "xa11y shell takes no arguments (got: {first}). It lists every surface; \
+             pass --shell KIND to tree, find or action to target one."
+        )));
+    }
+    let surfaces = ShellSurface::list()?;
+    if surfaces.is_empty() {
+        println!("No shell surfaces found.");
+        return Ok(());
+    }
+    for surface in &surfaces {
+        let pid_str = surface
+            .pid
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| "-".into());
+        println!(
+            "{}\t{}\t{}",
+            surface.kind.to_snake_case(),
+            pid_str,
+            surface.name
+        );
+    }
+    Ok(())
+}
+
 fn cmd_tree(args: &[String]) -> CliResult<()> {
     let (opts, _pos) = parse_opts(args)?;
-    let app = resolve_app(&opts)?;
-    let root_el = Element::new(app.data.clone(), app.provider().clone());
-    print_tree_recursive(&root_el, "", true, true);
+    let target = resolve_target(&opts)?;
+    print_tree_recursive(&target.root(), "", true, true);
     Ok(())
 }
 
@@ -571,12 +1041,14 @@ fn cmd_find(args: &[String]) -> CliResult<()> {
     let (opts, positional) = parse_opts(args)?;
     let selector = positional.first().ok_or_else(|| {
         CliError::Usage(
-            "usage: xa11y find SELECTOR [--app NAME | --pid PID] [-o pretty|bounds|center]".into(),
+            "usage: xa11y find SELECTOR [--app NAME | --pid PID | --shell KIND] \
+             [-o pretty|bounds|center]"
+                .into(),
         )
     })?;
 
-    let app = resolve_app(&opts)?;
-    let elements = app.locator(selector).elements()?;
+    let target = resolve_target(&opts)?;
+    let elements = target.locator(selector).elements()?;
     if elements.is_empty() {
         return Err(CliError::NotFound(format!(
             "no elements matched selector: {selector}"
@@ -666,65 +1138,183 @@ fn cmd_action(args: &[String]) -> CliResult<()> {
     let (opts, positional) = parse_opts(args)?;
     if positional.len() < 2 {
         return Err(CliError::Usage(
-            "usage: xa11y action ACTION SELECTOR [--app NAME | --pid PID] [--value V]".into(),
+            "usage: xa11y action ACTION SELECTOR [--app NAME | --pid PID | --shell KIND] \
+             [--value V]"
+                .into(),
         ));
     }
     let action_name = &positional[0];
     let selector = &positional[1];
     let value = opts.value.clone();
 
-    let app = resolve_app(&opts)?;
-    let locator = app.locator(selector);
-
-    match action_name.as_str() {
-        "press" => locator.press()?,
-        "focus" => locator.focus()?,
-        "blur" => locator.blur()?,
-        "toggle" => locator.toggle()?,
-        "expand" => locator.expand()?,
-        "collapse" => locator.collapse()?,
-        "select" => locator.select()?,
-        "show-menu" => locator.show_menu()?,
-        "scroll-into-view" => locator.scroll_into_view()?,
-        "increment" => locator.increment()?,
-        "decrement" => locator.decrement()?,
-        "set-value" => {
-            let v = value.ok_or_else(|| CliError::Usage("set-value requires --value".into()))?;
-            locator.set_value(&v)?;
-        }
-        "type-text" => {
-            let v = value.ok_or_else(|| CliError::Usage("type-text requires --value".into()))?;
-            locator.type_text(&v)?;
-        }
-        "select-text" => {
-            let v = value
-                .ok_or_else(|| CliError::Usage("select-text requires --value START,END".into()))?;
-            let parts: Vec<&str> = v.split(',').collect();
-            if parts.len() != 2 {
-                return Err(CliError::Usage(
-                    "select-text --value must be START,END (e.g. 0,5)".into(),
-                ));
-            }
-            let start: u32 = parts[0]
-                .trim()
-                .parse()
-                .map_err(|_| CliError::Usage("invalid START in select-text --value".into()))?;
-            let end: u32 = parts[1]
-                .trim()
-                .parse()
-                .map_err(|_| CliError::Usage("invalid END in select-text --value".into()))?;
-            locator.select_text(start, end)?;
-        }
-        other => {
-            return Err(CliError::Usage(format!("unknown action: {other}")));
-        }
-    }
+    let target = resolve_target(&opts)?;
+    let locator = target.locator(selector);
+    perform_action(&locator, action_name, value.as_deref())?;
     println!("ok");
     Ok(())
 }
 
+/// Every action verb `xa11y action` and the MCP `action` tool accept.
+///
+/// Single source of truth: the CLI's unknown-action error and the MCP tool's
+/// `inputSchema` enum both read this, so a verb added to [`perform_action`]
+/// cannot be advertised by one surface and rejected by the other.
+pub(crate) const ACTION_NAMES: &[&str] = &[
+    "press",
+    "focus",
+    "blur",
+    "toggle",
+    "expand",
+    "collapse",
+    "select",
+    "show-menu",
+    "scroll-into-view",
+    "increment",
+    "decrement",
+    "set-value",
+    "set-numeric-value",
+    "type-text",
+    "select-text",
+];
+
+/// Actions that require a `--value` (MCP: `value`) argument.
+pub(crate) const ACTIONS_REQUIRING_VALUE: &[&str] =
+    &["set-value", "set-numeric-value", "type-text", "select-text"];
+
+/// Dispatch a named action verb onto `locator`.
+///
+/// Shared by `xa11y action` and the MCP `action` tool so the two cannot drift
+/// on which verbs exist or which of them need a value. Writes nothing to
+/// stdout: the MCP stdio transport allows only protocol messages there, so
+/// the "ok" line stays in the CLI half.
+pub(crate) fn perform_action(
+    locator: &Locator,
+    action_name: &str,
+    value: Option<&str>,
+) -> CliResult<()> {
+    // Each `requires --value` arm re-checks rather than trusting a caller to
+    // have consulted ACTIONS_REQUIRING_VALUE (tenet 1: the failure is
+    // surfaced where it happens, not assumed away upstream).
+    let need_value = |verb: &str| -> CliResult<&str> {
+        value.ok_or_else(|| CliError::Usage(format!("{verb} requires a value")))
+    };
+
+    // The dispatch runs inside a closure so every arm's failure passes through
+    // `relabel_action_error` on the way out, and the verb spelling a caller is
+    // told about is the one this function accepts.
+    let dispatch = || -> CliResult<()> {
+        match action_name {
+            "press" => locator.press()?,
+            "focus" => locator.focus()?,
+            "blur" => locator.blur()?,
+            "toggle" => locator.toggle()?,
+            "expand" => locator.expand()?,
+            "collapse" => locator.collapse()?,
+            "select" => locator.select()?,
+            "show-menu" => locator.show_menu()?,
+            "scroll-into-view" => locator.scroll_into_view()?,
+            "increment" => locator.increment()?,
+            "decrement" => locator.decrement()?,
+            "set-value" => locator.set_value(need_value("set-value")?)?,
+            "set-numeric-value" => {
+                // Parsed before the locator is touched, so a bad number cannot
+                // burn the auto-wait timeout or reach the platform call.
+                let v = parse_numeric_value(need_value("set-numeric-value")?)?;
+                locator.set_numeric_value(v)?;
+            }
+            "type-text" => locator.type_text(need_value("type-text")?)?,
+            "select-text" => {
+                let v = need_value("select-text")?;
+                let (start, end) = parse_text_range(v)?;
+                locator.select_text(start, end)?;
+            }
+            other => {
+                return Err(CliError::Usage(format!(
+                    "unknown action: {other} (expected one of: {})",
+                    ACTION_NAMES.join(", ")
+                )));
+            }
+        }
+        Ok(())
+    };
+
+    dispatch().map_err(|e| relabel_action_error(e, action_name))
+}
+
+/// Parse a `--value` for `set-numeric-value`.
+///
+/// Rejects unparsable and non-finite input here rather than letting it reach
+/// the provider: the CLI and the MCP tool both take this value as a string,
+/// and "parse arguments before the first OS call" is what keeps a bad number
+/// from spending the auto-wait timeout before failing.
+pub(crate) fn parse_numeric_value(raw: &str) -> CliResult<f64> {
+    let parsed: f64 = raw.trim().parse().map_err(|_| {
+        CliError::Usage(format!(
+            "set-numeric-value value must be a number (e.g. 88 or 0.5), got: {raw}"
+        ))
+    })?;
+    if !parsed.is_finite() {
+        return Err(CliError::Usage(format!(
+            "set-numeric-value value must be finite, got: {raw}"
+        )));
+    }
+    Ok(parsed)
+}
+
+/// Re-spell the action name in an `ActionNotSupported` as the verb the caller
+/// typed.
+///
+/// Providers report the failing action by its Rust method name
+/// (`show_menu`, `scroll_into_view`), so the error told the user to use a
+/// spelling `xa11y action` and the MCP `action` tool both reject. Only the
+/// name is rewritten, and only when it is the same verb modulo the separator
+/// — a provider naming some *other* action passes through untouched, because
+/// that difference is information, not noise.
+fn relabel_action_error(err: CliError, verb: &str) -> CliError {
+    match err {
+        CliError::Xa11y(Error::ActionNotSupported { action, role })
+            if action.replace('_', "-") == verb =>
+        {
+            CliError::Xa11y(Error::ActionNotSupported {
+                action: verb.to_string(),
+                role,
+            })
+        }
+        other => other,
+    }
+}
+
+/// Parse a `START,END` character range for `select-text`.
+pub(crate) fn parse_text_range(raw: &str) -> CliResult<(u32, u32)> {
+    let parts: Vec<&str> = raw.split(',').collect();
+    if parts.len() != 2 {
+        return Err(CliError::Usage(format!(
+            "select-text value must be START,END (e.g. 0,5), got: {raw}"
+        )));
+    }
+    let start: u32 = parts[0].trim().parse().map_err(|_| {
+        CliError::Usage(format!("invalid START in select-text value: {}", parts[0]))
+    })?;
+    let end: u32 = parts[1]
+        .trim()
+        .parse()
+        .map_err(|_| CliError::Usage(format!("invalid END in select-text value: {}", parts[1])))?;
+    Ok((start, end))
+}
+
 fn cmd_events(args: &[String]) -> CliResult<()> {
     let (opts, _pos) = parse_opts(args)?;
+    // Events are subscribed per application; there is no surface-level event
+    // story yet (see design/shell-surfaces/PROPOSAL.md §10). Saying so beats
+    // letting `--shell` fall through to "specify --app NAME or --pid PID",
+    // which reads as though the flag were misspelled.
+    if opts.shell.is_some() {
+        return Err(CliError::Usage(
+            "--shell is not supported by `events`: accessibility events are subscribed \
+             per application. Use --app NAME or --pid PID."
+                .into(),
+        ));
+    }
     let app = resolve_app(&opts)?;
     let sub = app.subscribe()?;
     eprintln!(
@@ -769,6 +1359,80 @@ pub(crate) fn format_event_kind(kind: &EventKind) -> &'static str {
         EventKind::MenuClosed => "menu_closed",
         EventKind::TextChanged => "text_changed",
         EventKind::Announcement => "announcement",
+        // `EventKind` is `#[non_exhaustive]`. A kind this build predates is
+        // still worth printing as a line — the CLI is a debugging tool, and
+        // dropping the event entirely would be worse than naming it vaguely.
+        _ => "unknown",
+    }
+}
+
+/// Every spelling [`format_event_kind`] can produce, for MCP's `events_start`
+/// `kinds` filter to validate a requested name against.
+///
+/// Derived by running the formatter over one value of each variant rather than
+/// written out a second time, so the filter cannot advertise a name the
+/// formatter never emits, and cannot spell one differently.
+///
+/// What it cannot do is notice a variant missing from `KNOWN` below.
+/// [`EventKind`] is `#[non_exhaustive]`, so a `match` here would compile with
+/// a `_` arm just as `format_event_kind` does, and there is nothing to
+/// enumerate the variants at runtime. The guards are the
+/// `[[types.variant_coverage]]` entry for `EventKind`, which requires this
+/// file to name every variant, and
+/// `every_advertised_event_kind_name_round_trips`, which fails if an entry
+/// here formats as `unknown` or repeats another. **A new variant belongs in
+/// both `format_event_kind` and `KNOWN`.**
+pub(crate) fn event_kind_names() -> &'static [&'static str] {
+    /// One value per variant. `StateChanged`'s payload is arbitrary: only the
+    /// variant reaches `format_event_kind`.
+    const KNOWN: &[EventKind] = &[
+        EventKind::FocusChanged,
+        EventKind::ValueChanged,
+        EventKind::NameChanged,
+        EventKind::StateChanged {
+            flag: StateFlag::Enabled,
+            value: true,
+        },
+        EventKind::StructureChanged,
+        EventKind::WindowOpened,
+        EventKind::WindowClosed,
+        EventKind::WindowActivated,
+        EventKind::WindowDeactivated,
+        EventKind::SelectionChanged,
+        EventKind::MenuOpened,
+        EventKind::MenuClosed,
+        EventKind::TextChanged,
+        EventKind::Announcement,
+    ];
+    static NAMES: std::sync::LazyLock<Vec<&'static str>> =
+        std::sync::LazyLock::new(|| KNOWN.iter().map(format_event_kind).collect());
+    NAMES.as_slice()
+}
+
+/// snake_case name for a state flag, matching the spelling both bindings use
+/// for `Event.state_flag` and the one `states` uses in element payloads.
+///
+/// Hand-mapped rather than derived from `Debug`, which would render a future
+/// multi-word variant as one lowercase run. `[[types.variant_coverage]]` lists
+/// this file for `StateFlag` so a new variant cannot quietly reach a client as
+/// `unknown`.
+pub(crate) fn format_state_flag(flag: StateFlag) -> &'static str {
+    match flag {
+        StateFlag::Enabled => "enabled",
+        StateFlag::Visible => "visible",
+        StateFlag::Focused => "focused",
+        StateFlag::Checked => "checked",
+        StateFlag::Selected => "selected",
+        StateFlag::Expanded => "expanded",
+        StateFlag::Editable => "editable",
+        StateFlag::Focusable => "focusable",
+        StateFlag::Modal => "modal",
+        StateFlag::Required => "required",
+        StateFlag::Busy => "busy",
+        // `StateFlag` is `#[non_exhaustive]`. Same reasoning as
+        // `format_event_kind`: naming the flag vaguely beats dropping the
+        // event that carries it.
+        _ => "unknown",
     }
 }
 
@@ -807,12 +1471,11 @@ pub(crate) fn build_click_options(opts: &Opts) -> CliResult<ClickOptions> {
         .unwrap_or(MouseButton::Left);
     let count = opts.count.unwrap_or(1);
     let held = parse_held(opts.held.as_deref())?;
-    Ok(ClickOptions {
-        button,
-        count,
-        held,
-        anchor: Anchor::Center,
-    })
+    Ok(ClickOptions::new()
+        .button(button)
+        .count(count)
+        .held(held)
+        .anchor(Anchor::Center))
 }
 
 fn cmd_move(args: &[String]) -> CliResult<()> {
@@ -856,11 +1519,10 @@ pub(crate) fn build_drag_options(opts: &Opts) -> CliResult<DragOptions> {
         .unwrap_or(MouseButton::Left);
     let held = parse_held(opts.held.as_deref())?;
     let duration = Duration::from_millis(opts.duration_ms.unwrap_or(150));
-    Ok(DragOptions {
-        button,
-        held,
-        duration,
-    })
+    Ok(DragOptions::new()
+        .button(button)
+        .held(held)
+        .duration(duration))
 }
 
 fn cmd_scroll(args: &[String]) -> CliResult<()> {
@@ -907,20 +1569,106 @@ fn cmd_type(args: &[String]) -> CliResult<()> {
 
 // ── Screenshot ──────────────────────────────────────────────────────────────
 
+/// How `--legend` renders the annotation legend.
+///
+/// The legend is deliberately *out of band* — stdout text or JSON, never
+/// composited into the image. Rendered text costs image area, changes the
+/// output dimensions, and is strictly worse for a model than the same data as
+/// JSON.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LegendFormat {
+    /// Aligned columns for a human reading a terminal. The default.
+    Text,
+    /// One JSON object carrying the same information, for a script.
+    Json,
+    /// Print nothing. The boxes are still drawn.
+    None,
+}
+
+/// Parse a `--legend` value. Runs before any capture, so a misspelling is a
+/// usage error rather than something discovered after the pixels are written.
+pub(crate) fn parse_legend_format(raw: &str) -> CliResult<LegendFormat> {
+    match raw {
+        "text" => Ok(LegendFormat::Text),
+        "json" => Ok(LegendFormat::Json),
+        "none" => Ok(LegendFormat::None),
+        other => Err(CliError::Usage(format!(
+            "unknown --legend value: {other} (expected text|json|none)"
+        ))),
+    }
+}
+
+/// Longest inline omission list in the text legend. Bounded per tenet 6 and
+/// the MCP "results are bounded" rule: the full list is always available in
+/// `--legend json`.
+const MAX_LEGEND_OMISSION_DETAILS: usize = 5;
+
 fn cmd_screenshot(args: &[String]) -> CliResult<()> {
     let (opts, _pos) = parse_opts(args)?;
     let out = opts
         .out
         .as_deref()
         .ok_or_else(|| missing("--out PATH (use - for stdout)"))?;
+    let region = opts.region.as_deref().map(parse_region_arg).transpose()?;
 
-    let shot = if let Some(region_str) = opts.region.as_deref() {
-        let rect = parse_region_arg(region_str)?;
-        crate::screenshot_region(rect)?
-    } else {
-        crate::screenshot()?
+    // Without --annotate this command is exactly what it was before the
+    // feature existed: no target, no tree read, no legend.
+    if opts.annotate.is_empty() {
+        if let Some(raw) = opts.legend.as_deref() {
+            return Err(CliError::Usage(format!(
+                "--legend {raw} has nothing to describe: add --annotate SELECTOR, or drop \
+                 --legend"
+            )));
+        }
+        let shot = match region {
+            Some(rect) => crate::screenshot_region(rect)?,
+            None => crate::screenshot()?,
+        };
+        return write_screenshot(&shot, out);
+    }
+
+    // Every argument is validated before the first OS call, so a bad
+    // invocation cannot leave a capture or a half-written file behind.
+    let legend_format = match opts.legend.as_deref() {
+        Some(raw) => parse_legend_format(raw)?,
+        None => LegendFormat::Text,
     };
+    if out == "-" && legend_format != LegendFormat::None {
+        // PNG bytes and legend text cannot share one stream. Quietly moving
+        // the legend to stderr would leave a caller piping a PNG somewhere and
+        // never learning that what they asked for went elsewhere (tenet 1).
+        return Err(CliError::Usage(
+            "--out - writes PNG bytes to stdout, and the legend would corrupt them: write \
+             the image to a file with --out FILE, or drop the legend with --legend none"
+                .into(),
+        ));
+    }
+    if opts.app.is_none() && opts.pid.is_none() && opts.shell.is_none() {
+        return Err(CliError::Usage(
+            "--annotate resolves selectors against a target, and this command has none: add \
+             --app NAME, --pid PID, or --shell KIND"
+                .into(),
+        ));
+    }
 
+    let target = resolve_target(&opts)?;
+    let groups: Vec<Locator> = opts.annotate.iter().map(|s| target.locator(s)).collect();
+    let annotated = crate::screenshot_annotated(region, &groups)?;
+
+    write_screenshot(&annotated.screenshot, out)?;
+    match legend_format {
+        LegendFormat::None => {}
+        LegendFormat::Text => print!("{}", render_legend_text(&opts.annotate, &annotated)),
+        LegendFormat::Json => println!("{}", render_legend_json(&opts.annotate, &annotated)?),
+    }
+    Ok(())
+}
+
+/// Write `shot` to `out` — a file, or stdout for `-`.
+///
+/// Split out of [`cmd_screenshot`] so the annotated and unannotated paths
+/// cannot drift in how they emit the image or report it.
+fn write_screenshot(shot: &Screenshot, out: &str) -> CliResult<()> {
     if out == "-" {
         use std::io::Write;
         let bytes = shot.to_png()?;
@@ -938,6 +1686,244 @@ fn cmd_screenshot(args: &[String]) -> CliResult<()> {
         );
     }
     Ok(())
+}
+
+/// The tag letter for a 1-based group — `A`, `B`, … `AA`.
+///
+/// Derived from `tag_for` rather than reimplemented, so the letter in the
+/// header and the letter drawn in the image cannot disagree: `tag_for(g, 1)`
+/// is the group's letters followed by `1`, and the letters are `A-Z` only.
+fn group_letter(group: usize) -> String {
+    screenshot::tag_for(group, 1)
+        .trim_end_matches(|c: char| c.is_ascii_digit())
+        .to_string()
+}
+
+fn hex_color(rgb: [u8; 3]) -> String {
+    format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])
+}
+
+/// Longest accessible name rendered in a text-legend column.
+///
+/// The text legend pads every row to the longest name, so one pathological
+/// name costs `MAX_ANNOTATIONS` times its length in spaces. That is not
+/// hypothetical: on AT-SPI a text area's accessible name is often its whole
+/// contents, so a 100 KB name produced megabytes of padding. `--legend json`
+/// and the MCP result do not pad and are not truncated here.
+const MAX_LEGEND_NAME: usize = 120;
+
+/// A name for a legend column: quoted and escaped, or `-` when the element has
+/// none. `-` rather than `""`, so a nameless element is distinguishable from
+/// one whose name is the empty string.
+///
+/// Truncation is marked with `…` inside the quotes, so a shortened name never
+/// reads as the element's real one — use `--legend json` for the full text.
+fn legend_name(name: Option<&str>) -> String {
+    match name {
+        Some(n) if n.chars().count() > MAX_LEGEND_NAME => {
+            // Truncate by chars, not bytes, so a multi-byte name cannot be cut
+            // mid-codepoint. The ellipsis goes inside the quotes: `{:?}` keeps
+            // printable non-ASCII as-is, so it renders as part of the name.
+            let mut kept: String = n.chars().take(MAX_LEGEND_NAME).collect();
+            kept.push('…');
+            format!("{kept:?}")
+        }
+        Some(n) => format!("{n:?}"),
+        None => "-".to_string(),
+    }
+}
+
+fn legend_bounds(b: &Rect) -> String {
+    format!("bounds={},{},{},{}", b.x, b.y, b.width, b.height)
+}
+
+/// The first group whose `annotated` count may be short because the
+/// annotation cap bit, or `None` when nothing was truncated.
+///
+/// A group starved by the cap draws nothing, and a bare `0 annotated` reads as
+/// "this selector matched nothing" — the opposite meaning. `truncated` is a
+/// single total with no group attribution ([`crate::Annotated`] carries none),
+/// so the honest answer is a boundary rather than a per-group count:
+/// `screenshot_annotated` resolves groups in flag order and stops resolving
+/// at the cap, so nothing after the last group present in the legend was
+/// resolved to completion. Every group from there on is reported as possibly
+/// short.
+///
+/// The boundary errs toward over-reporting, never under: a group whose matches
+/// were *all* omitted (every one lacking bounds) contributes no legend entry,
+/// so the maximum comes out lower and a group that was in fact resolved in full
+/// is flagged too. Wrongly warning that a group may be short is recoverable;
+/// wrongly claiming one is complete is not.
+///
+/// Pure, so both renderings share one rule and cannot disagree about which
+/// groups are suspect.
+fn first_capped_group(annotated: &crate::Annotated) -> Option<usize> {
+    if annotated.truncated == 0 {
+        return None;
+    }
+    // No legend at all means the cap could have bitten in any group, so the
+    // boundary is the first one.
+    Some(annotated.legend.iter().map(|e| e.group).max().unwrap_or(1))
+}
+
+/// Render the human-readable legend: a group header block, one line per drawn
+/// box, then what could not be drawn.
+///
+/// Pure and string-returning so the layout is testable without a display.
+/// `selectors` is the `--annotate` list in flag order, which is what makes a
+/// group with zero drawn boxes still appear in the header — the alternative
+/// reads as if the flag was ignored.
+fn render_legend_text(selectors: &[String], annotated: &crate::Annotated) -> String {
+    let mut out = String::new();
+
+    let letters: Vec<String> = (1..=selectors.len()).map(group_letter).collect();
+    let letter_w = letters.iter().map(String::len).max().unwrap_or(1);
+    let selector_w = selectors.iter().map(String::len).max().unwrap_or(0);
+    let first_capped = first_capped_group(annotated);
+
+    for (g, selector) in selectors.iter().enumerate() {
+        let group = g + 1;
+        let color = screenshot::ANNOTATION_PALETTE[g % screenshot::ANNOTATION_PALETTE.len()];
+        let drawn = annotated.legend.iter().filter(|e| e.group == group).count();
+        let note = match (first_capped.is_some_and(|first| group >= first), drawn) {
+            (false, _) => "",
+            // The case this exists for: without the note, a group the cap
+            // starved is byte-identical to one whose selector matched
+            // nothing.
+            (true, 0) => "  (cap reached at or before this group, so 0 is not \"matched nothing\")",
+            (true, _) => "  (cap reached, so more may have matched)",
+        };
+        out.push_str(&format!(
+            "{:<letter_w$}  {:<selector_w$}  {}  {} annotated{}\n",
+            letters[g],
+            selector,
+            hex_color(color),
+            drawn,
+            note
+        ));
+    }
+
+    if !annotated.legend.is_empty() {
+        let names: Vec<String> = annotated
+            .legend
+            .iter()
+            .map(|e| legend_name(e.name.as_deref()))
+            .collect();
+        let bounds: Vec<String> = annotated
+            .legend
+            .iter()
+            .map(|e| legend_bounds(&e.bounds))
+            .collect();
+        let tag_w = annotated
+            .legend
+            .iter()
+            .map(|e| e.tag.len())
+            .max()
+            .unwrap_or(0);
+        let role_w = annotated
+            .legend
+            .iter()
+            .map(|e| e.role.len())
+            .max()
+            .unwrap_or(0);
+        let name_w = names.iter().map(String::len).max().unwrap_or(0);
+        let bounds_w = bounds.iter().map(String::len).max().unwrap_or(0);
+
+        out.push('\n');
+        for (i, entry) in annotated.legend.iter().enumerate() {
+            out.push_str(&format!(
+                "{:<tag_w$}  {:<role_w$}  {:<name_w$}  {:<bounds_w$}  {}\n",
+                entry.tag, entry.role, names[i], bounds[i], entry.selector
+            ));
+        }
+    }
+
+    if !annotated.omitted.is_empty() {
+        let shown = annotated.omitted.len().min(MAX_LEGEND_OMISSION_DETAILS);
+        let mut details: Vec<String> = annotated.omitted[..shown]
+            .iter()
+            .map(|o| {
+                format!(
+                    "{}: {} {}",
+                    o.reason.as_str(),
+                    o.role,
+                    legend_name(o.name.as_deref())
+                )
+            })
+            .collect();
+        if annotated.omitted.len() > shown {
+            details.push(format!("… +{} more", annotated.omitted.len() - shown));
+        }
+        out.push('\n');
+        out.push_str(&format!(
+            "omitted: {} element{} ({})\n",
+            annotated.omitted.len(),
+            if annotated.omitted.len() == 1 {
+                ""
+            } else {
+                "s"
+            },
+            details.join(", ")
+        ));
+    }
+
+    if annotated.truncated > 0 {
+        out.push_str(&format!(
+            "truncated: {} more element{} matched but {} not described (cap: {})\n",
+            annotated.truncated,
+            if annotated.truncated == 1 { "" } else { "s" },
+            if annotated.truncated == 1 {
+                "was"
+            } else {
+                "were"
+            },
+            crate::MAX_ANNOTATIONS
+        ));
+    }
+
+    out
+}
+
+/// Render the same information as one JSON object.
+///
+/// `groups` repeats what the header block says (letter, colour, count, and
+/// the `capped` flag from [`first_capped_group`]) so a consumer never has to
+/// redo the palette arithmetic, and `truncated` is always present — a caller
+/// must be able to tell a complete legend from a prefix of one without
+/// checking a length against a cap it has to know.
+fn render_legend_json(selectors: &[String], annotated: &crate::Annotated) -> CliResult<String> {
+    let first_capped = first_capped_group(annotated);
+    let groups: Vec<serde_json::Value> = selectors
+        .iter()
+        .enumerate()
+        .map(|(g, selector)| {
+            let group = g + 1;
+            let color = screenshot::ANNOTATION_PALETTE[g % screenshot::ANNOTATION_PALETTE.len()];
+            serde_json::json!({
+                "group": group,
+                "letter": group_letter(group),
+                "selector": selector,
+                "color": color,
+                "color_hex": hex_color(color),
+                "annotated": annotated.legend.iter().filter(|e| e.group == group).count(),
+                "capped": first_capped.is_some_and(|first| group >= first),
+            })
+        })
+        .collect();
+
+    let doc = serde_json::json!({
+        "groups": groups,
+        "legend": annotated.legend,
+        "omitted": annotated.omitted,
+        "truncated": annotated.truncated,
+        "cap": crate::MAX_ANNOTATIONS,
+    });
+    serde_json::to_string_pretty(&doc).map_err(|e| {
+        CliError::Xa11y(Error::Platform {
+            code: -1,
+            message: format!("render legend as JSON: {e}"),
+        })
+    })
 }
 
 #[cfg(test)]
@@ -1063,6 +2049,303 @@ mod tests {
         assert!(matches!(err, CliError::Usage(_)));
     }
 
+    // ── Shell surface targeting ─────────────────────────────────────────────
+
+    #[test]
+    fn parse_opts_shell_flag() {
+        let args = strs(&["--shell", "taskbar"]);
+        let (opts, pos) = parse_opts(&args).expect("flags must parse");
+        assert_eq!(opts.shell.as_deref(), Some("taskbar"));
+        assert!(opts.app.is_none());
+        assert!(pos.is_empty());
+    }
+
+    #[test]
+    fn parse_opts_shell_combines_with_pid() {
+        // `--pid` alongside `--shell` disambiguates same-kind surfaces rather
+        // than naming an application, so both must survive parsing together.
+        let args = strs(&["--shell", "panel", "--pid", "4242"]);
+        let (opts, _) = parse_opts(&args).expect("flags must parse");
+        assert_eq!(opts.shell.as_deref(), Some("panel"));
+        assert_eq!(opts.pid, Some(4242));
+    }
+
+    #[test]
+    fn parse_opts_trailing_shell_flag_errors() {
+        let args = strs(&["tree", "--shell"]);
+        let err = parse_opts(&args).expect_err("trailing --shell must be a usage error");
+        assert!(matches!(err, CliError::Usage(_)));
+        assert!(format!("{err}").contains("--shell requires a value"));
+    }
+
+    #[test]
+    fn parse_opts_shell_value_before_positional_does_not_leak() {
+        let args = strs(&["press", "--shell", "taskbar", "button"]);
+        let (opts, pos) = parse_opts(&args).expect("flags must parse");
+        assert_eq!(opts.shell.as_deref(), Some("taskbar"));
+        assert_eq!(pos, vec![s("press"), s("button")]);
+    }
+
+    // ── Shell surface selection ─────────────────────────────────────────
+    //
+    // `select_shell_surface` is the half of `resolve_shell_surface` that has
+    // no OS in it, which is the only reason these cases are reachable off a
+    // desktop. `ShellSurface` has no public constructor — its provider handle
+    // is private — so the fixtures come from the shared mock and are then
+    // relabelled; `kind`, `name` and `pid` are all the selection reads.
+
+    /// One mock-backed surface per `(kind, pid)` spec, in order.
+    fn mock_surfaces(specs: &[(ShellSurfaceKind, Option<u32>)]) -> Vec<ShellSurface> {
+        let provider: std::sync::Arc<dyn crate::Provider> = xa11y_core::mock::build_provider();
+        let mut out: Vec<ShellSurface> = Vec::new();
+        while out.len() < specs.len() {
+            let batch = ShellSurface::list_with(std::sync::Arc::clone(&provider))
+                .expect("the mock must list its shell surfaces");
+            assert!(!batch.is_empty(), "the mock fixture must vend surfaces");
+            out.extend(batch);
+        }
+        out.truncate(specs.len());
+        for (surface, (kind, pid)) in out.iter_mut().zip(specs) {
+            surface.kind = *kind;
+            surface.pid = *pid;
+            surface.name = match pid {
+                Some(p) => format!("{kind}-{p}"),
+                None => format!("{kind}-unowned"),
+            };
+        }
+        out
+    }
+
+    #[test]
+    fn select_shell_surface_picks_the_surface_with_the_matching_pid() {
+        let surfaces = mock_surfaces(&[
+            (ShellSurfaceKind::Panel, Some(11)),
+            (ShellSurfaceKind::Panel, Some(22)),
+            (ShellSurfaceKind::Taskbar, Some(33)),
+        ]);
+        let picked = select_shell_surface(surfaces, ShellSurfaceKind::Panel, Some(22))
+            .expect("a pid that matches exactly one surface must resolve");
+        assert_eq!(picked.kind, ShellSurfaceKind::Panel);
+        assert_eq!(picked.pid, Some(22));
+    }
+
+    #[test]
+    fn select_shell_surface_reports_a_pid_that_matches_nothing() {
+        let surfaces = mock_surfaces(&[
+            (ShellSurfaceKind::Panel, Some(11)),
+            (ShellSurfaceKind::Panel, Some(22)),
+        ]);
+        let err = select_shell_surface(surfaces, ShellSurfaceKind::Panel, Some(99))
+            .expect_err("no panel has pid 99");
+        let CliError::Xa11y(e) = &err else {
+            panic!("absence is a lookup failure, not ambiguity: {err:?}");
+        };
+        let diagnosis = e.diagnosis().expect("the terminal failure must diagnose");
+        assert!(
+            diagnosis
+                .last_observed
+                .as_deref()
+                .is_some_and(|s| s.contains("pid 99")),
+            "the failure must echo the pid that matched nothing: {diagnosis:?}"
+        );
+        // Tenet 6: the surfaces that *were* there are the way out.
+        assert_eq!(diagnosis.candidates.len(), 2, "{diagnosis:?}");
+    }
+
+    #[test]
+    fn select_shell_surface_reports_a_kind_that_is_not_present() {
+        let surfaces = mock_surfaces(&[(ShellSurfaceKind::Panel, Some(11))]);
+        let err = select_shell_surface(surfaces, ShellSurfaceKind::Dock, None)
+            .expect_err("there is no dock in this listing");
+        let CliError::Xa11y(e) = &err else {
+            panic!("absence is a lookup failure, not ambiguity: {err:?}");
+        };
+        assert!(matches!(e, Error::SelectorNotMatched { .. }), "{e:?}");
+        let diagnosis = e.diagnosis().expect("the terminal failure must diagnose");
+        assert_eq!(diagnosis.candidates, vec!["panel \"panel-11\" (pid=11)"]);
+        assert_eq!(err.exit_code(), 1);
+    }
+
+    #[test]
+    fn select_shell_surface_refuses_ambiguity_and_points_at_the_listing() {
+        let surfaces = mock_surfaces(&[
+            (ShellSurfaceKind::Panel, Some(11)),
+            (ShellSurfaceKind::Panel, Some(22)),
+        ]);
+        let err = select_shell_surface(surfaces, ShellSurfaceKind::Panel, None)
+            .expect_err("two panels must be refused, not first-matched");
+        let CliError::AmbiguousShellSurface {
+            count,
+            kind,
+            diagnosis,
+        } = &err
+        else {
+            panic!("expected AmbiguousShellSurface, got {err:?}");
+        };
+        assert_eq!(*count, 2);
+        assert_eq!(kind, "panel");
+        assert!(
+            diagnosis
+                .last_observed
+                .as_deref()
+                .is_some_and(|s| s.contains("xa11y shell")),
+            "without a pid the way out is the listing: {diagnosis:?}"
+        );
+        assert_eq!(diagnosis.candidates.len(), 2);
+    }
+
+    #[test]
+    fn select_shell_surface_says_a_pid_cannot_split_one_process() {
+        // The real case: two panel frames owned by one xfce4-panel process.
+        // `pid` is the only disambiguator, so the honest answer is that this
+        // operation cannot pick — never "add a pid", which the caller did.
+        let surfaces = mock_surfaces(&[
+            (ShellSurfaceKind::Panel, Some(4242)),
+            (ShellSurfaceKind::Panel, Some(4242)),
+        ]);
+        let err = select_shell_surface(surfaces, ShellSurfaceKind::Panel, Some(4242))
+            .expect_err("one pid cannot pick between two of its own surfaces");
+        let CliError::AmbiguousShellSurface { diagnosis, .. } = &err else {
+            panic!("expected AmbiguousShellSurface, got {err:?}");
+        };
+        let observed = diagnosis
+            .last_observed
+            .as_deref()
+            .expect("the hint is the whole point of this branch");
+        assert!(observed.contains("share pid 4242"), "{observed}");
+        assert!(
+            observed.contains("only disambiguator"),
+            "the hint must not send the caller back to --pid: {observed}"
+        );
+        assert!(
+            !observed.contains("xa11y shell"),
+            "listing pids helps nobody here: {observed}"
+        );
+    }
+
+    #[test]
+    fn every_advertised_shell_kind_parses() {
+        // The advertised list is derived from `ShellSurfaceKind::ALL`, so this
+        // closes the loop: every name the help text, the flag's error message
+        // and the MCP schema offer must also parse back to the kind it names.
+        for name in shell_kind_names() {
+            let kind = parse_shell_kind(name).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(kind.to_snake_case(), *name);
+        }
+        assert_eq!(shell_kind_names().len(), ShellSurfaceKind::ALL.len());
+    }
+
+    #[test]
+    fn an_unknown_shell_kind_is_a_usage_error_listing_the_valid_ones() {
+        let err = parse_shell_kind("taskbr").expect_err("must reject");
+        assert!(matches!(err, CliError::Usage(_)), "{err}");
+        assert_eq!(err.exit_code(), 2);
+        let msg = format!("{err}");
+        assert!(msg.contains("taskbr"), "must echo the bad value: {msg}");
+        for name in shell_kind_names() {
+            assert!(msg.contains(name), "{name} must be offered: {msg}");
+        }
+    }
+
+    #[test]
+    fn a_shell_kind_is_case_sensitive_snake_case() {
+        // The same spelling crosses every surface — the bindings, `--shell`,
+        // MCP's `shell` argument and the `shell_kind` raw attribute.
+        assert!(parse_shell_kind("Taskbar").is_err());
+        assert!(parse_shell_kind("status-items").is_err());
+        assert!(parse_shell_kind("status_items").is_ok());
+    }
+
+    #[test]
+    fn shell_and_app_together_are_a_usage_error_before_any_platform_call() {
+        let args = strs(&["--shell", "taskbar", "--app", "Safari"]);
+        let (opts, _) = parse_opts(&args).expect("flags must parse");
+        let err = resolve_target(&opts).expect_err("two targets is not a target");
+        assert!(matches!(err, CliError::Usage(_)), "{err}");
+        assert_eq!(err.exit_code(), 2);
+        let msg = format!("{err}");
+        assert!(msg.contains("--shell") && msg.contains("--app"), "{msg}");
+    }
+
+    #[test]
+    fn an_unknown_shell_kind_is_rejected_before_the_shell_is_enumerated() {
+        // Parsed first, so a typo cannot cost an enumeration — and so this is
+        // testable with no display and no accessibility bus.
+        let args = strs(&["--shell", "not_a_surface"]);
+        let (opts, _) = parse_opts(&args).expect("flags must parse");
+        let err = resolve_target(&opts).expect_err("must reject");
+        assert!(matches!(err, CliError::Usage(_)), "{err}");
+        assert!(format!("{err}").contains("not_a_surface"));
+    }
+
+    #[test]
+    fn the_shell_listing_takes_no_arguments() {
+        // Accepting and ignoring `--shell taskbar` would read as a filter that
+        // silently did nothing.
+        let err = cmd_shell(&strs(&["--shell", "taskbar"])).expect_err("must reject");
+        assert!(matches!(err, CliError::Usage(_)), "{err}");
+        assert_eq!(err.exit_code(), 2);
+        assert!(format!("{err}").contains("takes no arguments"));
+    }
+
+    #[test]
+    fn events_says_why_shell_is_not_a_target_rather_than_asking_for_an_app() {
+        let args = strs(&["--shell", "taskbar"]);
+        let err = cmd_events(&args).expect_err("events takes no shell surface");
+        assert!(matches!(err, CliError::Usage(_)), "{err}");
+        let msg = format!("{err}");
+        assert!(msg.contains("--shell"), "{msg}");
+        assert!(msg.contains("per application"), "{msg}");
+    }
+
+    #[test]
+    fn an_ambiguous_shell_surface_is_an_operation_failure_that_names_the_pids() {
+        let err = CliError::AmbiguousShellSurface {
+            count: 2,
+            kind: "panel".into(),
+            diagnosis: Box::new(
+                Diagnosis::new()
+                    .condition("exactly one panel shell surface")
+                    .last_observed("2 panel surfaces are present; `xa11y shell` lists their pids")
+                    .candidates(vec![
+                        "panel \"Top\" (pid=101)".into(),
+                        "panel \"Dock\" (pid=102)".into(),
+                    ]),
+            ),
+        };
+        assert_eq!(
+            err.exit_code(),
+            1,
+            "not a usage error: the call was well-formed"
+        );
+        let msg = err.to_string();
+        assert!(msg.contains("2 panel surfaces"), "{msg}");
+        // Both spellings, because this one message is rendered on both
+        // surfaces and an MCP caller has no flags.
+        assert!(msg.contains("--pid PID"), "{msg}");
+        assert!(msg.contains("`pid` argument"), "{msg}");
+        assert!(msg.contains("panel \"Dock\" (pid=102)"), "{msg}");
+    }
+
+    #[test]
+    fn shell_candidate_lists_are_bounded_and_say_how_many_were_dropped() {
+        // Tenet 6: rich, but never unbounded — a machine with 30 panels must
+        // not turn one failure into 30 lines of message.
+        let many: Vec<String> = (0..MAX_SHELL_CANDIDATES + 3)
+            .map(|i| format!("panel \"Panel {i}\" (pid={i})"))
+            .collect();
+        let bounded = bound_candidates(many);
+        assert_eq!(bounded.len(), MAX_SHELL_CANDIDATES + 1);
+        assert_eq!(bounded[0], "panel \"Panel 0\" (pid=0)");
+        assert!(bounded.last().unwrap().contains("+3 more"));
+    }
+
+    #[test]
+    fn a_short_shell_candidate_list_is_carried_whole() {
+        let few = vec!["taskbar \"Taskbar\" (pid=4)".to_string()];
+        assert_eq!(bound_candidates(few.clone()), few);
+    }
+
     // ── Exit-code contract ──────────────────────────────────────────────────
 
     #[test]
@@ -1099,22 +2382,9 @@ mod tests {
     // ── Format element ──────────────────────────────────────────────────────
 
     fn make_element(role: Role, name: Option<&str>) -> ElementData {
-        ElementData {
-            role,
-            name: name.map(String::from),
-            value: None,
-            description: None,
-            bounds: None,
-            actions: vec![],
-            states: StateSet::default(),
-            numeric_value: None,
-            min_value: None,
-            max_value: None,
-            stable_id: None,
-            pid: None,
-            raw: std::collections::HashMap::new(),
-            handle: 0,
-        }
+        let mut data = ElementData::for_role(role);
+        data.name = name.map(String::from);
+        data
     }
 
     #[test]
@@ -1229,16 +2499,14 @@ mod tests {
 
     #[test]
     fn format_event_detail_state_change() {
-        let event = Event {
-            kind: EventKind::StateChanged {
+        let event = Event::new(
+            EventKind::StateChanged {
                 flag: StateFlag::Focused,
                 value: true,
             },
-            app_name: "App".into(),
-            app_pid: 1,
-            target: None,
-            timestamp: std::time::Instant::now(),
-        };
+            "App",
+            1,
+        );
         let detail = format_event_detail(&event);
         assert!(detail.contains("Focused=true"));
     }
@@ -1257,14 +2525,61 @@ mod tests {
     }
 
     #[test]
-    fn format_event_detail_empty() {
-        let event = Event {
-            kind: EventKind::FocusChanged,
-            app_name: "App".into(),
-            app_pid: 1,
-            target: None,
-            timestamp: std::time::Instant::now(),
+    fn every_advertised_event_kind_name_round_trips() {
+        // `event_kind_names` is what MCP's `kinds` filter validates against.
+        // A name that formats as "unknown" would be advertised and never
+        // match; a repeat would mean two variants collapsed onto one spelling.
+        let names = event_kind_names();
+        assert!(!names.contains(&"unknown"), "{names:?}");
+        let mut sorted = names.to_vec();
+        sorted.sort_unstable();
+        let before = sorted.len();
+        sorted.dedup();
+        assert_eq!(before, sorted.len(), "duplicate spelling in {names:?}");
+        assert!(names.contains(&"focus_changed"));
+        assert!(names.contains(&"state_changed"));
+    }
+
+    #[test]
+    fn state_flags_are_snake_case_and_match_the_binding_spellings() {
+        assert_eq!(format_state_flag(StateFlag::Checked), "checked");
+        assert_eq!(format_state_flag(StateFlag::Focusable), "focusable");
+    }
+
+    #[test]
+    fn a_missing_subscription_says_which_kind_of_miss_and_what_is_open() {
+        // Tenet 6: the recovery is readable off the error rather than needing
+        // another call to discover.
+        let expired = CliError::NoSubscription {
+            id: "sub_1".into(),
+            expired: true,
+            live: vec!["sub_2".into(), "sub_3".into()],
         };
+        let text = expired.to_string();
+        assert!(text.contains("sub_1"), "{text}");
+        assert!(text.contains("expired"), "{text}");
+        assert!(text.contains("sub_2, sub_3"), "{text}");
+        assert_eq!(expired.exit_code(), 1);
+
+        let unknown = CliError::NoSubscription {
+            id: "sub_9".into(),
+            expired: false,
+            live: Vec::new(),
+        }
+        .to_string();
+        assert!(
+            unknown.contains("not a handle this server issued"),
+            "{unknown}"
+        );
+        assert!(
+            unknown.contains("no subscriptions are open"),
+            "an empty list still has to read as a sentence: {unknown}"
+        );
+    }
+
+    #[test]
+    fn format_event_detail_empty() {
+        let event = Event::new(EventKind::FocusChanged, "App", 1);
         assert!(format_event_detail(&event).is_empty());
     }
 
@@ -1458,6 +2773,164 @@ mod tests {
         assert!(parse_button("nope").is_err());
     }
 
+    // ── Action verbs ────────────────────────────────────────────────────────
+
+    #[test]
+    fn every_value_taking_verb_is_a_verb() {
+        // `ACTIONS_REQUIRING_VALUE` is advertised to MCP callers as a subset
+        // of the action enum; a verb in one list and not the other would be
+        // documented and unreachable.
+        for verb in ACTIONS_REQUIRING_VALUE {
+            assert!(ACTION_NAMES.contains(verb), "{verb} is not an action");
+        }
+    }
+
+    /// The text legend pads every row to the longest name, so an unbounded
+    /// name is multiplied by the row count. On AT-SPI a text area's accessible
+    /// name is routinely its whole contents.
+    #[test]
+    fn a_runaway_accessible_name_cannot_inflate_the_text_legend() {
+        let huge = "x".repeat(100_000);
+        let rendered = legend_name(Some(&huge));
+
+        assert!(
+            rendered.chars().count() < MAX_LEGEND_NAME + 8,
+            "a {}-char name rendered as {} chars",
+            huge.len(),
+            rendered.chars().count()
+        );
+        assert!(
+            rendered.ends_with("…\""),
+            "truncation must be visible: {rendered}"
+        );
+    }
+
+    #[test]
+    fn a_name_within_the_limit_is_left_exactly_as_it_is() {
+        assert_eq!(legend_name(Some("OK")), "\"OK\"");
+        assert_eq!(legend_name(None), "-");
+    }
+
+    /// Truncating by bytes would split a multi-byte character and panic.
+    #[test]
+    fn a_multibyte_name_truncates_on_a_character_boundary() {
+        let name = "\u{e9}".repeat(MAX_LEGEND_NAME + 50);
+        let rendered = legend_name(Some(&name));
+        assert!(rendered.ends_with("…\""), "{rendered}");
+    }
+
+    #[test]
+    fn set_numeric_value_is_offered_and_needs_a_value() {
+        assert!(ACTION_NAMES.contains(&"set-numeric-value"));
+        assert!(ACTIONS_REQUIRING_VALUE.contains(&"set-numeric-value"));
+    }
+
+    /// `ACTION_NAMES` is the single source of truth for what `action` accepts,
+    /// but `--help` spells its own list out. `set-numeric-value` shipped in
+    /// the dispatcher and the MCP schema while `--help` never mentioned it, so
+    /// the two lists are held together here rather than by convention.
+    #[test]
+    fn every_action_the_cli_accepts_appears_in_the_help_text() {
+        let usage = usage_text();
+        for action in ACTION_NAMES {
+            assert!(
+                usage.contains(action),
+                "`{action}` is dispatchable but missing from `xa11y --help`"
+            );
+        }
+    }
+
+    /// The same for the value-requiring split: a verb listed without
+    /// "(requires --value)" reads as callable bare, and fails at the platform.
+    #[test]
+    fn every_value_requiring_action_says_so_in_the_help_text() {
+        let usage = usage_text();
+        for action in ACTIONS_REQUIRING_VALUE {
+            let marked = usage
+                .lines()
+                .filter(|line| line.contains(action))
+                .any(|line| line.contains("requires --value"));
+            assert!(
+                marked,
+                "`{action}` needs a --value but `xa11y --help` does not say so"
+            );
+        }
+    }
+
+    #[test]
+    fn numeric_values_parse_the_way_a_slider_is_written() {
+        assert_eq!(parse_numeric_value("88").unwrap(), 88.0);
+        assert_eq!(parse_numeric_value(" 0.5 ").unwrap(), 0.5);
+        assert_eq!(parse_numeric_value("-3").unwrap(), -3.0);
+    }
+
+    #[test]
+    fn a_non_numeric_value_is_rejected_before_any_platform_call() {
+        let err = parse_numeric_value("loud").expect_err("must reject");
+        assert!(matches!(err, CliError::Usage(_)), "{err}");
+        assert!(err.to_string().contains("loud"), "{err}");
+    }
+
+    #[test]
+    fn non_finite_values_are_rejected_rather_than_passed_on() {
+        for raw in ["NaN", "inf", "-inf"] {
+            let err = parse_numeric_value(raw).expect_err("must reject {raw}");
+            assert!(err.to_string().contains("finite"), "{raw}: {err}");
+        }
+    }
+
+    #[test]
+    fn an_unsupported_action_is_named_the_way_the_caller_must_type_it() {
+        // Providers report the failing action by its Rust method name, so the
+        // error used to tell the user to use `show_menu`, which both surfaces
+        // reject.
+        let err = relabel_action_error(
+            CliError::Xa11y(Error::ActionNotSupported {
+                action: "show_menu".into(),
+                role: Role::MenuItem,
+            }),
+            "show-menu",
+        );
+        assert_eq!(
+            err.to_string(),
+            "Action show-menu not supported on menu_item"
+        );
+    }
+
+    #[test]
+    fn an_unrelated_action_name_in_an_error_is_left_alone() {
+        // A provider naming some *other* action is reporting something the
+        // caller needs to see, not a spelling to normalize.
+        let err = relabel_action_error(
+            CliError::Xa11y(Error::ActionNotSupported {
+                action: "activate".into(),
+                role: Role::MenuItem,
+            }),
+            "press",
+        );
+        assert!(err.to_string().contains("activate"), "{err}");
+    }
+
+    #[test]
+    fn an_ambiguous_selector_is_an_operation_failure_that_names_the_way_out() {
+        let err = CliError::Ambiguous {
+            count: 2,
+            diagnosis: Box::new(Diagnosis::new().selector("radio_button").candidates(vec![
+                "radio_button \"A\"".into(),
+                "radio_button \"B\"".into(),
+            ])),
+        };
+        assert_eq!(
+            err.exit_code(),
+            1,
+            "not a usage error: the call was well-formed"
+        );
+        let msg = err.to_string();
+        assert!(msg.contains("matched 2 elements"), "{msg}");
+        assert!(msg.contains(":nth(n)"), "{msg}");
+        assert!(msg.contains("radio_button \"B\""), "{msg}");
+    }
+
     // ── `find -o bounds|center` output formatters ───────────────────────────
 
     #[test]
@@ -1592,5 +3065,462 @@ mod tests {
         assert_eq!(d.held.len(), 1);
         assert!(matches!(d.held[0], Key::Ctrl));
         assert_eq!(d.duration, Duration::from_millis(500));
+    }
+
+    // ── Screenshot annotation: flags and legend rendering ───────────────────
+
+    #[test]
+    fn parse_opts_annotate_is_repeatable() {
+        // Each occurrence is a distinct group, so the last must not win.
+        let args = strs(&["--annotate", "button", "--annotate", "text_field"]);
+        let (opts, pos) = parse_opts(&args).expect("flags must parse");
+        assert_eq!(opts.annotate, vec![s("button"), s("text_field")]);
+        assert!(pos.is_empty());
+    }
+
+    #[test]
+    fn parse_opts_annotate_preserves_flag_order() {
+        let args = strs(&["--annotate", "c", "--out", "x.png", "--annotate", "a"]);
+        let (opts, _) = parse_opts(&args).expect("flags must parse");
+        assert_eq!(
+            opts.annotate,
+            vec![s("c"), s("a")],
+            "group order is flag order, and it decides colour and tag letter"
+        );
+    }
+
+    #[test]
+    fn parse_opts_annotate_absent_is_empty_not_none() {
+        let args = strs(&["--out", "x.png"]);
+        let (opts, _) = parse_opts(&args).expect("flags must parse");
+        assert!(opts.annotate.is_empty());
+        assert!(opts.legend.is_none());
+    }
+
+    #[test]
+    fn parse_opts_trailing_annotate_flag_errors() {
+        let args = strs(&["--out", "x.png", "--annotate"]);
+        let err = parse_opts(&args).expect_err("a trailing --annotate has no selector");
+        assert!(matches!(err, CliError::Usage(_)), "{err:?}");
+    }
+
+    #[test]
+    fn parse_opts_legend_flag() {
+        let args = strs(&["--legend", "json"]);
+        let (opts, _) = parse_opts(&args).expect("flags must parse");
+        assert_eq!(opts.legend.as_deref(), Some("json"));
+    }
+
+    #[test]
+    fn parse_legend_format_accepts_exactly_the_three_advertised_values() {
+        assert_eq!(parse_legend_format("text").unwrap(), LegendFormat::Text);
+        assert_eq!(parse_legend_format("json").unwrap(), LegendFormat::Json);
+        assert_eq!(parse_legend_format("none").unwrap(), LegendFormat::None);
+
+        let err = parse_legend_format("yaml").expect_err("unknown formats are usage errors");
+        match err {
+            CliError::Usage(msg) => {
+                assert!(msg.contains("text|json|none"), "{msg}");
+            }
+            other => panic!("expected Usage, got {other:?}"),
+        }
+    }
+
+    /// `--out -` puts PNG bytes on stdout and the legend wants the same
+    /// stream. The command refuses and names both fixes rather than quietly
+    /// moving the legend to stderr (tenet 1).
+    #[test]
+    fn annotating_to_stdout_with_a_legend_is_a_usage_error_naming_both_fixes() {
+        let args = strs(&["--out", "-", "--app", "TestApp", "--annotate", "button"]);
+        let err = cmd_screenshot(&args).expect_err("PNG and legend cannot share stdout");
+        assert_eq!(err.exit_code(), 2);
+        let msg = err.to_string();
+        assert!(msg.contains("--out FILE"), "{msg}");
+        assert!(msg.contains("--legend none"), "{msg}");
+    }
+
+    #[test]
+    fn annotating_to_stdout_with_legend_none_passes_argument_validation() {
+        // It still fails — there is no target resolution to be had in a unit
+        // test — but the failure must no longer be the stdout collision.
+        let args = strs(&[
+            "--out",
+            "-",
+            "--app",
+            "no-such-app-4f2a",
+            "--annotate",
+            "button",
+            "--legend",
+            "none",
+        ]);
+        let err = cmd_screenshot(&args).expect_err("no such app");
+        let msg = err.to_string();
+        assert!(!msg.contains("--legend none"), "{msg}");
+    }
+
+    #[test]
+    fn annotating_without_a_target_is_a_usage_error_naming_the_flags() {
+        let args = strs(&["--out", "x.png", "--annotate", "button"]);
+        let err = cmd_screenshot(&args).expect_err("--annotate needs something to search");
+        assert_eq!(err.exit_code(), 2);
+        let msg = err.to_string();
+        assert!(msg.contains("--app NAME"), "{msg}");
+        assert!(msg.contains("--pid PID"), "{msg}");
+        assert!(msg.contains("--shell KIND"), "{msg}");
+    }
+
+    #[test]
+    fn a_legend_with_nothing_to_describe_is_a_usage_error() {
+        let args = strs(&["--out", "x.png", "--legend", "json"]);
+        let err = cmd_screenshot(&args).expect_err("--legend alone describes nothing");
+        assert_eq!(err.exit_code(), 2);
+        assert!(err.to_string().contains("--annotate SELECTOR"), "{err}");
+    }
+
+    #[test]
+    fn a_bad_legend_value_is_rejected_before_the_target_is_touched() {
+        let args = strs(&[
+            "--out",
+            "x.png",
+            "--app",
+            "no-such-app-4f2a",
+            "--annotate",
+            "button",
+            "--legend",
+            "yaml",
+        ]);
+        let err = cmd_screenshot(&args).expect_err("yaml is not a legend format");
+        assert_eq!(err.exit_code(), 2, "parse before the first OS call");
+        assert!(err.to_string().contains("text|json|none"), "{err}");
+    }
+
+    #[test]
+    fn a_bad_region_is_still_rejected_when_annotating() {
+        let args = strs(&[
+            "--out",
+            "x.png",
+            "--region",
+            "1,2,3",
+            "--app",
+            "TestApp",
+            "--annotate",
+            "button",
+        ]);
+        let err = cmd_screenshot(&args).expect_err("--region needs four numbers");
+        assert_eq!(err.exit_code(), 2);
+        assert!(err.to_string().contains("X,Y,W,H"), "{err}");
+    }
+
+    #[test]
+    fn missing_out_is_still_the_first_thing_checked() {
+        let err = cmd_screenshot(&strs(&["--annotate", "button"]))
+            .expect_err("--out is required either way");
+        assert_eq!(err.exit_code(), 2);
+        assert!(err.to_string().contains("--out PATH"), "{err}");
+    }
+
+    // ── Legend rendering ────────────────────────────────────────────────────
+
+    fn rect(x: i32, y: i32, width: u32, height: u32) -> Rect {
+        Rect {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    fn entry(tag: &str, group: usize, index: usize, role: &str, name: Option<&str>) -> LegendEntry {
+        // `LegendEntry::new` derives the tag from the group and index, so the
+        // fixture's spelling is an assertion rather than an input: a test that
+        // wrote a tag the numbering could never produce would be testing a
+        // shape the resolver cannot hand this renderer.
+        let entry = LegendEntry::new(
+            group,
+            index,
+            format!("{role}:nth({index})"),
+            role,
+            name.map(str::to_string),
+            rect(104, 318, 48, 44),
+            screenshot::ANNOTATION_PALETTE[(group - 1) % 7],
+        );
+        assert_eq!(entry.tag, tag, "fixture tag disagrees with tag_for");
+        entry
+    }
+
+    /// A synthetic result. `Annotated` lives in `xa11y-core` and is
+    /// `#[non_exhaustive]`, so it is built through its constructor, which
+    /// takes every field — a new one changes that signature and breaks this
+    /// fixture rather than defaulting silently.
+    fn annotated(legend: Vec<LegendEntry>, omitted: Vec<Omission>, truncated: usize) -> Annotated {
+        Annotated::for_capture(
+            Screenshot::new(2, 2, vec![0; 16], 1.0),
+            legend,
+            omitted,
+            truncated,
+        )
+    }
+
+    #[test]
+    fn the_text_legend_leads_with_one_header_per_group() {
+        let out = render_legend_text(
+            &[s("button"), s("text_field")],
+            &annotated(
+                vec![
+                    entry("A1", 1, 1, "button", Some("7")),
+                    entry("A2", 1, 2, "button", Some("8")),
+                    entry("B1", 2, 1, "text_field", Some("Display")),
+                ],
+                vec![],
+                0,
+            ),
+        );
+        let lines: Vec<&str> = out.lines().collect();
+
+        assert_eq!(lines[0], "A  button      #E69F00  2 annotated");
+        assert_eq!(lines[1], "B  text_field  #56B4E9  1 annotated");
+        assert_eq!(lines[2], "", "a blank line separates headers from entries");
+        assert!(lines[3].starts_with("A1  button"), "{}", lines[3]);
+        assert!(lines[3].contains("bounds=104,318,48,44"), "{}", lines[3]);
+        assert!(lines[3].ends_with("button:nth(1)"), "{}", lines[3]);
+        assert!(lines[5].ends_with("text_field:nth(1)"), "{}", lines[5]);
+    }
+
+    #[test]
+    fn the_text_legend_columns_line_up_across_roles_of_different_widths() {
+        let out = render_legend_text(
+            &[s("*")],
+            &annotated(
+                vec![
+                    entry("A1", 1, 1, "button", Some("Go")),
+                    entry("A2", 1, 2, "text_field", Some("A much longer name")),
+                ],
+                vec![],
+                0,
+            ),
+        );
+        let rows: Vec<&str> = out.lines().skip(2).collect();
+        let selector_col: Vec<usize> = rows
+            .iter()
+            .map(|l| l.find("bounds=").expect("every row has bounds"))
+            .collect();
+        assert_eq!(
+            selector_col[0], selector_col[1],
+            "the bounds column must start at the same offset on every row:\n{out}"
+        );
+    }
+
+    #[test]
+    fn a_group_that_matched_nothing_still_gets_a_header() {
+        // Otherwise the flag reads as if it had been ignored.
+        let out = render_legend_text(
+            &[s("button"), s("progress_bar")],
+            &annotated(vec![entry("A1", 1, 1, "button", None)], vec![], 0),
+        );
+        assert!(out.contains("B  progress_bar"), "{out}");
+        assert!(out.contains("0 annotated"), "{out}");
+    }
+
+    #[test]
+    fn a_nameless_element_renders_as_a_dash_not_empty_quotes() {
+        let out = render_legend_text(
+            &[s("button")],
+            &annotated(vec![entry("A1", 1, 1, "button", None)], vec![], 0),
+        );
+        let row = out.lines().nth(2).expect("one entry row");
+        assert!(row.contains(" -  "), "{row}");
+        assert!(!row.contains("\"\""), "{row}");
+    }
+
+    #[test]
+    fn the_text_legend_reports_what_could_not_be_drawn() {
+        let out = render_legend_text(
+            &[s("button")],
+            &annotated(
+                vec![entry("A1", 1, 1, "button", Some("7"))],
+                vec![Omission::new(
+                    "button:nth(2)",
+                    "button",
+                    Some(s("Paste")),
+                    OmissionReason::OutsideCapture,
+                )],
+                0,
+            ),
+        );
+        assert!(
+            out.contains("omitted: 1 element (outside_capture: button \"Paste\")"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn the_omitted_summary_is_bounded_and_says_how_many_it_dropped() {
+        let many: Vec<Omission> = (0..MAX_LEGEND_OMISSION_DETAILS + 4)
+            .map(|i| {
+                Omission::new(
+                    format!("button:nth({i})"),
+                    "button",
+                    None,
+                    OmissionReason::NoBounds,
+                )
+            })
+            .collect();
+        let total = many.len();
+        let out = render_legend_text(&[s("button")], &annotated(vec![], many, 0));
+
+        assert!(out.contains(&format!("omitted: {total} elements")), "{out}");
+        assert!(out.contains("… +4 more"), "{out}");
+    }
+
+    #[test]
+    fn the_text_legend_says_when_the_cap_bit() {
+        let out = render_legend_text(
+            &[s("*")],
+            &annotated(vec![entry("A1", 1, 1, "button", None)], vec![], 37),
+        );
+        assert!(out.contains("truncated: 37 more elements"), "{out}");
+        assert!(
+            out.contains(&format!("cap: {}", crate::MAX_ANNOTATIONS)),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn a_group_starved_by_the_cap_does_not_read_as_one_that_matched_nothing() {
+        // A and B were resolved, the cap bit, and C never got looked at. Its
+        // header used to print "0 annotated", which is byte-for-byte what
+        // `a_group_that_matched_nothing_still_gets_a_header` asserts for a
+        // selector that genuinely matched nothing.
+        let legend = || {
+            vec![
+                entry("A1", 1, 1, "button", None),
+                entry("B1", 2, 1, "text_field", None),
+            ]
+        };
+        let selectors = [s("button"), s("text_field"), s("link")];
+        let starved = render_legend_text(&selectors, &annotated(legend(), vec![], 12));
+        let lines: Vec<&str> = starved.lines().collect();
+
+        // A finished before the cap could bite, so its count is exact.
+        assert!(!lines[0].contains("cap"), "{starved}");
+        // B is the group the cap could have cut short.
+        assert!(lines[1].contains("cap reached"), "{starved}");
+        // C is the case this test exists for.
+        assert!(lines[2].contains("0 annotated"), "{starved}");
+        assert!(lines[2].contains("cap reached"), "{starved}");
+
+        let nothing = render_legend_text(&selectors, &annotated(legend(), vec![], 0));
+        let c_nothing = nothing.lines().nth(2).expect("a header per selector");
+        assert!(c_nothing.contains("0 annotated"), "{nothing}");
+        assert!(
+            !c_nothing.contains("cap"),
+            "nothing was lost here:\n{nothing}"
+        );
+        assert_ne!(
+            lines[2], c_nothing,
+            "a starved group and one that matched nothing must not render identically"
+        );
+    }
+
+    #[test]
+    fn the_json_groups_flag_the_ones_the_cap_may_have_shortened() {
+        let selectors = [s("button"), s("text_field"), s("link")];
+        let render = |truncated| {
+            let json = render_legend_json(
+                &selectors,
+                &annotated(vec![entry("A1", 1, 1, "button", None)], vec![], truncated),
+            )
+            .expect("the legend must serialize");
+            serde_json::from_str::<serde_json::Value>(&json).expect("valid JSON")
+        };
+
+        // `truncated` is a total that attributes the loss to no group;
+        // `capped` is what tells a consumer that C's `annotated: 0` is not
+        // "matched nothing".
+        let capped = render(12);
+        assert_eq!(capped["groups"][2]["annotated"], 0);
+        assert_eq!(capped["groups"][2]["capped"], true);
+        assert_eq!(capped["groups"][0]["capped"], true, "the cap bit in A");
+
+        let complete = render(0);
+        assert_eq!(complete["groups"][2]["annotated"], 0);
+        assert_eq!(complete["groups"][2]["capped"], false);
+        assert_eq!(complete["groups"][0]["capped"], false);
+    }
+
+    #[test]
+    fn with_no_legend_at_all_every_group_is_flagged_as_possibly_capped() {
+        // 100 omissions and a non-zero `truncated` leave no legend entry to
+        // locate the cap by, so no group can be called exact.
+        let out = render_legend_text(&[s("button"), s("link")], &annotated(vec![], vec![], 5));
+        assert_eq!(out.lines().filter(|l| l.contains("cap reached")).count(), 2);
+    }
+
+    #[test]
+    fn a_legend_with_nothing_in_it_is_headers_only() {
+        let out = render_legend_text(&[s("button")], &annotated(vec![], vec![], 0));
+        assert_eq!(out, "A  button  #E69F00  0 annotated\n");
+    }
+
+    #[test]
+    fn the_json_legend_carries_the_groups_the_entries_and_the_cap() {
+        let json = render_legend_json(
+            &[s("button"), s("text_field")],
+            &annotated(
+                vec![entry("A1", 1, 1, "button", Some("7"))],
+                vec![Omission::new(
+                    "check_box:nth(1)",
+                    "check_box",
+                    Some(s("Agree")),
+                    OmissionReason::NoBounds,
+                )],
+                3,
+            ),
+        )
+        .expect("the legend must serialize");
+        let doc: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+
+        assert_eq!(doc["groups"][0]["letter"], "A");
+        assert_eq!(doc["groups"][0]["selector"], "button");
+        assert_eq!(doc["groups"][0]["color_hex"], "#E69F00");
+        assert_eq!(doc["groups"][0]["annotated"], 1);
+        assert_eq!(doc["groups"][1]["letter"], "B");
+        assert_eq!(doc["groups"][1]["annotated"], 0);
+
+        assert_eq!(doc["legend"][0]["tag"], "A1");
+        assert_eq!(doc["legend"][0]["selector"], "button:nth(1)");
+        assert_eq!(doc["legend"][0]["index"], 1);
+        assert_eq!(doc["legend"][0]["bounds"]["x"], 104);
+        assert_eq!(doc["legend"][0]["color"], serde_json::json!([230, 159, 0]));
+
+        assert_eq!(doc["omitted"][0]["reason"], "no_bounds");
+        assert_eq!(doc["omitted"][0]["selector"], "check_box:nth(1)");
+
+        assert_eq!(doc["truncated"], 3);
+        assert_eq!(doc["cap"], crate::MAX_ANNOTATIONS);
+    }
+
+    #[test]
+    fn group_letters_follow_the_tag_format_past_z() {
+        assert_eq!(group_letter(1), "A");
+        assert_eq!(group_letter(2), "B");
+        assert_eq!(group_letter(26), "Z");
+        assert_eq!(group_letter(27), "AA");
+        // The letter in the header and the letter drawn in the image are the
+        // same function, so they cannot disagree.
+        assert!(screenshot::tag_for(27, 5).starts_with(&group_letter(27)));
+    }
+
+    #[test]
+    fn group_colours_cycle_with_the_palette() {
+        let selectors: Vec<String> = (0..9).map(|i| format!("role{i}")).collect();
+        let out = render_legend_text(&selectors, &annotated(vec![], vec![], 0));
+        let hexes: Vec<&str> = out
+            .lines()
+            .map(|l| l.split_whitespace().nth(2).expect("a colour column"))
+            .collect();
+        assert_eq!(hexes[0], hexes[7], "group 8 reuses group 1's colour");
+        assert_eq!(hexes[1], hexes[8]);
+        assert_eq!(hexes[0], "#E69F00");
     }
 }

@@ -26,6 +26,7 @@ from matrx_ai.providers.outbound_capture import (
     emit_explicit_context_analysis,
     stamp_call_meta,
 )
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import GoogleProviderConfig, GoogleTranslator
@@ -96,6 +97,8 @@ def _tts_segment_chars(provider_model_id: str) -> int:
         if needle in model:
             return cap
     return _TTS_MAX_CHARS_PER_SEGMENT
+
+
 # A stall is transient provider behavior, not a fatal input error — retry the ONE
 # short segment that stalled (re-billing 2k chars is cheap; re-billing a 6-minute
 # render is not). Never retry the whole run.
@@ -256,6 +259,7 @@ class GoogleChat:
 
         if is_tts:
             from matrx_ai.catalog.resolve import resolve_tts_voice, validate_tts_voices
+
             tts = unified_config.tts_voice_config
             if tts is None:
                 unified_config.tts_voice = resolve_tts_voice(profile, None)
@@ -381,8 +385,9 @@ class GoogleChat:
                     # sync httpx transport never runs on the event loop. The sync
                     # path froze the entire process for 2s+ between chunks (loop
                     # watchdog incident 2026-06-10).
-                    async for chunk in await self.client.aio.models.generate_content_stream(
-                        **config_data
+                    _stream = self.client.aio.models.generate_content_stream
+                    async for chunk in await _stream(
+                        **route_undeclared_params(_stream, config_data, provider="google")
                     ):
                         accumulated_chunks.append(chunk)
                         if chunk.candidates:
@@ -418,8 +423,9 @@ class GoogleChat:
             else:
                 # Non-streaming mode - returns single GenerateContentResponse.
                 # Async client keeps the blocking provider call off the loop.
-                response: GenerateContentResponse = await self.client.aio.models.generate_content(
-                    **config_data
+                _generate = self.client.aio.models.generate_content
+                response: GenerateContentResponse = await _generate(
+                    **route_undeclared_params(_generate, config_data, provider="google")
                 )
 
                 # Wrap the single response in a list to maintain consistency with to_unified_config
@@ -677,7 +683,10 @@ class GoogleChat:
 
         def _produce_tts_chunks() -> None:
             try:
-                for chunk in self.client.models.generate_content_stream(**config_data):
+                _tts_stream = self.client.models.generate_content_stream
+                for chunk in _tts_stream(
+                    **route_undeclared_params(_tts_stream, config_data, provider="google")
+                ):
                     loop.call_soon_threadsafe(chunk_queue.put_nowait, chunk)
             except BaseException as exc:  # surface provider errors to consumer
                 producer_state["error"] = exc

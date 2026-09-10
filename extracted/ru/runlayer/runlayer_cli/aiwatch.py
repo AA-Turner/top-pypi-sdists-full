@@ -1,8 +1,8 @@
 """Single entrypoint for the AI Watch frozen executable (see cli/AGENTS.md).
 
-One ``aiwatch`` binary serves both the typer CLI (scan / enroll / setup hooks /
-bootstrap), the MCP guardrail hook, and the per-user hook daemon. The module top
-stays standard-library-only so hot hook dispatch branches pay no CLI import tax.
+One ``aiwatch`` binary serves the typer CLI, MCP guardrail hook, per-user hook
+daemon, native host, and LLM credential helper. The module top stays
+standard-library-only so hot hook dispatch branches pay no CLI import tax.
 """
 
 # Keep annotations eager so the callback can use the lazily imported typer.Context.
@@ -25,6 +25,7 @@ HOOK_SUBCOMMAND = "hook"
 DAEMON_SUBCOMMAND = "daemon"
 DAEMON_STATUS_SUBCOMMAND = "status"
 DAEMON_SERVICE_SUBCOMMAND = "daemon-service"
+CREDENTIAL_SUBCOMMAND = "credential"
 NATIVE_HOST_SUBCOMMAND = "native-host"
 NATIVE_HOST_BASENAME = "aiwatch-native-messaging-host"
 
@@ -245,6 +246,19 @@ def main() -> None:
         # SIGTERM, and crashes do not. It is diagnostics, not a liveness SLO.
         run_with_command_metrics(run_daemon)
         return
+
+    if len(sys.argv) >= 2 and sys.argv[1] == CREDENTIAL_SUBCOMMAND:
+        from runlayer_cli.aiwatch_credential import (  # noqa: PLC0415
+            main as credential_main,
+        )
+
+        raise SystemExit(
+            credential_main(
+                sys.argv[2:],
+                prepare=_inject_truststore,
+                started_at=_CLIENT_START_MS / 1000,
+            )
+        )
 
     _inject_truststore()
     _apply_managed_config()

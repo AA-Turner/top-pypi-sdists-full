@@ -31,6 +31,8 @@ if typing.TYPE_CHECKING:
         QueryableTableSchema,
         RevertResultSchema,
         SaveAnnotationSchema,
+        SentNotificationSchema,
+        SentNotificationSchemaStatus,
         StartJobExecutionSchema,
         TableSummary,
         ToolsMlModelDetailSchema,
@@ -49,7 +51,7 @@ if typing.TYPE_CHECKING:
         UnauthorizedError,
         UnprocessableEntityError,
     )
-    from . import agent, files, images, jobs, models, tools
+    from . import agent, files, images, jobs, models, notifications, tools
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
     from .client import AsyncLabric, Labric
     from .environment import LabricEnvironment
@@ -94,6 +96,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "QueryableTableSchema": ".types",
     "RevertResultSchema": ".types",
     "SaveAnnotationSchema": ".types",
+    "SentNotificationSchema": ".types",
+    "SentNotificationSchemaStatus": ".types",
     "ServiceUnavailableError": ".errors",
     "StartJobExecutionSchema": ".types",
     "TableSummary": ".types",
@@ -109,6 +113,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "images": ".images",
     "jobs": ".jobs",
     "models": ".models",
+    "notifications": ".notifications",
     "tools": ".tools",
 }
 
@@ -173,6 +178,8 @@ __all__ = [
     "QueryableTableSchema",
     "RevertResultSchema",
     "SaveAnnotationSchema",
+    "SentNotificationSchema",
+    "SentNotificationSchemaStatus",
     "ServiceUnavailableError",
     "StartJobExecutionSchema",
     "TableSummary",
@@ -188,5 +195,6 @@ __all__ = [
     "images",
     "jobs",
     "models",
+    "notifications",
     "tools",
 ]

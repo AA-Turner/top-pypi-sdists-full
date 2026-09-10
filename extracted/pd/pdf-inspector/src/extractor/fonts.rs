@@ -2,7 +2,9 @@
 
 use crate::glyph_names::glyph_to_char;
 use crate::tounicode::FontCMaps;
-use crate::types::{FontEncodingMap, FontWidthInfo, PageFontEncodings, PageFontWidths};
+use crate::types::{
+    FontEncoding, FontEncodingMap, FontWidthInfo, PageFontEncodings, PageFontWidths,
+};
 use log::debug;
 use lopdf::{Document, Encoding, Object, ObjectId};
 use std::collections::HashMap;
@@ -772,12 +774,95 @@ pub(crate) fn build_font_encodings(
                 has_gid_fonts = true;
             }
             if !result.map.is_empty() {
-                encodings.insert(resource_name, result.map);
+                let identity_overrides =
+                    stale_identity_cmap_overrides(doc, font_dict, cmaps, &result);
+                encodings.insert(
+                    resource_name,
+                    FontEncoding {
+                        differences: result.map,
+                        identity_overrides,
+                    },
+                );
             }
         }
     }
 
     (encodings, has_gid_fonts)
+}
+
+/// Some subset producers change the simple font's glyph encoding but retain
+/// its original ToUnicode. Repair only corroborated ASCII identity entries:
+/// at least three distinct letters move to ASCII slots, their Unicode values remain
+/// elsewhere in the old CMap, and the embedded CFF contains those exact glyphs.
+/// Other repairs need the same evidence, allowing a single-character case
+/// counterpart in the old CMap once the exact matches establish staleness.
+/// Keep repairs per font, since different encodings can share one CMap stream.
+fn stale_identity_cmap_overrides(
+    doc: &Document,
+    font_dict: &lopdf::Dictionary,
+    cmaps: &FontCMaps,
+    encoding: &EncodingResult,
+) -> FontEncodingMap {
+    let verified = || -> Option<FontEncodingMap> {
+        if font_dict.get(b"Subtype").ok()?.as_name().ok()? != b"Type1" {
+            return None;
+        }
+        let cmap_ref = font_dict.get(b"ToUnicode").ok()?.as_reference().ok()?;
+        let entry = cmaps.get_by_obj(cmap_ref.0)?;
+        if entry.primary.code_byte_length != 1 || entry.remapped.is_some() {
+            return None;
+        }
+        let elsewhere: std::collections::HashSet<String> = (0..=255)
+            .filter_map(|code| entry.primary.lookup(code))
+            .collect();
+        let single_case_match =
+            |case: String| case.chars().count() == 1 && elsewhere.contains(&case);
+        let candidates: FontEncodingMap = encoding
+            .map
+            .iter()
+            .filter_map(|(&code, &ch)| {
+                (code.is_ascii_graphic()
+                    && !ch.is_ascii()
+                    && (ch.is_alphabetic() || ch == '\u{00a0}')
+                    && entry.primary.lookup(code as u16).as_deref()
+                        == Some(&(code as char).to_string())
+                    && (elsewhere.contains(&ch.to_string())
+                        || (ch.is_alphabetic()
+                            && (single_case_match(ch.to_lowercase().to_string())
+                                || single_case_match(ch.to_uppercase().to_string())))))
+                .then_some((code, ch))
+            })
+            .collect();
+        let exact_anchor_count = |map: &FontEncodingMap| {
+            map.values()
+                .copied()
+                .filter(|ch| ch.is_alphabetic() && elsewhere.contains(&ch.to_string()))
+                .collect::<std::collections::HashSet<char>>()
+                .len()
+        };
+        if exact_anchor_count(&candidates) < 3 {
+            return None;
+        }
+        let descriptor = resolve_dict(doc, font_dict.get(b"FontDescriptor").ok()?)?;
+        let font_ref = descriptor.get(b"FontFile3").ok()?.as_reference().ok()?;
+        let stream = doc.get_object(font_ref).ok()?.as_stream().ok()?;
+        if stream.dict.get(b"Subtype").ok()?.as_name().ok()? != b"Type1C" {
+            return None;
+        }
+        let data = font_file_data(doc, font_ref)?;
+        let cff = ttf_parser::cff::Table::parse(&data)?;
+        let overrides: FontEncodingMap = candidates
+            .into_iter()
+            .filter(|(code, _)| {
+                encoding
+                    .glyph_names
+                    .get(code)
+                    .is_some_and(|name| cff.glyph_index_by_name(name).is_some())
+            })
+            .collect();
+        (exact_anchor_count(&overrides) >= 3).then_some(overrides)
+    };
+    verified().unwrap_or_default()
 }
 
 /// True when the font's ToUnicode CMap maps the gid-named character codes,
@@ -846,6 +931,7 @@ pub(crate) fn parse_font_encoding(
 /// Result of parsing an encoding dictionary's Differences array.
 pub(crate) struct EncodingResult {
     pub map: FontEncodingMap,
+    glyph_names: HashMap<u8, String>,
     /// Character codes whose glyph names match the `gidNNNNN` pattern (raw
     /// glyph IDs). These reference the original font's glyph table and are
     /// only decodable when the font's ToUnicode CMap maps the code.
@@ -873,6 +959,7 @@ pub(crate) fn parse_encoding_dictionary(
     };
 
     let mut encoding_map = FontEncodingMap::new();
+    let mut glyph_names = HashMap::new();
     let mut current_code: u8 = 0;
     let mut ligature_count = 0u32;
     let mut gid_codes: Vec<u8> = Vec::new();
@@ -905,6 +992,7 @@ pub(crate) fn parse_encoding_dictionary(
                 }
                 if let Some(ch) = mapped_char {
                     encoding_map.insert(current_code, ch);
+                    glyph_names.insert(current_code, glyph_name);
                 } else {
                     debug!(
                         "  Differences: code=0x{:02X} glyph={:?} (unmapped)",
@@ -934,6 +1022,7 @@ pub(crate) fn parse_encoding_dictionary(
 
     Some(EncodingResult {
         map: encoding_map,
+        glyph_names,
         gid_codes,
     })
 }
@@ -1201,7 +1290,7 @@ fn font_file_data(doc: &Document, ff_ref: ObjectId) -> Option<Vec<u8>> {
     )
 }
 
-/// Decode text from a PDF string operand using font CMaps, encodings, and fallbacks.
+/// Decode a PDF string and record whether legacy symbol cleanup changed a character.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn extract_text_from_operand(
     obj: &Object,
@@ -1214,7 +1303,7 @@ pub(crate) fn extract_text_from_operand(
     encoding_cache: &HashMap<String, Encoding<'_>>,
     cmap_decisions: &mut CMapDecisionCache,
     font_widths: &PageFontWidths,
-) -> Option<String> {
+) -> Option<(String, bool)> {
     let is_type0_cid_font = font_widths
         .get(current_font)
         .is_some_and(|info| info.is_cid);
@@ -1235,6 +1324,13 @@ pub(crate) fn extract_text_from_operand(
                             // 1. Primary CMap
                             if let Some(s) = entry.primary.lookup(code) {
                                 if !s.contains('\u{FFFD}') {
+                                    if s == (b as char).to_string() {
+                                        if let Some(&ch) = encoding_map
+                                            .and_then(|map| map.identity_overrides.get(&b))
+                                        {
+                                            return Some(ch.to_string());
+                                        }
+                                    }
                                     return Some(s);
                                 }
                             }
@@ -1246,7 +1342,7 @@ pub(crate) fn extract_text_from_operand(
                             }
                             // 3. Differences mapped it? Use Differences result
                             if let Some(map) = encoding_map {
-                                if let Some(&ch) = map.get(&b) {
+                                if let Some(&ch) = map.differences.get(&b) {
                                     return Some(ch.to_string());
                                 }
                             }
@@ -1369,6 +1465,7 @@ pub(crate) fn extract_text_from_operand(
             // WinAnsiEncoding). We must combine Differences entries with the base encoding
             // rather than using filter_map which silently drops unmapped bytes.
             if let Some(encoding_map) = font_encodings.get(current_font) {
+                let encoding_map = &encoding_map.differences;
                 let has_diff_match = bytes.iter().any(|b| encoding_map.contains_key(b));
                 if has_diff_match {
                     let decoded: String = bytes
@@ -1487,9 +1584,12 @@ pub(crate) fn extract_text_from_operand(
         }
     })();
     result.map(|text| {
-        let text = clean_symbol_pua(text);
+        let (text, legacy_symbol_rewrite) = clean_symbol_pua(text);
         let text = remap_texcm_math_symbols(text, base_font_name);
-        normalize_cp1252_controls(text, use_cp1252_fallback)
+        (
+            normalize_cp1252_controls(text, use_cp1252_fallback),
+            legacy_symbol_rewrite,
+        )
     })
 }
 
@@ -1619,20 +1719,22 @@ fn should_use_cp1252_single_byte_fallback(
     !non_cp1252_names.iter().any(|name| font_name.contains(name))
 }
 
-/// Replace PUA characters in the F000-F0FF range with standard Unicode equivalents.
-/// These come from Symbol/Wingdings fonts whose ToUnicode CMaps map to PUA.
-fn clean_symbol_pua(text: String) -> String {
+/// Apply the existing private-use cleanup without changing its output.
+/// The boolean records an actual heuristic rewrite, not a proven Unicode alias.
+fn clean_symbol_pua(text: String) -> (String, bool) {
     if !text.chars().any(|c| ('\u{F000}'..='\u{F0FF}').contains(&c)) {
-        return text;
+        return (text, false);
     }
-    text.chars()
+    let mut rewritten = false;
+    let text = text
+        .chars()
         .map(|c| {
             let code = c as u32;
             if !(0xF000..=0xF0FF).contains(&code) {
                 return c;
             }
             let low = code - 0xF000;
-            match low {
+            let replacement = match low {
                 // Common bullets
                 0xA1 | 0xA7 | 0xB7 => '\u{2022}',
                 // Checkmark
@@ -1640,9 +1742,12 @@ fn clean_symbol_pua(text: String) -> String {
                 // Printable ASCII range and Latin-1 above: strip F000 offset
                 0x20..=0xFF => char::from_u32(low).unwrap_or(c),
                 _ => c,
-            }
+            };
+            rewritten |= replacement != c;
+            replacement
         })
-        .collect()
+        .collect();
+    (text, rewritten)
 }
 
 fn decode_symbol_fallback(bytes: &[u8], base_font_name: Option<&str>) -> Option<String> {
@@ -2296,7 +2401,7 @@ mod tests {
             &font_widths,
         );
 
-        let text = result.expect("CID font fallback should still emit a marker");
+        let (text, _) = result.expect("CID font fallback should still emit a marker");
         assert!(
             !text.contains('\u{00CD}') && !text.contains('\u{00D9}'),
             "CID font with unparseable CMap leaked Latin-1 mojibake: {text:?}"
@@ -2330,7 +2435,7 @@ mod tests {
         let mut font_widths: PageFontWidths = HashMap::new();
         font_widths.insert("F1".to_string(), make_font_info(&[], 1000, false));
 
-        let text = extract_text_from_operand(
+        let (text, _) = extract_text_from_operand(
             &obj,
             "F1",
             None,
@@ -2351,6 +2456,21 @@ mod tests {
     }
 
     #[test]
+    fn legacy_cleanup_evidence_tracks_changes_without_changing_aliases() {
+        for (source, expected, rewritten) in [
+            ("AΩμ$•✓", "AΩμ$•✓", false),
+            ("\u{f057}\u{f0b7}\u{f0fc}", "W•✓", true),
+            ("\u{f010}\u{e123}", "\u{f010}\u{e123}", false),
+            ("Price \u{f024}", "Price $", true),
+        ] {
+            assert_eq!(
+                clean_symbol_pua(source.to_string()),
+                (expected.to_string(), rewritten)
+            );
+        }
+    }
+
+    #[test]
     fn simple_font_single_byte_fallback_maps_cp1252_punctuation() {
         let bytes = vec![b'l', 0x92_u8, b'a', b'c', b'a', b'd'];
         let obj = Object::String(bytes, lopdf::StringFormat::Hexadecimal);
@@ -2363,7 +2483,7 @@ mod tests {
         let mut decisions = CMapDecisionCache::new();
         let font_widths: PageFontWidths = HashMap::new();
 
-        let text = extract_text_from_operand(
+        let (text, _) = extract_text_from_operand(
             &obj,
             "F1",
             None,
@@ -2561,3 +2681,7 @@ end",
         assert_eq!(widths.get(&65535), Some(&500));
     }
 }
+
+#[cfg(test)]
+#[path = "stale_cmap_tests.rs"]
+mod stale_cmap_tests;

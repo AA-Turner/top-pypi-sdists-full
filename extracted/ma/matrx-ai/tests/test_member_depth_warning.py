@@ -8,12 +8,13 @@ Now the executor additionally emits a `member_depth_exhausted` warning event.
 Also pins the D-39 projection contract: `AgentToolSpec.max_recursion_depth`
 overrides the module constant on the stamped ToolDefinition; None keeps it.
 """
+
 from __future__ import annotations
 
-import inspect
 from typing import Any
 
 import pytest
+from matrx_utils.source_guard import stable_source
 
 from matrx_ai.tools.agent_projection import (
     PROJECTED_AGENT_MAX_RECURSION_DEPTH,
@@ -109,7 +110,7 @@ def test_executor_guardrail_branch_wires_the_warning():
     block of an AGENT tool — structural pin so a refactor can't drop it."""
     from matrx_ai.tools.executor import ToolExecutor
 
-    source = inspect.getsource(ToolExecutor)
+    source = stable_source(ToolExecutor)
     assert "warn_member_depth_exhausted" in source
     assert '"recursion_depth"' in source
 
@@ -151,7 +152,4 @@ async def test_projection_honors_spec_depth_override(monkeypatch):
     # The composition-declared budget wins…
     assert by_agent["member-custom"]["max_recursion_depth"] == 4
     # …and an undeclared spec keeps the platform constant.
-    assert (
-        by_agent["member-default"]["max_recursion_depth"]
-        == PROJECTED_AGENT_MAX_RECURSION_DEPTH
-    )
+    assert by_agent["member-default"]["max_recursion_depth"] == PROJECTED_AGENT_MAX_RECURSION_DEPTH

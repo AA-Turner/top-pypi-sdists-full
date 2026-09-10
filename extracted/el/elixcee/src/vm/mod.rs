@@ -27,6 +27,7 @@ pub const DEFAULT_MAX_VBA_STRING_BYTES: usize = 16 * 1024 * 1024;
 pub const DEFAULT_MAX_VBA_ARRAY_ELEMENTS: usize = MAX_ARRAY_ELEMENTS;
 /// Default maximum number of materialized cells retained across VBA sheets.
 pub const DEFAULT_MAX_VBA_CELLS: usize = 5_000_000;
+const MAX_AUTOMATIC_WORKSHEET_CHANGES: usize = 64;
 
 fn is_blocked_external_effect(reason: &str) -> bool {
     let lower = reason.to_ascii_lowercase();
@@ -36,6 +37,8 @@ fn is_blocked_external_effect(reason: &str) -> bool {
         "getobject",
         "wscript",
         "filesystemobject",
+        "save",
+        "close",
         "open ",
         "'open'",
         "kill ",
@@ -225,6 +228,48 @@ pub enum ResolutionFailureKind {
         source_areas: Vec<Rect>,
         destination_areas: Vec<Rect>,
     },
+}
+
+/// Stable category for a runtime failure produced while executing VBA. The
+/// plain `String` returned by `run_sub` remains the compatibility surface, but
+/// callers that need machine-readable diagnostics can consume this side
+/// channel without re-parsing presentation text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeFailureKind {
+    UndefinedVariable,
+    UndefinedSubOrFunction,
+    SheetNotFound,
+    MsgBoxBlocked,
+    ObjectVariableNotSet,
+    SecurityBlockedExternalEffect,
+    Generic,
+}
+
+impl RuntimeFailureKind {
+    fn from_message(message: &str) -> Self {
+        if message.starts_with("Undefined variable: '") {
+            return Self::UndefinedVariable;
+        }
+        if message.starts_with("Sub/Function '")
+            || message.starts_with("Unknown VBA function: '")
+            || (message.starts_with("Sub '") && message.ends_with("' not found"))
+        {
+            return Self::UndefinedSubOrFunction;
+        }
+        if message.starts_with("Sheet '") && message.ends_with("' not found") {
+            return Self::SheetNotFound;
+        }
+        if message.starts_with("MsgBox: ") {
+            return Self::MsgBoxBlocked;
+        }
+        if message == OBJECT_NOT_SET {
+            return Self::ObjectVariableNotSet;
+        }
+        if message.starts_with("SECURITY: blocked external VBA effect:") {
+            return Self::SecurityBlockedExternalEffect;
+        }
+        Self::Generic
+    }
 }
 
 /// The VM's clipboard state, populated by `.Copy` and consumed by
@@ -800,6 +845,84 @@ const COLLECTION_DUPLICATE_KEY: &str =
     "This key is already associated with an element of this collection";
 type FormulaAstCache = HashMap<String, HashMap<(u32, u32), (String, Option<formula::FormulaExpr>)>>;
 
+/// A bounded, explicit edit to one existing chart series. Formulas use the
+/// chart XML spelling (for example `Sheet1!$A$1:$A$3`, without a leading `=`).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ChartSeriesEdit {
+    pub name: Option<String>,
+    pub categories: Option<String>,
+    pub values: Option<String>,
+    pub marker_symbol: Option<String>,
+    pub marker_size: Option<u32>,
+    pub smooth: Option<bool>,
+    pub invert_if_negative: Option<bool>,
+    pub deleted: Option<bool>,
+    pub category_cache: Option<Vec<String>>,
+    pub value_cache: Option<Vec<String>>,
+}
+
+/// A bounded edit to the textual title of one existing chart part.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ChartTitleEdit {
+    pub text: String,
+}
+
+/// A bounded edit to an existing chart legend position (`b`, `tr`, `r`, `l`,
+/// or `t`).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ChartLegendPositionEdit {
+    pub position: String,
+}
+
+/// A bounded edit to an existing chart legend overlay flag.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ChartLegendOverlayEdit {
+    pub overlay: bool,
+}
+
+/// A bounded edit to the first chart data-labels `showVal` flag.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ChartDataLabelsEdit {
+    pub show_value: Option<bool>,
+    pub show_category: Option<bool>,
+    pub show_series_name: Option<bool>,
+    pub show_percent: Option<bool>,
+    pub show_leader_lines: Option<bool>,
+    pub show_bubble_size: Option<bool>,
+    pub show_legend_key: Option<bool>,
+    pub position: Option<String>,
+    pub number_format: Option<String>,
+    pub separator: Option<String>,
+}
+
+/// A bounded edit to an existing chart style (`1..=48`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ChartStyleEdit {
+    pub style: u32,
+}
+
+/// A bounded edit to one existing worksheet-backed Pivot cache source.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct PivotWorksheetSourceEdit {
+    pub sheet: Option<String>,
+    pub reference: Option<String>,
+    pub refresh_on_load: Option<bool>,
+    pub field_captions: HashMap<usize, String>,
+}
+
+/// A bounded edit to one existing two-cell drawing anchor. Public API
+/// coordinates are 1-based worksheet cells; OOXML marker coordinates are
+/// written as zero-based offsets by the writer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DrawingAnchorEdit {
+    pub from_row: u32,
+    pub from_col: u32,
+    pub to_row: u32,
+    pub to_col: u32,
+}
+
+pub(crate) type DrawingShapeFlipEdit = (Option<bool>, Option<bool>);
+
 const CELL_TILE_SIZE: u32 = 32;
 const MAX_CELL_TILES_PER_SHEET: usize = 256;
 const DENSE_TILE_CELL_THRESHOLD: usize = 128;
@@ -1082,8 +1205,21 @@ pub struct Vm {
     pub(crate) sheet_order: Vec<String>,
     /// Currently active sheet name (lowercase).
     pub active_sheet: String,
+    /// Excel worksheet `sheetPr@codeName` values, keyed by the lowercase
+    /// display name. These names are VBA module identities and may differ
+    /// from the visible tab name; they are used only for deterministic
+    /// Worksheet_Change owner selection.
+    sheet_code_names: HashMap<String, String>,
     pub variables: HashMap<String, Variant>,
+    /// Module scope of the currently executing standard/class procedure.
+    /// Bare UDT names resolve against this module before the compatibility
+    /// fallback to the flat type namespace.
+    current_module_scope: Option<String>,
     pub calc_mode: CalculationMode,
+    /// Whether explicit event dispatch is enabled. This mirrors
+    /// `Application.EnableEvents`; events are never inferred from ordinary
+    /// cell writes, so callers must opt into `run_event` explicitly.
+    pub enable_events: bool,
     pub error_on_msgbox: bool,
     pub print_msgbox: bool,
     /// Every MsgBox message shown during the current `run_sub` call, in
@@ -1099,6 +1235,21 @@ pub struct Vm {
     /// `None` until the first statement actually starts executing (e.g. a
     /// "Sub not found" failure happens before this is ever set).
     current_span: Option<SourceSpan>,
+    /// Structured category for the most recent uncaught execution failure.
+    /// The string returned by `run_sub` remains the human-facing contract;
+    /// machine-readable consumers can use this side channel instead.
+    last_runtime_failure: Option<RuntimeFailureKind>,
+    /// Non-zero while an explicit event is being dispatched. A nested event
+    /// is suppressed rather than recursively re-entering VBA.
+    event_dispatch_depth: usize,
+    /// Program used for opt-in automatic Worksheet_Change dispatch while
+    /// `run_sub_with_events` executes. Kept separate from the ordinary
+    /// cached program so `run_sub` remains event-free for compatibility.
+    auto_event_program: Option<Program>,
+    auto_event_suppression_depth: usize,
+    pending_worksheet_changes: VecDeque<Rect>,
+    automatic_event_chain_active: bool,
+    automatic_event_chain_count: usize,
     pub exit_flag: Option<ExitKind>,
     /// Pending unconditional jump target (`GoTo <label>`).
     pending_goto: Option<String>,
@@ -1166,6 +1317,68 @@ pub struct Vm {
     pub(crate) ooxml_structural_edit_dirty: bool,
     /// True only while structural edits are limited to sheet renames.
     pub(crate) sheet_rename_only: bool,
+    /// Explicit chart series edits keyed by chart part and zero-based series index.
+    pub(crate) chart_series_edits: HashMap<String, HashMap<usize, ChartSeriesEdit>>,
+    /// Explicit chart series solid-line color edits keyed by chart part and
+    /// zero-based series index. Values are normalized six-digit RGB strings.
+    pub(crate) chart_series_line_color_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit chart series solid-fill color edits keyed by chart part and
+    /// zero-based series index. Values are normalized six-digit RGB strings.
+    pub(crate) chart_series_fill_color_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit chart title edits keyed by chart part.
+    pub(crate) chart_title_edits: HashMap<String, ChartTitleEdit>,
+    /// Explicit chart legend-position edits keyed by chart part.
+    pub(crate) chart_legend_position_edits: HashMap<String, ChartLegendPositionEdit>,
+    /// Explicit chart-style edits keyed by chart part.
+    pub(crate) chart_style_edits: HashMap<String, ChartStyleEdit>,
+    /// Explicit chart legend-overlay edits keyed by chart part.
+    pub(crate) chart_legend_overlay_edits: HashMap<String, ChartLegendOverlayEdit>,
+    /// Explicit chart data-label edits keyed by chart part.
+    pub(crate) chart_data_labels_edits: HashMap<String, ChartDataLabelsEdit>,
+    /// Explicit chart-axis title edits keyed by chart part and axis index.
+    pub(crate) chart_axis_title_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit Pivot worksheet source edits keyed by cache definition part.
+    pub(crate) pivot_source_edits: HashMap<String, PivotWorksheetSourceEdit>,
+    /// Explicit drawing anchor edits keyed by drawing part and zero-based
+    /// twoCellAnchor index.
+    pub(crate) drawing_anchor_edits: HashMap<String, HashMap<usize, DrawingAnchorEdit>>,
+    /// Explicit drawing shape-name edits keyed by drawing part and zero-based
+    /// twoCellAnchor index.
+    pub(crate) drawing_shape_name_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit drawing shape-description edits keyed by drawing part and
+    /// document-order anchor index.
+    pub(crate) drawing_shape_description_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit drawing shape-title edits keyed by drawing part and
+    /// document-order anchor index.
+    pub(crate) drawing_shape_title_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit drawing shape text edits keyed by drawing part and
+    /// document-order anchor index.
+    pub(crate) drawing_shape_text_edits: HashMap<String, HashMap<usize, String>>,
+    pub(crate) drawing_shape_text_run_edits: HashMap<String, HashMap<(usize, usize), String>>,
+    /// Explicit drawing shape hidden-state edits keyed by drawing part and
+    /// document-order anchor index.
+    pub(crate) drawing_shape_hidden_edits: HashMap<String, HashMap<usize, bool>>,
+    /// Explicit drawing shape rotation edits keyed by drawing part and
+    /// document-order anchor index. Values are integer degrees.
+    pub(crate) drawing_shape_rotation_edits: HashMap<String, HashMap<usize, i32>>,
+    /// Explicit DrawingML horizontal/vertical flip edits keyed by drawing
+    /// part and document-order anchor index.
+    pub(crate) drawing_shape_flip_edits: HashMap<String, HashMap<usize, DrawingShapeFlipEdit>>,
+    /// Explicit DrawingML solid-fill edits keyed by drawing part and
+    /// document-order anchor index. Values are normalized ARGB hex strings.
+    pub(crate) drawing_shape_fill_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit DrawingML line-color edits keyed by drawing part and
+    /// document-order anchor index. Values are normalized ARGB hex strings.
+    pub(crate) drawing_shape_line_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit DrawingML line-width edits keyed by drawing part and
+    /// document-order anchor index. Values are EMU units.
+    pub(crate) drawing_shape_line_width_edits: HashMap<String, HashMap<usize, u32>>,
+    /// Explicit DrawingML preset-dash edits keyed by drawing part and
+    /// document-order anchor index.
+    pub(crate) drawing_shape_line_dash_edits: HashMap<String, HashMap<usize, String>>,
+    /// Explicit DrawingML preset-geometry edits keyed by drawing part and
+    /// document-order anchor index.
+    pub(crate) drawing_shape_geometry_edits: HashMap<String, HashMap<usize, String>>,
     /// Dynamic-array spill rectangles keyed by sheet and anchor coordinate.
     /// Included in edit history so undo cannot leave stale spill ownership.
     spill_rects: HashMap<String, HashMap<(u32, u32), SpillRect>>,
@@ -1260,6 +1473,10 @@ pub struct Vm {
     /// original ZIP for unknown-part passthrough at save time — internal
     /// plumbing between `vm` and `lib.rs`, not a public API.
     pub(crate) loaded_workbook_path: Option<String>,
+    /// Workbook-level Excel date system detected at load time. This is
+    /// exposed for callers and diagnostics; serial conversion remains an
+    /// explicit follow-up because it affects formula caches and save output.
+    workbook_date1904: bool,
     /// External-link handling selected at workbook load. No policy fetches a URL.
     pub(crate) external_links_policy: ExternalLinksPolicy,
     /// The clipboard populated by `.Copy` and consumed by
@@ -1551,6 +1768,23 @@ pub struct Vm {
 }
 
 impl Vm {
+    /// Resolve a UDT using the active procedure's module scope first. A
+    /// qualified name is already unambiguous; a bare name falls back to the
+    /// legacy flat namespace for hand-built/single-module programs.
+    fn resolve_type_fields(&self, type_name: &str) -> Option<Vec<(String, String)>> {
+        if type_name.contains('.') {
+            return self.type_defs.get(type_name).cloned();
+        }
+        if let Some(module) = self.current_module_scope.as_deref()
+            && let Some(fields) =
+                self.type_defs
+                    .get(&format!("{}.{}", module.to_lowercase(), type_name))
+        {
+            return Some(fields.clone());
+        }
+        self.type_defs.get(type_name).cloned()
+    }
+
     pub fn new() -> Self {
         let mut sheets = HashMap::new();
         sheets.insert("sheet1".into(), HashMap::new());
@@ -1558,12 +1792,22 @@ impl Vm {
             sheets,
             sheet_order: vec!["sheet1".into()],
             active_sheet: "sheet1".into(),
+            sheet_code_names: HashMap::new(),
             variables: HashMap::new(),
+            current_module_scope: None,
             calc_mode: CalculationMode::Automatic,
+            enable_events: true,
             error_on_msgbox: false,
             print_msgbox: false,
             msgbox_log: Vec::new(),
             current_span: None,
+            last_runtime_failure: None,
+            event_dispatch_depth: 0,
+            auto_event_program: None,
+            auto_event_suppression_depth: 0,
+            pending_worksheet_changes: VecDeque::new(),
+            automatic_event_chain_active: false,
+            automatic_event_chain_count: 0,
             exit_flag: None,
             pending_goto: None,
             call_stack: Vec::new(),
@@ -1589,6 +1833,30 @@ impl Vm {
             workbook_formula_structure_dirty: true,
             ooxml_structural_edit_dirty: false,
             sheet_rename_only: false,
+            chart_series_edits: HashMap::new(),
+            chart_series_line_color_edits: HashMap::new(),
+            chart_series_fill_color_edits: HashMap::new(),
+            chart_title_edits: HashMap::new(),
+            chart_legend_position_edits: HashMap::new(),
+            chart_style_edits: HashMap::new(),
+            chart_legend_overlay_edits: HashMap::new(),
+            chart_data_labels_edits: HashMap::new(),
+            chart_axis_title_edits: HashMap::new(),
+            pivot_source_edits: HashMap::new(),
+            drawing_anchor_edits: HashMap::new(),
+            drawing_shape_name_edits: HashMap::new(),
+            drawing_shape_description_edits: HashMap::new(),
+            drawing_shape_title_edits: HashMap::new(),
+            drawing_shape_text_edits: HashMap::new(),
+            drawing_shape_text_run_edits: HashMap::new(),
+            drawing_shape_hidden_edits: HashMap::new(),
+            drawing_shape_rotation_edits: HashMap::new(),
+            drawing_shape_flip_edits: HashMap::new(),
+            drawing_shape_fill_edits: HashMap::new(),
+            drawing_shape_line_edits: HashMap::new(),
+            drawing_shape_line_width_edits: HashMap::new(),
+            drawing_shape_line_dash_edits: HashMap::new(),
+            drawing_shape_geometry_edits: HashMap::new(),
             spill_rects: HashMap::new(),
             edit_undo: Vec::new(),
             edit_redo: Vec::new(),
@@ -1608,6 +1876,7 @@ impl Vm {
             last_resolution_failure: None,
             loaded_workbook_name: None,
             loaded_workbook_path: None,
+            workbook_date1904: false,
             external_links_policy: ExternalLinksPolicy::Preserve,
             clipboard: None,
             protected_sheets: HashSet::new(),
@@ -3426,6 +3695,45 @@ impl Vm {
         }
         self.active_sheet = key;
         self.cell_index_dirty = true;
+        Ok(())
+    }
+
+    /// Load worksheet code names from the source OOXML package. The reader's
+    /// cell model intentionally does not expose this VBA-facing metadata, so
+    /// keep it as a small VM-side projection and leave the source XML opaque
+    /// for round-trip preservation.
+    pub(crate) fn load_sheet_code_names(&mut self, path: &str) -> Result<(), String> {
+        self.sheet_code_names.clear();
+        let is_ooxml = std::path::Path::new(path)
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| {
+                value.eq_ignore_ascii_case("xlsx") || value.eq_ignore_ascii_case("xlsm")
+            });
+        if !is_ooxml {
+            return Ok(());
+        }
+        for (sheet, origin) in &self.worksheet_origins {
+            let Some(part) = origin.original_part_name.as_deref() else {
+                continue;
+            };
+            let Some(bytes) = reader::read_raw_zip_entry_if_present(path, part)? else {
+                continue;
+            };
+            let Ok(xml) = std::str::from_utf8(&bytes) else {
+                continue;
+            };
+            let Some(sheet_pr) = reader::extract_raw_element(xml, "sheetPr") else {
+                continue;
+            };
+            let code_name = xml_attr_value(&sheet_pr, "codeName").or_else(|| {
+                reader::extract_raw_element(&sheet_pr, "codeName")
+                    .and_then(|element| xml_attr_value(&element, "val"))
+            });
+            if let Some(code_name) = code_name.filter(|value| !value.is_empty()) {
+                self.sheet_code_names.insert(sheet.clone(), code_name);
+            }
+        }
         Ok(())
     }
 
@@ -5790,7 +6098,10 @@ impl Vm {
             procedure_name: return_name.clone(),
             error_mode: ErrorMode::Disabled,
         });
+        let previous_module_scope = self.current_module_scope.clone();
+        self.current_module_scope = property.module_name.clone();
         let result = self.exec_body(&property.body, |flag| matches!(flag, ExitKind::Function));
+        self.current_module_scope = previous_module_scope;
         self.call_stack.pop();
         self.current_class_instances.pop();
         let value = self
@@ -5852,7 +6163,10 @@ impl Vm {
             procedure_name: return_name.clone(),
             error_mode: ErrorMode::Disabled,
         });
+        let previous_module_scope = self.current_module_scope.clone();
+        self.current_module_scope = property.module_name.clone();
         let result = self.exec_body(&property.body, |flag| matches!(flag, ExitKind::Function));
+        self.current_module_scope = previous_module_scope;
         self.call_stack.pop();
         self.current_class_instances.pop();
         let value = self
@@ -5922,7 +6236,10 @@ impl Vm {
             procedure_name: property.name.clone(),
             error_mode: ErrorMode::Disabled,
         });
+        let previous_module_scope = self.current_module_scope.clone();
+        self.current_module_scope = property.module_name.clone();
         let result = self.exec_body(&property.body, |flag| matches!(flag, ExitKind::Sub));
+        self.current_module_scope = previous_module_scope;
         self.call_stack.pop();
         self.current_class_instances.pop();
         self.restore_runtime_args(saved);
@@ -5979,7 +6296,10 @@ impl Vm {
             procedure_name: property.name.clone(),
             error_mode: ErrorMode::Disabled,
         });
+        let previous_module_scope = self.current_module_scope.clone();
+        self.current_module_scope = property.module_name.clone();
         let result = self.exec_body(&property.body, |flag| matches!(flag, ExitKind::Sub));
+        self.current_module_scope = previous_module_scope;
         self.call_stack.pop();
         self.current_class_instances.pop();
         self.restore_runtime_args(saved);
@@ -6896,6 +7216,7 @@ impl Vm {
             self.row_styles.remove(key);
             self.column_styles.remove(key);
             self.tables.remove(key);
+            self.sheet_code_names.remove(key);
             self.data_validations.remove(key);
             self.conditional_format_ranges.remove(key);
             self.comment_cells.remove(key);
@@ -7029,6 +7350,9 @@ impl Vm {
         if self.active_sheet == old_key {
             self.active_sheet = new_key.clone();
         }
+        if let Some(code_name) = self.sheet_code_names.remove(&old_key) {
+            self.sheet_code_names.insert(new_key.clone(), code_name);
+        }
         // Worksheet and Range objects retain worksheet identity across a tab
         // rename. Their compact representation uses the normalized sheet key,
         // so re-key every live object root alongside the workbook maps.
@@ -7157,6 +7481,1564 @@ impl Vm {
                     .insert(old_key, new_name.to_string());
             }
         }
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart series. This changes only
+    /// the category/value formula elements in the named chart part; chart
+    /// drawing geometry, caches, and relationships remain untouched.
+    pub fn set_chart_series_formulas(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        categories: Option<&str>,
+        values: Option<&str>,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if categories.is_none() && values.is_none() {
+            return Err("at least one chart series formula is required".to_string());
+        }
+        for (kind, formula) in [("categories", categories), ("values", values)] {
+            if let Some(formula) = formula {
+                if formula.is_empty() || formula.len() > 16 * 1024 {
+                    return Err(format!("chart {kind} formula must be 1..=16384 bytes"));
+                }
+                if formula.chars().any(|c| c.is_control()) {
+                    return Err(format!("chart {kind} formula contains a control character"));
+                }
+            }
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.categories = categories.map(ToOwned::to_owned);
+        edit.values = values.map(ToOwned::to_owned);
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart series name formula.
+    pub fn set_chart_series_name_formula(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        name_formula: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if name_formula.is_empty() || name_formula.len() > 16 * 1024 {
+            return Err("chart series name formula must be 1..=16384 bytes".to_string());
+        }
+        if name_formula.chars().any(|c| c.is_control()) {
+            return Err("chart series name formula contains a control character".to_string());
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.name = Some(name_formula.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart series marker symbol.
+    pub fn set_chart_series_marker_symbol(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        symbol: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err(
+                "chart series marker edits require a loaded XLSX/XLSM workbook".to_string(),
+            );
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if !matches!(
+            symbol,
+            "circle"
+                | "dash"
+                | "diamond"
+                | "dot"
+                | "none"
+                | "picture"
+                | "plus"
+                | "square"
+                | "star"
+                | "triangle"
+                | "x"
+        ) {
+            return Err("chart marker symbol is not a supported DrawingML value".to_string());
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.marker_symbol = Some(symbol.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart series marker size.
+    pub fn set_chart_series_marker_size(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        size: u32,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err(
+                "chart series marker edits require a loaded XLSX/XLSM workbook".to_string(),
+            );
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if !(2..=72).contains(&size) {
+            return Err("chart marker size must be in the range 2..=72".to_string());
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.marker_size = Some(size);
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart series smooth flag.
+    pub fn set_chart_series_smooth(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        smooth: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.smooth = Some(smooth);
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart series invert-if-negative flag.
+    pub fn set_chart_series_invert_if_negative(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        enabled: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.invert_if_negative = Some(enabled);
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart series deletion flag.
+    pub fn set_chart_series_deleted(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        deleted: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.deleted = Some(deleted);
+        Ok(())
+    }
+
+    /// Queue a bounded update to the cached category/value points of an
+    /// existing chart series. When the formula reference has no cached value,
+    /// the matching `strCache`/`numCache` element is created; the series
+    /// formula itself is never changed.
+    pub fn set_chart_series_cache(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        categories: Option<Vec<String>>,
+        values: Option<Vec<String>>,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series cache edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if categories.is_none() && values.is_none() {
+            return Err("at least one chart series cache is required".to_string());
+        }
+        for (kind, entries) in [
+            ("category", categories.as_ref()),
+            ("value", values.as_ref()),
+        ] {
+            if let Some(entries) = entries {
+                if entries.len() > 16 * 1024 {
+                    return Err(format!("chart {kind} cache has too many points"));
+                }
+                for entry in entries {
+                    if entry.len() > 16 * 1024 || entry.chars().any(|c| c.is_control()) {
+                        return Err(format!("chart {kind} cache contains an invalid point"));
+                    }
+                    if kind == "value"
+                        && entry
+                            .parse::<f64>()
+                            .map_or(true, |value| !value.is_finite())
+                    {
+                        return Err("chart value cache points must be finite numbers".to_string());
+                    }
+                }
+            }
+        }
+        let edit = self
+            .chart_series_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .entry(series_index)
+            .or_insert_with(|| ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            });
+        edit.category_cache = categories;
+        edit.value_cache = values;
+        Ok(())
+    }
+
+    /// Queue a bounded update to the existing solid RGB line color of one
+    /// chart series. Theme colors, gradients, and missing line properties are
+    /// rejected rather than guessed or synthesized.
+    pub fn set_chart_series_line_color(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        color: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        let color = color.strip_prefix('#').unwrap_or(color);
+        if color.len() != 6 || !color.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("chart series line color must be a 6-digit RGB hex string".to_string());
+        }
+        self.chart_series_line_color_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .insert(series_index, color.to_ascii_uppercase());
+        Ok(())
+    }
+
+    /// Queue a bounded update to the existing solid RGB fill color of one
+    /// chart series. Theme colors, gradients, and missing fill properties are
+    /// rejected rather than guessed or synthesized.
+    pub fn set_chart_series_fill_color(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        color: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart series edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        let color = color.strip_prefix('#').unwrap_or(color);
+        if color.len() != 6 || !color.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("chart series fill color must be a 6-digit RGB hex string".to_string());
+        }
+        self.chart_series_fill_color_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .insert(series_index, color.to_ascii_uppercase());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first text run in an existing chart title.
+    /// The chart XML outside that title text, including drawing geometry and
+    /// relationships, remains opaque and is preserved.
+    pub fn set_chart_title(&mut self, chart_part: &str, text: &str) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart title edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if text.len() > 16 * 1024 {
+            return Err("chart title must be at most 16384 bytes".to_string());
+        }
+        if text.chars().any(|c| c.is_control()) {
+            return Err("chart title contains a control character".to_string());
+        }
+        self.chart_title_edits.insert(
+            chart_part.to_string(),
+            ChartTitleEdit {
+                text: text.to_string(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing chart legend position.
+    pub fn set_chart_legend_position(
+        &mut self,
+        chart_part: &str,
+        position: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err(
+                "chart legend position edits require a loaded XLSX/XLSM workbook".to_string(),
+            );
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if !matches!(position, "b" | "tr" | "r" | "l" | "t") {
+            return Err("chart legend position must be one of b, tr, r, l, t".to_string());
+        }
+        self.chart_legend_position_edits.insert(
+            chart_part.to_string(),
+            ChartLegendPositionEdit {
+                position: position.to_string(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart style. Excel chart styles are
+    /// numbered 1 through 48; this does not alter chart series or theme data.
+    pub fn set_chart_style(&mut self, chart_part: &str, style: u32) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart style edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if !(1..=48).contains(&style) {
+            return Err("chart style must be in the range 1..=48".to_string());
+        }
+        self.chart_style_edits
+            .insert(chart_part.to_string(), ChartStyleEdit { style });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing chart-axis title. The axis index is
+    /// zero-based in document order across cat/val/date/ser axes.
+    pub fn set_chart_axis_title(
+        &mut self,
+        chart_part: &str,
+        axis_index: usize,
+        text: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart axis title edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if text.len() > 16 * 1024 || text.chars().any(|c| c.is_control()) {
+            return Err(
+                "chart axis title must be at most 16KiB and contain no control characters"
+                    .to_string(),
+            );
+        }
+        self.chart_axis_title_edits
+            .entry(chart_part.to_string())
+            .or_default()
+            .insert(axis_index, text.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the chart legend overlay flag.
+    pub fn set_chart_legend_overlay(
+        &mut self,
+        chart_part: &str,
+        overlay: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err(
+                "chart legend overlay edits require a loaded XLSX/XLSM workbook".to_string(),
+            );
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_legend_overlay_edits
+            .insert(chart_part.to_string(), ChartLegendOverlayEdit { overlay });
+        Ok(())
+    }
+
+    /// Queue an edit to the first existing chart data-labels `showVal` flag.
+    pub fn set_chart_data_labels_show_value(
+        &mut self,
+        chart_part: &str,
+        show_value: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.show_value = Some(show_value))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: Some(show_value),
+                show_category: None,
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: None,
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-labels `showCat` flag.
+    pub fn set_chart_data_labels_show_category(
+        &mut self,
+        chart_part: &str,
+        show_category: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.show_category = Some(show_category))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: Some(show_category),
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: None,
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-labels `showPercent` flag.
+    pub fn set_chart_data_labels_show_percent(
+        &mut self,
+        chart_part: &str,
+        show_percent: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.show_percent = Some(show_percent))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: None,
+                show_percent: Some(show_percent),
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: None,
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-labels `showSerName` flag.
+    pub fn set_chart_data_labels_show_series_name(
+        &mut self,
+        chart_part: &str,
+        show_series_name: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.show_series_name = Some(show_series_name))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: Some(show_series_name),
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: None,
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-labels `showLeaderLines` flag.
+    pub fn set_chart_data_labels_show_leader_lines(
+        &mut self,
+        chart_part: &str,
+        show_leader_lines: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.show_leader_lines = Some(show_leader_lines))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: Some(show_leader_lines),
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: None,
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-labels `showBubbleSize` flag.
+    pub fn set_chart_data_labels_show_bubble_size(
+        &mut self,
+        chart_part: &str,
+        show_bubble_size: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.show_bubble_size = Some(show_bubble_size))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: Some(show_bubble_size),
+                show_legend_key: None,
+                position: None,
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-labels `showLegendKey` flag.
+    pub fn set_chart_data_labels_show_legend_key(
+        &mut self,
+        chart_part: &str,
+        show_legend_key: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.show_legend_key = Some(show_legend_key))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: Some(show_legend_key),
+                position: None,
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-label position.
+    /// Only the OOXML-defined position vocabulary is accepted.
+    pub fn set_chart_data_labels_position(
+        &mut self,
+        chart_part: &str,
+        position: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        let position = position.trim().to_string();
+        if !matches!(
+            position.as_str(),
+            "bestFit" | "b" | "ctr" | "inBase" | "inEnd" | "l" | "outEnd" | "r" | "t"
+        ) {
+            return Err(
+                "chart data-label position must be one of bestFit, b, ctr, inBase, inEnd, l, outEnd, r, t"
+                    .to_string(),
+            );
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.position = Some(position.clone()))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: Some(position),
+                number_format: None,
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-label number format.
+    pub fn set_chart_data_labels_number_format(
+        &mut self,
+        chart_part: &str,
+        number_format: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        let number_format = number_format.trim().to_string();
+        if number_format.is_empty()
+            || number_format.len() > 4096
+            || number_format.chars().any(|c| c.is_control())
+        {
+            return Err(
+                "chart data-label number format must be 1..=4096 bytes without control characters"
+                    .to_string(),
+            );
+        }
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.number_format = Some(number_format.clone()))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: None,
+                number_format: Some(number_format),
+                separator: None,
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first chart data-label separator.
+    pub fn set_chart_data_labels_separator(
+        &mut self,
+        chart_part: &str,
+        separator: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("chart data-label edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(chart_part.starts_with("xl/charts/") && chart_part.ends_with(".xml")) {
+            return Err("chart_part must be an xl/charts/*.xml path".to_string());
+        }
+        if separator.is_empty()
+            || separator.len() > 1024
+            || separator.chars().any(|c| c.is_control())
+        {
+            return Err(
+                "chart data-label separator must be 1..=1024 bytes without control characters"
+                    .to_string(),
+            );
+        }
+        let separator = separator.to_string();
+        self.chart_data_labels_edits
+            .entry(chart_part.to_string())
+            .and_modify(|edit| edit.separator = Some(separator.clone()))
+            .or_insert(ChartDataLabelsEdit {
+                show_value: None,
+                show_category: None,
+                show_series_name: None,
+                show_percent: None,
+                show_leader_lines: None,
+                show_bubble_size: None,
+                show_legend_key: None,
+                position: None,
+                number_format: None,
+                separator: Some(separator),
+            });
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing worksheet-backed Pivot cache source.
+    /// The cache records and PivotTable layout are intentionally left opaque.
+    pub fn set_pivot_worksheet_source(
+        &mut self,
+        cache_part: &str,
+        sheet: Option<&str>,
+        reference: Option<&str>,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("Pivot source edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(cache_part.starts_with("xl/pivotCache/") && cache_part.ends_with(".xml")) {
+            return Err("cache_part must be an xl/pivotCache/*.xml path".to_string());
+        }
+        if sheet.is_none() && reference.is_none() {
+            return Err("at least one Pivot worksheet source field is required".to_string());
+        }
+        if let Some(sheet) = sheet {
+            if sheet.trim().is_empty() || sheet.len() > 31 {
+                return Err("Pivot worksheet source sheet must be 1..=31 bytes".to_string());
+            }
+            if sheet.chars().any(|c| c.is_control()) {
+                return Err("Pivot worksheet source sheet contains a control character".to_string());
+            }
+            if !self.sheets.contains_key(&sheet.to_lowercase()) {
+                return Err(format!(
+                    "Pivot worksheet source sheet '{}' not found",
+                    sheet
+                ));
+            }
+        }
+        if let Some(reference) = reference
+            && (reference.is_empty()
+                || reference.len() > 16 * 1024
+                || reference.chars().any(|c| c.is_control())
+                || parse_range_addr(reference).is_none())
+        {
+            return Err("Pivot worksheet source ref must be a valid A1 range".to_string());
+        }
+        self.pivot_source_edits.insert(
+            cache_part.to_string(),
+            PivotWorksheetSourceEdit {
+                sheet: sheet.map(ToOwned::to_owned),
+                reference: reference.map(ToOwned::to_owned),
+                refresh_on_load: None,
+                field_captions: HashMap::new(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the existing Pivot cache refresh policy.
+    /// This only changes the OOXML `refreshOnLoad` flag; it never fetches an
+    /// external source or recalculates cache records in the headless runtime.
+    pub fn set_pivot_cache_refresh_on_load(
+        &mut self,
+        cache_part: &str,
+        enabled: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("Pivot cache edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(cache_part.starts_with("xl/pivotCache/") && cache_part.ends_with(".xml")) {
+            return Err("cache_part must be an xl/pivotCache/*.xml path".to_string());
+        }
+        let edit = self
+            .pivot_source_edits
+            .entry(cache_part.to_string())
+            .or_insert_with(|| PivotWorksheetSourceEdit {
+                sheet: None,
+                reference: None,
+                refresh_on_load: None,
+                field_captions: HashMap::new(),
+            });
+        edit.refresh_on_load = Some(enabled);
+        Ok(())
+    }
+
+    /// Queue a bounded update to one existing Pivot cache field caption.
+    /// Records and PivotTable layout are left unchanged.
+    pub fn set_pivot_cache_field_caption(
+        &mut self,
+        cache_part: &str,
+        field_index: usize,
+        caption: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("Pivot cache edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(cache_part.starts_with("xl/pivotCache/") && cache_part.ends_with(".xml")) {
+            return Err("cache_part must be an xl/pivotCache/*.xml path".to_string());
+        }
+        if caption.is_empty()
+            || caption.len() > 16 * 1024
+            || caption.chars().any(|c| c.is_control())
+        {
+            return Err(
+                "Pivot cache field caption must be 1..=16KiB and contain no control characters"
+                    .to_string(),
+            );
+        }
+        let edit = self
+            .pivot_source_edits
+            .entry(cache_part.to_string())
+            .or_insert_with(|| PivotWorksheetSourceEdit {
+                sheet: None,
+                reference: None,
+                refresh_on_load: None,
+                field_captions: HashMap::new(),
+            });
+        edit.field_captions.insert(field_index, caption.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing two-cell drawing anchor. Cell
+    /// coordinates are 1-based, matching the rest of the public worksheet
+    /// API. One-cell anchors and unsupported drawing shapes are rejected at
+    /// save time rather than silently changing a different geometry model.
+    pub fn set_drawing_anchor(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        from_row: u32,
+        from_col: u32,
+        to_row: u32,
+        to_col: u32,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing anchor edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if from_row == 0 || from_col == 0 || to_row == 0 || to_col == 0 {
+            return Err("drawing anchor cells must be 1-based and non-zero".to_string());
+        }
+        if to_row < from_row || to_col < from_col {
+            return Err("drawing anchor end cell must not precede start cell".to_string());
+        }
+        self.drawing_anchor_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(
+                anchor_index,
+                DrawingAnchorEdit {
+                    from_row,
+                    from_col,
+                    to_row,
+                    to_col,
+                },
+            );
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the non-visual shape name of an existing
+    /// drawing anchor. Geometry, shape content, and relationships remain
+    /// unchanged.
+    pub fn set_drawing_shape_name(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        name: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if name.is_empty() || name.len() > 16 * 1024 || name.chars().any(|c| c.is_control()) {
+            return Err(
+                "drawing shape name must be 1..=16KiB and contain no control characters"
+                    .to_string(),
+            );
+        }
+        self.drawing_shape_name_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, name.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing drawing anchor's alternative-text
+    /// description. Geometry, shape content, and relationships remain
+    /// unchanged.
+    pub fn set_drawing_shape_description(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        description: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if description.len() > 16 * 1024 || description.chars().any(|c| c.is_control()) {
+            return Err(
+                "drawing shape description must be at most 16KiB and contain no control characters"
+                    .to_string(),
+            );
+        }
+        self.drawing_shape_description_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, description.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing drawing anchor's title metadata.
+    pub fn set_drawing_shape_title(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        title: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if title.len() > 16 * 1024 || title.chars().any(|c| c.is_control()) {
+            return Err(
+                "drawing shape title must be at most 16KiB and contain no control characters"
+                    .to_string(),
+            );
+        }
+        self.drawing_shape_title_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, title.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to the first text run of an existing drawing
+    /// shape. The text body and its surrounding DrawingML are preserved; a
+    /// missing text run is rejected rather than guessed into existence.
+    pub fn set_drawing_shape_text(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        text: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if text.len() > 16 * 1024 || text.chars().any(|c| c.is_control()) {
+            return Err(
+                "drawing shape text must be at most 16KiB and contain no control characters"
+                    .to_string(),
+            );
+        }
+        self.drawing_shape_text_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, text.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing DrawingML text run in a shape.
+    /// The run index is zero-based within the selected anchor and missing
+    /// runs are rejected by the save-time XML rewriter rather than guessed.
+    pub fn set_drawing_shape_text_run(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        run_index: usize,
+        text: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if text.len() > 16 * 1024 || text.chars().any(|c| c.is_control()) {
+            return Err(
+                "drawing shape text must be at most 16KiB and contain no control characters"
+                    .to_string(),
+            );
+        }
+        self.drawing_shape_text_run_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert((anchor_index, run_index), text.to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded edit to an existing drawing anchor's hidden metadata.
+    pub fn set_drawing_shape_hidden(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        hidden: bool,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        self.drawing_shape_hidden_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, hidden);
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing drawing shape's rotation.
+    /// Rotation is expressed in integer degrees in the inclusive range
+    /// `0..=359`; the writer converts it to DrawingML's 1/60000-degree unit.
+    /// Only an existing `<a:xfrm rot=...>` is changed, so geometry is never
+    /// guessed or synthesized.
+    pub fn set_drawing_shape_rotation(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        degrees: i32,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if !(0..=359).contains(&degrees) {
+            return Err("drawing shape rotation must be an integer in 0..=359 degrees".to_string());
+        }
+        self.drawing_shape_rotation_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, degrees);
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing drawing shape's horizontal or
+    /// vertical flip state. At least one component must be supplied.
+    pub fn set_drawing_shape_flip(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        flip_horizontal: Option<bool>,
+        flip_vertical: Option<bool>,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if flip_horizontal.is_none() && flip_vertical.is_none() {
+            return Err("at least one drawing shape flip value is required".to_string());
+        }
+        self.drawing_shape_flip_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, (flip_horizontal, flip_vertical));
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing drawing shape's solid RGB fill.
+    /// The accepted value is six-digit RGB or eight-digit ARGB hex.
+    pub fn set_drawing_shape_fill(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        color: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        let color = color.strip_prefix('#').unwrap_or(color);
+        if !(color.len() == 6 || color.len() == 8)
+            || !color.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err(
+                "drawing shape fill must be a 6-digit RGB or 8-digit ARGB hex string".to_string(),
+            );
+        }
+        let color = if color.len() == 6 {
+            format!("FF{color}")
+        } else {
+            color.to_ascii_uppercase()
+        };
+        self.drawing_shape_fill_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, color);
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing drawing shape's line solid RGB
+    /// color. The shape must already contain an `<a:ln>` and solid fill.
+    pub fn set_drawing_shape_line_color(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        color: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        let color = color.strip_prefix('#').unwrap_or(color);
+        if !(color.len() == 6 || color.len() == 8)
+            || !color.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err(
+                "drawing shape line color must be a 6-digit RGB or 8-digit ARGB hex string"
+                    .to_string(),
+            );
+        }
+        let color = if color.len() == 6 {
+            format!("FF{color}")
+        } else {
+            color.to_ascii_uppercase()
+        };
+        self.drawing_shape_line_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, color);
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing drawing shape's line width in
+    /// points. The accepted range is 0 through 1584 points.
+    pub fn set_drawing_shape_line_width(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        width_points: f64,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        if !width_points.is_finite() || !(0.0..=1584.0).contains(&width_points) {
+            return Err(
+                "drawing shape line width must be finite and in 0..=1584 points".to_string(),
+            );
+        }
+        let width_emu = (width_points * 12_700.0).round() as u32;
+        self.drawing_shape_line_width_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, width_emu);
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing drawing shape's preset line dash.
+    /// Only DrawingML `ST_PresetLineDashVal` values are accepted.
+    pub fn set_drawing_shape_line_dash(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        dash: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        let dash = dash.trim();
+        const ALLOWED: &[&str] = &[
+            "solid",
+            "dot",
+            "dash",
+            "lgDash",
+            "dashDot",
+            "lgDashDot",
+            "lgDashDotDot",
+            "sysDash",
+            "sysDot",
+            "sysDashDot",
+            "sysDashDotDot",
+        ];
+        let Some(value) = ALLOWED
+            .iter()
+            .find(|candidate| candidate.eq_ignore_ascii_case(dash))
+        else {
+            return Err("drawing shape line dash is not a valid DrawingML preset dash".to_string());
+        };
+        self.drawing_shape_line_dash_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, (*value).to_string());
+        Ok(())
+    }
+
+    /// Queue a bounded update to an existing DrawingML preset geometry.
+    /// Custom geometry and absent `<a:prstGeom>` elements are rejected.
+    pub fn set_drawing_shape_geometry(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        preset: &str,
+    ) -> Result<(), String> {
+        if self.loaded_workbook_path.is_none() {
+            return Err("drawing shape edits require a loaded XLSX/XLSM workbook".to_string());
+        }
+        if !(drawing_part.starts_with("xl/drawings/") && drawing_part.ends_with(".xml"))
+            || drawing_part.contains("/_rels/")
+        {
+            return Err("drawing_part must be an xl/drawings/*.xml path".to_string());
+        }
+        let preset = preset.trim();
+        const ALLOWED: &[&str] = &[
+            "accentBorderCallout1",
+            "accentBorderCallout2",
+            "accentBorderCallout3",
+            "accentCallout1",
+            "accentCallout2",
+            "accentCallout3",
+            "actionButtonBackPrevious",
+            "actionButtonBeginning",
+            "actionButtonBlank",
+            "actionButtonDocument",
+            "actionButtonEnd",
+            "actionButtonForwardNext",
+            "actionButtonHelp",
+            "actionButtonHome",
+            "actionButtonInformation",
+            "actionButtonMovie",
+            "actionButtonReturn",
+            "actionButtonSound",
+            "arc",
+            "bevel",
+            "blockArc",
+            "bracePair",
+            "bracketPair",
+            "can",
+            "chartPlus",
+            "chartStar",
+            "chartX",
+            "chevron",
+            "chord",
+            "cloud",
+            "cloudCallout",
+            "corner",
+            "cornerTabs",
+            "cube",
+            "curvedDownArrow",
+            "curvedLeftArrow",
+            "curvedRightArrow",
+            "curvedUpArrow",
+            "decagon",
+            "diagStripe",
+            "diamond",
+            "donut",
+            "doubleWave",
+            "downArrow",
+            "downArrowCallout",
+            "ellipse",
+            "ellipseRibbon",
+            "ellipseRibbon2",
+            "flowChartAlternateProcess",
+            "flowChartDecision",
+            "flowChartDocument",
+            "flowChartInputOutput",
+            "flowChartMagneticDisk",
+            "flowChartMultidocument",
+            "flowChartOffpageConnector",
+            "flowChartOnlineStorage",
+            "flowChartPredefinedProcess",
+            "flowChartPreparation",
+            "flowChartProcess",
+            "flowChartPunchedCard",
+            "flowChartPunchedTape",
+            "flowChartSort",
+            "flowChartSummingJunction",
+            "flowChartTerminator",
+            "foldedCorner",
+            "frame",
+            "funnel",
+            "gear6",
+            "gear9",
+            "halfFrame",
+            "heart",
+            "heptagon",
+            "hexagon",
+            "homePlate",
+            "horizontalScroll",
+            "irregularSeal1",
+            "irregularSeal2",
+            "leftArrow",
+            "leftArrowCallout",
+            "leftBrace",
+            "leftBracket",
+            "leftRightArrow",
+            "leftRightArrowCallout",
+            "leftRightUpArrow",
+            "leftUpArrow",
+            "lightningBolt",
+            "line",
+            "lineInv",
+            "mathDivide",
+            "mathEqual",
+            "mathMinus",
+            "mathMultiply",
+            "mathNotEqual",
+            "mathPlus",
+            "moon",
+            "nonIsoscelesTrapezoid",
+            "notchedRightArrow",
+            "noSmoking",
+            "octagon",
+            "parallelogram",
+            "pentagon",
+            "pie",
+            "pieWedge",
+            "plaque",
+            "plus",
+            "quadArrow",
+            "quadArrowCallout",
+            "rect",
+            "ribbon",
+            "ribbon2",
+            "rightArrow",
+            "rightArrowCallout",
+            "rightBrace",
+            "rightBracket",
+            "rightTriangle",
+            "round1Rect",
+            "round2DiagRect",
+            "round2SameRect",
+            "roundRect",
+            "rtTriangle",
+            "snip1Rect",
+            "snip2DiagRect",
+            "snip2SameRect",
+            "snipRoundRect",
+            "squareTabs",
+            "star10",
+            "star12",
+            "star16",
+            "star24",
+            "star32",
+            "star4",
+            "star5",
+            "star6",
+            "star7",
+            "star8",
+            "stripedRightArrow",
+            "sun",
+            "swooshArrow",
+            "teardrop",
+            "trapezoid",
+            "triangle",
+            "upArrow",
+            "upArrowCallout",
+            "upDownArrow",
+            "upDownArrowCallout",
+            "uturnArrow",
+            "verticalScroll",
+            "wave",
+            "wedgeEllipseCallout",
+            "wedgeRectCallout",
+            "wedgeRoundRectCallout",
+            "whisker",
+            "wedgeRoundRectCallout",
+        ];
+        let Some(value) = ALLOWED
+            .iter()
+            .find(|candidate| candidate.eq_ignore_ascii_case(preset))
+        else {
+            return Err("drawing shape geometry is not a supported preset".to_string());
+        };
+        self.drawing_shape_geometry_edits
+            .entry(drawing_part.to_string())
+            .or_default()
+            .insert(anchor_index, (*value).to_string());
         Ok(())
     }
 
@@ -7553,6 +9435,42 @@ impl Vm {
                 let reference = self
                     .object_target_ref(target)?
                     .ok_or_else(|| format!("Object method '{}' requires an object", method))?;
+                if let ObjectRef::Worksheet(key) = &reference {
+                    return match method.as_str() {
+                        "range" => match args.as_slice() {
+                            [Expr::Str(addr)] => {
+                                let areas = parse_multi_area_addr(addr).ok_or_else(|| {
+                                    format!("Worksheet.Range: invalid address '{}'", addr)
+                                })?;
+                                Ok(ObjectRef::Range(RangeRef {
+                                    sheet: key.clone(),
+                                    areas,
+                                }))
+                            }
+                            _ => Err("Worksheet.Range requires one string address".to_string()),
+                        },
+                        "cells" | "item" => match args.as_slice() {
+                            [row, col] => {
+                                let row = to_cell_index(self.eval_expr(row)?, "row")?;
+                                let col = to_cell_index(self.eval_expr(col)?, "col")?;
+                                Ok(ObjectRef::Range(RangeRef::single(
+                                    key.clone(),
+                                    Rect {
+                                        start_row: row,
+                                        start_col: col,
+                                        end_row: row,
+                                        end_col: col,
+                                    },
+                                )))
+                            }
+                            _ => Err(format!("Worksheet.{} requires row and column", method)),
+                        },
+                        _ => Err(format!(
+                            "Worksheet method '{}' does not return an object",
+                            method
+                        )),
+                    };
+                }
                 if let ObjectRef::Range(range) = reference {
                     return match method.as_str() {
                         "cells" | "item" => {
@@ -7880,6 +9798,7 @@ impl Vm {
             let prev = self.active_sheet.clone();
             self.active_sheet = r.sheet.clone();
             self.cell_index_dirty = true;
+            self.auto_event_suppression_depth += 1;
             let result = (|| -> Result<(), String> {
                 for row in area.start_row..=area.end_row {
                     for col in area.start_col..=area.end_col {
@@ -7888,28 +9807,14 @@ impl Vm {
                 }
                 Ok(())
             })();
+            self.auto_event_suppression_depth -= 1;
+            let notify = result
+                .and_then(|()| self.dispatch_worksheet_change_after_range_write(&r.sheet, area));
             self.active_sheet = prev;
             self.cell_index_dirty = true;
-            result
+            notify
         } else {
-            if let Some(cells) = self.sheets.get_mut(&r.sheet) {
-                self.cell_tile_cache
-                    .lock()
-                    .expect("cell tile cache mutex poisoned")
-                    .remove(&r.sheet);
-                for row in area.start_row..=area.end_row {
-                    for col in area.start_col..=area.end_col {
-                        cells.insert(
-                            (row, col),
-                            CellContent {
-                                formula: None,
-                                value: v.clone(),
-                            },
-                        );
-                    }
-                }
-            }
-            self.cell_index_dirty = true;
+            self.set_scalar_range_on_sheet(&r.sheet, area, v)?;
             Ok(())
         }
     }
@@ -8428,9 +10333,23 @@ impl Vm {
         if sheets.is_empty() {
             return Err("workbook has no sheets".to_string());
         }
+        self.workbook_date1904 = reader::xlsx_date1904_for_path(path)
+            .map_err(|error| format!("cannot read '{}': {}", path, error))?;
         let names = self.populate_from_sheets(sheets);
+        self.load_sheet_code_names(path)?;
         self.load_simple_defined_names(path)?;
         Ok(names)
+    }
+
+    /// Whether the loaded workbook declares Excel's 1904 date system.
+    /// `false` is the default for new VMs and 1900-system workbooks.
+    pub fn workbook_date1904(&self) -> bool {
+        self.workbook_date1904
+    }
+
+    #[cfg_attr(not(feature = "python"), allow(dead_code))]
+    pub(crate) fn set_workbook_date1904(&mut self, value: bool) {
+        self.workbook_date1904 = value;
     }
 
     /// Import the deliberately small, address-only subset of OOXML defined
@@ -8721,6 +10640,342 @@ impl Vm {
         self.current_span
     }
 
+    /// Drain the structured category for the most recent uncaught execution
+    /// failure. The plain `String` returned by `run_sub` remains unchanged.
+    pub fn take_runtime_failure(&mut self) -> Option<RuntimeFailureKind> {
+        self.last_runtime_failure.take()
+    }
+
+    /// Set the VBA-compatible event switch. Event handlers are opt-in in the
+    /// headless runtime and are not inferred from cell mutations.
+    pub fn set_enable_events(&mut self, enabled: bool) {
+        self.enable_events = enabled;
+    }
+
+    /// Return the current VBA-compatible event switch.
+    pub fn enable_events(&self) -> bool {
+        self.enable_events
+    }
+
+    /// Dispatch one explicitly requested, zero-argument event procedure.
+    ///
+    /// Returns `true` when the handler ran and `false` when events are
+    /// disabled or a handler is already running (re-entry suppression). The
+    /// handler name is resolved case-insensitively by `run_sub`; automatic
+    /// Workbook/Worksheet event discovery and `Target` argument binding are
+    /// intentionally outside this first bounded event slice.
+    pub fn run_event(&mut self, program: &Program, event_name: &str) -> Result<bool, String> {
+        if !self.enable_events || self.event_dispatch_depth != 0 {
+            return Ok(false);
+        }
+        let name = event_name.trim();
+        if name.is_empty() {
+            return Err("event name cannot be empty".to_string());
+        }
+        let normalized = name.to_lowercase();
+        if !matches!(
+            normalized.as_str(),
+            "workbook_open"
+                | "workbook_beforeclose"
+                | "worksheet_change"
+                | "worksheet_calculate"
+                | "worksheet_selectionchange"
+        ) {
+            return Err(format!(
+                "unsupported event '{}': explicit event dispatch supports Workbook_Open, Workbook_BeforeClose, Worksheet_Change, Worksheet_Calculate, and Worksheet_SelectionChange",
+                event_name
+            ));
+        }
+        let matching: Vec<_> = program
+            .subs
+            .iter()
+            .filter(|sub| sub.name.eq_ignore_ascii_case(&normalized))
+            .collect();
+        if matching.len() > 1 {
+            return Err(format!(
+                "duplicate event '{}' in one module — dispatch order is ambiguous",
+                event_name
+            ));
+        }
+        let sub = matching
+            .first()
+            .ok_or_else(|| format!("event '{}' not found", event_name))?;
+        if !sub.params.is_empty() {
+            return Err(format!(
+                "event '{}' requires arguments; Target binding is not implemented",
+                event_name
+            ));
+        }
+        self.event_dispatch_depth = 1;
+        let result = self.run_sub(program, &normalized);
+        self.event_dispatch_depth = 0;
+        result.map(|()| true)
+    }
+
+    /// Dispatch `Worksheet_Change(Target)` with an explicitly supplied A1
+    /// target range on the active sheet. The handler must have exactly one
+    /// `As Range` parameter; the binding is temporary and restored afterward.
+    /// This is explicit only: ordinary cell writes do not trigger it.
+    pub fn run_worksheet_change(
+        &mut self,
+        program: &Program,
+        target_address: &str,
+    ) -> Result<bool, String> {
+        if !self.enable_events || self.event_dispatch_depth != 0 {
+            return Ok(false);
+        }
+        let matching: Vec<_> = program
+            .subs
+            .iter()
+            .filter(|sub| sub.name.eq_ignore_ascii_case("worksheet_change"))
+            .collect();
+        if matching.len() > 1 {
+            return Err(
+                "duplicate event 'Worksheet_Change' in one module — dispatch order is ambiguous"
+                    .to_string(),
+            );
+        }
+        let sub = matching
+            .first()
+            .ok_or_else(|| "event 'Worksheet_Change' not found".to_string())?;
+        if sub.params.len() != 1
+            || sub.param_types.first().and_then(Option::as_deref) != Some("range")
+        {
+            return Err(
+                "event 'Worksheet_Change' requires exactly one parameter declared As Range"
+                    .to_string(),
+            );
+        }
+        let ((start_row, start_col), (end_row, end_col)) = self
+            .resolve_range_addr(target_address)
+            .filter(|&((start_row, start_col), (end_row, end_col))| {
+                start_row > 0 && start_col > 0 && end_row >= start_row && end_col >= start_col
+            })
+            .ok_or_else(|| format!("Worksheet_Change: invalid target range '{target_address}'"))?;
+        let target_name = sub.params[0].clone();
+        let old_target = self.object_variables.insert(
+            target_name.clone(),
+            ObjectRef::Range(RangeRef::single(
+                self.active_sheet.clone(),
+                Rect {
+                    start_row,
+                    start_col,
+                    end_row,
+                    end_col,
+                },
+            )),
+        );
+        let old_type = self
+            .object_variable_types
+            .insert(target_name.clone(), "range".to_string());
+        self.event_dispatch_depth = 1;
+        let result = self.run_sub(program, "Worksheet_Change");
+        self.event_dispatch_depth = 0;
+        match old_target {
+            Some(value) => {
+                self.object_variables.insert(target_name.clone(), value);
+            }
+            None => {
+                self.object_variables.remove(&target_name);
+            }
+        }
+        match old_type {
+            Some(value) => {
+                self.object_variable_types.insert(target_name, value);
+            }
+            None => {
+                self.object_variable_types.remove(&target_name);
+            }
+        }
+        let mut result = result.map(|()| true);
+        if result.is_err() {
+            self.pending_worksheet_changes.clear();
+        } else if self.event_dispatch_depth == 0 {
+            while let Some(area) = self.pending_worksheet_changes.pop_front() {
+                if self.automatic_event_chain_count >= MAX_AUTOMATIC_WORKSHEET_CHANGES {
+                    result = Err(format!(
+                        "Worksheet_Change event chain exceeded {} dispatches",
+                        MAX_AUTOMATIC_WORKSHEET_CHANGES
+                    ));
+                    self.pending_worksheet_changes.clear();
+                    break;
+                }
+                self.automatic_event_chain_count += 1;
+                let target_address = format!(
+                    "{}{}:{}{}",
+                    column_letters(area.start_col),
+                    area.start_row,
+                    column_letters(area.end_col),
+                    area.end_row
+                );
+                if let Err(error) = self.run_worksheet_change(program, &target_address) {
+                    result = Err(error);
+                    self.pending_worksheet_changes.clear();
+                    break;
+                }
+            }
+        }
+        result
+    }
+
+    fn dispatch_worksheet_change_after_range_write(
+        &mut self,
+        sheet: &str,
+        area: Rect,
+    ) -> Result<(), String> {
+        let has_handler = self.auto_event_program.as_ref().is_some_and(|program| {
+            program
+                .subs
+                .iter()
+                .any(|sub| sub.name.eq_ignore_ascii_case("worksheet_change"))
+        });
+        if self.auto_event_suppression_depth != 0
+            || !self.enable_events
+            || sheet != self.active_sheet
+            || !has_handler
+        {
+            return Ok(());
+        }
+        if self.event_dispatch_depth != 0 {
+            if self.pending_worksheet_changes.len() >= MAX_AUTOMATIC_WORKSHEET_CHANGES {
+                return Err(format!(
+                    "Worksheet_Change event chain exceeded {} queued changes",
+                    MAX_AUTOMATIC_WORKSHEET_CHANGES
+                ));
+            }
+            self.pending_worksheet_changes.push_back(area);
+            return Ok(());
+        }
+        let program = self
+            .auto_event_program
+            .as_ref()
+            .expect("worksheet handler was checked above")
+            .clone();
+        let target_address = format!(
+            "{}{}:{}{}",
+            column_letters(area.start_col),
+            area.start_row,
+            column_letters(area.end_col),
+            area.end_row
+        );
+        let outer_chain = !self.automatic_event_chain_active;
+        if outer_chain {
+            self.automatic_event_chain_active = true;
+            self.automatic_event_chain_count = 1;
+        }
+        let result = self
+            .run_worksheet_change(&program, &target_address)
+            .map(|_| ());
+        if outer_chain {
+            self.automatic_event_chain_active = false;
+            self.pending_worksheet_changes.clear();
+        }
+        result
+    }
+
+    /// Run an entrypoint with an opt-in `Workbook_Open` dispatch first.
+    ///
+    /// The ordinary `run_sub` contract remains event-free for compatibility.
+    /// If the program contains `Workbook_Open`, this method runs it only when
+    /// events are enabled, then runs `sub_name`; an event failure prevents the
+    /// main entrypoint from running.
+    pub fn run_sub_with_events(&mut self, program: &Program, sub_name: &str) -> Result<(), String> {
+        let previous = self.auto_event_program.replace(program.clone());
+        let result = (|| {
+            if program
+                .subs
+                .iter()
+                .any(|sub| sub.name.eq_ignore_ascii_case("workbook_open"))
+            {
+                self.run_event(program, "Workbook_Open")?;
+            }
+            self.run_sub(program, sub_name)
+        })();
+        self.auto_event_program = previous;
+        result
+    }
+
+    /// Run a multi-module entrypoint with an opt-in, uniquely resolved
+    /// `Workbook_Open` dispatch first. Class modules are not workbook event
+    /// owners here. Multiple standard-module handlers are rejected rather
+    /// than resolved by source traversal order.
+    pub fn run_sub_multi_with_events(
+        &mut self,
+        modules: &[(String, Program)],
+        entrypoint: &str,
+    ) -> Result<(), String> {
+        let open_handlers: Vec<_> = modules
+            .iter()
+            .filter(|(_, program)| !program.is_class_module)
+            .filter(|(_, program)| {
+                program
+                    .subs
+                    .iter()
+                    .any(|sub| sub.name.eq_ignore_ascii_case("workbook_open"))
+            })
+            .collect();
+        if open_handlers.len() > 1 {
+            return Err(format!(
+                "duplicate Workbook_Open across modules '{}' — event dispatch order is ambiguous",
+                open_handlers
+                    .iter()
+                    .map(|(name, _)| name.as_str())
+                    .collect::<Vec<_>>()
+                    .join("', '")
+            ));
+        }
+        let change_handlers: Vec<_> = modules
+            .iter()
+            .filter(|(_, program)| !program.is_class_module)
+            .filter(|(_, program)| {
+                program
+                    .subs
+                    .iter()
+                    .any(|sub| sub.name.eq_ignore_ascii_case("worksheet_change"))
+            })
+            .collect();
+        let selected_change_handler = match change_handlers.as_slice() {
+            [] => None,
+            [handler] => Some(*handler),
+            _ => {
+                let worksheet_handlers: Vec<_> = change_handlers
+                    .iter()
+                    .filter(|(name, _)| {
+                        name.eq_ignore_ascii_case(&self.active_sheet)
+                            || self
+                                .sheet_code_names
+                                .get(&self.active_sheet)
+                                .is_some_and(|code_name| name.eq_ignore_ascii_case(code_name))
+                    })
+                    .collect();
+                if worksheet_handlers.len() == 1 {
+                    Some(*worksheet_handlers[0])
+                } else {
+                    return Err(format!(
+                        "duplicate Worksheet_Change across modules '{}' — event dispatch order is ambiguous",
+                        change_handlers
+                            .iter()
+                            .map(|(name, _)| name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("', '")
+                    ));
+                }
+            }
+        };
+        let previous = self.auto_event_program.take();
+        if let Some((_, program)) = selected_change_handler {
+            self.auto_event_program = Some(program.clone());
+        }
+        let result = (|| {
+            if let Some((_, program)) = open_handlers.first() {
+                self.run_event(program, "Workbook_Open")?;
+            }
+            self.run_sub_multi_impl(modules, entrypoint, true)
+        })();
+        self.auto_event_program = previous;
+        result
+    }
+
     pub fn run_sub(&mut self, program: &Program, sub_name: &str) -> Result<(), String> {
         self.next_append_rows.clear();
         // Each run starts with a clean message log — otherwise a Vm reused
@@ -8728,6 +10983,7 @@ impl Vm {
         // would leak the previous run's MsgBox text into this run's result.
         self.msgbox_log.clear();
         self.last_resolution_failure = None;
+        self.last_runtime_failure = None;
         self.err_number = 0;
         self.err_description.clear();
         self.err_source.clear();
@@ -8796,8 +11052,21 @@ impl Vm {
                 .map(|s| (s.name.clone(), Arc::new(s.clone())))
                 .collect();
         }
+        let duplicate_types = parser::find_type_collisions(program);
+        if let Some(name) = duplicate_types.first() {
+            return Err(format!(
+                "duplicate Type '{}' in one module — UDT declarations must be unique",
+                name
+            ));
+        }
         for td in &program.type_defs {
             self.type_defs.insert(td.name.clone(), td.fields.clone());
+            if let Some(module_name) = program.module_name.as_deref() {
+                self.type_defs.insert(
+                    format!("{}.{}", module_name.to_lowercase(), td.name),
+                    td.fields.clone(),
+                );
+            }
         }
         self.validate_and_bind_implements()?;
 
@@ -8820,6 +11089,7 @@ impl Vm {
             .ok_or_else(|| format!("Sub '{}' not found", sub_name))?
             .clone();
         let result = self.call_sub_def(&sub, &[]);
+        self.capture_runtime_failure(&result);
         self.reclaim_unreachable_collections();
         result
     }
@@ -8828,18 +11098,31 @@ impl Vm {
     /// (module_name, Program) pairs. Rejects the run at load time if any
     /// bare Sub or Function name collides across modules — the flat merge
     /// used for in-body calls can't express VBA's own-module-first/Private
-    /// scoping, so a colliding name is refused rather than resolved
-    /// silently (see `parser::find_cross_module_sub_collisions`). Otherwise
-    /// behaves like `run_sub`, generalized to N modules; `entrypoint` may be
-    /// a bare name or a `Module.Sub`-qualified one.
+    /// scoping, so a colliding procedure is refused rather than resolved
+    /// silently. UDT names are module-scoped and may legitimately collide.
+    /// Otherwise behaves like `run_sub`, generalized to N modules;
+    /// `entrypoint` may be a bare name or a `Module.Sub`-qualified one.
     pub fn run_sub_multi(
         &mut self,
         modules: &[(String, Program)],
         entrypoint: &str,
     ) -> Result<(), String> {
+        self.run_sub_multi_impl(modules, entrypoint, false)
+    }
+
+    fn run_sub_multi_impl(
+        &mut self,
+        modules: &[(String, Program)],
+        entrypoint: &str,
+        allow_worksheet_change_collision: bool,
+    ) -> Result<(), String> {
         self.next_append_rows.clear();
+        self.last_runtime_failure = None;
         let sub_collisions = parser::find_cross_module_sub_collisions(modules);
-        if let Some((name, mods)) = sub_collisions.first() {
+        if let Some((name, mods)) = sub_collisions
+            .iter()
+            .find(|(name, _)| !(allow_worksheet_change_collision && name == "worksheet_change"))
+        {
             return Err(format!(
                 "duplicate Sub '{}' across modules '{}' — cross-module name collisions aren't supported yet; own-module-first/Private scoping isn't modeled — rename one of them",
                 name,
@@ -8854,6 +11137,34 @@ impl Vm {
                 mods.join("', '")
             ));
         }
+        for (_, program) in modules {
+            if let Some(name) = parser::find_type_collisions(program).first() {
+                return Err(format!(
+                    "duplicate Type '{}' in one module — UDT declarations must be unique",
+                    name
+                ));
+            }
+        }
+
+        // Files without `Attribute VB_Name` still receive a stable module
+        // name from the multi-module loader. Stamp that name onto cloned
+        // procedure definitions so bare UDT lookup works for both declared
+        // and derived module names.
+        let scoped_modules: Vec<(String, Program)> = modules
+            .iter()
+            .map(|(module_name, program)| {
+                let mut program = program.clone();
+                let scope = Some(module_name.to_lowercase());
+                for sub in &mut program.subs {
+                    sub.module_name = scope.clone();
+                }
+                for func in &mut program.funcs {
+                    func.module_name = scope.clone();
+                }
+                (module_name.to_lowercase(), program)
+            })
+            .collect();
+        let modules = scoped_modules;
 
         self.msgbox_log.clear();
         self.last_resolution_failure = None;
@@ -8880,7 +11191,7 @@ impl Vm {
         self.user_funcs.clear();
         self.user_subs.clear();
         self.current_class_instances.clear();
-        for (module_name, program) in modules {
+        for (module_name, program) in &modules {
             if program.is_class_module {
                 self.class_defs.insert(
                     module_name.clone(),
@@ -8920,6 +11231,10 @@ impl Vm {
             }
             for td in &program.type_defs {
                 self.type_defs.insert(td.name.clone(), td.fields.clone());
+                self.type_defs.insert(
+                    format!("{}.{}", module_name.to_lowercase(), td.name),
+                    td.fields.clone(),
+                );
             }
         }
         self.validate_and_bind_implements()?;
@@ -8931,9 +11246,9 @@ impl Vm {
         // `main.rs`'s own multi-module `elixcee check` path already does,
         // or a legitimate unqualified cross-module call would be
         // misreported as undefined.
-        for (name, program) in modules {
+        for (name, program) in &modules {
             let mut other_module_names: HashSet<String> = HashSet::new();
-            for (other_name, other_program) in modules {
+            for (other_name, other_program) in &modules {
                 if other_name != name && !other_program.is_class_module {
                     other_module_names.extend(other_program.subs.iter().map(|s| s.name.clone()));
                     other_module_names.extend(other_program.funcs.iter().map(|f| f.name.clone()));
@@ -8945,15 +11260,25 @@ impl Vm {
             }
         }
 
-        let sub = match parser::resolve_entrypoint(modules, entrypoint) {
+        let sub = match parser::resolve_entrypoint(&modules, entrypoint) {
             EntrypointResolution::Found(sub) => sub.clone(),
             EntrypointResolution::NotFound => {
                 return Err(format!("Sub '{}' not found", entrypoint));
             }
         };
         let result = self.call_sub_def(&sub, &[]);
+        self.capture_runtime_failure(&result);
         self.reclaim_unreachable_collections();
         result
+    }
+
+    fn capture_runtime_failure(&mut self, result: &Result<(), String>) {
+        if result.is_err() && self.last_runtime_failure.is_none() {
+            self.last_runtime_failure = result
+                .as_ref()
+                .err()
+                .map(|message| RuntimeFailureKind::from_message(message));
+        }
     }
 
     fn call_sub_def(&mut self, sub: &SubDef, args: &[Variant]) -> Result<(), String> {
@@ -8983,7 +11308,10 @@ impl Vm {
             procedure_name: sub.name.clone(),
             error_mode: ErrorMode::Disabled,
         });
+        let previous_module_scope = self.current_module_scope.clone();
+        self.current_module_scope = sub.module_name.clone();
         let result = self.exec_body(&sub.body, |f| matches!(f, ExitKind::Sub));
+        self.current_module_scope = previous_module_scope;
         self.call_stack.pop();
         result?;
         for (p, old) in saved {
@@ -9022,9 +11350,12 @@ impl Vm {
             procedure_name: func.name.clone(),
             error_mode: ErrorMode::Disabled,
         });
+        let previous_module_scope = self.current_module_scope.clone();
+        self.current_module_scope = func.module_name.clone();
         let result = self.exec_body(&func.body, |f| {
             matches!(f, ExitKind::Function | ExitKind::Sub)
         });
+        self.current_module_scope = previous_module_scope;
         self.call_stack.pop();
         result?;
         let ret_val = self.variables.remove(&ret_name).unwrap_or(Variant::Empty);
@@ -9166,19 +11497,10 @@ impl Vm {
                 self.assign_scalar_variable(var, v)?;
             }
             Stmt::CellWrite { row, col, value } => {
-                let active = self.active_sheet.clone();
-                self.check_sheet_not_protected(&active, &active)?;
                 let r = to_cell_index(self.eval_expr(row)?, "row")?;
                 let c = to_cell_index(self.eval_expr(col)?, "col")?;
                 let v = self.eval_expr(value)?;
-                self.check_variant_budget(&v)?;
-                self.cells_mut().insert(
-                    (r, c),
-                    CellContent {
-                        formula: None,
-                        value: v,
-                    },
-                );
+                self.set_cell_value(r, c, v)?;
             }
             Stmt::SetCalcMode(mode) => {
                 let m = match mode {
@@ -9525,6 +11847,18 @@ impl Vm {
                     } else {
                         return Err(format!("Dictionary method '{}' is not implemented", method));
                     }
+                } else if let Some(ObjectRef::Range(range)) = reference {
+                    if !args.is_empty() {
+                        return Err(format!("Range.{} expects no arguments", method));
+                    }
+                    if matches!(method.as_str(), "clear" | "clearcontents") {
+                        let area = *range.single_rect().ok_or_else(|| {
+                            format!("Range.{}: multi-area range cannot be cleared", method)
+                        })?;
+                        self.clear_range_on_sheet(&range.sheet, area, method == "clearcontents")?;
+                    } else {
+                        return Err(format!("Range method '{}' is not implemented", method));
+                    }
                 } else if let Some(ObjectRef::Class(id)) = reference {
                     let static_type = self.object_target_static_type(target);
                     if self
@@ -9562,12 +11896,12 @@ impl Vm {
                 }
             }
             Stmt::SetAppProp { prop, value } => {
-                let v = self.eval_expr(value);
-                if prop == "cutcopymode"
-                    && let Ok(v) = &v
-                    && !is_truthy(v)
-                {
+                let v = self.eval_expr(value)?;
+                if prop == "cutcopymode" && !is_truthy(&v) {
                     self.clipboard = None;
+                }
+                if prop == "enableevents" {
+                    self.enable_events = is_truthy(&v);
                 }
             }
             Stmt::RangeName { addr, name } => {
@@ -9587,53 +11921,58 @@ impl Vm {
                     .ok_or_else(|| format!("RangeWrite: invalid address '{}'", addr))?;
                 if *is_formula {
                     let s = vba_to_str(&v);
-                    for r in r1..=r2 {
-                        for c in c1..=c2 {
-                            self.set_cell_formula(r, c, &s)?;
-                        }
-                    }
-                } else {
-                    // Batch writes: access sheet directly to avoid N dirty-flag sets
-                    let sheet = self.active_sheet.clone();
-                    if let Some(cells) = self.sheets.get_mut(&sheet) {
-                        self.cell_tile_cache
-                            .lock()
-                            .expect("cell tile cache mutex poisoned")
-                            .remove(&sheet);
+                    self.auto_event_suppression_depth += 1;
+                    let result = (|| -> Result<(), String> {
                         for r in r1..=r2 {
                             for c in c1..=c2 {
-                                cells.insert(
-                                    (r, c),
-                                    CellContent {
-                                        formula: None,
-                                        value: v.clone(),
-                                    },
-                                );
+                                self.set_cell_formula(r, c, &s)?;
                             }
                         }
-                    }
-                    self.cell_index_dirty = true;
+                        Ok(())
+                    })();
+                    self.auto_event_suppression_depth -= 1;
+                    result?;
+                    self.dispatch_worksheet_change_after_range_write(
+                        &active,
+                        Rect {
+                            start_row: r1,
+                            start_col: c1,
+                            end_row: r2,
+                            end_col: c2,
+                        },
+                    )?;
+                } else {
+                    let sheet = self.active_sheet.clone();
+                    self.set_scalar_range_on_sheet(
+                        &sheet,
+                        Rect {
+                            start_row: r1,
+                            start_col: c1,
+                            end_row: r2,
+                            end_col: c2,
+                        },
+                        &v,
+                    )?;
                 }
             }
-            Stmt::RangeClear { addr, .. } => {
-                let active = self.active_sheet.clone();
-                self.check_sheet_not_protected(&active, &active)?;
+            Stmt::RangeClear {
+                addr,
+                contents_only,
+            } => {
                 let ((r1, c1), (r2, c2)) = self
                     .resolve_range_addr(addr)
                     .ok_or_else(|| format!("RangeClear: invalid address '{}'", addr))?;
                 let sheet = self.active_sheet.clone();
-                if let Some(cells) = self.sheets.get_mut(&sheet) {
-                    self.cell_tile_cache
-                        .lock()
-                        .expect("cell tile cache mutex poisoned")
-                        .remove(&sheet);
-                    for r in r1..=r2 {
-                        for c in c1..=c2 {
-                            cells.remove(&(r, c));
-                        }
-                    }
-                }
-                self.cell_index_dirty = true;
+                self.clear_range_on_sheet(
+                    &sheet,
+                    Rect {
+                        start_row: r1,
+                        start_col: c1,
+                        end_row: r2,
+                        end_col: c2,
+                    },
+                    *contents_only,
+                )?;
             }
             Stmt::RangeOffsetWrite {
                 addr,
@@ -9648,15 +11987,15 @@ impl Vm {
                     .ok_or_else(|| format!("RangeOffsetWrite: invalid address '{}'", addr))?;
                 let ro = to_f64(&self.eval_expr(row_off)?)? as i64;
                 let co = to_f64(&self.eval_expr(col_off)?)? as i64;
-                let row = (base_r as i64 + ro) as u32;
-                let col = (base_c as i64 + co) as u32;
-                self.cells_mut().insert(
-                    (row, col),
-                    CellContent {
-                        formula: None,
-                        value: v,
-                    },
-                );
+                let row = base_r as i64 + ro;
+                let col = base_c as i64 + co;
+                if !(1..=u32::MAX as i64).contains(&row) || !(1..=u32::MAX as i64).contains(&col) {
+                    return Err(
+                        "RangeOffsetWrite: offset resolves outside worksheet coordinates"
+                            .to_string(),
+                    );
+                }
+                self.set_cell_value_on_sheet(&active, row as u32, col as u32, v)?;
             }
             Stmt::RangeDelete { addr, axis } => {
                 let active = self.active_sheet.clone();
@@ -10110,13 +12449,7 @@ impl Vm {
                 if !self.strict_resolution {
                     self.ensure_sheet(&key);
                 }
-                self.sheet_cells_mut(&key).unwrap().insert(
-                    (r, c),
-                    CellContent {
-                        formula: None,
-                        value: v,
-                    },
-                );
+                self.set_cell_value_on_sheet(&key, r, c, v)?;
             }
             Stmt::SheetRangeWrite {
                 sheet,
@@ -10145,25 +12478,35 @@ impl Vm {
                     let s = vba_to_str(&v);
                     let prev = self.active_sheet.clone();
                     self.active_sheet = key.clone();
-                    for r in r1..=r2 {
-                        for c in c1..=c2 {
-                            self.set_cell_formula(r, c, &s)?;
+                    self.auto_event_suppression_depth += 1;
+                    let result = (|| -> Result<(), String> {
+                        for r in r1..=r2 {
+                            for c in c1..=c2 {
+                                self.set_cell_formula(r, c, &s)?;
+                            }
                         }
-                    }
+                        Ok(())
+                    })();
+                    self.auto_event_suppression_depth -= 1;
+                    let notify = result.and_then(|()| {
+                        self.dispatch_worksheet_change_after_range_write(
+                            &key,
+                            Rect {
+                                start_row: r1,
+                                start_col: c1,
+                                end_row: r2,
+                                end_col: c2,
+                            },
+                        )
+                    });
                     self.active_sheet = prev;
-                } else if let Some(cells) = self.sheet_cells_mut(&key) {
+                    notify?;
+                } else {
                     for r in r1..=r2 {
                         for c in c1..=c2 {
-                            cells.insert(
-                                (r, c),
-                                CellContent {
-                                    formula: None,
-                                    value: v.clone(),
-                                },
-                            );
+                            self.set_cell_value_on_sheet(&key, r, c, v.clone())?;
                         }
                     }
-                    self.cell_index_dirty = true;
                 }
             }
             Stmt::SheetPropertySet {
@@ -10259,6 +12602,8 @@ impl Vm {
             }
             Stmt::Unsupported { reason } => {
                 if self.reject_blocked_external_effects && is_blocked_external_effect(reason) {
+                    self.last_runtime_failure =
+                        Some(RuntimeFailureKind::SecurityBlockedExternalEffect);
                     return Err(format!("SECURITY: blocked external VBA effect: {}", reason));
                 }
             }
@@ -10397,6 +12742,7 @@ impl Vm {
                 // ones that are then treated as a blocking error.
                 self.msgbox_log.push(msg.to_string());
                 if self.error_on_msgbox {
+                    self.last_runtime_failure = Some(RuntimeFailureKind::MsgBoxBlocked);
                     return Err(format!("MsgBox: {}", msg));
                 }
                 if self.print_msgbox {
@@ -10404,8 +12750,12 @@ impl Vm {
                 }
             }
             Stmt::DimRecord { var, type_name } => {
-                if let Some(fields) = self.type_defs.get(type_name).cloned() {
-                    let record = make_record_default(&fields, &self.type_defs);
+                if let Some(fields) = self.resolve_type_fields(type_name) {
+                    let record = make_record_default(
+                        &fields,
+                        &self.type_defs,
+                        self.current_module_scope.as_deref(),
+                    );
                     self.variables.insert(var.clone(), record);
                 } else if matches!(
                     type_name.as_str(),
@@ -10468,8 +12818,12 @@ impl Vm {
                     .transpose()?
                     .unwrap_or(-1.0) as i64;
                 let len = upper.saturating_add(1) as usize;
-                let element = if let Some(fields) = self.type_defs.get(type_name).cloned() {
-                    make_record_default(&fields, &self.type_defs)
+                let element = if let Some(fields) = self.resolve_type_fields(type_name) {
+                    make_record_default(
+                        &fields,
+                        &self.type_defs,
+                        self.current_module_scope.as_deref(),
+                    )
                 } else {
                     Variant::Empty
                 };
@@ -11215,10 +13569,16 @@ impl Vm {
                     };
                 }
                 if let Some(ObjectRef::Range(r)) = self.object_variables.get(var).cloned() {
-                    return if field == "value" {
-                        self.read_range_ref_value(&r)
-                    } else {
-                        Ok(Variant::Empty)
+                    return match field.as_str() {
+                        "value" => self.read_range_ref_value(&r),
+                        "address" => Ok(Variant::Str(range_address(&r))),
+                        "row" => Ok(Variant::Integer(
+                            r.single_rect().map_or(0, |area| area.start_row) as i64,
+                        )),
+                        "column" => Ok(Variant::Integer(
+                            r.single_rect().map_or(0, |area| area.start_col) as i64,
+                        )),
+                        _ => Ok(Variant::Empty),
                     };
                 }
                 if let Some(ObjectRef::Collection(id)) = self.object_variables.get(var).cloned() {
@@ -11262,11 +13622,27 @@ impl Vm {
                 // object-variable disambiguation as above.
                 self.require_live_object(var)?;
                 if let Some(ObjectRef::Range(r)) = self.object_variables.get(var).cloned() {
-                    return if fields.len() == 2 && fields[0] == "areas" && fields[1] == "count" {
-                        Ok(Variant::Integer(r.areas.len() as i64))
-                    } else {
-                        Ok(Variant::Empty)
-                    };
+                    if fields.as_slice() == ["parent", "name"] {
+                        return Ok(Variant::Str(self.sheet_display_name(&r.sheet)));
+                    }
+                    if fields.len() == 2 && fields[1] == "count" {
+                        return match fields[0].as_str() {
+                            "areas" => Ok(Variant::Integer(r.areas.len() as i64)),
+                            "rows" => Ok(Variant::Integer(
+                                r.single_rect().map_or(0, Rect::rows) as i64
+                            )),
+                            "columns" => Ok(Variant::Integer(
+                                r.single_rect().map_or(0, Rect::cols) as i64,
+                            )),
+                            "cells" => Ok(Variant::Integer(
+                                r.single_rect()
+                                    .map_or(0, |area| area.rows().saturating_mul(area.cols()))
+                                    as i64,
+                            )),
+                            _ => Ok(Variant::Empty),
+                        };
+                    }
+                    return Ok(Variant::Empty);
                 }
                 if (matches!(self.object_variables.get(var), Some(ObjectRef::Workbook))
                     || matches!(var.as_str(), "thisworkbook" | "activeworkbook"))
@@ -11756,6 +14132,179 @@ impl Vm {
             .unwrap_or(Variant::Empty)
     }
 
+    /// Store a scalar cell value through the same edit, spill, and dependency
+    /// invalidation path used by formula-aware VM edits.
+    pub fn set_cell_value(&mut self, row: u32, col: u32, value: Variant) -> Result<(), String> {
+        let active = self.active_sheet.clone();
+        self.set_cell_value_on_sheet(&active, row, col, value)
+    }
+
+    fn set_cell_value_on_sheet(
+        &mut self,
+        sheet: &str,
+        row: u32,
+        col: u32,
+        value: Variant,
+    ) -> Result<(), String> {
+        if row == 0 || col == 0 {
+            return Err("cell coordinates are 1-based and must be positive".to_string());
+        }
+        self.check_sheet_not_protected(sheet, sheet)?;
+        self.check_variant_budget(&value)?;
+        self.record_edit_history();
+        let mut spill_changed = Vec::new();
+        self.clear_spill_for_anchor(sheet, (row, col), &mut spill_changed);
+        self.formula_plan.remove(sheet);
+        self.formula_dirty_cells.remove(sheet);
+        self.sheet_cells_mut(sheet)
+            .ok_or_else(|| format!("sheet '{}' not found", sheet))?
+            .insert(
+                (row, col),
+                CellContent {
+                    formula: None,
+                    value,
+                },
+            );
+        self.formula_ast_cache
+            .entry(sheet.to_string())
+            .or_default()
+            .remove(&(row, col));
+        self.workbook_formula_dirty
+            .entry(sheet.to_string())
+            .or_default()
+            .extend(spill_changed);
+        self.workbook_formula_dirty
+            .entry(sheet.to_string())
+            .or_default()
+            .insert((row, col));
+        self.workbook_formula_tracking_valid = true;
+        self.workbook_formula_structure_dirty = true;
+        self.dispatch_worksheet_change_after_range_write(
+            sheet,
+            Rect {
+                start_row: row,
+                start_col: col,
+                end_row: row,
+                end_col: col,
+            },
+        )
+    }
+
+    fn set_scalar_range_on_sheet(
+        &mut self,
+        sheet: &str,
+        area: Rect,
+        value: &Variant,
+    ) -> Result<(), String> {
+        self.check_sheet_not_protected(sheet, sheet)?;
+        self.check_variant_budget(value)?;
+        self.record_edit_history();
+        let mut spill_changed = Vec::new();
+        for row in area.start_row..=area.end_row {
+            for col in area.start_col..=area.end_col {
+                self.clear_spill_for_anchor(sheet, (row, col), &mut spill_changed);
+            }
+        }
+        self.formula_plan.remove(sheet);
+        self.formula_dirty_cells.remove(sheet);
+        self.sheet_cells_mut(sheet)
+            .ok_or_else(|| format!("sheet '{}' not found", sheet))?;
+        for row in area.start_row..=area.end_row {
+            for col in area.start_col..=area.end_col {
+                self.sheet_cells_mut(sheet)
+                    .expect("sheet existence checked above")
+                    .insert(
+                        (row, col),
+                        CellContent {
+                            formula: None,
+                            value: value.clone(),
+                        },
+                    );
+                self.formula_ast_cache
+                    .entry(sheet.to_string())
+                    .or_default()
+                    .remove(&(row, col));
+                self.workbook_formula_dirty
+                    .entry(sheet.to_string())
+                    .or_default()
+                    .insert((row, col));
+            }
+        }
+        self.workbook_formula_dirty
+            .entry(sheet.to_string())
+            .or_default()
+            .extend(spill_changed);
+        self.workbook_formula_tracking_valid = true;
+        self.workbook_formula_structure_dirty = true;
+        self.cell_index_dirty = true;
+        self.dispatch_worksheet_change_after_range_write(sheet, area)
+    }
+
+    fn clear_range_on_sheet(
+        &mut self,
+        sheet: &str,
+        area: Rect,
+        contents_only: bool,
+    ) -> Result<(), String> {
+        self.check_sheet_not_protected(sheet, sheet)?;
+        self.record_edit_history();
+        let mut spill_changed = Vec::new();
+        for row in area.start_row..=area.end_row {
+            for col in area.start_col..=area.end_col {
+                self.clear_spill_for_anchor(sheet, (row, col), &mut spill_changed);
+            }
+        }
+        self.formula_plan.remove(sheet);
+        self.formula_dirty_cells.remove(sheet);
+        if self.sheet_cells_mut(sheet).is_none() {
+            return Err(format!("sheet '{}' not found", sheet));
+        }
+        for row in area.start_row..=area.end_row {
+            for col in area.start_col..=area.end_col {
+                self.sheet_cells_mut(sheet)
+                    .expect("sheet existence checked above")
+                    .remove(&(row, col));
+                self.formula_ast_cache
+                    .entry(sheet.to_string())
+                    .or_default()
+                    .remove(&(row, col));
+                self.workbook_formula_dirty
+                    .entry(sheet.to_string())
+                    .or_default()
+                    .insert((row, col));
+            }
+        }
+        self.workbook_formula_dirty
+            .entry(sheet.to_string())
+            .or_default()
+            .extend(spill_changed);
+        self.cell_tile_cache
+            .lock()
+            .expect("cell tile cache mutex poisoned")
+            .remove(sheet);
+        self.workbook_formula_tracking_valid = true;
+        self.workbook_formula_structure_dirty = true;
+        self.cell_index_dirty = true;
+        if !contents_only {
+            if let Some(formats) = self.cell_number_formats.get_mut(sheet) {
+                formats.retain(|&(row, col), _| !rect_has_cell(area, row, col));
+            }
+            if let Some(formats) = self.pending_number_formats.get_mut(sheet) {
+                formats.retain(|&(row, col), _| !rect_has_cell(area, row, col));
+            }
+            if let Some(attrs) = self.pending_style_attrs.get_mut(sheet) {
+                attrs.retain(|&(row, col), _| !rect_has_cell(area, row, col));
+            }
+            if let Some(copies) = self.pending_style_copies.get_mut(sheet) {
+                copies.retain(|&(row, col), _| !rect_has_cell(area, row, col));
+            }
+            if let Some(comments) = self.comment_cells.get_mut(sheet) {
+                comments.retain(|&(row, col)| !rect_has_cell(area, row, col));
+            }
+        }
+        self.dispatch_worksheet_change_after_range_write(sheet, area)
+    }
+
     /// The active sheet's resolved number-format code for a cell (GitHub #4), e.g.
     /// `"m/d/yyyy"` for a date-formatted cell -- `None` for a cell with no format, the
     /// General format, or a sheet built purely in-VBA/loaded from `.ods`. Letting a
@@ -11807,7 +14356,15 @@ impl Vm {
             .insert((row, col));
         self.workbook_formula_tracking_valid = true;
         self.workbook_formula_structure_dirty = true;
-        Ok(())
+        self.dispatch_worksheet_change_after_range_write(
+            &self.active_sheet.clone(),
+            Rect {
+                start_row: row,
+                start_col: col,
+                end_row: row,
+                end_col: col,
+            },
+        )
     }
 
     /// Register a simple A1 range scoped to one worksheet for workbook formula evaluation.
@@ -12481,11 +15038,74 @@ impl Default for Vm {
 // col_letters_to_num_vm/parse_cell_addr/parse_range_addr moved to
 // elixcee-types (Phase 2A); re-exported near the top of this file.
 
+/// Extract one XML attribute from a bounded element fragment. This is used for
+/// the tiny `sheetPr` metadata projection only; the source fragment itself is
+/// still preserved and written through the OOXML passthrough path.
+fn xml_attr_value(fragment: &str, wanted: &str) -> Option<String> {
+    let bytes = fragment.as_bytes();
+    let mut cursor = 0;
+    while let Some(relative) = fragment[cursor..].find(wanted) {
+        let start = cursor + relative;
+        let boundary = |value: Option<u8>| {
+            value.is_none_or(|ch| !(ch.is_ascii_alphanumeric() || ch == b'_' || ch == b':'))
+        };
+        if boundary(start.checked_sub(1).and_then(|i| bytes.get(i)).copied())
+            && boundary(bytes.get(start + wanted.len()).copied())
+        {
+            let mut i = start + wanted.len();
+            while bytes.get(i).is_some_and(u8::is_ascii_whitespace) {
+                i += 1;
+            }
+            if bytes.get(i) == Some(&b'=') {
+                i += 1;
+                while bytes.get(i).is_some_and(u8::is_ascii_whitespace) {
+                    i += 1;
+                }
+                let quote = *bytes.get(i)?;
+                if quote == b'"' || quote == b'\'' {
+                    let value_start = i + 1;
+                    let end = fragment[value_start..].find(quote as char)? + value_start;
+                    return Some(fragment[value_start..end].to_string());
+                }
+            }
+        }
+        cursor = start + wanted.len();
+    }
+    None
+}
+
 /// Splits `addr` on top-level commas and parses each piece with
 /// `parse_range_addr` (Milestone B7a) — `"A1:A3,C1:C3"` becomes 2 `Rect`s;
 /// a plain `"A1:C10"` (no comma) still returns a 1-element `Vec` so callers
 /// can treat single- and multi-area addresses uniformly. `parse_range_addr`
 /// itself is untouched — every other caller keeps its current signature.
+fn column_letters(mut col: u32) -> String {
+    let mut out = String::new();
+    while col > 0 {
+        let digit = ((col - 1) % 26) as u8;
+        out.push((b'A' + digit) as char);
+        col = (col - 1) / 26;
+    }
+    out.chars().rev().collect()
+}
+
+fn range_address(range: &RangeRef) -> String {
+    range
+        .areas
+        .iter()
+        .map(|area| {
+            let start = format!("${}${}", column_letters(area.start_col), area.start_row);
+            let end = format!("${}${}", column_letters(area.end_col), area.end_row);
+            if start == end {
+                start
+            } else {
+                format!("{start}:{end}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 pub fn parse_multi_area_addr(addr: &str) -> Option<Vec<Rect>> {
     addr.split(',')
         .map(|piece| {
@@ -12945,6 +15565,7 @@ fn closest_match(requested: &str, candidates: &[String]) -> Option<String> {
 fn make_record_default(
     fields: &[(String, String)],
     type_defs: &HashMap<String, Vec<(String, String)>>,
+    module_scope: Option<&str>,
 ) -> Variant {
     let map: HashMap<String, Variant> = fields
         .iter()
@@ -12955,8 +15576,11 @@ fn make_record_default(
                 "boolean" => Variant::Boolean(false),
                 "string" => Variant::Str(String::new()),
                 other => {
-                    if let Some(nested) = type_defs.get(other) {
-                        make_record_default(nested, type_defs)
+                    let nested = module_scope
+                        .and_then(|module| type_defs.get(&format!("{module}.{other}")))
+                        .or_else(|| type_defs.get(other));
+                    if let Some(nested) = nested {
+                        make_record_default(nested, type_defs, module_scope)
                     } else {
                         Variant::Empty
                     }
@@ -13666,6 +16290,117 @@ fn eval_wsf(func: &str, vals: &[Variant]) -> Result<Variant, String> {
                 .sum();
             Ok(as_int_if_whole(total))
         }
+        "textjoin" => {
+            if vals.len() < 3 {
+                return Err("WorksheetFunction.TextJoin requires at least 3 arguments".into());
+            }
+            let delimiter = vba_to_str(&vals[0]);
+            let ignore_empty = is_truthy(&vals[1]);
+            let parts = flat_all(&vals[2..])
+                .into_iter()
+                .map(|value| vba_to_str(&value))
+                .filter(|value| !ignore_empty || !value.is_empty())
+                .collect::<Vec<_>>();
+            Ok(Variant::Str(parts.join(&delimiter)))
+        }
+        "xlookup" => {
+            if !(3..=6).contains(&vals.len()) {
+                return Err("WorksheetFunction.XLookup requires 3 to 6 arguments".into());
+            }
+            let key = &vals[0];
+            let lookup = flat_all(std::slice::from_ref(&vals[1]));
+            let result = flat_all(std::slice::from_ref(&vals[2]));
+            if lookup.len() != result.len() {
+                return Err(
+                    "WorksheetFunction.XLookup lookup and return arrays differ in size".into(),
+                );
+            }
+            let not_found = vals.get(3).cloned();
+            let match_mode = vals.get(4).map(to_f64_excel).transpose()?.unwrap_or(0.0);
+            let search_mode = vals.get(5).map(to_f64_excel).transpose()?.unwrap_or(1.0);
+            if !(match_mode == 0.0 || match_mode == 2.0)
+                || !matches!(search_mode, 1.0 | -1.0 | 2.0 | -2.0)
+            {
+                return Err("WorksheetFunction.XLookup supports exact/wildcard match and search_mode 1/-1/2/-2".into());
+            }
+            if matches!(search_mode, 2.0 | -2.0) {
+                if match_mode == 2.0 {
+                    return Err("WorksheetFunction.XLookup wildcard match is incompatible with binary search".into());
+                }
+                let index = crate::formula::eval::xlookup_binary_index(
+                    &lookup,
+                    key,
+                    search_mode == 2.0,
+                    0,
+                )?;
+                return Ok(index
+                    .and_then(|i| result.get(i).cloned())
+                    .or(not_found)
+                    .unwrap_or(Variant::Error(ExcelError::NA)));
+            }
+            let indices: Box<dyn Iterator<Item = usize>> = if search_mode == -1.0 {
+                Box::new((0..lookup.len()).rev())
+            } else {
+                Box::new(0..lookup.len())
+            };
+            for index in indices {
+                if (match_mode == 0.0 && vba_eq(&lookup[index], key))
+                    || (match_mode == 2.0
+                        && crate::formula::eval::wildcard_match(
+                            &vba_to_str(&lookup[index]),
+                            &vba_to_str(key),
+                        ))
+                {
+                    return Ok(result[index].clone());
+                }
+            }
+            Ok(not_found.unwrap_or(Variant::Error(ExcelError::NA)))
+        }
+        "xmatch" => {
+            if !(2..=4).contains(&vals.len()) {
+                return Err("WorksheetFunction.XMatch requires 2 to 4 arguments".into());
+            }
+            let key = &vals[0];
+            let lookup = flat_all(std::slice::from_ref(&vals[1]));
+            let match_mode = vals.get(2).map(to_f64_excel).transpose()?.unwrap_or(0.0);
+            let search_mode = vals.get(3).map(to_f64_excel).transpose()?.unwrap_or(1.0);
+            if !(match_mode == 0.0 || match_mode == 2.0)
+                || !matches!(search_mode, 1.0 | -1.0 | 2.0 | -2.0)
+            {
+                return Err("WorksheetFunction.XMatch supports exact/wildcard match and search_mode 1/-1/2/-2".into());
+            }
+            if matches!(search_mode, 2.0 | -2.0) {
+                if match_mode == 2.0 {
+                    return Err("WorksheetFunction.XMatch wildcard match is incompatible with binary search".into());
+                }
+                let index = crate::formula::eval::xlookup_binary_index(
+                    &lookup,
+                    key,
+                    search_mode == 2.0,
+                    0,
+                )?;
+                return Ok(index
+                    .map(|i| Variant::Integer(i as i64 + 1))
+                    .unwrap_or(Variant::Error(ExcelError::NA)));
+            }
+            let indices: Box<dyn Iterator<Item = usize>> = if search_mode == -1.0 {
+                Box::new((0..lookup.len()).rev())
+            } else {
+                Box::new(0..lookup.len())
+            };
+            for index in indices {
+                if (match_mode == 0.0 && vba_eq(&lookup[index], key))
+                    || (match_mode == 2.0
+                        && crate::formula::eval::wildcard_match(
+                            &vba_to_str(&lookup[index]),
+                            &vba_to_str(key),
+                        ))
+                {
+                    return Ok(Variant::Integer(index as i64 + 1));
+                }
+            }
+            Ok(Variant::Error(ExcelError::NA))
+        }
         "round" => {
             if vals.is_empty() {
                 return Err("WorksheetFunction.Round requires arguments".into());
@@ -13761,10 +16496,7 @@ pub fn is_known_builtin_function(name: &str) -> bool {
 /// Used by `check::compile_check_errors` so its pre-flight rejection of an
 /// unresolvable `Expr::FuncCall` reports the same wording running it would
 /// have produced, instead of inventing separate text that could drift from
-/// a dispatch arm's own message — `wsf_textjoin`, for instance, fails
-/// inside `eval_wsf` with "WorksheetFunction.textjoin is not implemented",
-/// not the generic "Unknown VBA function" `eval_vba_func`'s own top-level
-/// fallback arm uses.
+/// a dispatch arm's own message.
 pub fn builtin_call_error(name: &str) -> Option<String> {
     let mut vm = Vm::new();
     vm.eval_vba_func(name, &[]).err()
@@ -14300,6 +17032,39 @@ mod tests {
         let mut vm = Vm::new();
         vm.run_sub(&prog, "mysub").unwrap();
         vm
+    }
+
+    #[test]
+    fn set_cell_value_invalidates_formula_and_supports_undo() {
+        let mut vm = Vm::new();
+        vm.set_cell_formula(1, 1, "=1+1").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(2));
+        vm.set_cell_value(1, 1, Variant::Integer(7)).unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert!(vm.cells().get(&(1, 1)).unwrap().formula.is_none());
+        assert!(vm.undo_edit());
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(2));
+    }
+
+    #[test]
+    fn set_cell_value_rejects_zero_based_coordinates() {
+        let mut vm = Vm::new();
+        assert!(vm.set_cell_value(0, 1, Variant::Integer(1)).is_err());
+        assert!(vm.set_cell_value(1, 0, Variant::Integer(1)).is_err());
+    }
+
+    #[test]
+    fn vba_cell_write_invalidates_formula_dependencies() {
+        let mut vm = Vm::new();
+        vm.set_cell_value(1, 1, Variant::Integer(1)).unwrap();
+        vm.set_cell_formula(1, 2, "=A1+1").unwrap();
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(2));
+
+        let program = parser::parse("Sub MySub()\n    Cells(1, 1).Value = 7\nEnd Sub\n").unwrap();
+        vm.run_sub(&program, "MySub").unwrap();
+        vm.recalculate_all().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(8));
     }
 
     #[test]
@@ -16178,6 +18943,177 @@ mod tests {
     }
 
     #[test]
+    fn explicit_event_dispatch_honors_enable_events_and_reentry_guard() {
+        let program =
+            parser::parse("Sub Workbook_Open()\n    Cells(1,1).Value = 7\nEnd Sub\n").unwrap();
+        let mut vm = Vm::new();
+        assert!(vm.enable_events());
+        assert!(vm.run_event(&program, "workbook_open").unwrap());
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+
+        vm.set_enable_events(false);
+        assert!(!vm.run_event(&program, "Workbook_Open").unwrap());
+        vm.set_enable_events(true);
+        vm.event_dispatch_depth = 1;
+        assert!(!vm.run_event(&program, "Workbook_Open").unwrap());
+    }
+
+    #[test]
+    fn explicit_event_dispatch_rejects_target_bound_handlers() {
+        let program = parser::parse(
+            "Sub Worksheet_Change(Target As Range)\n    Cells(1,1).Value = 7\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        let err = vm.run_event(&program, "Worksheet_Change").unwrap_err();
+        assert!(err.contains("Target binding is not implemented"), "{err:?}");
+    }
+
+    #[test]
+    fn run_sub_with_events_auto_dispatches_change_after_vba_cell_write() {
+        let program = parser::parse(
+            "Sub Main()\n    Cells(1,1).Value = 7\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Value = 7 Then\n        Cells(1,2).Value = 8\n    End If\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(8));
+    }
+
+    #[test]
+    fn run_sub_with_events_dispatches_the_full_range_for_range_writes() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"A1:B1\").Value = 7\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Columns.Count = 2 Then\n        Cells(1,3).Value = Target.Columns.Count\n    End If\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(2));
+    }
+
+    #[test]
+    fn worksheet_change_target_exposes_address_row_and_column() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"C4:D5\").Value = 7\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Address = \"$C$4:$D$5\" Then\n        Cells(1,1).Value = Target.Row\n        Cells(1,2).Value = Target.Column\n    End If\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(4));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(3));
+    }
+
+    #[test]
+    fn worksheet_change_target_cells_count_matches_rectangle_dimensions() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"C4:D5\").Value = 7\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Cells.Count = 4 Then Cells(1,1).Value = 1\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(1));
+    }
+
+    #[test]
+    fn worksheet_change_target_parent_name_identifies_its_bound_sheet() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"A1\").Value = 7\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Parent.Name = \"Sheet1\" Then\n        Application.EnableEvents = False\n        Cells(1,1).Value = 1\n    End If\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(1));
+    }
+
+    #[test]
+    fn run_sub_with_events_auto_dispatches_after_formula_write() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"A1\").Formula = \"=1+1\"\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Value = 2 Then\n        Cells(1,2).Value = 3\n    End If\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(2));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(3));
+    }
+
+    #[test]
+    fn run_sub_with_events_dispatches_one_full_target_for_formula_range_write() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"A1:B1\").Formula = \"=1+1\"\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Columns.Count = 2 Then\n        Cells(1,3).Value = Target.Columns.Count\n    End If\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(2));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(2));
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(2));
+    }
+
+    #[test]
+    fn explicit_event_dispatch_rejects_duplicate_handlers_in_one_program() {
+        let program =
+            parser::parse("Sub Workbook_Open()\nEnd Sub\nSub Workbook_Open()\nEnd Sub\n").unwrap();
+        let mut vm = Vm::new();
+        let err = vm.run_event(&program, "Workbook_Open").unwrap_err();
+        assert!(err.contains("dispatch order is ambiguous"), "{err:?}");
+    }
+
+    #[test]
+    fn worksheet_change_binds_explicit_target_range() {
+        let program = parser::parse(
+            "Sub Worksheet_Change(Target As Range)\n    Target.Value = 11\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        assert!(vm.run_worksheet_change(&program, "B2").unwrap());
+        assert_eq!(vm.get_cell(2, 2), Variant::Integer(11));
+    }
+
+    #[test]
+    fn worksheet_change_rejects_invalid_explicit_target_range() {
+        let program = parser::parse("Sub Worksheet_Change(Target As Range)\nEnd Sub\n").unwrap();
+        let mut vm = Vm::new();
+        let err = vm.run_worksheet_change(&program, "B0").unwrap_err();
+        assert!(err.contains("invalid target range"), "{err:?}");
+    }
+
+    #[test]
+    fn opt_in_workbook_open_runs_before_main_entrypoint() {
+        let program = parser::parse(
+            "Sub Workbook_Open()\n    Cells(1,1).Value = 7\nEnd Sub\n\
+             Sub Main()\n    Cells(1,2).Value = Cells(1,1).Value + 1\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(8));
+    }
+
+    #[test]
+    fn opt_in_workbook_open_failure_stops_main_entrypoint() {
+        let program = parser::parse(
+            "Sub Workbook_Open()\n    Err.Raise 5\nEnd Sub\n\
+             Sub Main()\n    Cells(1,1).Value = 99\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        assert!(vm.run_sub_with_events(&program, "Main").is_err());
+        assert_eq!(vm.get_cell(1, 1), Variant::Empty);
+    }
+
+    #[test]
     fn test_xl_constants() {
         let vm = run(
             "Sub MySub()\n    a = xlUp\n    b = xlDown\n    c = xlCalculationManual\nEnd Sub\n",
@@ -16280,6 +19216,50 @@ mod tests {
             "Sub MySub()\n    Cells(1,1).Value = \"a\"\n    Cells(2,1).Value = \"b\"\n    Cells(3,1).Value = \"c\"\n    pos = WorksheetFunction.Match(\"b\", Range(\"A1:A3\"), 0)\nEnd Sub\n",
         );
         assert_eq!(vm.variables["pos"], Variant::Integer(2));
+    }
+
+    #[test]
+    fn test_wsf_textjoin_flattens_ranges_and_skips_empty_values() {
+        let vm = run(
+            "Sub MySub()\n    Cells(1,1).Value = \"A\"\n    Cells(2,1).Value = \"\"\n    Cells(3,1).Value = \"C\"\n    s = WorksheetFunction.TextJoin(\",\", True, Range(\"A1:A3\"))\nEnd Sub\n",
+        );
+        assert_eq!(vm.variables["s"], Variant::Str("A,C".into()));
+    }
+
+    #[test]
+    fn test_wsf_xlookup_exact_and_reverse_search() {
+        let vm = run(
+            "Sub MySub()\n    Cells(1,1).Value = \"A\"\n    Cells(2,1).Value = \"B\"\n    Cells(3,1).Value = \"B\"\n    Cells(1,2).Value = 10\n    Cells(2,2).Value = 20\n    Cells(3,2).Value = 30\n    first = WorksheetFunction.XLookup(\"B\", Range(\"A1:A3\"), Range(\"B1:B3\"))\n    last = WorksheetFunction.XLookup(\"B\", Range(\"A1:A3\"), Range(\"B1:B3\"), -1, 0, -1)\nEnd Sub\n",
+        );
+        assert_eq!(vm.variables["first"], Variant::Integer(20));
+        assert_eq!(vm.variables["last"], Variant::Integer(30));
+    }
+
+    #[test]
+    fn test_wsf_xlookup_wildcard_and_binary_search() {
+        let vm = run(
+            "Sub MySub()\n    Cells(1,1).Value = \"alpha\"\n    Cells(2,1).Value = \"beta\"\n    Cells(3,1).Value = \"gamma\"\n    Cells(1,2).Value = 10\n    Cells(2,2).Value = 20\n    Cells(3,2).Value = 30\n    wildcard = WorksheetFunction.XLookup(\"b*\", Range(\"A1:A3\"), Range(\"B1:B3\"), \"NF\", 2)\n    binary = WorksheetFunction.XLookup(20, Range(\"B1:B3\"), Range(\"A1:A3\"), \"NF\", 0, 2)\nEnd Sub\n",
+        );
+        assert_eq!(vm.variables["wildcard"], Variant::Integer(20));
+        assert_eq!(vm.variables["binary"], Variant::Str("beta".into()));
+    }
+
+    #[test]
+    fn test_wsf_xmatch_exact_and_reverse_search() {
+        let vm = run(
+            "Sub MySub()\n    Cells(1,1).Value = \"A\"\n    Cells(2,1).Value = \"B\"\n    Cells(3,1).Value = \"B\"\n    first = WorksheetFunction.XMatch(\"B\", Range(\"A1:A3\"))\n    last = WorksheetFunction.XMatch(\"B\", Range(\"A1:A3\"), 0, -1)\nEnd Sub\n",
+        );
+        assert_eq!(vm.variables["first"], Variant::Integer(2));
+        assert_eq!(vm.variables["last"], Variant::Integer(3));
+    }
+
+    #[test]
+    fn test_wsf_xmatch_wildcard_and_binary_search() {
+        let vm = run(
+            "Sub MySub()\n    Cells(1,1).Value = \"alpha\"\n    Cells(2,1).Value = \"beta\"\n    Cells(3,1).Value = \"gamma\"\n    Cells(1,2).Value = 10\n    Cells(2,2).Value = 20\n    Cells(3,2).Value = 30\n    wildcard = WorksheetFunction.XMatch(\"g*\", Range(\"A1:A3\"), 2)\n    binary = WorksheetFunction.XMatch(20, Range(\"B1:B3\"), 0, 2)\nEnd Sub\n",
+        );
+        assert_eq!(vm.variables["wildcard"], Variant::Integer(3));
+        assert_eq!(vm.variables["binary"], Variant::Integer(2));
     }
 
     // ── Range("A1:A10").Value 多セル読み取り ─────────────────────────────────
@@ -16634,6 +19614,73 @@ mod tests {
     }
 
     #[test]
+    fn clear_contents_preserves_cell_metadata_but_clear_removes_it() {
+        let mut vm = Vm::new();
+        vm.cell_number_formats
+            .entry("sheet1".to_string())
+            .or_default()
+            .insert((1, 1), "0.00".to_string());
+        vm.comment_cells
+            .entry("sheet1".to_string())
+            .or_default()
+            .insert((1, 1));
+        vm.set_cell_value(1, 1, Variant::Integer(7)).unwrap();
+        let contents =
+            parser::parse("Sub MySub()\n    Range(\"A1\").ClearContents\nEnd Sub\n").unwrap();
+        vm.run_sub(&contents, "MySub").unwrap();
+        assert_eq!(vm.get_cell_number_format(1, 1), Some("0.00"));
+        assert!(vm.comment_cells["sheet1"].contains(&(1, 1)));
+
+        let clear = parser::parse("Sub MySub()\n    Range(\"A1\").Clear\nEnd Sub\n").unwrap();
+        vm.run_sub(&clear, "MySub").unwrap();
+        assert_eq!(vm.get_cell_number_format(1, 1), None);
+        assert!(!vm.comment_cells["sheet1"].contains(&(1, 1)));
+    }
+
+    #[test]
+    fn range_clear_invalidates_formula_dependencies_and_is_undoable() {
+        let mut vm = Vm::new();
+        vm.set_cell_value(1, 1, Variant::Integer(4)).unwrap();
+        vm.set_cell_formula(1, 2, "=A1+1").unwrap();
+        let program = parser::parse("Sub MySub()\n    Range(\"A1\").Clear\nEnd Sub\n").unwrap();
+        vm.run_sub(&program, "MySub").unwrap();
+        vm.recalculate_all().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Empty);
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(1));
+        assert!(vm.undo_edit());
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(4));
+    }
+
+    #[test]
+    fn range_object_clear_uses_captured_sheet_and_shared_undo_path() {
+        let program = parser::parse(
+            "Sub MySub()\n    Set ws = Sheets(\"Sheet2\")\n    Set r = ws.Range(\"A1\")\n    \
+             r.Value = 8\n    Sheets(\"Sheet1\").Activate\n    r.ClearContents\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.ensure_sheet("sheet2");
+        vm.run_sub(&program, "MySub").unwrap();
+        assert_eq!(vm.active_sheet, "sheet1");
+        assert_eq!(vm.get_cell(1, 1), Variant::Empty);
+        assert_eq!(
+            vm.sheets
+                .get("sheet2")
+                .and_then(|cells| cells.get(&(1, 1)))
+                .map(|cell| cell.value.clone()),
+            None
+        );
+        assert!(vm.undo_edit());
+        assert_eq!(
+            vm.sheets
+                .get("sheet2")
+                .and_then(|cells| cells.get(&(1, 1)))
+                .map(|cell| cell.value.clone()),
+            Some(Variant::Integer(8))
+        );
+    }
+
+    #[test]
     fn test_range_write_multi_cell() {
         let vm = run("Sub MySub()\n    Range(\"A1:A3\").Value = 7\nEnd Sub\n");
         assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
@@ -16653,6 +19700,17 @@ mod tests {
     fn test_range_offset_write() {
         let vm = run("Sub MySub()\n    Range(\"A1\").Offset(2,0).Value = 99\nEnd Sub\n");
         assert_eq!(vm.get_cell(3, 1), Variant::Integer(99));
+    }
+
+    #[test]
+    fn range_offset_write_rejects_coordinates_before_row_one_or_column_one() {
+        let program =
+            parser::parse("Sub MySub()\n    Range(\"A1\").Offset(-1,0).Value = 99\nEnd Sub\n")
+                .unwrap();
+        let mut vm = Vm::new();
+        let err = vm.run_sub(&program, "MySub").unwrap_err();
+        assert!(err.starts_with("RangeOffsetWrite: offset resolves outside worksheet coordinates"));
+        assert_eq!(vm.get_cell(1, 1), Variant::Empty);
     }
 
     #[test]
@@ -20509,6 +23567,55 @@ mod tests {
     }
 
     #[test]
+    fn test_module_qualified_udt_resolution() {
+        let program = parser::parse(concat!(
+            "Attribute VB_Name = \"Types\"\n",
+            "Type Point\n",
+            "    X As Integer\n",
+            "End Type\n",
+            "Sub MySub()\n",
+            "    Dim p As Types.Point\n",
+            "    p.X = 7\n",
+            "    result = p.X\n",
+            "End Sub\n",
+        ))
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub(&program, "MySub").unwrap();
+        assert_eq!(vm.variables["result"], Variant::Integer(7));
+    }
+
+    #[test]
+    fn test_module_qualified_udt_resolution_across_modules() {
+        let types = parser::parse(concat!(
+            "Attribute VB_Name = \"Types\"\n",
+            "Type Point\n",
+            "    X As Integer\n",
+            "End Type\n",
+        ))
+        .unwrap();
+        let main = parser::parse(concat!(
+            "Attribute VB_Name = \"MainModule\"\n",
+            "Sub Main()\n",
+            "    Dim p As Types.Point\n",
+            "    p.X = 9\n",
+            "    result = p.X\n",
+            "End Sub\n",
+        ))
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_multi(
+            &[
+                ("Types".to_string(), types),
+                ("MainModule".to_string(), main),
+            ],
+            "Main",
+        )
+        .unwrap();
+        assert_eq!(vm.variables["result"], Variant::Integer(9));
+    }
+
+    #[test]
     fn test_dim_multi_declarator_end_to_end() {
         // `Dim a As Integer, b As Person` — a comma-separated multi-declarator
         // Dim mixing a built-in type with a user-defined type. Previously
@@ -20812,6 +23919,10 @@ mod tests {
         // Spec: messages reflects every MsgBox the macro attempted to show,
         // even ones that are then treated as a blocking error.
         assert_eq!(vm.take_messages(), vec!["blocked".to_string()]);
+        assert_eq!(
+            vm.take_runtime_failure(),
+            Some(RuntimeFailureKind::MsgBoxBlocked)
+        );
     }
 
     #[test]
@@ -20930,6 +24041,139 @@ mod tests {
     }
 
     #[test]
+    fn run_sub_multi_with_events_dispatches_unique_workbook_open_first() {
+        let modules = vec![
+            module(
+                "thisworkbook",
+                "Sub Workbook_Open()\n    Cells(1,1).Value = 3\nEnd Sub\n",
+            ),
+            module(
+                "module1",
+                "Sub Main()\n    Cells(1,2).Value = Cells(1,1).Value + 4\nEnd Sub\n",
+            ),
+        ];
+        let mut vm = Vm::new();
+        vm.run_sub_multi_with_events(&modules, "module1.Main")
+            .unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(3));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(7));
+    }
+
+    #[test]
+    fn run_sub_multi_with_events_rejects_duplicate_workbook_open() {
+        let modules = vec![
+            module("thisworkbook", "Sub Workbook_Open()\nEnd Sub\n"),
+            module("module1", "Sub Workbook_Open()\nEnd Sub\n"),
+        ];
+        let mut vm = Vm::new();
+        let err = vm
+            .run_sub_multi_with_events(&modules, "module1.Workbook_Open")
+            .unwrap_err();
+        assert!(err.contains("duplicate Workbook_Open"), "{err:?}");
+    }
+
+    #[test]
+    fn run_sub_multi_with_events_auto_dispatches_unique_change_handler() {
+        let modules = vec![
+            module(
+                "module1",
+                "Sub Main()\n    Range(\"A1:B1\").Value = 7\nEnd Sub\n",
+            ),
+            module(
+                "sheet1",
+                "Sub Worksheet_Change(Target As Range)\n    If Target.Columns.Count = 2 Then\n        Cells(1,3).Value = Target.Columns.Count\n    End If\nEnd Sub\n",
+            ),
+        ];
+        let mut vm = Vm::new();
+        vm.run_sub_multi_with_events(&modules, "module1.Main")
+            .unwrap();
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(2));
+    }
+
+    #[test]
+    fn run_sub_multi_with_events_selects_change_handler_named_for_active_sheet() {
+        let modules = vec![
+            module(
+                "module1",
+                r#"Sub Main()
+    Range("A1").Value = 7
+End Sub
+"#,
+            ),
+            module(
+                "Sheet1",
+                r#"Sub Worksheet_Change(Target As Range)
+    If Target.Address = "$A$1" Then Cells(1,3).Value = Target.Value
+End Sub
+"#,
+            ),
+            module(
+                "Sheet2",
+                r#"Sub Worksheet_Change(Target As Range)
+    Cells(1,4).Value = Target.Value
+End Sub
+"#,
+            ),
+        ];
+        let mut vm = Vm::new();
+        vm.run_sub_multi_with_events(&modules, "module1.Main")
+            .unwrap();
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 4), Variant::Empty);
+    }
+
+    #[test]
+    fn run_sub_multi_with_events_selects_change_handler_by_sheet_code_name() {
+        let modules = vec![
+            module(
+                "SheetModule",
+                "Sub Worksheet_Change(Target As Range)\n    If Target.Address = \"$A$1\" Then Cells(1,3).Value = 9\nEnd Sub\n",
+            ),
+            module(
+                "OtherModule",
+                "Sub Main()\n    Cells(1,1).Value = 1\nEnd Sub\nSub Worksheet_Change(Target As Range)\n    Cells(1,4).Value = 8\nEnd Sub\n",
+            ),
+        ];
+        let mut vm = Vm::new();
+        vm.ensure_sheet("Input");
+        vm.set_active_sheet("Input").unwrap();
+        vm.sheet_code_names
+            .insert("input".to_string(), "SheetModule".to_string());
+        vm.run_sub_multi_with_events(&modules, "OtherModule.Main")
+            .unwrap();
+        assert_eq!(vm.get_cell(1, 3), Variant::Integer(9));
+        assert_eq!(vm.get_cell(1, 4), Variant::Empty);
+    }
+
+    #[test]
+    fn run_sub_with_events_drains_bounded_worksheet_change_chain() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"A1\").Value = 7\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    If Target.Value = 7 Then\n        Range(\"B1\").Value = 8\n    End If\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        vm.run_sub_with_events(&program, "Main").unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(8));
+    }
+
+    #[test]
+    fn run_sub_with_events_rejects_an_unbounded_worksheet_change_chain() {
+        let program = parser::parse(
+            "Sub Main()\n    Range(\"A1\").Value = 7\nEnd Sub\n\n\
+             Sub Worksheet_Change(Target As Range)\n    Range(\"B1\").Value = Target.Value\nEnd Sub\n",
+        )
+        .unwrap();
+        let mut vm = Vm::new();
+        let error = vm.run_sub_with_events(&program, "Main").unwrap_err();
+        assert!(
+            error.contains("event chain exceeded 64 dispatches"),
+            "{error:?}"
+        );
+    }
+
+    #[test]
     fn run_sub_multi_resolves_unique_bare_name_across_modules() {
         let modules = vec![
             module("module1", "Sub Helper()\n    y = 1\nEnd Sub\n"),
@@ -20992,6 +24236,25 @@ mod tests {
     }
 
     #[test]
+    fn run_sub_multi_resolves_bare_udts_in_their_own_module_scope() {
+        let modules = vec![
+            module(
+                "module1",
+                "Type Point\n    X As Long\nEnd Type\nSub Main()\n    Dim p As Point\n    p.X = 11\n    x = p.X\nEnd Sub\n",
+            ),
+            module(
+                "module2",
+                "Type point\n    Y As Long\nEnd Type\nSub Other()\n    Dim p As point\n    p.Y = 22\n    y = p.Y\nEnd Sub\n",
+            ),
+        ];
+        let mut vm = Vm::new();
+        vm.run_sub_multi(&modules, "Module1.Main").unwrap();
+        assert_eq!(vm.variables["x"], Variant::Integer(11));
+        vm.run_sub_multi(&modules, "Module2.Other").unwrap();
+        assert_eq!(vm.variables["y"], Variant::Integer(22));
+    }
+
+    #[test]
     fn run_sub_multi_entrypoint_not_found() {
         let modules = vec![module("module1", "Sub Main()\n    x = 1\nEnd Sub\n")];
         let mut vm = Vm::new();
@@ -21044,6 +24307,71 @@ mod tests {
         assert_eq!(names, vec!["sheet1".to_string()]);
         assert_eq!(vm.active_sheet, "sheet1");
         assert_eq!(vm.get_cell(1, 1), Variant::Integer(42));
+    }
+
+    #[test]
+    fn load_workbook_file_propagates_date1904_metadata_to_vm() {
+        // Start from a valid workbook produced by the project writer, then
+        // add the standard workbookPr flag while preserving every other ZIP
+        // part. This exercises the same path used by real .xlsx files.
+        use std::io::{Cursor, Read, Write};
+        use zip::write::SimpleFileOptions;
+
+        let base_path = std::env::temp_dir().join(format!(
+            "elixcee_vm_date1904_base_{}.xlsx",
+            std::process::id()
+        ));
+        let out_path =
+            std::env::temp_dir().join(format!("elixcee_vm_date1904_{}.xlsx", std::process::id()));
+        let roundtrip_path = std::env::temp_dir().join(format!(
+            "elixcee_vm_date1904_roundtrip_{}.xlsx",
+            std::process::id()
+        ));
+        let mut source_vm = Vm::new();
+        source_vm.cells_mut().insert(
+            (1, 1),
+            CellContent {
+                formula: None,
+                value: Variant::Integer(42),
+            },
+        );
+        crate::save_workbook(&source_vm, base_path.to_str().unwrap()).unwrap();
+
+        let input = std::fs::read(&base_path).unwrap();
+        let mut archive = zip::ZipArchive::new(Cursor::new(input)).unwrap();
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for index in 0..archive.len() {
+            let mut entry = archive.by_index(index).unwrap();
+            let name = entry.name().to_string();
+            let mut bytes = Vec::new();
+            entry.read_to_end(&mut bytes).unwrap();
+            if name == "xl/workbook.xml" {
+                let xml = String::from_utf8(bytes).unwrap();
+                let marker = xml.find('>').unwrap();
+                let mut updated = String::with_capacity(xml.len() + 32);
+                updated.push_str(&xml[..=marker]);
+                updated.push_str("<workbookPr date1904=\"1\"/>");
+                updated.push_str(&xml[marker + 1..]);
+                bytes = updated.into_bytes();
+            }
+            writer
+                .start_file(name, SimpleFileOptions::default())
+                .unwrap();
+            writer.write_all(&bytes).unwrap();
+        }
+        let rewritten = writer.finish().unwrap().into_inner();
+        std::fs::write(&out_path, rewritten).unwrap();
+
+        let mut vm = Vm::new();
+        vm.load_workbook_file(out_path.to_str().unwrap()).unwrap();
+        assert!(vm.workbook_date1904());
+        assert!(vm.fork().workbook_date1904());
+        crate::save_workbook(&vm, roundtrip_path.to_str().unwrap()).unwrap();
+        assert!(reader::xlsx_date1904_for_path(roundtrip_path.to_str().unwrap()).unwrap());
+
+        std::fs::remove_file(&base_path).unwrap();
+        std::fs::remove_file(&out_path).unwrap();
+        std::fs::remove_file(&roundtrip_path).unwrap();
     }
 
     #[test]
@@ -21346,7 +24674,28 @@ mod tests {
             err.starts_with("SECURITY: blocked external VBA effect"),
             "{err:?}"
         );
+        assert_eq!(
+            vm.take_runtime_failure(),
+            Some(RuntimeFailureKind::SecurityBlockedExternalEffect)
+        );
         assert!(!vm.variables.contains_key("done"));
+    }
+
+    #[test]
+    fn workbook_save_and_close_are_blocked_as_external_effects() {
+        let mut vm = Vm::new();
+        let prog =
+            parser::parse("Sub MySub()\n    ThisWorkbook.Save\n    ThisWorkbook.Close\nEnd Sub\n")
+                .unwrap();
+        let err = vm.run_sub(&prog, "mysub").unwrap_err();
+        assert!(
+            err.starts_with("SECURITY: blocked external VBA effect"),
+            "{err:?}"
+        );
+        assert_eq!(
+            vm.take_runtime_failure(),
+            Some(RuntimeFailureKind::SecurityBlockedExternalEffect)
+        );
     }
 
     #[test]
@@ -22890,6 +26239,26 @@ mod tests {
         assert_eq!(cell, Some(Variant::Integer(42)));
         // And Sheet1 (still the active sheet) is untouched.
         assert_eq!(vm.get_cell(1, 1), Variant::Empty);
+    }
+
+    #[test]
+    fn qualified_cell_write_invalidates_formula_on_the_target_sheet() {
+        let mut vm = Vm::new();
+        vm.ensure_sheet("Data");
+        vm.active_sheet = "data".to_string();
+        vm.set_cell_value(1, 1, Variant::Integer(1)).unwrap();
+        vm.set_cell_formula(1, 2, "=A1+1").unwrap();
+
+        let program =
+            parser::parse("Sub MySub()\n    Sheets(\"Data\").Cells(1, 1).Value = 7\nEnd Sub\n")
+                .unwrap();
+        vm.active_sheet = "sheet1".to_string();
+        vm.run_sub(&program, "MySub").unwrap();
+        vm.active_sheet = "data".to_string();
+        vm.recalculate_all().unwrap();
+        assert_eq!(vm.get_cell(1, 1), Variant::Integer(7));
+        assert_eq!(vm.get_cell(1, 2), Variant::Integer(8));
+        assert_eq!(vm.active_sheet, "data");
     }
 
     #[test]

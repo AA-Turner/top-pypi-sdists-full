@@ -3776,6 +3776,8 @@ class Client(OpenApiClient):
             query['ScanDataDisk'] = request.scan_data_disk
         if not DaraCore.is_null(request.target_type):
             query['TargetType'] = request.target_type
+        if not DaraCore.is_null(request.targets):
+            query['Targets'] = request.targets
         if not DaraCore.is_null(request.uuid_list):
             query['UuidList'] = request.uuid_list
         req = open_api_util_models.OpenApiRequest(
@@ -3818,6 +3820,8 @@ class Client(OpenApiClient):
             query['ScanDataDisk'] = request.scan_data_disk
         if not DaraCore.is_null(request.target_type):
             query['TargetType'] = request.target_type
+        if not DaraCore.is_null(request.targets):
+            query['Targets'] = request.targets
         if not DaraCore.is_null(request.uuid_list):
             query['UuidList'] = request.uuid_list
         req = open_api_util_models.OpenApiRequest(
@@ -25084,6 +25088,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeImageGroupedVulListResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.agentless_can_fix):
+            query['AgentlessCanFix'] = request.agentless_can_fix
         if not DaraCore.is_null(request.alias_name):
             query['AliasName'] = request.alias_name
         if not DaraCore.is_null(request.cluster_id):
@@ -25158,6 +25164,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeImageGroupedVulListResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.agentless_can_fix):
+            query['AgentlessCanFix'] = request.agentless_can_fix
         if not DaraCore.is_null(request.alias_name):
             query['AliasName'] = request.alias_name
         if not DaraCore.is_null(request.cluster_id):
@@ -26558,6 +26566,8 @@ class Client(OpenApiClient):
             query['Dealed'] = request.dealed
         if not DaraCore.is_null(request.digest):
             query['Digest'] = request.digest
+        if not DaraCore.is_null(request.group_by_asset):
+            query['GroupByAsset'] = request.group_by_asset
         if not DaraCore.is_null(request.image):
             query['Image'] = request.image
         if not DaraCore.is_null(request.instance_id):
@@ -26644,6 +26654,8 @@ class Client(OpenApiClient):
             query['Dealed'] = request.dealed
         if not DaraCore.is_null(request.digest):
             query['Digest'] = request.digest
+        if not DaraCore.is_null(request.group_by_asset):
+            query['GroupByAsset'] = request.group_by_asset
         if not DaraCore.is_null(request.image):
             query['Image'] = request.image
         if not DaraCore.is_null(request.instance_id):

@@ -24,7 +24,7 @@ use std::sync::{
 };
 #[cfg(feature = "python")]
 use std::time::{Duration, Instant};
-#[cfg(any(feature = "python", test))]
+#[cfg(test)]
 use vm::CellContent;
 #[cfg(any(feature = "python", test))]
 use vm::{FillEdit, StyleAttrEdit};
@@ -717,19 +717,155 @@ impl PyVm {
         result
     }
 
+    /// Parse and execute *macro_name*, dispatching ``Workbook_Open`` first
+    /// when that handler exists. The ordinary :meth:`run` method remains
+    /// event-free; this opt-in method fails before the main macro if the open
+    /// handler fails.
+    #[pyo3(signature = (vba_code, macro_name, timeout_ms = None))]
+    fn run_with_events(
+        &mut self,
+        vba_code: &str,
+        macro_name: &str,
+        timeout_ms: Option<u64>,
+    ) -> PyResult<()> {
+        validate_execution_timeout_ms(timeout_ms)?;
+        if self
+            .program_cache
+            .as_ref()
+            .is_none_or(|(cached_source, _)| cached_source != vba_code)
+        {
+            let prog = parser::parse(vba_code)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PySyntaxError, _>(e.to_string()))?;
+            self.program_cache = Some((vba_code.to_owned(), prog));
+            #[cfg(test)]
+            {
+                self.program_parse_count += 1;
+            }
+        }
+        let prog = &self
+            .program_cache
+            .as_ref()
+            .expect("program cache populated immediately above")
+            .1;
+        let timeout_ms = timeout_ms.or(self.timeout_ms);
+        self.inner.deadline = timeout_ms.map(|ms| Instant::now() + Duration::from_millis(ms));
+        let result = self
+            .inner
+            .run_sub_with_events(prog, macro_name)
+            .map_err(|err| {
+                if err.starts_with("TIMEOUT:") {
+                    PyErr::new::<pyo3::exceptions::PyTimeoutError, _>(err)
+                } else {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(err)
+                }
+            });
+        self.inner.deadline = None;
+        result
+    }
+
+    /// Dispatch an explicitly requested zero-argument VBA event procedure.
+    /// Returns ``True`` when it ran, or ``False`` when ``EnableEvents`` is
+    /// disabled or re-entry is suppressed. Automatic event discovery and
+    /// ``Worksheet_Change`` Target binding remains explicit; cell writes can
+    /// opt into it with ``set_cell(..., trigger_events=True)``.
+    #[pyo3(signature = (vba_code, event_name, timeout_ms = None))]
+    fn run_event(
+        &mut self,
+        vba_code: &str,
+        event_name: &str,
+        timeout_ms: Option<u64>,
+    ) -> PyResult<bool> {
+        validate_execution_timeout_ms(timeout_ms)?;
+        let prog = parser::parse(vba_code)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PySyntaxError, _>(e.to_string()))?;
+        let timeout_ms = timeout_ms.or(self.timeout_ms);
+        self.inner.deadline = timeout_ms.map(|ms| Instant::now() + Duration::from_millis(ms));
+        let result = self
+            .inner
+            .run_event(&prog, event_name)
+            .map_err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>);
+        self.inner.deadline = None;
+        result
+    }
+
+    /// Dispatch ``Worksheet_Change(Target)`` with an explicit A1 target range
+    /// on the active sheet. The handler must declare one ``As Range`` parameter.
+    #[pyo3(signature = (vba_code, target_address, timeout_ms = None))]
+    fn run_worksheet_change(
+        &mut self,
+        vba_code: &str,
+        target_address: &str,
+        timeout_ms: Option<u64>,
+    ) -> PyResult<bool> {
+        validate_execution_timeout_ms(timeout_ms)?;
+        let prog = parser::parse(vba_code)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PySyntaxError, _>(e.to_string()))?;
+        let timeout_ms = timeout_ms.or(self.timeout_ms);
+        self.inner.deadline = timeout_ms.map(|ms| Instant::now() + Duration::from_millis(ms));
+        let result = self
+            .inner
+            .run_worksheet_change(&prog, target_address)
+            .map_err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>);
+        self.inner.deadline = None;
+        result
+    }
+
+    /// Set ``Application.EnableEvents`` for explicit headless event dispatch.
+    fn set_enable_events(&mut self, enabled: bool) {
+        self.inner.set_enable_events(enabled);
+    }
+
+    /// Return the current ``Application.EnableEvents`` value.
+    #[getter]
+    fn enable_events(&self) -> bool {
+        self.inner.enable_events()
+    }
+
     /// Write a value into a cell. ``row`` and ``col`` are 1-based (VBA convention).
-    fn set_cell(&mut self, row: u32, col: u32, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    /// When ``trigger_events`` is true, dispatch the cached program's
+    /// ``Worksheet_Change(Target)`` after the write.
+    #[pyo3(signature = (row, col, value, trigger_events = false))]
+    fn set_cell(
+        &mut self,
+        row: u32,
+        col: u32,
+        value: &Bound<'_, PyAny>,
+        trigger_events: bool,
+    ) -> PyResult<()> {
         let v = py_to_variant(value)?;
         self.inner
             .check_variant_budget(&v)
             .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)?;
-        self.inner.cells_mut().insert(
-            (row, col),
-            CellContent {
-                formula: None,
-                value: v,
-            },
-        );
+        let program = if trigger_events {
+            Some(
+                self.program_cache
+                    .as_ref()
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                            "trigger_events requires a previously parsed VBA program",
+                        )
+                    })?
+                    .1
+                    .clone(),
+            )
+        } else {
+            None
+        };
+        self.inner
+            .set_cell_value(row, col, v)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)?;
+        if let Some(program) = program {
+            let target_address = format!("{}{}", xlsx_col_letters(col), row);
+            self.inner.deadline = self
+                .timeout_ms
+                .map(|ms| Instant::now() + Duration::from_millis(ms));
+            let result = self
+                .inner
+                .run_worksheet_change(&program, &target_address)
+                .map_err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>);
+            self.inner.deadline = None;
+            result.map(|_| ())?;
+        }
         Ok(())
     }
 
@@ -756,6 +892,13 @@ impl PyVm {
     /// with no format, the General format, or a sheet with no source-file styles.
     fn get_cell_number_format(&self, row: u32, col: u32) -> Option<&str> {
         self.inner.get_cell_number_format(row, col)
+    }
+
+    /// Return whether the loaded workbook declares Excel's 1904 date system.
+    /// New VMs and 1900-system workbooks return ``False``.
+    #[getter]
+    fn workbook_date1904(&self) -> bool {
+        self.inner.workbook_date1904()
     }
 
     /// Return all non-empty cells as a dict: ``{(row, col): value}``.
@@ -863,6 +1006,7 @@ impl PyVm {
             vm::CalculationMode::Manual => "manual",
         };
         snapshot.set_item("calculation_mode", calculation_mode)?;
+        snapshot.set_item("workbook_date1904", self.inner.workbook_date1904())?;
 
         let sheets = PyDict::new(py);
         let formulas = include_formulas.then(|| PyDict::new(py));
@@ -1032,6 +1176,498 @@ impl PyVm {
     fn rename_sheet(&mut self, old_name: &str, new_name: &str) -> PyResult<()> {
         self.inner
             .rename_sheet(old_name, new_name)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue an edit to an existing chart series. ``chart_part`` is an
+    /// ``xl/charts/chartN.xml`` path and ``series_index`` is zero-based.
+    /// Pass either formula or both; formulas use chart XML spelling such as
+    /// ``Sheet1!$A$1:$A$3`` and do not require a leading ``=``.
+    fn set_chart_series_formulas(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        categories: Option<&str>,
+        values: Option<&str>,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_formulas(chart_part, series_index, categories, values)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart series name formula.
+    fn set_chart_series_name_formula(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        name_formula: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_name_formula(chart_part, series_index, name_formula)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart series marker symbol.
+    fn set_chart_series_marker_symbol(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        symbol: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_marker_symbol(chart_part, series_index, symbol)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart series marker size (2..=72).
+    fn set_chart_series_marker_size(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        size: u32,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_marker_size(chart_part, series_index, size)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart series smooth flag.
+    fn set_chart_series_smooth(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        smooth: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_smooth(chart_part, series_index, smooth)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart series invert-if-negative flag.
+    fn set_chart_series_invert_if_negative(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        enabled: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_invert_if_negative(chart_part, series_index, enabled)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart series deletion flag.
+    fn set_chart_series_deleted(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        deleted: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_deleted(chart_part, series_index, deleted)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to cached category/value points of an existing
+    /// chart series. Existing cache kind is preserved and formulas are not
+    /// changed.
+    fn set_chart_series_cache(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        categories: Option<Vec<String>>,
+        values: Option<Vec<String>>,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_cache(chart_part, series_index, categories, values)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to the existing solid RGB line color of one chart
+    /// series. Theme colors and missing line properties are rejected.
+    fn set_chart_series_line_color(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        color: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_line_color(chart_part, series_index, color)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to the existing solid RGB fill color of one chart
+    /// series. Theme colors and missing fill properties are rejected.
+    fn set_chart_series_fill_color(
+        &mut self,
+        chart_part: &str,
+        series_index: usize,
+        color: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_series_fill_color(chart_part, series_index, color)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to the first text run in an existing chart title.
+    fn set_chart_title(&mut self, chart_part: &str, text: &str) -> PyResult<()> {
+        self.inner
+            .set_chart_title(chart_part, text)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart legend position.
+    fn set_chart_legend_position(&mut self, chart_part: &str, position: &str) -> PyResult<()> {
+        self.inner
+            .set_chart_legend_position(chart_part, position)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart style (1 through 48).
+    fn set_chart_style(&mut self, chart_part: &str, style: u32) -> PyResult<()> {
+        self.inner
+            .set_chart_style(chart_part, style)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing chart-axis title.
+    fn set_chart_axis_title(
+        &mut self,
+        chart_part: &str,
+        axis_index: usize,
+        text: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_axis_title(chart_part, axis_index, text)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to the chart legend overlay flag.
+    fn set_chart_legend_overlay(&mut self, chart_part: &str, overlay: bool) -> PyResult<()> {
+        self.inner
+            .set_chart_legend_overlay(chart_part, overlay)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-labels show-value flag.
+    fn set_chart_data_labels_show_value(
+        &mut self,
+        chart_part: &str,
+        show_value: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_show_value(chart_part, show_value)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-labels show-category flag.
+    fn set_chart_data_labels_show_category(
+        &mut self,
+        chart_part: &str,
+        show_category: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_show_category(chart_part, show_category)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-labels show-series-name flag.
+    fn set_chart_data_labels_show_series_name(
+        &mut self,
+        chart_part: &str,
+        show_series_name: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_show_series_name(chart_part, show_series_name)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-labels show-percent flag.
+    fn set_chart_data_labels_show_percent(
+        &mut self,
+        chart_part: &str,
+        show_percent: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_show_percent(chart_part, show_percent)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-labels leader-lines flag.
+    fn set_chart_data_labels_show_leader_lines(
+        &mut self,
+        chart_part: &str,
+        show_leader_lines: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_show_leader_lines(chart_part, show_leader_lines)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-labels bubble-size flag.
+    fn set_chart_data_labels_show_bubble_size(
+        &mut self,
+        chart_part: &str,
+        show_bubble_size: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_show_bubble_size(chart_part, show_bubble_size)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-labels legend-key flag.
+    fn set_chart_data_labels_show_legend_key(
+        &mut self,
+        chart_part: &str,
+        show_legend_key: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_show_legend_key(chart_part, show_legend_key)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-label position.
+    fn set_chart_data_labels_position(&mut self, chart_part: &str, position: &str) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_position(chart_part, position)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-label number format.
+    fn set_chart_data_labels_number_format(
+        &mut self,
+        chart_part: &str,
+        number_format: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_number_format(chart_part, number_format)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to the first chart data-label separator.
+    fn set_chart_data_labels_separator(
+        &mut self,
+        chart_part: &str,
+        separator: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_chart_data_labels_separator(chart_part, separator)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue an edit to an existing worksheet-backed Pivot cache source.
+    /// Only the source sheet and/or A1 range is changed; cache records and
+    /// PivotTable layout remain opaque and are not recalculated.
+    fn set_pivot_worksheet_source(
+        &mut self,
+        cache_part: &str,
+        sheet: Option<&str>,
+        reference: Option<&str>,
+    ) -> PyResult<()> {
+        self.inner
+            .set_pivot_worksheet_source(cache_part, sheet, reference)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a Pivot cache `refreshOnLoad` flag update without fetching or
+    /// recalculating the cache.
+    fn set_pivot_cache_refresh_on_load(&mut self, cache_part: &str, enabled: bool) -> PyResult<()> {
+        self.inner
+            .set_pivot_cache_refresh_on_load(cache_part, enabled)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to one existing Pivot cache field caption.
+    fn set_pivot_cache_field_caption(
+        &mut self,
+        cache_part: &str,
+        field_index: usize,
+        caption: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_pivot_cache_field_caption(cache_part, field_index, caption)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing two-cell drawing anchor. All cell
+    /// coordinates are 1-based; only two-cell anchors are supported.
+    fn set_drawing_anchor(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        from_row: u32,
+        from_col: u32,
+        to_row: u32,
+        to_col: u32,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_anchor(
+                drawing_part,
+                anchor_index,
+                from_row,
+                from_col,
+                to_row,
+                to_col,
+            )
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing drawing anchor's non-visual shape name.
+    fn set_drawing_shape_name(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        name: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_name(drawing_part, anchor_index, name)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to a drawing anchor's alternative-text description.
+    fn set_drawing_shape_description(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        description: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_description(drawing_part, anchor_index, description)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to a drawing anchor's title metadata.
+    fn set_drawing_shape_title(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        title: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_title(drawing_part, anchor_index, title)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing drawing shape's first text run.
+    fn set_drawing_shape_text(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        text: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_text(drawing_part, anchor_index, text)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded edit to an existing DrawingML text run in a shape.
+    fn set_drawing_shape_text_run(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        run_index: usize,
+        text: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_text_run(drawing_part, anchor_index, run_index, text)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing drawing anchor's hidden state.
+    fn set_drawing_shape_hidden(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        hidden: bool,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_hidden(drawing_part, anchor_index, hidden)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing drawing shape's rotation in
+    /// integer degrees from 0 through 359.
+    fn set_drawing_shape_rotation(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        degrees: i32,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_rotation(drawing_part, anchor_index, degrees)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing drawing shape's horizontal or
+    /// vertical flip state. At least one component must be supplied.
+    fn set_drawing_shape_flip(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        flip_horizontal: Option<bool>,
+        flip_vertical: Option<bool>,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_flip(drawing_part, anchor_index, flip_horizontal, flip_vertical)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing drawing shape's solid RGB fill.
+    fn set_drawing_shape_fill(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        color: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_fill(drawing_part, anchor_index, color)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing drawing shape's line color.
+    fn set_drawing_shape_line_color(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        color: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_line_color(drawing_part, anchor_index, color)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing drawing shape's line width in points.
+    fn set_drawing_shape_line_width(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        width_points: f64,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_line_width(drawing_part, anchor_index, width_points)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing drawing shape's preset line dash.
+    fn set_drawing_shape_line_dash(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        dash: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_line_dash(drawing_part, anchor_index, dash)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a bounded update to an existing DrawingML preset geometry.
+    fn set_drawing_shape_geometry(
+        &mut self,
+        drawing_part: &str,
+        anchor_index: usize,
+        preset: &str,
+    ) -> PyResult<()> {
+        self.inner
+            .set_drawing_shape_geometry(drawing_part, anchor_index, preset)
             .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
     }
 
@@ -3355,8 +3991,15 @@ fn load_workbook(
 
     let mut vm = Vm::new();
     vm.error_on_msgbox = on_msgbox == "error";
+    vm.external_links_policy = external_links;
+    vm.set_workbook_date1904(
+        reader::xlsx_date1904_for_path(path)
+            .map_err(PyErr::new::<pyo3::exceptions::PyIOError, _>)?,
+    );
     vm.populate_from_sheets(sheets);
     vm.loaded_workbook_path = Some(path.to_string());
+    vm.load_sheet_code_names(path)
+        .map_err(PyErr::new::<pyo3::exceptions::PyIOError, _>)?;
     vm.load_simple_defined_names(path)
         .map_err(PyErr::new::<pyo3::exceptions::PyIOError, _>)?;
 
@@ -3448,7 +4091,6 @@ fn save_workbook_impl(vm: &Vm, path: &str) -> Result<(), String> {
 
 fn save_workbook_impl_with_sync(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     validate_output_extension(path)?;
-    reject_symlink_output(path)?;
     if path.to_lowercase().ends_with(".ods") {
         return save_ods_impl(vm, path);
     }
@@ -3782,12 +4424,12 @@ fn direct_rel_targets(
 ) -> std::collections::HashSet<String> {
     let Some(text) = raw_entries
         .get(rels_name)
-        .and_then(|b| String::from_utf8(b.clone()).ok())
+        .and_then(|bytes| std::str::from_utf8(bytes).ok())
     else {
         return Default::default();
     };
     let base = rels_target_dir(rels_name);
-    reader::workbook_rels_decls(&text)
+    reader::workbook_rels_decls(text)
         .into_iter()
         .map(|(_, target)| normalize_part_path(&format!("{base}{target}")))
         .collect()
@@ -3975,6 +4617,1835 @@ fn rewrite_chart_sheet_refs(
     Ok(out)
 }
 
+/// Rewrite one or more existing chart series' category/value formulas without
+/// touching the surrounding chart XML. Series indexes are zero-based and are
+/// counted by `<c:ser>` order. Missing series or missing references are hard
+/// errors; silently adding a partial series would produce a misleading chart.
+fn rewrite_chart_series_formulas(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, vm::ChartSeriesEdit>,
+) -> Result<String, String> {
+    fn next_series_open(xml: &str, cursor: usize) -> Option<usize> {
+        let exact = xml[cursor..].find("<c:ser>").map(|offset| cursor + offset);
+        let attributed = xml[cursor..].find("<c:ser ").map(|offset| cursor + offset);
+        match (exact, attributed) {
+            (Some(left), Some(right)) => Some(left.min(right)),
+            (Some(position), None) | (None, Some(position)) => Some(position),
+            (None, None) => None,
+        }
+    }
+
+    fn replace_reference(
+        series: &mut String,
+        container: &str,
+        formula: &str,
+    ) -> Result<(), String> {
+        let open = series
+            .find(container)
+            .ok_or_else(|| format!("chart series is missing {container} reference"))?;
+        let content_start = open + container.len();
+        let closing = match container {
+            "<c:tx>" => "</c:tx>",
+            "<c:cat>" => "</c:cat>",
+            "<c:val>" => "</c:val>",
+            _ => return Err(format!("unsupported chart container {container}")),
+        };
+        let close_rel = series[content_start..]
+            .find(closing)
+            .ok_or_else(|| format!("chart series {container} reference is unterminated"))?;
+        let close = content_start + close_rel;
+        let fragment = &series[content_start..close];
+        let formula_open = fragment
+            .find("<c:f>")
+            .ok_or_else(|| format!("chart series {container} reference is missing <c:f>"))?;
+        let value_start = content_start + formula_open + "<c:f>".len();
+        let value_end_rel = series[value_start..]
+            .find("</c:f>")
+            .ok_or_else(|| "chart series formula element is unterminated".to_string())?;
+        let value_end = value_start + value_end_rel;
+        series.replace_range(value_start..value_end, &xml_escape(formula));
+        Ok(())
+    }
+
+    fn replace_marker_attr(
+        series: &mut String,
+        element: &str,
+        value: &str,
+        missing_message: &str,
+    ) -> Result<(), String> {
+        let element_open = series
+            .find(element)
+            .ok_or_else(|| "chart series marker is missing".to_string())?;
+        let tag_end = series[element_open..]
+            .find('>')
+            .map(|offset| element_open + offset)
+            .ok_or_else(|| "chart series marker symbol is unterminated".to_string())?;
+        let tag = &series[element_open..=tag_end];
+        let value_start = tag
+            .find("val=\"")
+            .map(|offset| element_open + offset + "val=\"".len())
+            .ok_or_else(|| missing_message.to_string())?;
+        let value_end = series[value_start..]
+            .find('\"')
+            .map(|offset| value_start + offset)
+            .ok_or_else(|| "chart series marker symbol is unterminated".to_string())?;
+        series.replace_range(value_start..value_end, value);
+        Ok(())
+    }
+
+    let mut out = xml.to_string();
+    for (&series_index, edit) in edits {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=series_index {
+            let open = next_series_open(&out, cursor)
+                .ok_or_else(|| format!("chart series index {series_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find("</c:ser>")
+                .ok_or_else(|| "chart series element is unterminated".to_string())?;
+            let close = open + close_rel + "</c:ser>".len();
+            if current == series_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("series selection loop always selects its index");
+        let mut series = out[open..close].to_string();
+        if let Some(formula) = edit.name.as_deref() {
+            replace_reference(&mut series, "<c:tx>", formula)?;
+        }
+        if let Some(formula) = edit.categories.as_deref() {
+            replace_reference(&mut series, "<c:cat>", formula)?;
+        }
+        if let Some(formula) = edit.values.as_deref() {
+            replace_reference(&mut series, "<c:val>", formula)?;
+        }
+        if let Some(symbol) = edit.marker_symbol.as_deref() {
+            replace_marker_attr(
+                &mut series,
+                "<c:symbol",
+                symbol,
+                "chart marker symbol is missing val",
+            )?;
+        }
+        if let Some(size) = edit.marker_size {
+            replace_marker_attr(
+                &mut series,
+                "<c:size",
+                &size.to_string(),
+                "chart marker size is missing val",
+            )?;
+        }
+        if let Some(smooth) = edit.smooth {
+            replace_marker_attr(
+                &mut series,
+                "<c:smooth",
+                if smooth { "1" } else { "0" },
+                "chart series smooth is missing val",
+            )?;
+        }
+        if let Some(enabled) = edit.invert_if_negative {
+            replace_marker_attr(
+                &mut series,
+                "<c:invertIfNegative",
+                if enabled { "1" } else { "0" },
+                "chart series invert-if-negative is missing val",
+            )?;
+        }
+        if let Some(deleted) = edit.deleted {
+            replace_marker_attr(
+                &mut series,
+                "<c:delete",
+                if deleted { "1" } else { "0" },
+                "chart series delete is missing val",
+            )?;
+        }
+        out.replace_range(open..close, &series);
+    }
+    Ok(out)
+}
+
+/// Rewrite the existing solid RGB line color for selected chart series. The
+/// series and its `<c:spPr>/<a:ln>/<a:solidFill>/<a:srgbClr>` chain must exist;
+/// theme, gradient, and missing style data are rejected to avoid silently
+/// changing chart appearance in an unsupported way.
+fn rewrite_chart_series_line_colors(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    fn next_series_open(xml: &str, cursor: usize) -> Option<usize> {
+        let exact = xml[cursor..].find("<c:ser>").map(|offset| cursor + offset);
+        let attributed = xml[cursor..].find("<c:ser ").map(|offset| cursor + offset);
+        match (exact, attributed) {
+            (Some(left), Some(right)) => Some(left.min(right)),
+            (Some(position), None) | (None, Some(position)) => Some(position),
+            (None, None) => None,
+        }
+    }
+
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&series_index, color) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=series_index {
+            let open = next_series_open(&out, cursor)
+                .ok_or_else(|| format!("chart series index {series_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find("</c:ser>")
+                .ok_or_else(|| "chart series element is unterminated".to_string())?;
+            let close = open + close_rel + "</c:ser>".len();
+            if current == series_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("series selection loop always selects its index");
+        let series = &out[open..close];
+        let sp_pr = series
+            .find("<c:spPr")
+            .ok_or_else(|| "chart series is missing <c:spPr>".to_string())?;
+        let sp_pr_end = sp_pr
+            + series[sp_pr..]
+                .find('>')
+                .ok_or_else(|| "chart series <c:spPr> is unterminated".to_string())?;
+        let sp_pr_close = series[sp_pr_end..]
+            .find("</c:spPr>")
+            .map(|offset| sp_pr_end + offset)
+            .ok_or_else(|| "chart series <c:spPr> is unterminated".to_string())?;
+        let sp_pr_body = &series[sp_pr_end..sp_pr_close];
+        let line = sp_pr_body
+            .find("<a:ln")
+            .ok_or_else(|| "chart series is missing <a:ln>".to_string())?;
+        let line_end = line
+            + sp_pr_body[line..]
+                .find("</a:ln>")
+                .ok_or_else(|| "chart series <a:ln> is unterminated".to_string())?;
+        let line_body = &sp_pr_body[line..line_end];
+        let solid = line_body
+            .find("<a:solidFill")
+            .ok_or_else(|| "chart series line is missing <a:solidFill>".to_string())?;
+        let color_rel = line_body[solid..]
+            .find("<a:srgbClr")
+            .ok_or_else(|| "chart series line is missing <a:srgbClr>".to_string())?;
+        let color_start = sp_pr_end + line + solid + color_rel;
+        let tag_end = color_start
+            + series[color_start..]
+                .find('>')
+                .ok_or_else(|| "chart series RGB color is unterminated".to_string())?;
+        let tag = &series[color_start..=tag_end];
+        let attr_rel = tag
+            .find("val=")
+            .ok_or_else(|| "chart series RGB color is missing val".to_string())?;
+        let value_start = open + color_start + attr_rel + "val=".len();
+        let quote = out.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart series RGB color val attribute is malformed".to_string());
+        }
+        let value_end = out[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| "chart series RGB color val attribute is unterminated".to_string())?;
+        out.replace_range(value_start + 1..value_end, color);
+    }
+    Ok(out)
+}
+
+/// Rewrite the existing solid RGB fill color for selected chart series. Only
+/// literal RGB fills are accepted; theme and gradient fills remain opaque.
+fn rewrite_chart_series_fill_colors(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    fn next_series_open(xml: &str, cursor: usize) -> Option<usize> {
+        let exact = xml[cursor..].find("<c:ser>").map(|offset| cursor + offset);
+        let attributed = xml[cursor..].find("<c:ser ").map(|offset| cursor + offset);
+        match (exact, attributed) {
+            (Some(left), Some(right)) => Some(left.min(right)),
+            (Some(position), None) | (None, Some(position)) => Some(position),
+            (None, None) => None,
+        }
+    }
+
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&series_index, color) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=series_index {
+            let open = next_series_open(&out, cursor)
+                .ok_or_else(|| format!("chart series index {series_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find("</c:ser>")
+                .ok_or_else(|| "chart series element is unterminated".to_string())?;
+            let close = open + close_rel + "</c:ser>".len();
+            if current == series_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("series selection loop always selects its index");
+        let series = &out[open..close];
+        let sp_pr = series
+            .find("<c:spPr")
+            .ok_or_else(|| "chart series is missing <c:spPr>".to_string())?;
+        let sp_pr_end = sp_pr
+            + series[sp_pr..]
+                .find('>')
+                .ok_or_else(|| "chart series <c:spPr> is unterminated".to_string())?;
+        let sp_pr_close = series[sp_pr_end..]
+            .find("</c:spPr>")
+            .map(|offset| sp_pr_end + offset)
+            .ok_or_else(|| "chart series <c:spPr> is unterminated".to_string())?;
+        let body = &series[sp_pr_end..sp_pr_close];
+        let color_start = sp_pr_end
+            + body
+                .find("<a:solidFill")
+                .ok_or_else(|| "chart series fill is missing <a:solidFill>".to_string())?;
+        let color_start = color_start
+            + series[color_start..]
+                .find("<a:srgbClr")
+                .ok_or_else(|| "chart series fill is missing <a:srgbClr>".to_string())?;
+        let tag_end = color_start
+            + series[color_start..]
+                .find('>')
+                .ok_or_else(|| "chart series fill RGB color is unterminated".to_string())?;
+        let tag = &series[color_start..=tag_end];
+        let attr_rel = tag
+            .find("val=")
+            .ok_or_else(|| "chart series fill RGB color is missing val".to_string())?;
+        let value_start = open + color_start + attr_rel + "val=".len();
+        let quote = out.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart series fill RGB color val attribute is malformed".to_string());
+        }
+        let value_end = out[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| {
+                "chart series fill RGB color val attribute is unterminated".to_string()
+            })?;
+        out.replace_range(value_start + 1..value_end, color);
+    }
+    Ok(out)
+}
+
+/// Rewrite cached points for selected chart series. The existing cache kind
+/// (`strCache` or `numCache`) is preserved; when absent, it is inferred from
+/// the reference kind. Only point count and values change, keeping formula
+/// references and all surrounding chart XML opaque.
+fn rewrite_chart_series_caches(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, vm::ChartSeriesEdit>,
+) -> Result<String, String> {
+    fn next_series_open(xml: &str, cursor: usize) -> Option<usize> {
+        let exact = xml[cursor..].find("<c:ser>").map(|offset| cursor + offset);
+        let attributed = xml[cursor..].find("<c:ser ").map(|offset| cursor + offset);
+        match (exact, attributed) {
+            (Some(left), Some(right)) => Some(left.min(right)),
+            (Some(position), None) | (None, Some(position)) => Some(position),
+            (None, None) => None,
+        }
+    }
+
+    fn replace_cache(series: &str, container: &str, values: &[String]) -> Result<String, String> {
+        let container_open = series
+            .find(container)
+            .ok_or_else(|| format!("chart series is missing {container} reference"))?;
+        let body_start = container_open + container.len();
+        let container_close = series[body_start..]
+            .find("</c:cat>")
+            .or_else(|| series[body_start..].find("</c:val>"))
+            .map(|offset| body_start + offset)
+            .ok_or_else(|| "chart series cache container is unterminated".to_string())?;
+        let body = &series[body_start..container_close];
+        let cache_kind = if body.contains("<c:strCache") {
+            Some(("<c:strCache", "strCache", "</c:strRef>"))
+        } else if body.contains("<c:numCache") {
+            Some(("<c:numCache", "numCache", "</c:numRef>"))
+        } else if body.contains("<c:strRef") {
+            Some(("<c:strCache", "strCache", "</c:strRef>"))
+        } else if body.contains("<c:numRef") {
+            Some(("<c:numCache", "numCache", "</c:numRef>"))
+        } else {
+            None
+        };
+        let (cache_open, cache_name, ref_close_tag) = cache_kind
+            .ok_or_else(|| "chart series reference is missing a cacheable formula".to_string())?;
+        let point_values = || {
+            values
+                .iter()
+                .enumerate()
+                .map(|(index, value)| {
+                    format!(
+                        "<c:pt idx=\"{index}\"><c:v>{}</c:v></c:pt>",
+                        xml_escape(value)
+                    )
+                })
+                .collect::<String>()
+        };
+        if !body.contains(cache_open) {
+            let insert_at = body
+                .find(ref_close_tag)
+                .ok_or_else(|| "chart series reference is unterminated".to_string())?;
+            let cache = format!(
+                "<c:{cache_name}><c:ptCount val=\"{}\"/>{}</c:{cache_name}>",
+                values.len(),
+                point_values()
+            );
+            let mut new_body = String::with_capacity(body.len() + cache.len());
+            new_body.push_str(&body[..insert_at]);
+            new_body.push_str(&cache);
+            new_body.push_str(&body[insert_at..]);
+            let mut out = String::with_capacity(series.len() + cache.len());
+            out.push_str(&series[..body_start]);
+            out.push_str(&new_body);
+            out.push_str(&series[container_close..]);
+            return Ok(out);
+        }
+        let (cache_open, cache_close_tag) = if body.contains("<c:strCache") {
+            ("<c:strCache", "</c:strCache>")
+        } else if body.contains("<c:numCache") {
+            ("<c:numCache", "</c:numCache>")
+        } else {
+            return Err(format!("chart series {container} is missing a cache"));
+        };
+        let cache_start = body
+            .find(cache_open)
+            .ok_or_else(|| format!("chart series {container} cache is missing"))?;
+        let cache_tag_end = body[cache_start..]
+            .find('>')
+            .map(|offset| cache_start + offset + 1)
+            .ok_or_else(|| "chart series cache is unterminated".to_string())?;
+        let cache_tag = &body[cache_start..cache_tag_end];
+        if cache_tag.trim_end().ends_with("/>") {
+            let opening_tag = cache_tag
+                .trim_end()
+                .strip_suffix("/>")
+                .expect("checked self-closing cache tag")
+                .to_string()
+                + ">";
+            let expanded = format!(
+                "{opening_tag}<c:ptCount val=\"{}\"/>{}</c:{cache_name}>",
+                values.len(),
+                point_values()
+            );
+            let mut new_body = String::with_capacity(body.len() + expanded.len());
+            new_body.push_str(&body[..cache_start]);
+            new_body.push_str(&expanded);
+            new_body.push_str(&body[cache_tag_end..]);
+            let mut out = String::with_capacity(series.len() + expanded.len());
+            out.push_str(&series[..body_start]);
+            out.push_str(&new_body);
+            out.push_str(&series[container_close..]);
+            return Ok(out);
+        }
+        let cache_end = body[cache_tag_end..]
+            .find(cache_close_tag)
+            .map(|offset| cache_tag_end + offset)
+            .ok_or_else(|| "chart series cache is unterminated".to_string())?;
+        let cache_body = &body[cache_tag_end..cache_end];
+        let (count_start, count_end, count_tag) =
+            if let Some(count_start) = cache_body.find("<c:ptCount") {
+                let count_end = cache_body[count_start..]
+                    .find('>')
+                    .map(|offset| count_start + offset + 1)
+                    .ok_or_else(|| "chart series ptCount is unterminated".to_string())?;
+                (
+                    count_start,
+                    count_end,
+                    reader::with_attr(
+                        &cache_body[count_start..count_end],
+                        "val",
+                        &values.len().to_string(),
+                    ),
+                )
+            } else {
+                (0, 0, format!("<c:ptCount val=\"{}\"/>", values.len()))
+            };
+        let points = point_values();
+        let mut new_cache_body = String::with_capacity(cache_body.len() + points.len());
+        new_cache_body.push_str(&cache_body[..count_start]);
+        new_cache_body.push_str(&count_tag);
+        new_cache_body.push_str(&points);
+        new_cache_body.push_str(if count_end == 0 {
+            cache_body
+        } else {
+            &cache_body[count_end..]
+        });
+
+        let mut new_body = String::with_capacity(body.len() + points.len());
+        new_body.push_str(&body[..cache_tag_end]);
+        new_body.push_str(&new_cache_body);
+        new_body.push_str(&body[cache_end..]);
+
+        let mut out = String::with_capacity(series.len() + points.len());
+        out.push_str(&series[..body_start]);
+        out.push_str(&new_body);
+        out.push_str(&series[container_close..]);
+        Ok(out)
+    }
+
+    fn selected_series(xml: &str, series_index: usize) -> Result<(usize, usize), String> {
+        let mut cursor = 0;
+        for current in 0..=series_index {
+            let open = next_series_open(xml, cursor)
+                .ok_or_else(|| format!("chart series index {series_index} is out of range"))?;
+            let close_rel = xml[open..]
+                .find("</c:ser>")
+                .ok_or_else(|| "chart series element is unterminated".to_string())?;
+            let close = open + close_rel + "</c:ser>".len();
+            if current == series_index {
+                return Ok((open, close));
+            }
+            cursor = close;
+        }
+        unreachable!()
+    }
+
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&series_index, edit) in ordered {
+        let (open, close) = selected_series(&out, series_index)?;
+        let mut series = out[open..close].to_string();
+        if let Some(values) = edit.category_cache.as_ref() {
+            series = replace_cache(&series, "<c:cat>", values)?;
+        }
+        if let Some(values) = edit.value_cache.as_ref() {
+            series = replace_cache(&series, "<c:val>", values)?;
+        }
+        out.replace_range(open..close, &series);
+    }
+    Ok(out)
+}
+
+/// Rewrites only the first text run in the first `<c:title>` element. The
+/// surrounding title formatting and all chart XML outside that text node are
+/// kept byte-for-byte unchanged.
+fn rewrite_chart_title(xml: &str, text: &str) -> Result<String, String> {
+    let title_start = xml.find("<c:title").filter(|&position| {
+        xml.as_bytes()
+            .get(position + b"<c:title".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+    });
+    let Some(title_start) = title_start else {
+        let plot_area = xml
+            .find("<c:plotArea")
+            .filter(|&position| {
+                xml.as_bytes()
+                    .get(position + b"<c:plotArea".len())
+                    .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+            })
+            .ok_or_else(|| {
+                "chart title element is missing and plotArea is unavailable".to_string()
+            })?;
+        let title = format!(
+            "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"en-US\"/><a:t>{}</a:t></a:r></a:p></c:rich></c:tx></c:title>",
+            xml_escape(text)
+        );
+        let mut out = String::with_capacity(xml.len() + title.len());
+        out.push_str(&xml[..plot_area]);
+        out.push_str(&title);
+        out.push_str(&xml[plot_area..]);
+        return Ok(out);
+    };
+    let title_open_end = xml[title_start..]
+        .find('>')
+        .map(|offset| title_start + offset + 1)
+        .ok_or_else(|| "chart title element is unterminated".to_string())?;
+    let title_end = xml[title_open_end..]
+        .find("</c:title>")
+        .map(|offset| title_open_end + offset)
+        .ok_or_else(|| "chart title element is unterminated".to_string())?;
+    let body = &xml[title_open_end..title_end];
+    let text_open = body
+        .find("<a:t>")
+        .ok_or_else(|| "chart title text element is missing".to_string())?;
+    let text_start = text_open + "<a:t>".len();
+    let text_end = body[text_start..]
+        .find("</a:t>")
+        .map(|offset| text_start + offset)
+        .ok_or_else(|| "chart title text element is unterminated".to_string())?;
+    let mut out = String::with_capacity(xml.len() + text.len());
+    out.push_str(&xml[..title_open_end]);
+    out.push_str(&body[..text_start]);
+    out.push_str(&xml_escape(text));
+    out.push_str(&body[text_end..]);
+    out.push_str(&xml[title_end..]);
+    Ok(out)
+}
+
+/// Rewrite the required `val` attribute of the first chart legend-position
+/// element, preserving the remainder of the chart XML.
+fn rewrite_chart_legend_position(xml: &str, position: &str) -> Result<String, String> {
+    let open = xml.find("<c:legendPos").filter(|&position| {
+        xml.as_bytes()
+            .get(position + b"<c:legendPos".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+    });
+    let Some(open) = open else {
+        let plot_area = xml
+            .find("<c:plotArea")
+            .filter(|&position| {
+                xml.as_bytes()
+                    .get(position + b"<c:plotArea".len())
+                    .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+            })
+            .ok_or_else(|| {
+                "chart legend position element is missing and plotArea is unavailable".to_string()
+            })?;
+        let legend = format!("<c:legend><c:legendPos val=\"{position}\"/><c:layout/></c:legend>");
+        let mut out = String::with_capacity(xml.len() + legend.len());
+        out.push_str(&xml[..plot_area]);
+        out.push_str(&legend);
+        out.push_str(&xml[plot_area..]);
+        return Ok(out);
+    };
+    let end = xml[open..]
+        .find('>')
+        .map(|offset| open + offset + 1)
+        .ok_or_else(|| "chart legend position element is unterminated".to_string())?;
+    let tag = &xml[open..end];
+    let val = "val=";
+    let attr = tag
+        .find(val)
+        .ok_or_else(|| "chart legend position is missing val attribute".to_string())?;
+    let value_start = attr + val.len();
+    let quote = tag.as_bytes()[value_start];
+    if quote != b'"' && quote != b'\'' {
+        return Err("chart legend position val attribute is malformed".to_string());
+    }
+    let value_end = tag[value_start + 1..]
+        .find(quote as char)
+        .map(|offset| value_start + 1 + offset)
+        .ok_or_else(|| "chart legend position val attribute is unterminated".to_string())?;
+    let mut replacement = tag.to_string();
+    replacement.replace_range(value_start + 1..value_end, position);
+    let mut out = String::with_capacity(xml.len());
+    out.push_str(&xml[..open]);
+    out.push_str(&replacement);
+    out.push_str(&xml[end..]);
+    Ok(out)
+}
+
+/// Rewrites or adds the first legend's `overlay` flag, preserving its other
+/// children and the rest of the chart XML.
+fn rewrite_chart_legend_overlay(xml: &str, overlay: bool) -> Result<String, String> {
+    let legend_open = xml.find("<c:legend").filter(|&position| {
+        xml.as_bytes()
+            .get(position + b"<c:legend".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+    });
+    let Some(legend_open) = legend_open else {
+        return Err("chart legend overlay requires an existing legend".to_string());
+    };
+    let legend_end = legend_open
+        + xml[legend_open..]
+            .find("</c:legend>")
+            .ok_or_else(|| "chart legend element is unterminated".to_string())?
+        + "</c:legend>".len();
+    let fragment = &xml[legend_open..legend_end];
+    let value = if overlay { "1" } else { "0" };
+    let rewritten = if let Some(open_rel) = fragment.find("<c:overlay") {
+        let open = open_rel;
+        let end = open
+            + fragment[open..]
+                .find('>')
+                .ok_or_else(|| "chart legend overlay element is unterminated".to_string())?
+            + 1;
+        let tag = &fragment[open..end];
+        let attr = tag
+            .find("val=")
+            .ok_or_else(|| "chart legend overlay is missing val attribute".to_string())?;
+        let value_start = attr + "val=".len();
+        let quote = tag.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart legend overlay val attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|offset| value_start + 1 + offset)
+            .ok_or_else(|| "chart legend overlay val attribute is unterminated".to_string())?;
+        let mut replacement = tag.to_string();
+        replacement.replace_range(value_start + 1..value_end, value);
+        let mut out = fragment.to_string();
+        out.replace_range(open..end, &replacement);
+        out
+    } else {
+        let close = fragment
+            .rfind("</c:legend>")
+            .ok_or_else(|| "chart legend element is malformed".to_string())?;
+        let tag = format!("<c:overlay val=\"{value}\"/>");
+        let mut out = String::with_capacity(fragment.len() + tag.len());
+        out.push_str(&fragment[..close]);
+        out.push_str(&tag);
+        out.push_str(&fragment[close..]);
+        out
+    };
+    let mut out = xml.to_string();
+    out.replace_range(legend_open..legend_end, &rewritten);
+    Ok(out)
+}
+
+/// Rewrites the first chart data-labels boolean attribute. Data-label creation
+/// and other label options remain outside this bounded operation.
+fn rewrite_chart_data_labels_flag(
+    xml: &str,
+    attribute: &str,
+    enabled: bool,
+) -> Result<String, String> {
+    let open = xml.find("<c:dLbls").filter(|&position| {
+        xml.as_bytes()
+            .get(position + b"<c:dLbls".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+    });
+    let Some(open) = open else {
+        return Err("chart data-labels element is missing".to_string());
+    };
+    let end = xml[open..]
+        .find('>')
+        .map(|offset| open + offset + 1)
+        .ok_or_else(|| "chart data-labels element is unterminated".to_string())?;
+    let tag = &xml[open..end];
+    let value = if enabled { "1" } else { "0" };
+    let mut replacement = tag.to_string();
+    let attribute_with_equals = format!("{attribute}=");
+    if let Some(attr) = tag.find(&attribute_with_equals) {
+        let value_start = attr + attribute_with_equals.len();
+        let quote = tag.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart data-labels showVal attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|offset| value_start + 1 + offset)
+            .ok_or_else(|| format!("chart data-labels {attribute} attribute is unterminated"))?;
+        replacement.replace_range(value_start + 1..value_end, value);
+    } else {
+        let insert_at = tag
+            .rfind("/>")
+            .or_else(|| tag.rfind('>'))
+            .ok_or_else(|| "chart data-labels element is malformed".to_string())?;
+        replacement.insert_str(insert_at, &format!(" {attribute}=\"{value}\""));
+    }
+    let mut out = xml.to_string();
+    out.replace_range(open..end, &replacement);
+    Ok(out)
+}
+
+fn rewrite_chart_data_labels_show_value(xml: &str, show_value: bool) -> Result<String, String> {
+    rewrite_chart_data_labels_flag(xml, "showVal", show_value)
+}
+
+/// Rewrites or adds the first chart data-labels position element while
+/// preserving existing flags and child elements.
+fn rewrite_chart_data_labels_position(xml: &str, position: &str) -> Result<String, String> {
+    if !matches!(
+        position,
+        "bestFit" | "b" | "ctr" | "inBase" | "inEnd" | "l" | "outEnd" | "r" | "t"
+    ) {
+        return Err("chart data-label position is outside the OOXML vocabulary".to_string());
+    }
+    let open = xml
+        .find("<c:dLbls")
+        .filter(|&offset| {
+            xml.as_bytes()
+                .get(offset + b"<c:dLbls".len())
+                .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+        })
+        .ok_or_else(|| "chart data-labels element is missing".to_string())?;
+    let open_end = xml[open..]
+        .find('>')
+        .map(|offset| open + offset + 1)
+        .ok_or_else(|| "chart data-labels element is unterminated".to_string())?;
+    let close = xml[open_end..]
+        .find("</c:dLbls>")
+        .map(|offset| open_end + offset)
+        .ok_or_else(|| "chart data-labels element is malformed".to_string())?;
+    let body = &xml[open_end..close];
+    let mut rewritten_body = body.to_string();
+    if let Some(pos_open_rel) = body.find("<c:dLblPos").filter(|&offset| {
+        body.as_bytes()
+            .get(offset + b"<c:dLblPos".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace() || *byte == b'/')
+    }) {
+        let pos_open = pos_open_rel;
+        let pos_end = body[pos_open..]
+            .find('>')
+            .map(|offset| pos_open + offset + 1)
+            .ok_or_else(|| "chart data-label position is unterminated".to_string())?;
+        let tag = &body[pos_open..pos_end];
+        let attr = "val=";
+        let attr_start = tag
+            .find(attr)
+            .ok_or_else(|| "chart data-label position val attribute is missing".to_string())?;
+        let value_start = attr_start + attr.len();
+        let quote =
+            tag.as_bytes().get(value_start).copied().ok_or_else(|| {
+                "chart data-label position val attribute is malformed".to_string()
+            })?;
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart data-label position val attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|offset| value_start + 1 + offset)
+            .ok_or_else(|| "chart data-label position val attribute is unterminated".to_string())?;
+        let mut replacement = tag.to_string();
+        replacement.replace_range(value_start + 1..value_end, position);
+        rewritten_body.replace_range(pos_open..pos_end, &replacement);
+    } else {
+        rewritten_body.push_str(&format!("<c:dLblPos val=\"{position}\"/>"));
+    }
+    let mut out = xml.to_string();
+    out.replace_range(open_end..close, &rewritten_body);
+    Ok(out)
+}
+
+/// Rewrites or adds the first chart data-label number format while preserving
+/// `sourceLinked` and all unrelated data-label content.
+fn rewrite_chart_data_labels_number_format(
+    xml: &str,
+    number_format: &str,
+) -> Result<String, String> {
+    if number_format.is_empty()
+        || number_format.len() > 4096
+        || number_format.chars().any(|c| c.is_control())
+    {
+        return Err("chart data-label number format is invalid".to_string());
+    }
+    let open = xml
+        .find("<c:dLbls")
+        .filter(|&offset| {
+            xml.as_bytes()
+                .get(offset + b"<c:dLbls".len())
+                .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+        })
+        .ok_or_else(|| "chart data-labels element is missing".to_string())?;
+    let open_end = xml[open..]
+        .find('>')
+        .map(|offset| open + offset + 1)
+        .ok_or_else(|| "chart data-labels element is unterminated".to_string())?;
+    let close = xml[open_end..]
+        .find("</c:dLbls>")
+        .map(|offset| open_end + offset)
+        .ok_or_else(|| "chart data-labels element is malformed".to_string())?;
+    let body = &xml[open_end..close];
+    let mut rewritten_body = body.to_string();
+    if let Some(num_open) = body.find("<c:numFmt").filter(|&offset| {
+        body.as_bytes()
+            .get(offset + b"<c:numFmt".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace() || *byte == b'/')
+    }) {
+        let num_end = body[num_open..]
+            .find('>')
+            .map(|offset| num_open + offset + 1)
+            .ok_or_else(|| "chart data-label number format is unterminated".to_string())?;
+        let tag = &body[num_open..num_end];
+        let attr_start = tag
+            .find("formatCode=")
+            .ok_or_else(|| "chart data-label number format attribute is missing".to_string())?;
+        let value_start = attr_start + "formatCode=".len();
+        let quote =
+            tag.as_bytes().get(value_start).copied().ok_or_else(|| {
+                "chart data-label number format attribute is malformed".to_string()
+            })?;
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart data-label number format attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|offset| value_start + 1 + offset)
+            .ok_or_else(|| {
+                "chart data-label number format attribute is unterminated".to_string()
+            })?;
+        let mut replacement = tag.to_string();
+        replacement.replace_range(value_start + 1..value_end, &xml_escape(number_format));
+        rewritten_body.replace_range(num_open..num_end, &replacement);
+    } else {
+        rewritten_body.push_str(&format!(
+            "<c:numFmt formatCode=\"{}\" sourceLinked=\"0\"/>",
+            xml_escape(number_format)
+        ));
+    }
+    let mut out = xml.to_string();
+    out.replace_range(open_end..close, &rewritten_body);
+    Ok(out)
+}
+
+/// Rewrites or adds the first chart data-label separator value.
+fn rewrite_chart_data_labels_separator(xml: &str, separator: &str) -> Result<String, String> {
+    if separator.is_empty() || separator.len() > 1024 || separator.chars().any(|c| c.is_control()) {
+        return Err("chart data-label separator is invalid".to_string());
+    }
+    let open = xml
+        .find("<c:dLbls")
+        .filter(|&offset| {
+            xml.as_bytes()
+                .get(offset + b"<c:dLbls".len())
+                .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+        })
+        .ok_or_else(|| "chart data-labels element is missing".to_string())?;
+    let open_end = xml[open..]
+        .find('>')
+        .map(|offset| open + offset + 1)
+        .ok_or_else(|| "chart data-labels element is unterminated".to_string())?;
+    let close = xml[open_end..]
+        .find("</c:dLbls>")
+        .map(|offset| open_end + offset)
+        .ok_or_else(|| "chart data-labels element is malformed".to_string())?;
+    let body = &xml[open_end..close];
+    let mut rewritten_body = body.to_string();
+    if let Some(separator_open) = body.find("<c:separator").filter(|&offset| {
+        body.as_bytes()
+            .get(offset + b"<c:separator".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace() || *byte == b'/')
+    }) {
+        let separator_end = body[separator_open..]
+            .find('>')
+            .map(|offset| separator_open + offset + 1)
+            .ok_or_else(|| "chart data-label separator is unterminated".to_string())?;
+        let tag = &body[separator_open..separator_end];
+        let attr_start = tag
+            .find("val=")
+            .ok_or_else(|| "chart data-label separator val attribute is missing".to_string())?;
+        let value_start = attr_start + "val=".len();
+        let quote =
+            tag.as_bytes().get(value_start).copied().ok_or_else(|| {
+                "chart data-label separator val attribute is malformed".to_string()
+            })?;
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart data-label separator val attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|offset| value_start + 1 + offset)
+            .ok_or_else(|| {
+                "chart data-label separator val attribute is unterminated".to_string()
+            })?;
+        let mut replacement = tag.to_string();
+        replacement.replace_range(value_start + 1..value_end, &xml_escape(separator));
+        rewritten_body.replace_range(separator_open..separator_end, &replacement);
+    } else {
+        rewritten_body.push_str(&format!("<c:separator val=\"{}\"/>", xml_escape(separator)));
+    }
+    let mut out = xml.to_string();
+    out.replace_range(open_end..close, &rewritten_body);
+    Ok(out)
+}
+
+/// Rewrites or adds the chart-space style number while preserving all other
+/// chart XML, including series, titles, legends, and extension content.
+fn rewrite_chart_style(xml: &str, style: u32) -> Result<String, String> {
+    if !(1..=48).contains(&style) {
+        return Err("chart style must be in the range 1..=48".to_string());
+    }
+    let open = xml.find("<c:style").filter(|&position| {
+        xml.as_bytes()
+            .get(position + b"<c:style".len())
+            .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+    });
+    if let Some(open) = open {
+        let end = xml[open..]
+            .find('>')
+            .map(|offset| open + offset + 1)
+            .ok_or_else(|| "chart style element is unterminated".to_string())?;
+        let tag = &xml[open..end];
+        let attr = tag
+            .find("val=")
+            .ok_or_else(|| "chart style is missing val attribute".to_string())?;
+        let value_start = attr + "val=".len();
+        let quote = tag.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("chart style val attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|offset| value_start + 1 + offset)
+            .ok_or_else(|| "chart style val attribute is unterminated".to_string())?;
+        let mut replacement = tag.to_string();
+        replacement.replace_range(value_start + 1..value_end, &style.to_string());
+        let mut out = String::with_capacity(xml.len());
+        out.push_str(&xml[..open]);
+        out.push_str(&replacement);
+        out.push_str(&xml[end..]);
+        return Ok(out);
+    }
+    let chart = [xml.find("<c:chart>"), xml.find("<c:chart ")]
+        .into_iter()
+        .flatten()
+        .min()
+        .ok_or_else(|| "chart style element is missing and chart is unavailable".to_string())?;
+    let style_tag = format!("<c:style val=\"{style}\"/>");
+    let mut out = String::with_capacity(xml.len() + style_tag.len());
+    out.push_str(&xml[..chart]);
+    out.push_str(&style_tag);
+    out.push_str(&xml[chart..]);
+    Ok(out)
+}
+
+/// Rewrites the first text run of one existing chart axis title. Axis index is
+/// zero-based across the chart's cat/val/date/ser axes in document order.
+fn rewrite_chart_axis_titles(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    let axis_names = ["catAx", "valAx", "dateAx", "serAx"];
+    let mut axes = Vec::new();
+    for name in axis_names {
+        let mut cursor = 0;
+        let open_tag = format!("<c:{name}");
+        let close_tag = format!("</c:{name}>");
+        while let Some(rel) = xml[cursor..].find(&open_tag) {
+            let open = cursor + rel;
+            if xml
+                .as_bytes()
+                .get(open + open_tag.len())
+                .is_some_and(|byte| *byte == b'>' || byte.is_ascii_whitespace())
+            {
+                let close = open
+                    + xml[open..]
+                        .find(&close_tag)
+                        .ok_or_else(|| format!("chart {name} element is unterminated"))?
+                    + close_tag.len();
+                axes.push((open, close));
+            }
+            cursor = open + open_tag.len();
+        }
+    }
+    axes.sort_by_key(|(open, _)| *open);
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&axis_index, text) in ordered {
+        let (open, close) = axes
+            .get(axis_index)
+            .copied()
+            .ok_or_else(|| format!("chart axis index {axis_index} is out of range"))?;
+        let fragment = &out[open..close];
+        let rewritten = if fragment.contains("<c:title") {
+            rewrite_chart_title(fragment, text)?
+        } else {
+            let title = format!(
+                "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"en-US\"/><a:t>{}</a:t></a:r></a:p></c:rich></c:tx></c:title>",
+                xml_escape(text)
+            );
+            let insertion = [
+                fragment.find("<c:numFmt"),
+                fragment.find("<c:majorTickMark"),
+                fragment.find("<c:minorTickMark"),
+                fragment.find("<c:tickLblPos"),
+                fragment.find("<c:crossAx"),
+                fragment.rfind("</c:"),
+            ]
+            .into_iter()
+            .flatten()
+            .min()
+            .ok_or_else(|| format!("chart axis index {axis_index} is malformed"))?;
+            let mut added = String::with_capacity(fragment.len() + title.len());
+            added.push_str(&fragment[..insertion]);
+            added.push_str(&title);
+            added.push_str(&fragment[insertion..]);
+            added
+        };
+        out.replace_range(open..close, &rewritten);
+    }
+    Ok(out)
+}
+
+/// Rewrite selected two-cell drawing anchors while preserving shape XML,
+/// relationship IDs, and all extension content. Public VM coordinates have
+/// already been validated as 1-based; OOXML markers are zero-based.
+fn rewrite_drawing_anchors(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, vm::DrawingAnchorEdit>,
+) -> Result<String, String> {
+    fn next_anchor_open(xml: &str, cursor: usize) -> Option<usize> {
+        let exact = xml[cursor..]
+            .find("<xdr:twoCellAnchor>")
+            .map(|offset| cursor + offset);
+        let attributed = xml[cursor..]
+            .find("<xdr:twoCellAnchor ")
+            .map(|offset| cursor + offset);
+        match (exact, attributed) {
+            (Some(left), Some(right)) => Some(left.min(right)),
+            (Some(position), None) | (None, Some(position)) => Some(position),
+            (None, None) => None,
+        }
+    }
+
+    fn replace_child_text(fragment: &str, element: &str, value: &str) -> Result<String, String> {
+        let open = fragment
+            .find(element)
+            .ok_or_else(|| format!("drawing anchor is missing {element}"))?;
+        let content_start = open + element.len();
+        let closing = element.replace('<', "</");
+        let close = content_start
+            + fragment[content_start..]
+                .find(&closing)
+                .ok_or_else(|| format!("drawing anchor {element} is unterminated"))?;
+        let mut out = String::with_capacity(fragment.len() + value.len());
+        out.push_str(&fragment[..content_start]);
+        out.push_str(value);
+        out.push_str(&fragment[close..]);
+        Ok(out)
+    }
+
+    fn replace_marker(anchor: &str, marker: &str, row: u32, col: u32) -> Result<String, String> {
+        let open = anchor
+            .find(marker)
+            .ok_or_else(|| format!("drawing anchor is missing {marker}"))?;
+        let content_start = open + marker.len();
+        let closing = marker.replace('<', "</");
+        let close = content_start
+            + anchor[content_start..]
+                .find(&closing)
+                .ok_or_else(|| format!("drawing anchor {marker} is unterminated"))?;
+        let marker_body = &anchor[content_start..close];
+        let marker_body = replace_child_text(marker_body, "<xdr:col>", &col.to_string())?;
+        let marker_body = replace_child_text(&marker_body, "<xdr:row>", &row.to_string())?;
+        let mut out = String::with_capacity(anchor.len());
+        out.push_str(&anchor[..content_start]);
+        out.push_str(&marker_body);
+        out.push_str(&anchor[close..]);
+        Ok(out)
+    }
+
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, edit) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let open = next_anchor_open(&out, cursor)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find("</xdr:twoCellAnchor>")
+                .ok_or_else(|| "drawing twoCellAnchor is unterminated".to_string())?;
+            let close = open + close_rel + "</xdr:twoCellAnchor>".len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let anchor = replace_marker(anchor, "<xdr:from>", edit.from_row - 1, edit.from_col - 1)?;
+        let anchor = replace_marker(&anchor, "<xdr:to>", edit.to_row - 1, edit.to_col - 1)?;
+        out.replace_range(open..close, &anchor);
+    }
+    Ok(out)
+}
+
+/// Rewrites only the selected drawing anchor's non-visual shape name.
+fn rewrite_drawing_shape_attribute(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+    attribute: &str,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, name) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let c_nv_pr = anchor
+            .find("<xdr:cNvPr")
+            .ok_or_else(|| "drawing anchor is missing <xdr:cNvPr>".to_string())?;
+        let tag_end = c_nv_pr
+            + anchor[c_nv_pr..]
+                .find('>')
+                .ok_or_else(|| "drawing cNvPr element is unterminated".to_string())?;
+        let mut tag = anchor[c_nv_pr..=tag_end].to_string();
+        let attr = format!("{attribute}=");
+        if let Some(attr_rel) = tag.find(&attr) {
+            let value_start = attr_rel + attr.len();
+            let quote = tag.as_bytes()[value_start];
+            if quote != b'"' && quote != b'\'' {
+                return Err(format!("drawing cNvPr {attribute} attribute is malformed"));
+            }
+            let value_end = tag[value_start + 1..]
+                .find(quote as char)
+                .map(|rel| value_start + 1 + rel)
+                .ok_or_else(|| format!("drawing cNvPr {attribute} attribute is unterminated"))?;
+            tag.replace_range(value_start + 1..value_end, &xml_escape(name));
+        } else if matches!(attribute, "descr" | "title" | "hidden") {
+            let insert_at = tag
+                .rfind("/>")
+                .or_else(|| tag.rfind('>'))
+                .ok_or_else(|| "drawing cNvPr element is malformed".to_string())?;
+            tag.insert_str(insert_at, &format!(" {attribute}=\"{}\"", xml_escape(name)));
+        } else {
+            return Err(format!("drawing cNvPr is missing {attribute} attribute"));
+        }
+        let mut replacement = anchor.to_string();
+        replacement.replace_range(c_nv_pr..=tag_end, &tag);
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+/// Rewrites only existing DrawingML text runs in selected anchors. This is
+/// deliberately limited to existing `<a:t>` content so shape structure and
+/// unrelated rich-text runs remain opaque and unchanged.
+fn rewrite_drawing_shape_text(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    let indexed = edits
+        .iter()
+        .map(|(&anchor_index, text)| ((anchor_index, 0), text.clone()))
+        .collect();
+    rewrite_drawing_shape_text_runs(xml, &indexed)
+}
+
+fn rewrite_drawing_shape_text_runs(
+    xml: &str,
+    edits: &std::collections::HashMap<(usize, usize), String>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|((anchor_index, run_index), _)| {
+        std::cmp::Reverse((*anchor_index, *run_index))
+    });
+    let mut out = xml.to_string();
+    for (&(anchor_index, run_index), text) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let mut text_open = None;
+        let mut search_from = 0;
+        for _ in 0..=run_index {
+            let relative = anchor[search_from..].find("<a:t>").ok_or_else(|| {
+                format!("drawing shape text run index {run_index} is out of range")
+            })?;
+            let absolute = search_from + relative;
+            text_open = Some(absolute);
+            search_from = absolute + "<a:t>".len();
+        }
+        let text_open = text_open.expect("text run selection loop always selects its index");
+        let content_start = text_open + "<a:t>".len();
+        let content_end = content_start
+            + anchor[content_start..]
+                .find("</a:t>")
+                .ok_or_else(|| "drawing shape text run is unterminated".to_string())?;
+        let mut replacement = anchor.to_string();
+        replacement.replace_range(content_start..content_end, &xml_escape(text));
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+/// Rewrites only an existing DrawingML transform rotation on the selected
+/// document-order drawing anchors. The transform is intentionally not created
+/// when absent because its geometry is required for a valid shape.
+fn rewrite_drawing_shape_rotation(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, i32>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, degrees) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let xfrm = anchor
+            .find("<a:xfrm")
+            .ok_or_else(|| "drawing shape is missing <a:xfrm>".to_string())?;
+        let tag_end = xfrm
+            + anchor[xfrm..]
+                .find('>')
+                .ok_or_else(|| "drawing shape transform is unterminated".to_string())?;
+        let mut tag = anchor[xfrm..=tag_end].to_string();
+        let value = i64::from(*degrees) * 60_000;
+        if let Some(attr_rel) = tag.find("rot=") {
+            let value_start = attr_rel + "rot=".len();
+            let quote = tag.as_bytes()[value_start];
+            if quote != b'"' && quote != b'\'' {
+                return Err("drawing shape transform rot attribute is malformed".to_string());
+            }
+            let value_end = tag[value_start + 1..]
+                .find(quote as char)
+                .map(|rel| value_start + 1 + rel)
+                .ok_or_else(|| {
+                    "drawing shape transform rot attribute is unterminated".to_string()
+                })?;
+            tag.replace_range(value_start + 1..value_end, &value.to_string());
+        } else {
+            let insert_at = tag
+                .rfind("/>")
+                .or_else(|| tag.rfind('>'))
+                .ok_or_else(|| "drawing shape transform is malformed".to_string())?;
+            tag.insert_str(insert_at, &format!(" rot=\"{value}\""));
+        }
+        let mut replacement = anchor.to_string();
+        replacement.replace_range(xfrm..=tag_end, &tag);
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+fn rewrite_drawing_shape_flip(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, vm::DrawingShapeFlipEdit>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, (flip_h, flip_v)) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let xfrm = anchor
+            .find("<a:xfrm")
+            .ok_or_else(|| "drawing shape is missing <a:xfrm>".to_string())?;
+        let tag_end = xfrm
+            + anchor[xfrm..]
+                .find('>')
+                .ok_or_else(|| "drawing shape transform is unterminated".to_string())?;
+        let mut tag = anchor[xfrm..=tag_end].to_string();
+        for (attribute, value) in [("flipH", *flip_h), ("flipV", *flip_v)] {
+            let Some(value) = value else { continue };
+            let value = if value { "1" } else { "0" };
+            if let Some(attr_rel) = tag.find(&format!("{attribute}=")) {
+                let value_start = attr_rel + attribute.len() + 1;
+                let quote = tag.as_bytes()[value_start];
+                if quote != b'"' && quote != b'\'' {
+                    return Err(format!(
+                        "drawing shape transform {attribute} attribute is malformed"
+                    ));
+                }
+                let value_end = tag[value_start + 1..]
+                    .find(quote as char)
+                    .map(|rel| value_start + 1 + rel)
+                    .ok_or_else(|| {
+                        format!("drawing shape transform {attribute} attribute is unterminated")
+                    })?;
+                tag.replace_range(value_start + 1..value_end, value);
+            } else {
+                let insert_at = tag
+                    .rfind("/>")
+                    .or_else(|| tag.rfind('>'))
+                    .ok_or_else(|| "drawing shape transform is malformed".to_string())?;
+                tag.insert_str(insert_at, &format!(" {attribute}=\"{value}\""));
+            }
+        }
+        let mut replacement = anchor.to_string();
+        replacement.replace_range(xfrm..=tag_end, &tag);
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+/// Rewrites the first solid RGB fill in the selected document-order drawing
+/// anchors. If the shape has no solid fill, a minimal one is added to its
+/// existing shape-properties element; no geometry or relationship is inferred.
+fn rewrite_drawing_shape_fill(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, color) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let sp_pr = anchor
+            .find("<xdr:spPr")
+            .ok_or_else(|| "drawing shape is missing <xdr:spPr>".to_string())?;
+        let sp_pr_end = sp_pr
+            + anchor[sp_pr..]
+                .find('>')
+                .ok_or_else(|| "drawing shape properties are unterminated".to_string())?;
+        let solid_fill = anchor[sp_pr_end..]
+            .find("<a:solidFill")
+            .map(|offset| sp_pr_end + offset);
+        let mut replacement = anchor.to_string();
+        if let Some(solid_fill) = solid_fill {
+            let color_start = solid_fill
+                + anchor[solid_fill..]
+                    .find("<a:srgbClr")
+                    .ok_or_else(|| "drawing solid fill is missing <a:srgbClr>".to_string())?;
+            let tag_end = color_start
+                + anchor[color_start..]
+                    .find('>')
+                    .ok_or_else(|| "drawing RGB color is unterminated".to_string())?;
+            let tag = &anchor[color_start..=tag_end];
+            let attr_rel = tag
+                .find("val=")
+                .ok_or_else(|| "drawing RGB color is missing val".to_string())?;
+            let value_start = color_start + attr_rel + "val=".len();
+            let quote = anchor.as_bytes()[value_start];
+            if quote != b'"' && quote != b'\'' {
+                return Err("drawing RGB color val attribute is malformed".to_string());
+            }
+            let value_end = anchor[value_start + 1..]
+                .find(quote as char)
+                .map(|rel| value_start + 1 + rel)
+                .ok_or_else(|| "drawing RGB color val attribute is unterminated".to_string())?;
+            replacement.replace_range(value_start + 1..value_end, &color[2..]);
+        } else {
+            let close_tag = anchor[sp_pr_end..]
+                .find("</xdr:spPr>")
+                .map(|offset| sp_pr_end + offset)
+                .ok_or_else(|| "drawing shape properties are unterminated".to_string())?;
+            replacement.insert_str(
+                close_tag,
+                &format!(
+                    "<a:solidFill><a:srgbClr val=\"{}\"/></a:solidFill>",
+                    &color[2..]
+                ),
+            );
+        }
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+fn rewrite_drawing_shape_line_color(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, color) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let line = anchor
+            .find("<a:ln")
+            .ok_or_else(|| "drawing shape is missing <a:ln>".to_string())?;
+        let line_end = line
+            + anchor[line..]
+                .find("</a:ln>")
+                .ok_or_else(|| "drawing shape line is unterminated".to_string())?;
+        let line_body = &anchor[line..line_end];
+        let color_rel = line_body
+            .find("<a:srgbClr")
+            .ok_or_else(|| "drawing shape line is missing <a:srgbClr>".to_string())?;
+        let color_start = line + color_rel;
+        let tag_end = color_start
+            + anchor[color_start..]
+                .find('>')
+                .ok_or_else(|| "drawing line RGB color is unterminated".to_string())?;
+        let tag = &anchor[color_start..=tag_end];
+        let attr_rel = tag
+            .find("val=")
+            .ok_or_else(|| "drawing line RGB color is missing val".to_string())?;
+        let value_start = color_start + attr_rel + "val=".len();
+        let quote = anchor.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("drawing line RGB color val attribute is malformed".to_string());
+        }
+        let value_end = anchor[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| "drawing line RGB color val attribute is unterminated".to_string())?;
+        let mut replacement = anchor.to_string();
+        replacement.replace_range(value_start + 1..value_end, &color[2..]);
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+fn rewrite_drawing_shape_line_width(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, u32>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, width) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let line = anchor
+            .find("<a:ln")
+            .ok_or_else(|| "drawing shape is missing <a:ln>".to_string())?;
+        let tag_end = line
+            + anchor[line..]
+                .find('>')
+                .ok_or_else(|| "drawing shape line is unterminated".to_string())?;
+        let tag = &anchor[line..=tag_end];
+        let attr_rel = tag.find("w=");
+        let mut replacement = anchor.to_string();
+        if let Some(attr_rel) = attr_rel {
+            let value_start = line + attr_rel + 2;
+            let quote = anchor.as_bytes()[value_start];
+            if quote != b'"' && quote != b'\'' {
+                return Err("drawing line width w attribute is malformed".to_string());
+            }
+            let value_end = anchor[value_start + 1..]
+                .find(quote as char)
+                .map(|rel| value_start + 1 + rel)
+                .ok_or_else(|| "drawing line width w attribute is unterminated".to_string())?;
+            replacement.replace_range(value_start + 1..value_end, &width.to_string());
+        } else {
+            let insert_at = tag_end;
+            replacement.insert_str(insert_at, &format!(" w=\"{width}\""));
+        }
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+fn rewrite_drawing_shape_line_dash(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, dash) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let line = anchor
+            .find("<a:ln")
+            .ok_or_else(|| "drawing shape is missing <a:ln>".to_string())?;
+        let line_end = line
+            + anchor[line..]
+                .find("</a:ln>")
+                .ok_or_else(|| "drawing shape line is unterminated".to_string())?;
+        let line_body = &anchor[line..line_end];
+        let dash_start = line_body
+            .find("<a:prstDash")
+            .ok_or_else(|| "drawing shape line is missing <a:prstDash>".to_string())?;
+        let dash_start = line + dash_start;
+        let tag_end = dash_start
+            + anchor[dash_start..]
+                .find('>')
+                .ok_or_else(|| "drawing preset dash is unterminated".to_string())?;
+        let tag = &anchor[dash_start..=tag_end];
+        let attr_rel = tag
+            .find("val=")
+            .ok_or_else(|| "drawing preset dash is missing val".to_string())?;
+        let value_start = dash_start + attr_rel + "val=".len();
+        let quote = anchor.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("drawing preset dash val attribute is malformed".to_string());
+        }
+        let value_end = anchor[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| "drawing preset dash val attribute is unterminated".to_string())?;
+        let mut replacement = anchor.to_string();
+        replacement.replace_range(value_start + 1..value_end, dash);
+        out.replace_range(open..close, &replacement);
+    }
+    Ok(out)
+}
+
+/// Rewrites only the `prst` attribute of an existing DrawingML preset
+/// geometry. Custom geometry and missing geometry are rejected.
+fn rewrite_drawing_shape_geometry(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    let mut out = xml.to_string();
+    for (&anchor_index, preset) in ordered {
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=anchor_index {
+            let candidates = [
+                ("<xdr:twoCellAnchor>", "</xdr:twoCellAnchor>"),
+                ("<xdr:twoCellAnchor ", "</xdr:twoCellAnchor>"),
+                ("<xdr:oneCellAnchor>", "</xdr:oneCellAnchor>"),
+                ("<xdr:oneCellAnchor ", "</xdr:oneCellAnchor>"),
+                ("<xdr:absoluteAnchor>", "</xdr:absoluteAnchor>"),
+                ("<xdr:absoluteAnchor ", "</xdr:absoluteAnchor>"),
+            ];
+            let (open, closing) = candidates
+                .iter()
+                .filter_map(|(opening, closing)| {
+                    out[cursor..]
+                        .find(opening)
+                        .map(|offset| (cursor + offset, *closing))
+                })
+                .min_by_key(|(position, _)| *position)
+                .ok_or_else(|| format!("drawing anchor index {anchor_index} is out of range"))?;
+            let close_rel = out[open..]
+                .find(closing)
+                .ok_or_else(|| "drawing anchor is unterminated".to_string())?;
+            let close = open + close_rel + closing.len();
+            if current == anchor_index {
+                selected = Some((open, close));
+                break;
+            }
+            cursor = close;
+        }
+        let (open, close) = selected.expect("anchor selection loop always selects its index");
+        let anchor = &out[open..close];
+        let geometry = anchor
+            .find("<a:prstGeom")
+            .ok_or_else(|| "drawing shape is missing <a:prstGeom>".to_string())?;
+        let tag_end = geometry
+            + anchor[geometry..]
+                .find('>')
+                .ok_or_else(|| "drawing preset geometry is unterminated".to_string())?;
+        let tag = &anchor[geometry..=tag_end];
+        let attr_rel = tag
+            .find("prst=")
+            .ok_or_else(|| "drawing preset geometry is missing prst".to_string())?;
+        let value_start = open + geometry + attr_rel + "prst=".len();
+        let quote = out.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("drawing preset geometry prst attribute is malformed".to_string());
+        }
+        let value_end = out[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| "drawing preset geometry prst attribute is unterminated".to_string())?;
+        out.replace_range(value_start + 1..value_end, preset);
+    }
+    Ok(out)
+}
+
 /// Rewrites only the worksheet source sheet attribute in pivot cache definitions.
 /// Pivot cache contents and table-based sources are left byte-for-byte unchanged.
 fn rewrite_pivot_cache_sheet_refs(
@@ -4020,6 +6491,176 @@ fn rewrite_pivot_cache_sheet_refs(
     Ok(out)
 }
 
+/// Rewrites the first worksheet-backed Pivot cache source's `sheet` and/or
+/// `ref` attributes. Table-backed sources and cache records remain untouched.
+fn rewrite_pivot_worksheet_source(
+    xml: &str,
+    edit: &vm::PivotWorksheetSourceEdit,
+) -> Result<String, String> {
+    let cache_start = xml
+        .find("<cacheSource")
+        .ok_or_else(|| "Pivot cache is missing <cacheSource>".to_string())?;
+    let cache_end = cache_start
+        + xml[cache_start..]
+            .find("</cacheSource>")
+            .ok_or_else(|| "Pivot cacheSource element is unterminated".to_string())?;
+    let source_start_rel = xml[cache_start..]
+        .find("<worksheetSource")
+        .ok_or_else(|| "Pivot cache is missing <worksheetSource>".to_string())?;
+    let source_start = cache_start + source_start_rel;
+    if source_start >= cache_end {
+        return Err("Pivot cache is missing worksheet-backed source".to_string());
+    }
+    let source_end_rel = xml[source_start..]
+        .find('>')
+        .ok_or_else(|| "Pivot worksheetSource element is unterminated".to_string())?;
+    let source_end = source_start + source_end_rel + 1;
+    let mut tag = xml[source_start..source_end].to_string();
+
+    fn replace_attr(tag: &mut String, name: &str, value: &str) -> Result<(), String> {
+        let attr_rel = tag
+            .find(&format!("{name}="))
+            .ok_or_else(|| format!("Pivot worksheetSource is missing {name} attribute"))?;
+        let value_start = attr_rel + name.len() + 1;
+        let quote = tag
+            .as_bytes()
+            .get(value_start)
+            .copied()
+            .ok_or_else(|| format!("Pivot worksheetSource {name} attribute is unterminated"))?;
+        if quote != b'"' && quote != b'\'' {
+            return Err(format!(
+                "Pivot worksheetSource {name} attribute is malformed"
+            ));
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| format!("Pivot worksheetSource {name} attribute is unterminated"))?;
+        tag.replace_range(value_start + 1..value_end, &xml_escape(value));
+        Ok(())
+    }
+
+    if let Some(sheet) = edit.sheet.as_deref() {
+        replace_attr(&mut tag, "sheet", sheet)?;
+    }
+    if let Some(reference) = edit.reference.as_deref() {
+        replace_attr(&mut tag, "ref", reference)?;
+    }
+    let mut out = xml.to_string();
+    out.replace_range(source_start..source_end, &tag);
+    Ok(out)
+}
+
+/// Rewrites the root Pivot cache definition's `refreshOnLoad` flag. This is a
+/// request for a later Excel-side refresh, not a headless cache refresh.
+fn rewrite_pivot_cache_refresh_on_load(xml: &str, enabled: bool) -> Result<String, String> {
+    let root_start = xml
+        .find("<pivotCacheDefinition")
+        .ok_or_else(|| "Pivot cache is missing <pivotCacheDefinition>".to_string())?;
+    let root_end = root_start
+        + xml[root_start..]
+            .find('>')
+            .ok_or_else(|| "Pivot cache definition element is unterminated".to_string())?
+        + 1;
+    let mut tag = xml[root_start..root_end].to_string();
+    let value = if enabled { "1" } else { "0" };
+    if let Some(attr_rel) = tag.find("refreshOnLoad=") {
+        let value_start = attr_rel + "refreshOnLoad=".len();
+        let quote = tag
+            .as_bytes()
+            .get(value_start)
+            .copied()
+            .ok_or_else(|| "Pivot refreshOnLoad attribute is unterminated".to_string())?;
+        if quote != b'"' && quote != b'\'' {
+            return Err("Pivot refreshOnLoad attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| "Pivot refreshOnLoad attribute is unterminated".to_string())?;
+        tag.replace_range(value_start + 1..value_end, value);
+    } else {
+        let insert_at = tag
+            .strip_suffix('>')
+            .map(str::len)
+            .ok_or_else(|| "Pivot cache definition element is malformed".to_string())?;
+        tag.insert_str(insert_at, &format!(" refreshOnLoad=\"{value}\""));
+    }
+    let mut out = xml.to_string();
+    out.replace_range(root_start..root_end, &tag);
+    Ok(out)
+}
+
+/// Rewrites selected `cacheField@name` captions while leaving shared items,
+/// records, and field ordering untouched.
+fn rewrite_pivot_cache_field_captions(
+    xml: &str,
+    edits: &std::collections::HashMap<usize, String>,
+) -> Result<String, String> {
+    let fields_start = xml
+        .find("<cacheFields")
+        .ok_or_else(|| "Pivot cache is missing <cacheFields>".to_string())?;
+    let fields_end = fields_start
+        + xml[fields_start..]
+            .find("</cacheFields>")
+            .ok_or_else(|| "Pivot cacheFields element is unterminated".to_string())?
+        + "</cacheFields>".len();
+    let mut out = xml.to_string();
+    let mut ordered: Vec<_> = edits.iter().collect();
+    ordered.sort_by_key(|(index, _)| std::cmp::Reverse(**index));
+    for (&field_index, caption) in ordered {
+        let fields = &out[fields_start..fields_end];
+        let mut cursor = 0;
+        let mut selected = None;
+        for current in 0..=field_index {
+            let exact = fields[cursor..]
+                .find("<cacheField>")
+                .map(|offset| cursor + offset);
+            let attributed = fields[cursor..]
+                .find("<cacheField ")
+                .map(|offset| cursor + offset);
+            let open = match (exact, attributed) {
+                (Some(left), Some(right)) => left.min(right),
+                (Some(position), None) | (None, Some(position)) => position,
+                (None, None) => {
+                    return Err(format!(
+                        "Pivot cache field index {field_index} is out of range"
+                    ));
+                }
+            };
+            let end = fields[open..]
+                .find('>')
+                .map(|offset| open + offset + 1)
+                .ok_or_else(|| "Pivot cacheField element is unterminated".to_string())?;
+            if current == field_index {
+                selected = Some((open, end));
+                break;
+            }
+            cursor = end;
+        }
+        let (open, end) = selected.expect("field selection loop always selects its index");
+        let mut tag = fields[open..end].to_string();
+        let attr = "name=";
+        let attr_rel = tag
+            .find(attr)
+            .ok_or_else(|| "Pivot cacheField is missing name attribute".to_string())?;
+        let value_start = attr_rel + attr.len();
+        let quote = tag.as_bytes()[value_start];
+        if quote != b'"' && quote != b'\'' {
+            return Err("Pivot cacheField name attribute is malformed".to_string());
+        }
+        let value_end = tag[value_start + 1..]
+            .find(quote as char)
+            .map(|rel| value_start + 1 + rel)
+            .ok_or_else(|| "Pivot cacheField name attribute is unterminated".to_string())?;
+        tag.replace_range(value_start + 1..value_end, &xml_escape(caption));
+        let absolute_open = fields_start + open;
+        let absolute_end = fields_start + end;
+        out.replace_range(absolute_open..absolute_end, &tag);
+    }
+    Ok(out)
+}
+
 /// Parses `rels_part` out of `raw_entries` (a source's raw zip contents) and returns
 /// every `(Type, Target)` relationship whose target both (a) survived into `passthrough`
 /// and (b) isn't already one of `skip_types` -- the types this writer emits its own
@@ -4035,16 +6676,16 @@ fn carry_over_rels(
     raw_entries: &std::collections::HashMap<String, Vec<u8>>,
     rels_part: &str,
     target_base: &str,
-    passthrough_names: &[String],
+    passthrough_names: &std::collections::HashSet<String>,
     skip_types: &[&str],
 ) -> Vec<(String, String)> {
     let Some(rels_xml) = raw_entries
         .get(rels_part)
-        .and_then(|b| String::from_utf8(b.clone()).ok())
+        .and_then(|bytes| std::str::from_utf8(bytes).ok())
     else {
         return Vec::new();
     };
-    reader::workbook_rels_decls(&rels_xml)
+    reader::workbook_rels_decls(rels_xml)
         .into_iter()
         .filter(|(ty, _)| !skip_types.contains(&ty.as_str()))
         .filter(|(_, target)| {
@@ -4226,6 +6867,7 @@ fn rewrite_defined_names_xml(
 
 fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     use std::collections::HashMap;
+    use std::io::Read;
     use std::io::Write;
     use zip::CompressionMethod;
     use zip::write::ZipWriter;
@@ -4283,6 +6925,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
 
     let mut passthrough: Vec<(String, Vec<u8>)> = Vec::new();
     let mut passthrough_source_names: Vec<String> = Vec::new();
+    let mut source_archive_for_save: Option<zip::ZipArchive<std::fs::File>> = None;
+    let mut defer_source_shared_strings = false;
     let mut has_vba = false;
     let mut carried_overrides: Vec<(String, String)> = Vec::new();
     // Other workbook-level relationships (theme, calcChain, etc.) whose target part
@@ -4339,9 +6983,212 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     // (0.16.0-A3's `create_table`) -- empty for a from-scratch `Vm` (nothing to reserve).
     let mut reserved_table_part_numbers: Vec<u32> = Vec::new();
     let allow_sheet_rename = vm.ooxml_structural_edit_dirty && vm.sheet_rename_only;
+    let has_chart_series_edits = !vm.chart_series_edits.is_empty();
+    let has_chart_series_line_color_edits = !vm.chart_series_line_color_edits.is_empty();
+    let has_chart_series_fill_color_edits = !vm.chart_series_fill_color_edits.is_empty();
+    let has_chart_title_edits = !vm.chart_title_edits.is_empty();
+    let has_chart_legend_position_edits = !vm.chart_legend_position_edits.is_empty();
+    let has_chart_style_edits = !vm.chart_style_edits.is_empty();
+    let has_chart_axis_title_edits = !vm.chart_axis_title_edits.is_empty();
+    let has_chart_legend_overlay_edits = !vm.chart_legend_overlay_edits.is_empty();
+    let has_chart_data_labels_edits = !vm.chart_data_labels_edits.is_empty();
+    let has_pivot_source_edits = !vm.pivot_source_edits.is_empty();
+    let has_drawing_anchor_edits = !vm.drawing_anchor_edits.is_empty();
+    let has_drawing_shape_name_edits = !vm.drawing_shape_name_edits.is_empty();
+    let has_drawing_shape_description_edits = !vm.drawing_shape_description_edits.is_empty();
+    let has_drawing_shape_title_edits = !vm.drawing_shape_title_edits.is_empty();
+    let has_drawing_shape_text_edits = !vm.drawing_shape_text_edits.is_empty();
+    let has_drawing_shape_text_run_edits = !vm.drawing_shape_text_run_edits.is_empty();
+    let has_drawing_shape_hidden_edits = !vm.drawing_shape_hidden_edits.is_empty();
+    let has_drawing_shape_rotation_edits = !vm.drawing_shape_rotation_edits.is_empty();
+    let has_drawing_shape_flip_edits = !vm.drawing_shape_flip_edits.is_empty();
+    let has_drawing_shape_fill_edits = !vm.drawing_shape_fill_edits.is_empty();
+    let has_drawing_shape_line_edits = !vm.drawing_shape_line_edits.is_empty();
+    let has_drawing_shape_line_width_edits = !vm.drawing_shape_line_width_edits.is_empty();
+    let has_drawing_shape_line_dash_edits = !vm.drawing_shape_line_dash_edits.is_empty();
+    let has_drawing_shape_geometry_edits = !vm.drawing_shape_geometry_edits.is_empty();
+    // Keep writer-owned static package parts regenerated. A source raw copy can
+    // carry source-only defaults or relationship-id ordering that is valid in
+    // isolation but diverges from the writer's carried relationship contract.
+    // The stricter path is also required by the paired ZIP-part gate.
+    let defer_source_static_parts = false;
 
     if let Some(source_path) = passthrough_source {
-        let mut raw_entries = reader::read_raw_zip_entries(source_path)?;
+        let source_file = std::fs::File::open(source_path).map_err(|e| e.to_string())?;
+        let mut source_archive = zip::ZipArchive::new(source_file).map_err(|e| e.to_string())?;
+        reader::validate_raw_zip_archive(&mut source_archive)?;
+        let mut raw_entries = reader::read_raw_zip_entries_from_archive(&mut source_archive)?;
+        source_archive_for_save = Some(source_archive);
+        for chart_part in vm.chart_series_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart series edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_series_line_color_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart series line color edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_series_fill_color_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart series fill color edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_title_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart title edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_legend_position_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart legend position edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_style_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart style edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_axis_title_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart axis title edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_legend_overlay_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart legend overlay edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart_part in vm.chart_data_labels_edits.keys() {
+            if !raw_entries.contains_key(chart_part) {
+                return Err(format!(
+                    "chart data-labels edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for cache_part in vm.pivot_source_edits.keys() {
+            if !raw_entries.contains_key(cache_part) {
+                return Err(format!(
+                    "Pivot source edit rejected: source workbook has no {cache_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_anchor_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing anchor edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_name_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_description_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_title_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_text_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape text edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_text_run_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape text run edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_hidden_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing hidden edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_rotation_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape rotation edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_flip_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape flip edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_fill_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape fill edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_line_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape line edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_line_width_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape line-width edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        for drawing_part in vm.drawing_shape_line_dash_edits.keys() {
+            if !raw_entries.contains_key(drawing_part) {
+                return Err(format!(
+                    "drawing shape line-dash edit rejected: source workbook has no {drawing_part}"
+                ));
+            }
+        }
+        if let Some(source_archive) = source_archive_for_save.as_mut()
+            && let Ok(mut entry) = source_archive.by_name("xl/sharedStrings.xml")
+        {
+            let mut xml = String::new();
+            entry.read_to_string(&mut xml).map_err(|e| e.to_string())?;
+            let source_strings = reader::xlsx_shared_strings_for_stream(&xml);
+            defer_source_shared_strings =
+                shared_string_table_matches_index(&source_strings, &str_index);
+        }
         if vm.ooxml_structural_edit_dirty
             && has_unrewritable_structural_ooxml_refs(&raw_entries, allow_sheet_rename)
         {
@@ -4349,9 +7196,6 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 "OOXML structural edit rejected: chart/drawing or pivot references cannot yet be rewritten safely; save without the structural edit or use a workbook without these objects".to_string(),
             );
         }
-        source_workbook_rels_xml = raw_entries
-            .get("xl/_rels/workbook.xml.rels")
-            .and_then(|bytes| String::from_utf8(bytes.clone()).ok());
         has_vba = is_xlsm_output && raw_entries.keys().any(|n| n.starts_with("xl/vbaProject"));
         // These parts are writer-owned or parsed into dedicated structures. Move
         // them out of the raw map instead of cloning them while retaining the map.
@@ -4415,7 +7259,7 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             Some(archive)
         };
         let drop_external_links = vm.external_links_policy == reader::ExternalLinksPolicy::Drop;
-        let passthrough_names: Vec<String> = raw_entries
+        let passthrough_names: std::collections::HashSet<String> = raw_entries
             .keys()
             .filter(|name| !is_writer_owned_part(name))
             .filter(|name| is_xlsm_output || !name.starts_with("xl/vbaProject"))
@@ -4424,18 +7268,6 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             .cloned()
             .collect();
         surviving_source_parts.extend(passthrough_names.iter().cloned());
-        for name in passthrough_names
-            .iter()
-            .filter(|name| name.ends_with(".rels"))
-        {
-            if let Some(xml) = raw_entries
-                .get(name)
-                .and_then(|bytes| String::from_utf8(bytes.clone()).ok())
-            {
-                source_relationship_parts.insert(name.clone(), xml);
-            }
-        }
-
         // Carry relationship metadata before consuming `raw_entries`; the byte payloads
         // themselves are moved into `passthrough` below, avoiding a second in-memory copy.
         carried_rels.extend(carry_over_rels(
@@ -4462,16 +7294,23 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         ));
 
         // Relationship connectivity and pruning have consumed the source bytes by this
-        // point. Keep only the parsed string index above plus the entry names below; the
-        // final writer reopens the source ZIP for every unchanged relationship part.
+        // point. Move each relationship XML into its dedicated map instead of cloning it;
+        // the raw map keeps only an empty marker so the final writer can reopen the source
+        // ZIP for every unchanged relationship part.
         for name in passthrough_names
             .iter()
             .filter(|name| name.ends_with(".rels"))
         {
             if let Some(bytes) = raw_entries.get_mut(name) {
-                bytes.clear();
+                let owned = std::mem::take(bytes);
+                if let Ok(xml) = String::from_utf8(owned) {
+                    source_relationship_parts.insert(name.clone(), xml);
+                }
             }
         }
+        source_workbook_rels_xml = raw_entries
+            .remove("xl/_rels/workbook.xml.rels")
+            .and_then(|bytes| String::from_utf8(bytes).ok());
 
         for (name, bytes) in raw_entries {
             if is_writer_owned_part(&name) {
@@ -4505,21 +7344,108 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 }
                 None => bytes,
             };
-            let bytes = if allow_sheet_rename && name.starts_with("xl/charts/") {
+            let bytes = if (allow_sheet_rename
+                || has_chart_series_edits
+                || has_chart_series_line_color_edits
+                || has_chart_series_fill_color_edits
+                || has_chart_title_edits
+                || has_chart_legend_position_edits
+                || has_chart_style_edits
+                || has_chart_axis_title_edits
+                || has_chart_legend_overlay_edits
+                || has_chart_data_labels_edits)
+                && name.starts_with("xl/charts/")
+            {
                 let bytes = if bytes.is_empty() {
                     reader::read_raw_zip_entry_if_present(source_path, &name)?
                         .ok_or_else(|| format!("chart part disappeared from source ZIP: {name}"))?
                 } else {
                     bytes
                 };
-                rewrite_chart_sheet_refs(
-                    &String::from_utf8(bytes).map_err(|_| {
-                        format!("chart part is not UTF-8 and cannot be safely rewritten: {name}")
-                    })?,
-                    &vm.sheet_renames_since_load,
-                )?
-                .into_bytes()
-            } else if allow_sheet_rename && name.starts_with("xl/pivotCache/") {
+                let mut chart = String::from_utf8(bytes).map_err(|_| {
+                    format!("chart part is not UTF-8 and cannot be safely rewritten: {name}")
+                })?;
+                if allow_sheet_rename {
+                    chart = rewrite_chart_sheet_refs(&chart, &vm.sheet_renames_since_load)?;
+                }
+                if let Some(edits) = vm.chart_series_edits.get(&name) {
+                    chart = rewrite_chart_series_formulas(&chart, edits)?;
+                    chart = rewrite_chart_series_caches(&chart, edits)?;
+                }
+                if let Some(edits) = vm.chart_series_line_color_edits.get(&name) {
+                    chart = rewrite_chart_series_line_colors(&chart, edits)?;
+                }
+                if let Some(edits) = vm.chart_series_fill_color_edits.get(&name) {
+                    chart = rewrite_chart_series_fill_colors(&chart, edits)?;
+                }
+                if let Some(edit) = vm.chart_title_edits.get(&name) {
+                    chart = rewrite_chart_title(&chart, &edit.text)?;
+                }
+                if let Some(edit) = vm.chart_legend_position_edits.get(&name) {
+                    chart = rewrite_chart_legend_position(&chart, &edit.position)?;
+                }
+                if let Some(edit) = vm.chart_style_edits.get(&name) {
+                    chart = rewrite_chart_style(&chart, edit.style)?;
+                }
+                if let Some(edits) = vm.chart_axis_title_edits.get(&name) {
+                    chart = rewrite_chart_axis_titles(&chart, edits)?;
+                }
+                if let Some(edit) = vm.chart_legend_overlay_edits.get(&name) {
+                    chart = rewrite_chart_legend_overlay(&chart, edit.overlay)?;
+                }
+                if let Some(edit) = vm.chart_data_labels_edits.get(&name) {
+                    if let Some(show_value) = edit.show_value {
+                        chart = rewrite_chart_data_labels_show_value(&chart, show_value)?;
+                    }
+                    if let Some(show_category) = edit.show_category {
+                        chart = rewrite_chart_data_labels_flag(&chart, "showCat", show_category)?;
+                    }
+                    if let Some(show_series_name) = edit.show_series_name {
+                        chart = rewrite_chart_data_labels_flag(
+                            &chart,
+                            "showSerName",
+                            show_series_name,
+                        )?;
+                    }
+                    if let Some(show_percent) = edit.show_percent {
+                        chart =
+                            rewrite_chart_data_labels_flag(&chart, "showPercent", show_percent)?;
+                    }
+                    if let Some(show_leader_lines) = edit.show_leader_lines {
+                        chart = rewrite_chart_data_labels_flag(
+                            &chart,
+                            "showLeaderLines",
+                            show_leader_lines,
+                        )?;
+                    }
+                    if let Some(show_bubble_size) = edit.show_bubble_size {
+                        chart = rewrite_chart_data_labels_flag(
+                            &chart,
+                            "showBubbleSize",
+                            show_bubble_size,
+                        )?;
+                    }
+                    if let Some(show_legend_key) = edit.show_legend_key {
+                        chart = rewrite_chart_data_labels_flag(
+                            &chart,
+                            "showLegendKey",
+                            show_legend_key,
+                        )?;
+                    }
+                    if let Some(position) = edit.position.as_deref() {
+                        chart = rewrite_chart_data_labels_position(&chart, position)?;
+                    }
+                    if let Some(number_format) = edit.number_format.as_deref() {
+                        chart = rewrite_chart_data_labels_number_format(&chart, number_format)?;
+                    }
+                    if let Some(separator) = edit.separator.as_deref() {
+                        chart = rewrite_chart_data_labels_separator(&chart, separator)?;
+                    }
+                }
+                chart.into_bytes()
+            } else if (allow_sheet_rename || has_pivot_source_edits)
+                && name.starts_with("xl/pivotCache/")
+            {
                 let bytes = if bytes.is_empty() {
                     reader::read_raw_zip_entry_if_present(source_path, &name)?.ok_or_else(|| {
                         format!("pivot cache part disappeared from source ZIP: {name}")
@@ -4527,15 +7453,143 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 } else {
                     bytes
                 };
-                rewrite_pivot_cache_sheet_refs(
-                    &String::from_utf8(bytes).map_err(|_| {
-                        format!(
-                            "pivot cache part is not UTF-8 and cannot be safely rewritten: {name}"
-                        )
-                    })?,
-                    &vm.sheet_renames_since_load,
-                )?
-                .into_bytes()
+                let mut pivot = String::from_utf8(bytes).map_err(|_| {
+                    format!("pivot cache part is not UTF-8 and cannot be safely rewritten: {name}")
+                })?;
+                if allow_sheet_rename {
+                    pivot = rewrite_pivot_cache_sheet_refs(&pivot, &vm.sheet_renames_since_load)?;
+                }
+                if let Some(edit) = vm.pivot_source_edits.get(&name) {
+                    if edit.sheet.is_some() || edit.reference.is_some() {
+                        pivot = rewrite_pivot_worksheet_source(&pivot, edit)?;
+                    }
+                    if let Some(enabled) = edit.refresh_on_load {
+                        pivot = rewrite_pivot_cache_refresh_on_load(&pivot, enabled)?;
+                    }
+                    if !edit.field_captions.is_empty() {
+                        pivot = rewrite_pivot_cache_field_captions(&pivot, &edit.field_captions)?;
+                    }
+                }
+                pivot.into_bytes()
+            } else if (has_drawing_anchor_edits
+                || has_drawing_shape_name_edits
+                || has_drawing_shape_description_edits
+                || has_drawing_shape_title_edits
+                || has_drawing_shape_text_edits
+                || has_drawing_shape_text_run_edits
+                || has_drawing_shape_hidden_edits
+                || has_drawing_shape_rotation_edits
+                || has_drawing_shape_flip_edits
+                || has_drawing_shape_fill_edits
+                || has_drawing_shape_line_edits
+                || has_drawing_shape_line_width_edits
+                || has_drawing_shape_line_dash_edits
+                || has_drawing_shape_geometry_edits)
+                && (vm.drawing_anchor_edits.contains_key(&name)
+                    || vm.drawing_shape_name_edits.contains_key(&name)
+                    || vm.drawing_shape_description_edits.contains_key(&name)
+                    || vm.drawing_shape_title_edits.contains_key(&name)
+                    || vm.drawing_shape_text_edits.contains_key(&name)
+                    || vm.drawing_shape_text_run_edits.contains_key(&name)
+                    || vm.drawing_shape_hidden_edits.contains_key(&name)
+                    || vm.drawing_shape_rotation_edits.contains_key(&name)
+                    || vm.drawing_shape_flip_edits.contains_key(&name)
+                    || vm.drawing_shape_fill_edits.contains_key(&name)
+                    || vm.drawing_shape_line_edits.contains_key(&name)
+                    || vm.drawing_shape_line_width_edits.contains_key(&name)
+                    || vm.drawing_shape_line_dash_edits.contains_key(&name)
+                    || vm.drawing_shape_geometry_edits.contains_key(&name))
+                && name.starts_with("xl/drawings/")
+                && name.ends_with(".xml")
+                && !name.contains("/_rels/")
+            {
+                let bytes = if bytes.is_empty() {
+                    reader::read_raw_zip_entry_if_present(source_path, &name)?.ok_or_else(|| {
+                        format!("drawing part disappeared from source ZIP: {name}")
+                    })?
+                } else {
+                    bytes
+                };
+                let drawing = String::from_utf8(bytes).map_err(|_| {
+                    format!("drawing part is not UTF-8 and cannot be safely rewritten: {name}")
+                })?;
+                let drawing = if let Some(edits) = vm.drawing_anchor_edits.get(&name) {
+                    rewrite_drawing_anchors(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_name_edits.get(&name) {
+                    rewrite_drawing_shape_attribute(&drawing, edits, "name")?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_description_edits.get(&name) {
+                    rewrite_drawing_shape_attribute(&drawing, edits, "descr")?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_title_edits.get(&name) {
+                    rewrite_drawing_shape_attribute(&drawing, edits, "title")?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_text_edits.get(&name) {
+                    rewrite_drawing_shape_text(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_text_run_edits.get(&name) {
+                    rewrite_drawing_shape_text_runs(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_hidden_edits.get(&name) {
+                    let edits = edits
+                        .iter()
+                        .map(|(&index, &hidden)| {
+                            (index, if hidden { "1" } else { "0" }.to_string())
+                        })
+                        .collect();
+                    rewrite_drawing_shape_attribute(&drawing, &edits, "hidden")?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_rotation_edits.get(&name) {
+                    rewrite_drawing_shape_rotation(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_flip_edits.get(&name) {
+                    rewrite_drawing_shape_flip(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_fill_edits.get(&name) {
+                    rewrite_drawing_shape_fill(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_line_edits.get(&name) {
+                    rewrite_drawing_shape_line_color(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_line_width_edits.get(&name) {
+                    rewrite_drawing_shape_line_width(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_line_dash_edits.get(&name) {
+                    rewrite_drawing_shape_line_dash(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                let drawing = if let Some(edits) = vm.drawing_shape_geometry_edits.get(&name) {
+                    rewrite_drawing_shape_geometry(&drawing, edits)?
+                } else {
+                    drawing
+                };
+                drawing.into_bytes()
             } else {
                 bytes
             };
@@ -4548,6 +7602,49 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 || (allow_sheet_rename
                     && ((name.starts_with("xl/charts/") && name.ends_with(".xml"))
                         || (name.starts_with("xl/pivotCache/") && name.ends_with(".xml"))))
+                || ((has_chart_series_edits
+                    || has_chart_series_line_color_edits
+                    || has_chart_series_fill_color_edits
+                    || has_chart_title_edits
+                    || has_chart_legend_position_edits
+                    || has_chart_style_edits
+                    || has_chart_axis_title_edits
+                    || has_chart_legend_overlay_edits
+                    || has_chart_data_labels_edits)
+                    && name.starts_with("xl/charts/")
+                    && name.ends_with(".xml"))
+                || (has_pivot_source_edits
+                    && name.starts_with("xl/pivotCache/")
+                    && name.ends_with(".xml"))
+                || ((has_drawing_anchor_edits
+                    || has_drawing_shape_name_edits
+                    || has_drawing_shape_description_edits
+                    || has_drawing_shape_title_edits
+                    || has_drawing_shape_text_edits
+                    || has_drawing_shape_text_run_edits
+                    || has_drawing_shape_hidden_edits
+                    || has_drawing_shape_rotation_edits
+                    || has_drawing_shape_flip_edits
+                    || has_drawing_shape_fill_edits
+                    || has_drawing_shape_line_edits
+                    || has_drawing_shape_line_width_edits
+                    || has_drawing_shape_line_dash_edits
+                    || has_drawing_shape_geometry_edits)
+                    && (vm.drawing_anchor_edits.contains_key(&name)
+                        || vm.drawing_shape_name_edits.contains_key(&name)
+                        || vm.drawing_shape_description_edits.contains_key(&name)
+                        || vm.drawing_shape_title_edits.contains_key(&name)
+                        || vm.drawing_shape_text_edits.contains_key(&name)
+                        || vm.drawing_shape_text_run_edits.contains_key(&name)
+                        || vm.drawing_shape_hidden_edits.contains_key(&name)
+                        || vm.drawing_shape_rotation_edits.contains_key(&name)
+                        || vm.drawing_shape_flip_edits.contains_key(&name)
+                        || vm.drawing_shape_fill_edits.contains_key(&name)
+                        || vm.drawing_shape_line_edits.contains_key(&name)
+                        || vm.drawing_shape_line_width_edits.contains_key(&name)
+                        || vm.drawing_shape_line_dash_edits.contains_key(&name))
+                    && name.starts_with("xl/drawings/")
+                    && name.ends_with(".xml"))
                 || (name.starts_with("xl/worksheets/") && !name.contains("/_rels/"))
                 // An untouched table can be copied directly from the source ZIP;
                 // retain its XML only when a surgical TableEditOp needs to patch it.
@@ -4750,20 +7847,28 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     // Data descriptors avoid seeking back to patch each local header, which
     // would otherwise flush BufWriter before the buffer is full.
     let mut zip = ZipWriter::new_stream(std::io::BufWriter::with_capacity(64 * 1024, file));
-    let deflated =
-        zip::write::SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    // Level 1 keeps the OOXML ZIP contract while reducing CPU cost for large
+    // streamed parts. The benchmark gate records output size as well as time.
+    let deflated = zip::write::SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .compression_level(Some(1));
 
-    zip.start_file("[Content_Types].xml", deflated)
+    if !defer_source_static_parts {
+        zip.start_file("[Content_Types].xml", deflated)
+            .map_err(|e| e.to_string())?;
+        zip.write_all(
+            build_xlsx_content_types(&worksheet_plans, is_xlsm_output, &carried_overrides)
+                .as_bytes(),
+        )
         .map_err(|e| e.to_string())?;
-    zip.write_all(
-        build_xlsx_content_types(&worksheet_plans, is_xlsm_output, &carried_overrides).as_bytes(),
-    )
-    .map_err(|e| e.to_string())?;
+    }
 
-    zip.start_file("_rels/.rels", deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(build_xlsx_root_rels(&carried_root_rels).as_bytes())
-        .map_err(|e| e.to_string())?;
+    if !defer_source_static_parts {
+        zip.start_file("_rels/.rels", deflated)
+            .map_err(|e| e.to_string())?;
+        zip.write_all(build_xlsx_root_rels(&carried_root_rels).as_bytes())
+            .map_err(|e| e.to_string())?;
+    }
 
     // .and_then(ensure_r_prefix_bound): a source is free to bind the relationships
     // namespace to any prefix (e.g. `xmlns:rel="..."` + `rel:id="..."`, equally valid
@@ -5113,24 +8218,25 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         sheet_sink.0.into_inner().map_err(|e| e.to_string())?;
     }
 
-    zip.start_file("xl/sharedStrings.xml", deflated)
-        .map_err(|e| e.to_string())?;
-    let mut strings_sink = std::io::BufWriter::with_capacity(64 * 1024, &mut zip);
-    write_xlsx_shared_strings_from_index(&mut strings_sink, &str_index)
-        .map_err(|e| e.to_string())?;
-    strings_sink.into_inner().map_err(|e| e.to_string())?;
+    if !defer_source_shared_strings {
+        zip.start_file("xl/sharedStrings.xml", deflated)
+            .map_err(|e| e.to_string())?;
+        let mut strings_sink = std::io::BufWriter::with_capacity(64 * 1024, &mut zip);
+        write_xlsx_shared_strings_from_index(&mut strings_sink, &str_index)
+            .map_err(|e| e.to_string())?;
+        strings_sink.into_inner().map_err(|e| e.to_string())?;
+    }
 
-    zip.start_file("xl/styles.xml", deflated)
-        .map_err(|e| e.to_string())?;
     if let Some(bytes) = new_styles_bytes.as_deref() {
+        zip.start_file("xl/styles.xml", deflated)
+            .map_err(|e| e.to_string())?;
         zip.write_all(bytes).map_err(|e| e.to_string())?;
     } else if defer_source_styles {
-        let source_path = passthrough_source.expect("deferred styles require a source path");
-        let source_file = std::fs::File::open(source_path).map_err(|e| e.to_string())?;
-        let mut source_archive = zip::ZipArchive::new(source_file).map_err(|e| e.to_string())?;
-        reader::validate_raw_zip_archive(&mut source_archive)?;
-        reader::copy_raw_zip_entry(&mut source_archive, "xl/styles.xml", &mut zip)?;
+        // Deferred into the single source archive pass below, together with the
+        // other untouched entries. ZIP entry order is not semantically relevant.
     } else {
+        zip.start_file("xl/styles.xml", deflated)
+            .map_err(|e| e.to_string())?;
         zip.write_all(XLSX_STYLES.as_bytes())
             .map_err(|e| e.to_string())?;
     }
@@ -5143,20 +8249,48 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         zip.write_all(&bytes).map_err(|e| e.to_string())?;
     }
 
-    // Binary passthrough payloads are reopened one at a time. This keeps the
-    // source package's large images/VBA project out of the save-time heap while
-    // preserving their exact decompressed bytes in the output package.
-    if let Some(source_path) = passthrough_source {
-        let source_file = std::fs::File::open(source_path).map_err(|e| e.to_string())?;
-        let mut source_archive = zip::ZipArchive::new(source_file).map_err(|e| e.to_string())?;
-        reader::validate_raw_zip_archive(&mut source_archive)?;
-        for name in &passthrough_source_names {
-            zip.start_file(name.as_str(), deflated)
+    // Untouched passthrough payloads are copied from the already validated source
+    // archive as complete ZIP entries. This avoids both allocation and
+    // decompression/recompression CPU while preserving exact bytes and metadata.
+    // Entries that need rewriting remain in the loop above.
+    if (defer_source_static_parts
+        || defer_source_shared_strings
+        || defer_source_styles
+        || !passthrough_source_names.is_empty())
+        && let Some(source_archive) = source_archive_for_save.as_mut()
+    {
+        if defer_source_static_parts {
+            let source_entry = source_archive
+                .by_name("[Content_Types].xml")
                 .map_err(|e| e.to_string())?;
-            reader::copy_raw_zip_entry(&mut source_archive, name, &mut zip)?;
+            zip.raw_copy_file(source_entry).map_err(|e| e.to_string())?;
+            let source_entry = source_archive
+                .by_name("_rels/.rels")
+                .map_err(|e| e.to_string())?;
+            zip.raw_copy_file(source_entry).map_err(|e| e.to_string())?;
+        }
+        if defer_source_shared_strings {
+            let source_entry = source_archive
+                .by_name("xl/sharedStrings.xml")
+                .map_err(|e| e.to_string())?;
+            zip.raw_copy_file(source_entry).map_err(|e| e.to_string())?;
+        }
+        if defer_source_styles {
+            let source_entry = source_archive
+                .by_name("xl/styles.xml")
+                .map_err(|e| e.to_string())?;
+            zip.raw_copy_file(source_entry).map_err(|e| e.to_string())?;
+        }
+        for name in &passthrough_source_names {
+            let source_entry = source_archive.by_name(name).map_err(|e| e.to_string())?;
+            zip.raw_copy_file(source_entry).map_err(|e| e.to_string())?;
         }
     }
 
+    // Release the source handle before publishing the destination. This is
+    // required for in-place saves on platforms that do not allow renaming over
+    // an open source file (notably Windows).
+    drop(source_archive_for_save);
     let mut file = zip.finish().map_err(|e| e.to_string())?.into_inner();
     file.flush().map_err(|e| e.to_string())?;
     if sync {
@@ -6641,6 +9775,21 @@ fn write_xlsx_shared_strings_from_index<W: std::io::Write>(
     out.write_all(b"</sst>\n")
 }
 
+/// Check whether the source shared-string table can be copied without creating
+/// a second owned table. The index stores the source-compatible output order,
+/// so compare by index directly instead of materializing a temporary Vec.
+fn shared_string_table_matches_index(
+    source: &[String],
+    index: &std::collections::HashMap<String, usize>,
+) -> bool {
+    source.len() == index.len()
+        && index.iter().all(|(value, position)| {
+            source
+                .get(*position)
+                .is_some_and(|candidate| candidate == value)
+        })
+}
+
 #[allow(dead_code)]
 fn build_xlsx_shared_strings(strings: &[String]) -> String {
     let count = strings.len();
@@ -6669,7 +9818,10 @@ fn build_xlsx_shared_strings(strings: &[String]) -> String {
 
 #[cfg(test)]
 mod shared_strings_tests {
-    use super::{build_xlsx_shared_strings, write_xlsx_shared_strings_from_index};
+    use super::{
+        build_xlsx_shared_strings, shared_string_table_matches_index,
+        write_xlsx_shared_strings_from_index,
+    };
     use std::collections::HashMap;
 
     #[test]
@@ -6700,6 +9852,29 @@ mod shared_strings_tests {
         let mut actual = Vec::new();
         write_xlsx_shared_strings_from_index(&mut actual, &index).unwrap();
         assert_eq!(String::from_utf8(actual).unwrap(), expected);
+    }
+
+    #[test]
+    fn source_table_match_checks_order_and_contents_without_rebuilding_table() {
+        let index = [("first".to_string(), 0), ("second".to_string(), 1)]
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+        assert!(shared_string_table_matches_index(
+            &["first".to_string(), "second".to_string()],
+            &index
+        ));
+        assert!(!shared_string_table_matches_index(
+            &["second".to_string(), "first".to_string()],
+            &index
+        ));
+        assert!(!shared_string_table_matches_index(
+            &["first".to_string()],
+            &index
+        ));
+        assert!(!shared_string_table_matches_index(
+            &["first".to_string(), "changed".to_string()],
+            &index
+        ));
     }
 }
 
@@ -7387,6 +10562,937 @@ mod tests {
     }
 
     #[test]
+    fn chart_series_rewriter_changes_only_selected_series_references() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            1,
+            vm::ChartSeriesEdit {
+                name: None,
+                categories: Some("Data & 2026!$A$2:$A$4".to_string()),
+                values: Some("Data & 2026!$B$2:$B$4".to_string()),
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            },
+        );
+        let source = concat!(
+            "<c:chart><c:plotArea>",
+            "<c:ser><c:idx val=\"0\"/><c:cat><c:strRef><c:f>Old!$A$1:$A$2</c:f></c:strRef></c:cat>",
+            "<c:val><c:numRef><c:f>Old!$B$1:$B$2</c:f></c:numRef></c:val></c:ser>",
+            "<c:ser><c:idx val=\"1\"/><c:cat><c:strRef><c:f>Old!$C$1:$C$2</c:f></c:strRef></c:cat>",
+            "<c:val><c:numRef><c:f>Old!$D$1:$D$2</c:f></c:numRef></c:val></c:ser>",
+            "</c:plotArea></c:chart>"
+        );
+        let actual = rewrite_chart_series_formulas(source, &edits).unwrap();
+        assert!(actual.contains("Data &amp; 2026!$A$2:$A$4"));
+        assert!(actual.contains("Data &amp; 2026!$B$2:$B$4"));
+        assert!(actual.contains("Old!$A$1:$A$2"));
+        assert!(actual.contains("Old!$B$1:$B$2"));
+        assert!(!actual.contains("Old!$D$1:$D$2"));
+    }
+
+    #[test]
+    fn chart_series_line_color_rewriter_changes_only_selected_series() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(1usize, "aBc123".to_string());
+        let source = concat!(
+            r#"<c:chart><c:plotArea><c:ser><c:spPr><a:ln><a:solidFill><a:srgbClr val="112233"/></a:solidFill></a:ln></c:spPr></c:ser>"#,
+            r#"<c:ser><c:spPr><a:ln><a:solidFill><a:srgbClr val="445566"/></a:solidFill></a:ln></c:spPr></c:ser></c:plotArea></c:chart>"#,
+        );
+        let actual = rewrite_chart_series_line_colors(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:srgbClr val="112233"/>"#));
+        assert!(actual.contains(r#"<a:srgbClr val="aBc123"/>"#));
+        assert!(!actual.contains(r#"<a:srgbClr val="445566"/>"#));
+    }
+
+    #[test]
+    fn chart_series_line_color_rewriter_rejects_unsupported_style() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "ABCDEF".to_string());
+        let source = r#"<c:chart><c:ser><c:spPr><a:ln><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:ln></c:spPr></c:ser></c:chart>"#;
+        let error = rewrite_chart_series_line_colors(source, &edits).unwrap_err();
+        assert!(error.contains("missing <a:srgbClr>"));
+    }
+
+    #[test]
+    fn chart_series_fill_color_rewriter_changes_only_selected_series() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(1usize, "ABC123".to_string());
+        let source = concat!(
+            r#"<c:chart><c:plotArea><c:ser><c:spPr><a:solidFill><a:srgbClr val="112233"/></a:solidFill></c:spPr></c:ser>"#,
+            r#"<c:ser><c:spPr><a:solidFill><a:srgbClr val="445566"/></a:solidFill></c:spPr></c:ser></c:plotArea></c:chart>"#,
+        );
+        let actual = rewrite_chart_series_fill_colors(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:srgbClr val="112233"/>"#));
+        assert!(actual.contains(r#"<a:srgbClr val="ABC123"/>"#));
+        assert!(!actual.contains(r#"<a:srgbClr val="445566"/>"#));
+    }
+
+    #[test]
+    fn chart_series_fill_color_rewriter_rejects_theme_style() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "ABCDEF".to_string());
+        let source = r#"<c:chart><c:ser><c:spPr><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></c:spPr></c:ser></c:chart>"#;
+        let error = rewrite_chart_series_fill_colors(source, &edits).unwrap_err();
+        assert!(error.contains("missing <a:srgbClr>"));
+    }
+
+    #[test]
+    fn chart_series_name_rewriter_changes_only_selected_name_formula() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::ChartSeriesEdit {
+                name: Some("Data & 2026!$B$1".to_string()),
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            },
+        );
+        let source = concat!(
+            "<c:chart><c:plotArea>",
+            "<c:ser><c:tx><c:strRef><c:f>Old!$A$1</c:f></c:strRef></c:tx>",
+            "<c:cat><c:strRef><c:f>Old!$A$2</c:f></c:strRef></c:cat>",
+            "<c:val><c:numRef><c:f>Old!$B$2</c:f></c:numRef></c:val></c:ser>",
+            "</c:plotArea></c:chart>"
+        );
+        let actual = rewrite_chart_series_formulas(source, &edits).unwrap();
+        assert!(actual.contains("<c:tx><c:strRef><c:f>Data &amp; 2026!$B$1</c:f>"));
+        assert!(actual.contains("<c:f>Old!$A$2</c:f>"));
+        assert!(actual.contains("<c:f>Old!$B$2</c:f>"));
+    }
+
+    #[test]
+    fn chart_series_marker_smooth_and_visibility_rewriter_changes_only_selected_attributes() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: Some("diamond".to_string()),
+                marker_size: Some(12),
+                smooth: Some(true),
+                invert_if_negative: Some(true),
+                deleted: Some(true),
+                category_cache: None,
+                value_cache: None,
+            },
+        );
+        let source = concat!(
+            "<c:chart><c:plotArea>",
+            "<c:ser><c:marker><c:symbol val=\"circle\"/><c:size val=\"6\"/></c:marker>",
+            "<c:smooth val=\"0\"/>",
+            "<c:invertIfNegative val=\"0\"/>",
+            "<c:delete val=\"0\"/>",
+            "<c:val><c:numRef><c:f>Sheet1!$A$1:$A$2</c:f></c:numRef></c:val></c:ser>",
+            "</c:plotArea></c:chart>"
+        );
+        let actual = rewrite_chart_series_formulas(source, &edits).unwrap();
+        assert!(actual.contains("<c:symbol val=\"diamond\"/>"));
+        assert!(actual.contains("<c:size val=\"12\"/>"));
+        assert!(actual.contains("<c:smooth val=\"1\"/>"));
+        assert!(actual.contains("<c:invertIfNegative val=\"1\"/>"));
+        assert!(actual.contains("<c:delete val=\"1\"/>"));
+    }
+
+    #[test]
+    fn chart_series_marker_rewriter_rejects_missing_marker() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: Some("diamond".to_string()),
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            },
+        );
+        assert!(rewrite_chart_series_formulas("<c:chart><c:ser/></c:chart>", &edits).is_err());
+    }
+
+    #[test]
+    fn chart_series_rewriter_rejects_missing_series_or_reference() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            2,
+            vm::ChartSeriesEdit {
+                name: None,
+                categories: Some("Sheet1!$A$1".to_string()),
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: None,
+            },
+        );
+        assert!(
+            rewrite_chart_series_formulas("<c:chart><c:ser></c:ser></c:chart>", &edits).is_err()
+        );
+    }
+
+    #[test]
+    fn chart_title_rewriter_changes_only_first_title_text_run() {
+        let source = concat!(
+            "<c:chart><c:title><c:tx><c:rich><a:p>",
+            "<a:r><a:rPr lang=\"en-US\"/><a:t>Old &amp; title</a:t></a:r>",
+            "<a:r><a:t>second run</a:t></a:r>",
+            "</a:p></c:rich></c:tx></c:title>",
+            "<c:plotArea><c:layout/></c:plotArea></c:chart>"
+        );
+        let actual = rewrite_chart_title(source, "New & title").unwrap();
+        assert!(actual.contains("<a:t>New &amp; title</a:t>"));
+        assert!(actual.contains("<a:t>second run</a:t>"));
+        assert!(actual.contains("<c:plotArea><c:layout/></c:plotArea>"));
+    }
+
+    #[test]
+    fn chart_title_rewriter_rejects_missing_text() {
+        assert!(rewrite_chart_title("<c:chart><c:title/></c:chart>", "x").is_err());
+    }
+
+    #[test]
+    fn chart_title_rewriter_adds_title_before_plot_area_when_missing() {
+        let source = "<c:chart><c:plotArea><c:layout/></c:plotArea></c:chart>";
+        let actual = rewrite_chart_title(source, "New & title").unwrap();
+        assert!(actual.contains(
+            "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"en-US\"/><a:t>New &amp; title</a:t>"
+        ));
+        assert!(actual.contains("</c:title><c:plotArea><c:layout/></c:plotArea>"));
+        assert_eq!(actual.matches("<c:title>").count(), 1);
+    }
+
+    #[test]
+    fn chart_legend_position_rewriter_changes_only_val() {
+        let source = concat!(
+            "<c:chart><c:legend><c:legendPos val=\"r\"/>",
+            "<c:layout/><c:overlay val=\"0\"/></c:legend>",
+            "<c:plotArea/></c:chart>"
+        );
+        let actual = rewrite_chart_legend_position(source, "b").unwrap();
+        assert!(actual.contains("<c:legendPos val=\"b\"/>"));
+        assert!(actual.contains("<c:layout/><c:overlay val=\"0\"/>"));
+        assert!(actual.contains("<c:plotArea/>"));
+    }
+
+    #[test]
+    fn chart_legend_position_rewriter_adds_legend_before_plot_area_when_missing() {
+        let actual = rewrite_chart_legend_position(
+            "<c:chart><c:plotArea><c:layout/></c:plotArea></c:chart>",
+            "b",
+        )
+        .unwrap();
+        assert!(
+            actual.contains("<c:legend><c:legendPos val=\"b\"/><c:layout/></c:legend><c:plotArea>")
+        );
+    }
+
+    #[test]
+    fn chart_style_rewriter_updates_or_adds_style_without_touching_chart() {
+        let existing = r#"<c:chartSpace><c:style val="2"/><c:chart><c:plotArea/></c:chart><c:extLst><x:keep/></c:extLst></c:chartSpace>"#;
+        let updated = rewrite_chart_style(existing, 47).unwrap();
+        assert!(updated.contains("<c:style val=\"47\"/>"));
+        assert!(
+            updated.contains("<c:plotArea/>") && updated.contains("<c:extLst><x:keep/></c:extLst>")
+        );
+
+        let missing = r#"<c:chartSpace><c:chart><c:plotArea/></c:chart></c:chartSpace>"#;
+        assert_eq!(
+            rewrite_chart_style(missing, 1).unwrap(),
+            r#"<c:chartSpace><c:style val="1"/><c:chart><c:plotArea/></c:chart></c:chartSpace>"#
+        );
+    }
+
+    #[test]
+    fn chart_style_rewriter_rejects_out_of_range_style() {
+        assert!(rewrite_chart_style("<c:chartSpace/>", 0).is_err());
+        assert!(rewrite_chart_style("<c:chartSpace/>", 49).is_err());
+    }
+
+    #[test]
+    fn chart_axis_title_rewriter_changes_only_selected_axis_title() {
+        let source = concat!(
+            "<c:chart><c:plotArea>",
+            "<c:catAx><c:axId val=\"1\"/><c:title><c:tx><c:rich><a:t>Category</a:t></c:rich></c:tx></c:title></c:catAx>",
+            "<c:valAx><c:axId val=\"2\"/><c:title><c:tx><c:rich><a:t>Value</a:t></c:rich></c:tx></c:title></c:valAx>",
+            "</c:plotArea><c:legend/></c:chart>"
+        );
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(1usize, "Amount & total".to_string());
+        let actual = rewrite_chart_axis_titles(source, &edits).unwrap();
+        assert!(actual.contains("<a:t>Category</a:t>"));
+        assert!(actual.contains("<a:t>Amount &amp; total</a:t>"));
+        assert!(actual.contains("<c:legend/>") && actual.contains("<c:axId val=\"2\"/>"));
+    }
+
+    #[test]
+    fn chart_axis_title_rewriter_adds_missing_title_before_axis_tail() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "Axis & title".to_string());
+        let actual = rewrite_chart_axis_titles(
+            "<c:chart><c:plotArea><c:valAx><c:axId val=\"1\"/><c:crossAx val=\"2\"/></c:valAx></c:plotArea></c:chart>",
+            &edits,
+        )
+        .unwrap();
+        assert!(actual.contains("<c:title><c:tx><c:rich>") && actual.contains("Axis &amp; title"));
+        assert!(
+            actual.contains("</c:title><c:crossAx val=\"2\"/>")
+                && actual.contains("<c:axId val=\"1\"/>")
+        );
+    }
+
+    #[test]
+    fn chart_legend_overlay_rewriter_updates_or_adds_flag() {
+        let source = r#"<c:chart><c:legend><c:legendPos val="r"/><c:layout/></c:legend><c:plotArea/></c:chart>"#;
+        let actual = rewrite_chart_legend_overlay(source, true).unwrap();
+        assert!(actual.contains("<c:layout/><c:overlay val=\"1\"/></c:legend>"));
+        let actual = rewrite_chart_legend_overlay(&actual, false).unwrap();
+        assert!(
+            actual.contains("<c:overlay val=\"0\"/>")
+                && actual.contains("<c:legendPos val=\"r\"/>")
+        );
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_or_adds_show_value() {
+        let source = r#"<c:chart><c:plotArea><c:dLbls showVal="0"><c:showLegendKey val="1"/></c:dLbls></c:plotArea></c:chart>"#;
+        let actual = rewrite_chart_data_labels_show_value(source, true).unwrap();
+        assert!(actual.contains("<c:dLbls showVal=\"1\"><c:showLegendKey val=\"1\"/></c:dLbls>"));
+        let actual = rewrite_chart_data_labels_show_value(&actual, false).unwrap();
+        assert!(
+            actual.contains("<c:dLbls showVal=\"0\">")
+                && actual.contains("<c:showLegendKey val=\"1\"/>")
+        );
+
+        let actual = rewrite_chart_data_labels_show_value(
+            "<c:chart><c:dLbls><c:showVal val=\"0\"/></c:dLbls></c:chart>",
+            true,
+        )
+        .unwrap();
+        assert!(
+            actual.contains("<c:dLbls showVal=\"1\">") && actual.contains("<c:showVal val=\"0\"/>")
+        );
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_show_category_and_preserves_value() {
+        let source = r#"<c:chart><c:dLbls showVal="1" showCat="0"><c:txPr/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_flag(source, "showCat", true).unwrap();
+        assert!(actual.contains("showVal=\"1\" showCat=\"1\"") && actual.contains("<c:txPr/>"));
+        let actual = rewrite_chart_data_labels_show_value(&actual, false).unwrap();
+        assert!(actual.contains("showVal=\"0\" showCat=\"1\""));
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_show_series_name() {
+        let source =
+            r#"<c:chart><c:dLbls showVal="1"><c:showLegendKey val="1"/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_flag(source, "showSerName", true).unwrap();
+        assert!(
+            actual.contains("showVal=\"1\" showSerName=\"1\"")
+                && actual.contains("<c:showLegendKey val=\"1\"/>")
+        );
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_show_percent() {
+        let source =
+            r#"<c:chart><c:dLbls showCat="1"><c:showLeaderLines val="1"/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_flag(source, "showPercent", true).unwrap();
+        assert!(
+            actual.contains("showCat=\"1\" showPercent=\"1\"")
+                && actual.contains("<c:showLeaderLines val=\"1\"/>")
+        );
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_show_leader_lines() {
+        let source =
+            r#"<c:chart><c:dLbls showVal="1"><c:showLeaderLines val="0"/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_flag(source, "showLeaderLines", true).unwrap();
+        assert!(actual.contains("showLeaderLines=\"1\""));
+        assert!(actual.contains("<c:showLeaderLines val=\"0\"/>"));
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_show_bubble_size() {
+        let source =
+            r#"<c:chart><c:dLbls showVal="1"><c:showBubbleSize val="0"/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_flag(source, "showBubbleSize", true).unwrap();
+        assert!(
+            actual.contains("showBubbleSize=\"1\"")
+                && actual.contains("<c:showBubbleSize val=\"0\"/>")
+        );
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_show_legend_key() {
+        let source =
+            r#"<c:chart><c:dLbls showVal="1"><c:showLegendKey val="0"/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_flag(source, "showLegendKey", true).unwrap();
+        assert!(
+            actual.contains("showLegendKey=\"1\"")
+                && actual.contains("<c:showLegendKey val=\"0\"/>")
+        );
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_or_adds_position() {
+        let source =
+            r#"<c:chart><c:dLbls showVal="1"><c:dLblPos val="inEnd"/><c:tx/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_position(source, "outEnd").unwrap();
+        assert!(
+            actual.contains("<c:dLblPos val=\"outEnd\"/>")
+                && actual.contains("showVal=\"1\"")
+                && actual.contains("<c:tx/>")
+        );
+
+        let source = r#"<c:chart><c:dLbls showCat="1"></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_position(source, "ctr").unwrap();
+        assert!(actual.contains("<c:dLblPos val=\"ctr\"/>") && actual.contains("showCat=\"1\""));
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_rejects_missing_element() {
+        assert!(
+            rewrite_chart_data_labels_show_value("<c:chart><c:plotArea/></c:chart>", true).is_err()
+        );
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_or_adds_number_format() {
+        let source = r#"<c:chart><c:dLbls><c:numFmt formatCode="0.0" sourceLinked="0"/><c:showVal val="1"/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_number_format(source, "0.00\"kg\"").unwrap();
+        assert!(
+            actual.contains("formatCode=\"0.00&quot;kg&quot;\"")
+                && actual.contains("sourceLinked=\"0\"")
+                && actual.contains("<c:showVal val=\"1\"/>")
+        );
+
+        let source = r#"<c:chart><c:dLbls showPercent="1"></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_number_format(source, "0.0%").unwrap();
+        assert!(
+            actual.contains("<c:numFmt formatCode=\"0.0%\" sourceLinked=\"0\"/>")
+                && actual.contains("showPercent=\"1\"")
+        );
+        assert!(rewrite_chart_data_labels_number_format(source, "").is_err());
+        assert!(rewrite_chart_data_labels_number_format(source, "bad\nformat").is_err());
+    }
+
+    #[test]
+    fn chart_data_labels_rewriter_updates_or_adds_separator() {
+        let source = r#"<c:chart><c:dLbls showVal="1"><c:separator val=", "/><c:numFmt formatCode="0"/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_separator(source, " | ").unwrap();
+        assert!(
+            actual.contains("<c:separator val=\" | \"/>")
+                && actual.contains("showVal=\"1\"")
+                && actual.contains("<c:numFmt formatCode=\"0\"/>")
+        );
+
+        let source = r#"<c:chart><c:dLbls></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_separator(source, "&").unwrap();
+        assert!(actual.contains("<c:separator val=\"&amp;\"/>"));
+        assert!(rewrite_chart_data_labels_separator(source, "").is_err());
+    }
+
+    #[test]
+    fn chart_legend_overlay_rewriter_rejects_missing_legend() {
+        assert!(rewrite_chart_legend_overlay("<c:chart><c:plotArea/></c:chart>", true).is_err());
+    }
+
+    #[test]
+    fn drawing_anchor_rewriter_changes_only_selected_cell_markers() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::DrawingAnchorEdit {
+                from_row: 2,
+                from_col: 3,
+                to_row: 10,
+                to_col: 12,
+            },
+        );
+        let source = concat!(
+            "<xdr:wsDr>",
+            "<xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>7</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>8</xdr:rowOff></xdr:from>",
+            "<xdr:pic>first</xdr:pic><xdr:to><xdr:col>1</xdr:col><xdr:colOff>9</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>10</xdr:rowOff></xdr:to></xdr:twoCellAnchor>",
+            "<xdr:twoCellAnchor editAs=\"oneCell\"><xdr:from><xdr:col>4</xdr:col><xdr:colOff>11</xdr:colOff><xdr:row>5</xdr:row><xdr:rowOff>12</xdr:rowOff></xdr:from>",
+            "<xdr:pic>second</xdr:pic><xdr:to><xdr:col>6</xdr:col><xdr:colOff>13</xdr:colOff><xdr:row>7</xdr:row><xdr:rowOff>14</xdr:rowOff></xdr:to></xdr:twoCellAnchor>",
+            "</xdr:wsDr>"
+        );
+        let actual = rewrite_drawing_anchors(source, &edits).unwrap();
+        assert!(actual.contains(
+            "<xdr:from><xdr:col>2</xdr:col><xdr:colOff>7</xdr:colOff><xdr:row>1</xdr:row>"
+        ));
+        assert!(actual.contains(
+            "<xdr:to><xdr:col>11</xdr:col><xdr:colOff>9</xdr:colOff><xdr:row>9</xdr:row>"
+        ));
+        assert!(actual.contains("<xdr:pic>first</xdr:pic>"));
+        assert!(actual.contains("<xdr:col>4</xdr:col><xdr:colOff>11</xdr:colOff>"));
+    }
+
+    #[test]
+    fn drawing_anchor_rewriter_rejects_one_cell_only_anchor() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::DrawingAnchorEdit {
+                from_row: 1,
+                from_col: 1,
+                to_row: 2,
+                to_col: 2,
+            },
+        );
+        assert!(
+            rewrite_drawing_anchors("<xdr:wsDr><xdr:oneCellAnchor/></xdr:wsDr>", &edits).is_err()
+        );
+    }
+
+    #[test]
+    fn drawing_shape_name_rewriter_escapes_name_and_preserves_shape() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "Chart & preview".to_string());
+        let source = r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:from/><xdr:to/><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="2" name="Old"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr/></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#;
+        let actual = rewrite_drawing_shape_attribute(source, &edits, "name").unwrap();
+        assert!(actual.contains("name=\"Chart &amp; preview\""));
+        assert!(actual.contains("<xdr:spPr/></xdr:sp>"));
+        assert!(actual.contains("<xdr:from/><xdr:to/>"));
+    }
+
+    #[test]
+    fn drawing_shape_name_rewriter_rejects_missing_cnvpr() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "Shape".to_string());
+        assert!(
+            rewrite_drawing_shape_attribute(
+                "<xdr:wsDr><xdr:twoCellAnchor><xdr:sp/></xdr:twoCellAnchor></xdr:wsDr>",
+                &edits,
+                "name"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn drawing_shape_hidden_rewriter_adds_and_updates_flag() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "1".to_string());
+        let source = r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:from/><xdr:to/><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="2" name="Shape"/></xdr:nvSpPr></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#;
+        let actual = rewrite_drawing_shape_attribute(source, &edits, "hidden").unwrap();
+        assert!(actual.contains("name=\"Shape\" hidden=\"1\""));
+
+        edits.insert(0, "0".to_string());
+        let actual = rewrite_drawing_shape_attribute(&actual, &edits, "hidden").unwrap();
+        assert!(actual.contains("hidden=\"0\""));
+        assert!(actual.contains("<xdr:from/><xdr:to/>") && actual.contains("<xdr:sp>"));
+    }
+
+    #[test]
+    fn drawing_shape_rotation_rewriter_updates_only_selected_transform() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, 45i32);
+        let source = concat!(
+            r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:xfrm rot="0"><a:off x="0" y="0"/></a:xfrm></xdr:spPr></xdr:sp></xdr:twoCellAnchor>"#,
+            r#"<xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:xfrm rot="1200000"><a:off x="1" y="1"/></a:xfrm></xdr:spPr></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#,
+        );
+        let actual = rewrite_drawing_shape_rotation(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:xfrm rot="2700000">"#));
+        assert!(actual.contains(r#"<a:xfrm rot="1200000">"#));
+        assert!(actual.contains(r#"<a:off x="0" y="0"/>"#));
+    }
+
+    #[test]
+    fn drawing_shape_rotation_rewriter_rejects_a_missing_transform() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, 90i32);
+        assert!(
+            rewrite_drawing_shape_rotation(
+                "<xdr:wsDr><xdr:twoCellAnchor><xdr:sp/></xdr:twoCellAnchor></xdr:wsDr>",
+                &edits
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn drawing_shape_flip_rewriter_updates_only_selected_transform() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, (Some(true), Some(false)));
+        let source = concat!(
+            r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:xfrm rot="0" flipH="0"><a:off x="0" y="0"/></a:xfrm></xdr:spPr></xdr:sp></xdr:twoCellAnchor>"#,
+            r#"<xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:xfrm rot="1200000" flipV="1"><a:off x="1" y="1"/></a:xfrm></xdr:spPr></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#,
+        );
+        let actual = rewrite_drawing_shape_flip(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:xfrm rot="0" flipH="1" flipV="0">"#));
+        assert!(actual.contains(r#"<a:xfrm rot="1200000" flipV="1">"#));
+        assert!(actual.contains(r#"<a:off x="0" y="0"/>"#));
+    }
+
+    #[test]
+    fn drawing_shape_flip_rewriter_adds_missing_attributes() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, (None, Some(true)));
+        let source = r#"<xdr:wsDr><xdr:oneCellAnchor><xdr:sp><xdr:spPr><a:xfrm><a:off x="0" y="0"/></a:xfrm></xdr:spPr></xdr:sp></xdr:oneCellAnchor></xdr:wsDr>"#;
+        let actual = rewrite_drawing_shape_flip(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:xfrm flipV="1">"#));
+        assert!(!actual.contains("flipH="));
+    }
+
+    #[test]
+    fn drawing_shape_flip_rewriter_rejects_a_missing_transform() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, (Some(false), None));
+        assert!(
+            rewrite_drawing_shape_flip(
+                "<xdr:wsDr><xdr:absoluteAnchor><xdr:sp/></xdr:absoluteAnchor></xdr:wsDr>",
+                &edits
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn drawing_shape_geometry_rewriter_updates_only_selected_anchor() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(1usize, "roundRect".to_string());
+        let source = concat!(
+            r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:sp></xdr:twoCellAnchor>"#,
+            r#"<xdr:oneCellAnchor><xdr:sp><xdr:spPr><a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom></xdr:spPr></xdr:sp></xdr:oneCellAnchor></xdr:wsDr>"#,
+        );
+        let actual = rewrite_drawing_shape_geometry(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:prstGeom prst="rect">"#));
+        assert!(actual.contains(r#"<a:prstGeom prst="roundRect">"#));
+        assert!(!actual.contains(r#"<a:prstGeom prst="ellipse">"#));
+    }
+
+    #[test]
+    fn drawing_shape_geometry_rewriter_rejects_missing_geometry() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "rect".to_string());
+        assert!(
+            rewrite_drawing_shape_geometry(
+                "<xdr:wsDr><xdr:twoCellAnchor><xdr:sp/></xdr:twoCellAnchor></xdr:wsDr>",
+                &edits
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn drawing_shape_fill_rewriter_updates_rgb_and_preserves_shape_content() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "FF112233".to_string());
+        let source = r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:ln/></xdr:spPr><xdr:txBody>text</xdr:txBody></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#;
+        let actual = rewrite_drawing_shape_fill(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:srgbClr val="112233"/>"#));
+        assert!(actual.contains("<a:ln/>") && actual.contains("<xdr:txBody>text</xdr:txBody>"));
+    }
+
+    #[test]
+    fn drawing_shape_fill_rewriter_adds_a_solid_fill_when_missing() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "80112233".to_string());
+        let source = r#"<xdr:wsDr><xdr:oneCellAnchor><xdr:sp><xdr:spPr><a:ln/></xdr:spPr></xdr:sp></xdr:oneCellAnchor></xdr:wsDr>"#;
+        let actual = rewrite_drawing_shape_fill(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:solidFill><a:srgbClr val="112233"/></a:solidFill>"#));
+        assert!(actual.contains("<a:ln/>") && actual.contains("<xdr:spPr>"));
+    }
+
+    #[test]
+    fn drawing_shape_line_rewriter_updates_only_existing_line_color() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "FF445566".to_string());
+        let source = concat!(
+            r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></xdr:spPr></xdr:sp></xdr:twoCellAnchor>"#,
+            r#"<xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:ln><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></xdr:spPr></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#,
+        );
+        let actual = rewrite_drawing_shape_line_color(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:ln w="12700"><a:solidFill><a:srgbClr val="445566"/>"#));
+        assert!(actual.contains(r#"<a:srgbClr val="FFFFFF"/>"#));
+    }
+
+    #[test]
+    fn drawing_shape_line_width_rewriter_updates_only_selected_line() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, 25400u32);
+        let source = concat!(
+            r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:ln w="12700"><a:solidFill/></a:ln></xdr:spPr></xdr:sp></xdr:twoCellAnchor>"#,
+            r#"<xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:ln w="38100"/></xdr:spPr></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#,
+        );
+        let actual = rewrite_drawing_shape_line_width(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:ln w="25400"><a:solidFill/>"#));
+        assert!(actual.contains(r#"<a:ln w="38100"/>"#));
+    }
+
+    #[test]
+    fn drawing_shape_line_dash_rewriter_updates_only_selected_line() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "lgDashDot".to_string());
+        let source = concat!(
+            r#"<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:ln><a:prstDash val="solid"/></a:ln></xdr:spPr></xdr:sp></xdr:twoCellAnchor>"#,
+            r#"<xdr:twoCellAnchor><xdr:sp><xdr:spPr><a:ln><a:prstDash val="dot"/></a:ln></xdr:spPr></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"#,
+        );
+        let actual = rewrite_drawing_shape_line_dash(source, &edits).unwrap();
+        assert!(actual.contains(r#"<a:prstDash val="lgDashDot"/>"#));
+        assert!(actual.contains(r#"<a:prstDash val="dot"/>"#));
+    }
+
+    #[test]
+    fn drawing_shape_line_dash_edit_survives_xlsx_save() {
+        use std::io::{Cursor, Read, Write};
+        use zip::write::ZipWriter;
+
+        let mut zip = ZipWriter::new(Cursor::new(Vec::<u8>::new()));
+        let add = |zip: &mut ZipWriter<Cursor<Vec<u8>>>, name: &str, body: &str| {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(body.as_bytes()).unwrap();
+        };
+        add(
+            &mut zip,
+            "[Content_Types].xml",
+            r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>"#,
+        );
+        add(
+            &mut zip,
+            "_rels/.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>"#,
+        );
+        add(
+            &mut zip,
+            "xl/workbook.xml",
+            r#"<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>"#,
+        );
+        add(
+            &mut zip,
+            "xl/_rels/workbook.xml.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"#,
+        );
+        add(
+            &mut zip,
+            "xl/worksheets/sheet1.xml",
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData/><drawing r:id="rId1"/></worksheet>"#,
+        );
+        add(
+            &mut zip,
+            "xl/worksheets/_rels/sheet1.xml.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>"#,
+        );
+        add(
+            &mut zip,
+            "xl/drawings/drawing1.xml",
+            r#"<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:row>0</xdr:row></xdr:from><xdr:sp><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:prstDash val="solid"/></a:ln></xdr:spPr><xdr:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>Old</a:t></a:r><a:r><a:rPr lang="en-US"/><a:t>Keep</a:t></a:r></a:p></xdr:txBody></xdr:sp><xdr:to><xdr:col>1</xdr:col><xdr:row>1</xdr:row></xdr:to></xdr:twoCellAnchor></xdr:wsDr>"#,
+        );
+        let directory = std::env::temp_dir().join(format!(
+            "elixcee-line-dash-save-test-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let source = directory.join("source.xlsx");
+        let output = directory.join("output.xlsx");
+        std::fs::write(&source, zip.finish().unwrap().into_inner()).unwrap();
+
+        let mut vm = Vm::new();
+        vm.load_workbook_file(source.to_str().unwrap()).unwrap();
+        vm.set_drawing_shape_line_dash("xl/drawings/drawing1.xml", 0, "lgDashDot")
+            .unwrap();
+        vm.set_drawing_shape_geometry("xl/drawings/drawing1.xml", 0, "roundRect")
+            .unwrap();
+        vm.set_drawing_shape_text("xl/drawings/drawing1.xml", 0, "Updated & text")
+            .unwrap();
+        vm.set_drawing_shape_text_run("xl/drawings/drawing1.xml", 0, 1, "Second & text")
+            .unwrap();
+        save_workbook(&vm, output.to_str().unwrap()).unwrap();
+
+        let file = std::fs::File::open(output).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        let mut drawing = String::new();
+        archive
+            .by_name("xl/drawings/drawing1.xml")
+            .unwrap()
+            .read_to_string(&mut drawing)
+            .unwrap();
+        assert!(drawing.contains(r#"<a:prstDash val="lgDashDot"/>"#));
+        assert!(drawing.contains(r#"<a:prstGeom prst="roundRect">"#));
+        assert!(drawing.contains("<a:t>Updated &amp; text</a:t>"));
+        assert!(drawing.contains("<a:t>Second &amp; text</a:t>"));
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn drawing_shape_text_rewriter_escapes_first_run_and_preserves_other_runs() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0, "Updated & text".to_string());
+        let source = concat!(
+            "<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:txBody>",
+            "<a:p><a:r><a:t>Old</a:t></a:r><a:r><a:t>Keep</a:t></a:r></a:p>",
+            "</xdr:txBody></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"
+        );
+        let actual = rewrite_drawing_shape_text(source, &edits).unwrap();
+        assert!(actual.contains("<a:t>Updated &amp; text</a:t>"));
+        assert!(actual.contains("<a:t>Keep</a:t>"));
+    }
+
+    #[test]
+    fn drawing_shape_text_run_rewriter_updates_selected_run_only() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert((0, 1), "Second & text".to_string());
+        let source = concat!(
+            "<xdr:wsDr><xdr:twoCellAnchor><xdr:sp><xdr:txBody>",
+            "<a:p><a:r><a:t>First</a:t></a:r><a:r><a:t>Second</a:t></a:r>",
+            "</xdr:txBody></xdr:sp></xdr:twoCellAnchor></xdr:wsDr>"
+        );
+        let actual = rewrite_drawing_shape_text_runs(source, &edits).unwrap();
+        assert!(actual.contains("<a:t>First</a:t>"));
+        assert!(actual.contains("<a:t>Second &amp; text</a:t>"));
+    }
+
+    #[test]
+    fn chart_series_cache_rewriter_preserves_formula_and_replaces_points() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: Some(vec!["Jan & Feb".to_string(), "Mar".to_string()]),
+                value_cache: Some(vec!["10".to_string(), "20.5".to_string()]),
+            },
+        );
+        let source = concat!(
+            "<c:chart><c:ser><c:cat><c:strRef><c:f>Sheet1!$A$1:$A$2</c:f>",
+            "<c:strCache><c:pt idx=\"0\"><c:v>old</c:v></c:pt></c:strCache>",
+            "</c:strRef></c:cat><c:val><c:numRef><c:f>Sheet1!$B$1:$B$2</c:f>",
+            "<c:numCache><c:formatCode>General</c:formatCode><c:ptCount val=\"1\"/>",
+            "<c:pt idx=\"0\"><c:v>1</c:v></c:pt></c:numCache></c:numRef>",
+            "</c:val></c:ser></c:chart>"
+        );
+        let actual = rewrite_chart_series_caches(source, &edits).unwrap();
+        assert!(actual.contains("<c:f>Sheet1!$A$1:$A$2</c:f>"));
+        assert!(actual.contains("<c:ptCount val=\"2\"/>"));
+        assert!(actual.contains("<c:v>Jan &amp; Feb</c:v>"));
+        assert!(actual.contains("<c:v>20.5</c:v>"));
+        assert!(actual.contains("<c:formatCode>General</c:formatCode>"));
+    }
+
+    #[test]
+    fn chart_series_cache_rewriter_creates_missing_numeric_cache() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: Some(vec!["1".to_string()]),
+            },
+        );
+        let actual = rewrite_chart_series_caches(
+            "<c:chart><c:ser><c:val><c:numRef><c:f>A1</c:f></c:numRef></c:val></c:ser></c:chart>",
+            &edits,
+        )
+        .unwrap();
+        assert!(actual.contains(
+            "<c:numCache><c:ptCount val=\"1\"/><c:pt idx=\"0\"><c:v>1</c:v></c:pt></c:numCache>"
+        ));
+        assert!(actual.contains("<c:f>A1</c:f>"));
+    }
+
+    #[test]
+    fn chart_series_cache_rewriter_expands_empty_self_closing_cache() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(
+            0,
+            vm::ChartSeriesEdit {
+                name: None,
+                categories: None,
+                values: None,
+                marker_symbol: None,
+                marker_size: None,
+                smooth: None,
+                invert_if_negative: None,
+                deleted: None,
+                category_cache: None,
+                value_cache: Some(vec!["3.5".to_string()]),
+            },
+        );
+        let source = concat!(
+            "<c:chart><c:ser><c:val><c:numRef><c:f>A1</c:f>",
+            "<c:numCache formatCode=\"0.0\"/></c:numRef></c:val></c:ser></c:chart>"
+        );
+        let actual = rewrite_chart_series_caches(source, &edits).unwrap();
+        assert!(actual.contains(
+            "<c:numCache formatCode=\"0.0\"><c:ptCount val=\"1\"/><c:pt idx=\"0\"><c:v>3.5</c:v></c:pt></c:numCache>"
+        ));
+    }
+
+    #[test]
+    fn drawing_shape_name_rewriter_supports_all_anchor_kinds() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(1usize, "Absolute & shape".to_string());
+        let source = concat!(
+            "<xdr:wsDr>",
+            "<xdr:oneCellAnchor><xdr:pic><xdr:nvPicPr><xdr:cNvPr id=\"1\" name=\"One\"/></xdr:nvPicPr></xdr:pic></xdr:oneCellAnchor>",
+            "<xdr:absoluteAnchor><xdr:sp><xdr:nvSpPr><xdr:cNvPr id=\"2\" name=\"Old\"/></xdr:nvSpPr></xdr:sp></xdr:absoluteAnchor>",
+            "</xdr:wsDr>"
+        );
+        let actual = rewrite_drawing_shape_attribute(source, &edits, "name").unwrap();
+        assert!(actual.contains("name=\"One\""));
+        assert!(actual.contains("name=\"Absolute &amp; shape\""));
+    }
+
+    #[test]
+    fn drawing_shape_description_rewriter_adds_optional_attribute() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "Accessible & clear".to_string());
+        let source = r#"<xdr:wsDr><xdr:oneCellAnchor><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="1" name="Shape"/></xdr:nvSpPr></xdr:sp></xdr:oneCellAnchor></xdr:wsDr>"#;
+        let actual = rewrite_drawing_shape_attribute(source, &edits, "descr").unwrap();
+        assert!(actual.contains("name=\"Shape\" descr=\"Accessible &amp; clear\""));
+    }
+
+    #[test]
+    fn drawing_shape_title_rewriter_adds_optional_attribute() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "Preview & title".to_string());
+        let source = r#"<xdr:wsDr><xdr:absoluteAnchor><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="1" name="Shape"/></xdr:nvSpPr></xdr:sp></xdr:absoluteAnchor></xdr:wsDr>"#;
+        let actual = rewrite_drawing_shape_attribute(source, &edits, "title").unwrap();
+        assert!(actual.contains("title=\"Preview &amp; title\""));
+        assert!(actual.contains("name=\"Shape\""));
+    }
+
+    #[test]
     fn pivot_cache_rewriter_changes_only_worksheet_source_sheet() {
         let mut renames = std::collections::HashMap::new();
         renames.insert("sheet1".to_string(), "Data & 2026".to_string());
@@ -7395,6 +11501,79 @@ mod tests {
         assert_eq!(
             actual,
             r#"<pivotCacheDefinition><cacheSource><worksheetSource ref="A1:B2" sheet="Data &amp; 2026"/></cacheSource><extLst><x:note sheet="Sheet1"/></extLst></pivotCacheDefinition>"#
+        );
+    }
+
+    #[test]
+    fn pivot_source_rewriter_changes_only_selected_source_attributes() {
+        let edit = vm::PivotWorksheetSourceEdit {
+            sheet: Some("Data & 2026".to_string()),
+            reference: Some("A1:C3".to_string()),
+            refresh_on_load: None,
+            field_captions: std::collections::HashMap::new(),
+        };
+        let source = r#"<pivotCacheDefinition><cacheSource><worksheetSource ref="A1:B2" sheet="Sheet1"/></cacheSource><extLst><x:note sheet="Sheet1"/></extLst></pivotCacheDefinition>"#;
+        let actual = rewrite_pivot_worksheet_source(source, &edit).unwrap();
+        assert_eq!(
+            actual,
+            r#"<pivotCacheDefinition><cacheSource><worksheetSource ref="A1:C3" sheet="Data &amp; 2026"/></cacheSource><extLst><x:note sheet="Sheet1"/></extLst></pivotCacheDefinition>"#
+        );
+    }
+
+    #[test]
+    fn pivot_source_rewriter_rejects_missing_worksheet_source() {
+        let edit = vm::PivotWorksheetSourceEdit {
+            sheet: Some("Sheet1".to_string()),
+            reference: None,
+            refresh_on_load: None,
+            field_captions: std::collections::HashMap::new(),
+        };
+        assert!(rewrite_pivot_worksheet_source("<cacheSource/>", &edit).is_err());
+    }
+
+    #[test]
+    fn pivot_refresh_on_load_rewriter_updates_or_adds_root_attribute() {
+        let source = r#"<pivotCacheDefinition cacheId="7"><cacheSource/></pivotCacheDefinition>"#;
+        assert_eq!(
+            rewrite_pivot_cache_refresh_on_load(source, true).unwrap(),
+            r#"<pivotCacheDefinition cacheId="7" refreshOnLoad="1"><cacheSource/></pivotCacheDefinition>"#
+        );
+        let existing =
+            r#"<pivotCacheDefinition refreshOnLoad="1"><cacheSource/></pivotCacheDefinition>"#;
+        assert_eq!(
+            rewrite_pivot_cache_refresh_on_load(existing, false).unwrap(),
+            r#"<pivotCacheDefinition refreshOnLoad="0"><cacheSource/></pivotCacheDefinition>"#
+        );
+    }
+
+    #[test]
+    fn pivot_refresh_on_load_rewriter_rejects_missing_root() {
+        assert!(rewrite_pivot_cache_refresh_on_load("<cacheSource/>", true).is_err());
+    }
+
+    #[test]
+    fn pivot_cache_field_caption_rewriter_preserves_children() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(1usize, "Amount & total".to_string());
+        let source = r#"<pivotCacheDefinition><cacheFields count="2"><cacheField name="Region"><sharedItems/></cacheField><cacheField name="Amount"><sharedItems count="2"/></cacheField></cacheFields><extLst><x:keep/></extLst></pivotCacheDefinition>"#;
+        let actual = rewrite_pivot_cache_field_captions(source, &edits).unwrap();
+        assert!(actual.contains(
+            "<cacheField name=\"Amount &amp; total\"><sharedItems count=\"2\"/></cacheField>"
+        ));
+        assert!(actual.contains("name=\"Region\""));
+        assert!(actual.contains("<extLst><x:keep/></extLst>"));
+    }
+
+    #[test]
+    fn pivot_cache_field_caption_rewriter_rejects_missing_field() {
+        let mut edits = std::collections::HashMap::new();
+        edits.insert(0usize, "Region".to_string());
+        assert!(
+            rewrite_pivot_cache_field_captions(
+                "<pivotCacheDefinition><cacheFields/></pivotCacheDefinition>",
+                &edits
+            )
+            .is_err()
         );
     }
 
